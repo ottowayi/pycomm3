@@ -3,6 +3,43 @@ import struct
 
 
 class EipBase:
+    class ConnectionError(Exception):
+        pass
+
+    class EipSocket:
+        def __init__(self, sock):
+            if sock is None:
+                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            else:
+                self.sock = sock
+            self.sock.settimeout(5.0)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
+        def connect(self, host, port):
+            try:
+                self.sock.connect((host, port))
+            except socket.timeout:
+                raise RuntimeError("socket connection timeout")
+
+        def send(self, msg):
+            total_sent = 0
+            while total_sent < len(msg):
+                sent = self.sock.send(msg[total_sent:])
+                if sent == 0:
+                    raise RuntimeError("socket connection broken")
+                total_sent += sent
+
+    def receive(self, msg_len):
+        chunks = []
+        bytes_recd = 0
+        while bytes_recd < msg_len:
+            chunk = self.sock.recv(min(msg_len - bytes_recd, 2048))
+            if chunk == '':
+                raise RuntimeError("socket connection broken")
+            chunks.append(chunk)
+            bytes_recd += len(chunk)
+        return ''.join(chunks)
+
     EIP_COMMAND = {"nop": 0x00,
                    "list_targets": 0x01,
                    "list_services": 0x04,
@@ -23,7 +60,9 @@ class EipBase:
 
     def __init__(self):
         self.__version__ = '0.1'
-        self.s = None
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s = self.EipSocket(None)
+
         self.params = {'session': 0, 'status': 0, 'name': 'ucmm',
                         'port': 0xAF12, 'timeout': 5.0, 'context': '_pycomm_',
                         'option': 0, 'protocol_version': 0}
@@ -79,52 +118,51 @@ class EipBase:
     def n_ParseLE32( self, st): # convert 32-bit integer into 4xbyte
         return int(struct.unpack('<I', st[0:4])[0])
 
-    def printHeader(self, eip_hdr):
+    def print_info(self, eip_hdr):
         print
         n = len( eip_hdr)
         print "  Full length of EIP = %d (0x%04x)" % (n,n)
 
         cmd = self.n_ParseLE16(eip_hdr[:2])
         print "         EIP Command =",
-        if( cmd == 0):
+        if cmd == 0:
             print "NOP"
-        elif( cmd == 0x01):
+        elif cmd == 0x01:
             print "List Targets"
-        elif( cmd == 0x04):
+        elif cmd == 0x04:
             print "List Services"
-        elif( cmd == 0x63):
+        elif cmd == 0x63:
             print "List Identity"
-        elif( cmd == 0x64):
+        elif cmd == 0x64:
             print "List Interfaces"
-        elif( cmd == 0x65):
+        elif cmd == 0x65:
             print "Register Session"
-        elif( cmd == 0x66):
+        elif cmd == 0x66:
             print "Unregister Session"
         else:
             print "Unknown command: 0x%02x" % cmd
 
-        nAttachedData = self.n_ParseLE16(eip_hdr[2:4])
-        print "Attached Data Length = %d" % nAttachedData
+        # The Data Part
+        d = self.n_ParseLE16(eip_hdr[2:4])
+        print "Attached Data Length = %d" % d
 
         n = self.n_ParseLE32(eip_hdr[4:8])
-        print "      Session Handle = %d (0x%08x)" % (n,n)
+        print "      Session Handle = %d (0x%08x)" % (n, n)
 
         n = self.n_ParseLE32(eip_hdr[8:12])
-        print "      Session Status = %d (0x%08x)" % (n,n)
+        print "      Session Status = %d (0x%08x)" % (n, n)
 
         print "      Sender Context = %s" % eip_hdr[12:20]
 
         n = self.n_ParseLE32(eip_hdr[20:24])
-        print "    Protocol Options = %d (0x%08x)" % (n,n)
+        print "    Protocol Options = %d (0x%08x)" % (n, n)
 
-        if( nAttachedData > 0):
-            if( nAttachedData < 500):
-                print "data =", list(eip_hdr[24:])
-            else:
-                print "attached data is longer than 500 bytes"
+        if 0 < d < 500:
+            print "data =", list(eip_hdr[24:])
+        elif d > 500:
+            print "attached data is longer than 500 bytes"
 
         return
-
 
     def parse_register_session_reply(self, rsp):
 
@@ -154,7 +192,6 @@ class EipBase:
     def parse_replay(self, rsp):
         pass
 
-
     def __build_header(self, command, lenght):
         """
         private  method called by the commands method to build the header
@@ -168,7 +205,7 @@ class EipBase:
         h += self.str_AddLE32(self.status)
         h += self.context
         h += self.str_AddLE32(self.protocol_version)
-        self.printHeader(h)
+        self.print_info(h)
         return h
 
     def register_session(self):
@@ -179,27 +216,29 @@ class EipBase:
         msg = self.__build_header(self.EIP_COMMAND['register_session'], 4)
         msg += self.str_AddLE16(1)
         msg += self.str_AddLE16(0)
-        self.printHeader(msg)
+        self.print_info(msg)
         return msg
 
     def unregister_session(self):
         return self.__build_header(self.EIP_COMMAND['unregister_session'], 0)
 
     def send(self, msg):
-        if self.s is not None:
-            self.s.send(msg)
+        if self.sock is not None:
+            self.sock.send(msg)
+
+    def receive(self):
+        pass
 
     def open(self, ip_address):
         # handle the socket layer
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.settimeout(self.params['timeout'])
-        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-        self.s.connect_ex((ip_address, self.params['port']))
+        self.sock.settimeout(self.params['timeout'])
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        self.sock.connect_ex((ip_address, self.params['port']))
 
-        self.s.send(self.register_session())
+        self.sock.send(self.register_session())
 
         # wait for the response
-        rsp = self.s.recv(100)
+        rsp = self.sock.recv(100)
 
         # parse the response
         self.parse_register_session_reply(rsp)
@@ -209,11 +248,24 @@ class EipBase:
 
     def close(self):
         if self.session != 0:
-            self.s.send(self.unregister_session())
-        try:
-            self.s.close()
-        except:
-            print "Connection Close Error"
+            self.sock.send(self.unregister_session())
 
-        self.s = None
+        self.sock.close()
+        self.sock = None
         self.session = 0
+
+
+    def t_open(self, ip_address):
+        # handle the socket layer
+        self.s.connect(ip_address, self.params['port'])
+
+        self.s.send(self.register_session())
+
+        # wait for the response
+        rsp = self.s.receive(28)
+
+        # parse the response
+        self.parse_register_session_reply(rsp)
+
+        # return the session
+        return self.session
