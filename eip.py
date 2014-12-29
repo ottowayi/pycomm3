@@ -138,10 +138,13 @@ class Eip:
         def send(self, msg):
             total_sent = 0
             while total_sent < len(msg):
-                sent = self.sock.send(msg[total_sent:])
-                if sent == 0:
+                try:
+                    sent = self.sock.send(msg[total_sent:])
+                    if sent == 0:
+                        raise RuntimeError("socket connection broken")
+                    total_sent += sent
+                except socket.error:
                     raise RuntimeError("socket connection broken")
-                total_sent += sent
             return total_sent
 
         def receive(self):
@@ -150,19 +153,22 @@ class Eip:
             bytes_recd = 0
             one_shot = True
             while bytes_recd < msg_len:
-                chunk = self.sock.recv(min(msg_len - bytes_recd, 2048))
-                if chunk == '':
+                try:
+                    chunk = self.sock.recv(min(msg_len - bytes_recd, 2048))
+                    if chunk == '':
+                        raise RuntimeError("socket connection broken")
+
+                    if one_shot:
+                        msg_len = HEADER_SIZE + int(struct.unpack('<H', chunk[2:4])[0])
+                        if msg_len == 0:
+                            msg_len = HEADER_SIZE + int(struct.unpack('<H', chunk[24:28])[0])
+                        print "Size of received msg %d" % msg_len
+                        one_shot = False
+
+                    chunks.append(chunk)
+                    bytes_recd += len(chunk)
+                except socket.error:
                     raise RuntimeError("socket connection broken")
-
-                if one_shot:
-                    msg_len = HEADER_SIZE + int(struct.unpack('<H', chunk[2:4])[0])
-                    if msg_len == 0:
-                        msg_len = HEADER_SIZE + int(struct.unpack('<H', chunk[24:28])[0])
-                    print "Size of received msg %d" % msg_len
-                    one_shot = False
-
-                chunks.append(chunk)
-                bytes_recd += len(chunk)
             return ''.join(chunks)
 
         def close(self):
@@ -254,16 +260,24 @@ class Eip:
 
         if command == COMMAND['register_session']:
             self.session = unpack_dint(rsp[4:8])
-            print "New Session Handle = %d (0x%04x)" % (self.session, self.session)
+            print "COMMAND[register_session] Handle = %d (0x%04x)" % (self.session, self.session)
             self.session_registered = True
         elif command == COMMAND['list_identity']:
-            print "item count %d" % unpack_uint(rsp[24:28])
-
-            print_bytes(rsp[28:])
+            print "COMMAND[ist_identity] item count %d" % unpack_uint(rsp[24:28])
+            # print_bytes(rsp[28:])
+        elif command == COMMAND['list_services']:
+            print "COMMAND[list_services]  item count %d" % unpack_uint(rsp[24:28])
+            # print_bytes(rsp[28:])
+        elif command == COMMAND['list_interfaces']:
+            print "COMMAND[list_interfaces]  item count %d" % unpack_uint(rsp[24:28])
+            # print_bytes(rsp[28:])
+        elif command == COMMAND['send_rr_data']:
+            print "COMMAND[send_rr_data]  item count %d" % unpack_uint(rsp[24:28])
+            # print_bytes(rsp[28:])
         else:
             print "Command %d (0x%02x) unknown or not implemented" % (command, command)
             return False
-
+        print_info(rsp)
         return True
 
     def build_header(self, command, length):
@@ -285,7 +299,18 @@ class Eip:
 
     def list_identity(self):
         msg = self.build_header(COMMAND['list_identity'], 0)
-        print_info(msg)
+        self.send(msg)
+        # parse the response
+        self.parse_replay(self.__sock.receive())
+
+    def list_services(self):
+        msg = self.build_header(COMMAND['list_services'], 0)
+        self.send(msg)
+        # parse the response
+        self.parse_replay(self.__sock.receive())
+
+    def list_interfaces(self):
+        msg = self.build_header(COMMAND['list_interfaces'], 0)
         self.send(msg)
         # parse the response
         self.parse_replay(self.__sock.receive())
@@ -300,6 +325,17 @@ class Eip:
         self.parse_replay(self.__sock.receive())
 
         return self.session
+
+    def send_rr_data(self):
+        if self.session_registered:
+            msg = self.build_header(COMMAND['send_rr_data'], 0)
+            msg += pack_dint(0)     # Interface Handle shall be 0 for CIP
+            msg += pack_uint(0)     # timeout
+            self.send(msg)
+            # parse the response
+            self.parse_replay(self.__sock.receive())
+        else:
+            print "session not registered yet"
 
     def unregister_session(self):
         msg = self.build_header(COMMAND['unregister_session'], 0)
@@ -322,7 +358,13 @@ class Eip:
     def close(self):
         if self.session != 0:
             self.unregister_session()
-
+            try:
+                while 1:
+                    print "testing for connection closed before close socket"
+                    self.nop()
+                    sleep(1)
+            except RuntimeError:
+                pass
         self.__sock.close()
         self.__sock = None
         self.session = 0

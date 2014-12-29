@@ -7,11 +7,7 @@ if __name__ == '__main__':
     c.open('192.168.1.10')
     c.register_session()
     c.list_identity()
-    run = True
-    while run:
-        try:
-            c.nop()
-            sleep(1)
-        except (KeyboardInterrupt, SystemExit):
-            run = False
+    c.list_interfaces()
+    c.list_services()
+    c.unregister_session()
     c.close()
