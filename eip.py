@@ -6,23 +6,99 @@ import struct
 from multiprocessing import Process, Event
 from time import sleep
 
-COMMAND = {"nop": 0x00,
-               "list_targets": 0x01,
-               "list_services": 0x04,
-               "list_identity": 0x63,
-               "list_interfaces": 0x64,
-               "register_session": 0x65,
-               "unregister_session": 0x66,
-               "send_rr_data": 0x6F,
-               "send_unit_data": 0x70}
+COMMAND = {
+    "nop": 0x00,
+    "list_targets": 0x01,
+    "list_services": 0x04,
+    "list_identity": 0x63,
+    "list_interfaces": 0x64,
+    "register_session": 0x65,
+    "unregister_session": 0x66,
+    "send_rr_data": 0x6F,
+    "send_unit_data": 0x70
 
-STATUS = {0x0000: "0x0000: Success",
-          0x0001: "0x0001: Unsupported Command",
-          0x0002: "0x0002: No Resources to Process",
-          0x0003: "0x0003: Poorly Formed/Bad Data Attached",
-          0x0064: "0x0064: Invalid Session",
-          0x0065: "0x0065: Request was Invalid Length",
-          0x0069: "0x0069: Unsupported Protocol Version"}
+}
+
+STATUS = {
+    0x0000: "Success",
+    0x0001: "The sender issued an invalid or unsupported encapsulation command",
+    0x0002: "Insufficient memory",
+    0x0003: "Poorly formed or incorrect data in the data portion",
+    0x0064: "An originator used an invalid session handle when sending an encapsulation message to the target",
+    0x0065: "The target received a message of invalid length",
+    0x0069: "Unsupported Protocol Version"
+}
+
+SERVICES = {
+    "Read Tag": 0x45,
+    "Read Tag fragmented": 0x52,
+    "Write Tag": 0x4d,
+    "Write Data Fragmented": 0x53,
+    "Read Modify Write Tag": 0x4c
+}
+
+MR_GENERAL_STATUS = {
+    0x0000: "Success",
+    0x0001: "Ext error code",
+    0x0002: "Resource unavailable",
+    0x0003: "Invalid parameters value",
+    0x0004: "Path segment error",
+    0x0005: "Path destination unknow",
+    0x0006: "Partial transferred",
+    0x0007: "Connection lost",
+    0x0008: "Service not supported",
+    0x0009: "Invalid attribute value",
+    0x000A: "Attribute list error",
+    0x000B: "Already in requested mode/state",
+    0x000C: "Object state conflict",
+    0x000D: "Object already exist",
+    0x000E: "Attribute not settable",
+    0x000F: "Privilege violation",
+    0x0010: "Device state conflict",
+    0x0011: "Reply data too large",
+    0x0012: "Fragmentation of a primitive value",
+    0x0013: "Not enough data",
+    0x0014: "Attribute not supported",
+    0x0015: "Too much data",
+    0x0016: "Object does not exist",
+    0x0017: "Service fragmentation sequence not in progress",
+    0x0018: "No stored attribute data",
+    0x0019: "Store operation failure",
+    0x001A: "Routing failure,request packet too large",
+    0x001B: "Routing failure,response packet too large",
+    0x001C: "Missing attribute list entry data",
+    0x001D: "Invalid attribute value list",
+    0x001E: "Embedded service error",
+    0x001F: "Vendor specific",
+    0x0020: "Invalid parameter",
+    0x0021: "Write once value or medium already written",
+    0x0022: "Invalid reply received",
+    0x0025: "Key failure in path",
+    0x0026: "Path size invalid",
+    0x0027: "Unexpected attribute in list",
+    0x0028: "Invalid member ID",
+    0x0029: "Member not settable",
+    0x002A: "Group 2 only server general failure"
+}
+
+MR_EXTEND_STATUS = {
+    0x0100: "Connection in use or Duplicate Forward Open",
+    0x0103: "Transport Class and Trigger combination not supported",
+    0x0106: "Ownership conflict",
+    0x0107: "Connection not found at target application",
+    0x0108: "Invalid session type",
+    0x0109: "Invalid session size",
+    0x0110: "Device not configured",
+    0x0111: "RPI not supported",
+    0x0113: "Connection manager cannot support any more connections",
+    0x0114: "Vendor Id or product code in the key segment did not match the device",
+    0x0115: "Product type in the key segment did not match the device",
+    0x0116: "Major or minor revision information in the key segment did not match the device",
+    0x0117: "Invalid session point",
+    0x0118: "Invalid configuration format",
+    0x0119: "Connection request fails since there is no controlling session currently open"
+}
+
 
 HEADER_SIZE = 24
 
@@ -31,16 +107,13 @@ def pack_uint(n):
     """pack 16 bit into 2 bytes little indian"""
     return struct.pack('<H', n)
 
-
 def pack_dint(n):
     """pack 32 bit into 4 bytes little indian"""
     return struct.pack('<I', n)
 
-
 def unpack_uint(st):
     """unpack 2 bytes little indian to int"""
     return int(struct.unpack('<H', st[0:2])[0])
-
 
 def unpack_dint(st):
     """unpack 4 bytes little indian to int"""
@@ -73,6 +146,10 @@ def print_info(msg):
         print "Register Session"
     elif cmd == 0x66:
         print "Unregister Session"
+    elif cmd == 0x6f:
+        print "SendRRData"
+    elif cmd == 0x70:
+        print "SendUnitData"
     else:
         print "Unknown command: 0x%02x" % cmd
 
@@ -229,29 +306,19 @@ class Eip:
     def name(self, par):
         self.name = par
 
-    def returned_error(self, rsp):
+    def returned_status(self, rsp):
         self.status = unpack_dint(rsp[8:12])
         if self.status == 0x0000:
+            print "Returned %s" % STATUS[self.status]
             return False
-        elif self.status == 0x0001:
-            error = STATUS[0x0001]
-        elif self.status == 0x0002:
-            error = STATUS[0x0002]
-        elif self.status == 0x0003:
-            error = STATUS[0x0003]
-        elif self.status == 0x0064:
-            error = STATUS[0x0064]
-        elif self.status == 0x0065:
-            error = STATUS[0x0065]
-        elif self.status == 0x0069:
-            error = STATUS[0x0069]
+        elif self.status in STATUS:
+            print "Returned %s" % STATUS[self.status]
         else:
-            error = "Unrecognized error %d (0x%08x)" % (self.status, self.status)
-        print "Returned %s" % error
+            print "Returned Unrecognized error %d (0x%08x)" % (self.status, self.status)
         return True
 
     def parse_replay(self, rsp):
-        if self.returned_error(rsp):
+        if self.returned_status(rsp):
             return False
 
         # Get Command
@@ -274,8 +341,11 @@ class Eip:
         elif command == COMMAND['send_rr_data']:
             print "COMMAND[send_rr_data]  item count %d" % unpack_uint(rsp[24:28])
             # print_bytes(rsp[28:])
+            print "Read =", unpack_dint(rsp[-4:])
+            print "Read =", unpack_uint(rsp[-2:])
         else:
             print "Command %d (0x%02x) unknown or not implemented" % (command, command)
+
             return False
         print_info(rsp)
         return True
@@ -319,6 +389,7 @@ class Eip:
         msg = self.build_header(COMMAND['register_session'], 4)
         msg += pack_uint(self.protocol_version)
         msg += pack_uint(0)
+        print_bytes(msg)
         self.__sock.send(msg)
 
         # parse the response
@@ -337,9 +408,59 @@ class Eip:
         else:
             print "session not registered yet"
 
+    def send_rr_data(self, tag):
+        if self.session_registered:
+
+            tag_length = len(tag)
+            request_path = "\x91" + chr(tag_length)
+
+            print "request_path =", list(request_path)
+
+            request_path_length = tag_length + 2
+
+            for char in tag:
+                request_path += char
+            print "request_path =", list(request_path)
+
+            if tag_length % 2:
+                # add pad byte because length must be word-aligned
+                request_path += '\x00'
+                request_path_length += 1
+            print "request_path =", list(request_path)
+
+            mr = '\x4c'     # Request Service
+            mr += chr(request_path_length/2)   # Request Length
+            print "mr =", list(mr)
+            mr += request_path     # Request Path
+            print "mr =", list(mr)
+            mr += '\x01\x00' # \x01\x00\x01\x01'
+            print "mr =", list(mr)
+
+            msg = self.build_header(COMMAND['send_rr_data'], len(mr) + 16 )
+            msg += pack_dint(0)         # Interface Handle shall be 0 for CIP
+            msg += pack_uint(10)        # timeout
+            msg += pack_uint(2)         # Item count this field should be 2
+            msg += pack_uint(0)         # Address Type ID This field should be o indicating  UCMM message
+            msg += pack_uint(0)         # Address Length should be 0 since UCMM  use the NULL address item
+            msg += pack_uint(178)       # Data Type ID x00b2 or 178 in decimal
+            msg += pack_uint(len(mr))
+            msg += mr
+
+            print "msg =", list(msg)
+
+            self.send(msg)
+            # parse the response
+            #print "Received =", list(self.__sock.receive())
+            self.parse_replay(self.__sock.receive())
+
+        else:
+            print "session not registered yet"
+            return None
+
     def unregister_session(self):
         msg = self.build_header(COMMAND['unregister_session'], 0)
         self.__sock.send(msg)
+        self.session = 0
 
     def send(self, msg):
         return self.__sock.send(msg)
@@ -358,13 +479,6 @@ class Eip:
     def close(self):
         if self.session != 0:
             self.unregister_session()
-            try:
-                while 1:
-                    print "testing for connection closed before close socket"
-                    self.nop()
-                    sleep(1)
-            except RuntimeError:
-                pass
         self.__sock.close()
         self.__sock = None
         self.session = 0
