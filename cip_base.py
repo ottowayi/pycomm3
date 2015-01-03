@@ -134,12 +134,11 @@ class Socket:
                 chunk = self.sock.recv(min(msg_len - bytes_recd, 2048))
                 if chunk == '':
                     raise RuntimeError("socket connection broken")
-
                 if one_shot:
-                    msg_len = HEADER_SIZE + int(struct.unpack('<H', chunk[2:4])[0])
-                    if msg_len == 0:
-                        msg_len = HEADER_SIZE + int(struct.unpack('<H', chunk[24:28])[0])
-                    print "Size of received msg %d" % msg_len
+                    data_size = int(struct.unpack('<H', chunk[2:4])[0])  # Length
+                    msg_len = HEADER_SIZE + data_size
+                    print "Total Length = %d" % msg_len
+                    print " Data Length = %d" % data_size
                     one_shot = False
 
                 chunks.append(chunk)

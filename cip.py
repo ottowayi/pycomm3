@@ -116,7 +116,7 @@ class Cip:
         msg = self.build_header(COMMAND['list_identity'], 0)
         self.send(msg)
         # parse the response
-        self.parse_replay(self.__sock.receive())
+        print_info(self.parse_replay(self.__sock.receive()))
 
     def register_session(self):
         msg = self.build_header(COMMAND['register_session'], 4)
@@ -134,17 +134,6 @@ class Cip:
         msg = self.build_header(COMMAND['unregister_session'], 0)
         self.__sock.send(msg)
         self.session = 0
-
-    def send_rr_data(self):
-        if self.session_registered:
-            msg = self.build_header(COMMAND['send_rr_data'], 0)
-            msg += pack_dint(0)     # Interface Handle shall be 0 for CIP
-            msg += pack_uint(0)     # timeout
-            self.send(msg)
-            # parse the response
-            self.parse_replay(self.__sock.receive())
-        else:
-            print "session not registered yet"
 
     def read_tag(self, tag):
         if self.session_registered:
@@ -171,7 +160,7 @@ class Cip:
             print "mr =", list(mr)
             mr += request_path     # Request Path
             print "mr =", list(mr)
-            mr += '\x01\x00' # \x01\x00\x01\x01'
+            mr += '\x01\x00'  # \x01\x00\x01\x01'
             print "mr =", list(mr)
 
             msg = self.build_header(COMMAND['send_rr_data'], len(mr) + 16 )

@@ -23,72 +23,47 @@ STATUS = {
 
 SERVICES = {
     "Read Tag": 0x45,
-    "Read Tag fragmented": 0x52,
+    "Read Tag Fragmented": 0x52,
     "Write Tag": 0x4d,
-    "Write Data Fragmented": 0x53,
-    "Read Modify Write Tag": 0x4c
+    "Write Tag Fragmented": 0x53,
+    "Read Modify Write Tag": 0x4c,
+    "Multiple Service Packet": 0x0a
 }
 
-MR_GENERAL_STATUS = {
-    0x0000: "Success",
-    0x0001: "Ext error code",
-    0x0002: "Resource unavailable",
-    0x0003: "Invalid parameters value",
-    0x0004: "Path segment error",
-    0x0005: "Path destination unknow",
-    0x0006: "Partial transferred",
-    0x0007: "Connection lost",
-    0x0008: "Service not supported",
-    0x0009: "Invalid attribute value",
-    0x000A: "Attribute list error",
-    0x000B: "Already in requested mode/state",
-    0x000C: "Object state conflict",
-    0x000D: "Object already exist",
-    0x000E: "Attribute not settable",
-    0x000F: "Privilege violation",
-    0x0010: "Device state conflict",
-    0x0011: "Reply data too large",
-    0x0012: "Fragmentation of a primitive value",
-    0x0013: "Not enough data",
-    0x0014: "Attribute not supported",
-    0x0015: "Too much data",
-    0x0016: "Object does not exist",
-    0x0017: "Service fragmentation sequence not in progress",
-    0x0018: "No stored attribute data",
-    0x0019: "Store operation failure",
-    0x001A: "Routing failure,request packet too large",
-    0x001B: "Routing failure,response packet too large",
-    0x001C: "Missing attribute list entry data",
-    0x001D: "Invalid attribute value list",
-    0x001E: "Embedded service error",
-    0x001F: "Vendor specific",
-    0x0020: "Invalid parameter",
-    0x0021: "Write once value or medium already written",
-    0x0022: "Invalid reply received",
-    0x0025: "Key failure in path",
-    0x0026: "Path size invalid",
-    0x0027: "Unexpected attribute in list",
-    0x0028: "Invalid member ID",
-    0x0029: "Member not settable",
-    0x002A: "Group 2 only server general failure"
+SERVICE_STATUS = {
+    0x04: "A syntax error was detected decoding the Request Path.",
+    0x05: "Request Path destination unknown: Probably instance number is not present.",
+    0x06: "Insufficient Packet Space: Not enough room in the response buffer for all the data.",
+    0x10: "Device state conflict: See extended status",
+    0x13: "Insufficient Request Data: Data too short for expected parameters.",
+    0x26: "The Request Path Size received was shorter or longer than expected.",
+    0xff: "General Error: See extended status."
 }
 
-MR_EXTEND_STATUS = {
-    0x0100: "Connection in use or Duplicate Forward Open",
-    0x0103: "Transport Class and Trigger combination not supported",
-    0x0106: "Ownership conflict",
-    0x0107: "Connection not found at target application",
-    0x0108: "Invalid session type",
-    0x0109: "Invalid session size",
-    0x0110: "Device not configured",
-    0x0111: "RPI not supported",
-    0x0113: "Connection manager cannot support any more connections",
-    0x0114: "Vendor Id or product code in the key segment did not match the device",
-    0x0115: "Product type in the key segment did not match the device",
-    0x0116: "Major or minor revision information in the key segment did not match the device",
-    0x0117: "Invalid session point",
-    0x0118: "Invalid configuration format",
-    0x0119: "Connection request fails since there is no controlling session currently open"
+SERVICE_EXTEND_STATUS = {
+    0x45: {
+        0x2105: "Access beyond end of the object."
+    },
+    0x52: {
+        0x2105: "Number of Elements or Byte Offset is beyond the end of the requested tag."
+    },
+    0x4d: {
+        0x2101: "Keyswitch Position: The requester is attempting to change force information in HARD RUN mode.",
+        0x2105: "Number of Elements extends beyond the end of the requested tag.",
+        0x2107: "Tag type used in the request does not match the target's tag data type.",
+        0x2802: "Safety Status: The controller is in a state in which Safety Memory cannot be modified."
+    },
+    0x53: {
+        0x2101: "Keyswitch Position: The requester is attempting to change force information in HARD RUN mode.",
+        0x2104: "Offset is beyond end of the requested tag.",
+        0x2105: "Offset plus Number of Elements extends beyond the end of the requested tag.",
+        0x2107: "Data type used in the request does not match the target's tag data type.",
+        0x2802: "Safety Status: The controller is in a state in which Safety Memory cannot be modified."
+    },
+    0x4c: {
+        0x2101: "Keyswitch Position: The requester is attempting to change force information in HARD RUN mode.",
+        0x2802: "Safety Status: The controller is in a state in which Safety Memory cannot be modified."
+    }
 }
 
 
