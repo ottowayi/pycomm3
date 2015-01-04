@@ -17,6 +17,7 @@ class Cip:
         self.port = 0xAF12
         self.session_registered = False
         self.connection_opened = False
+        self._replay = None
 
     @property
     def port(self):
@@ -51,10 +52,18 @@ class Cip:
     def status(self, par):
         self.status = par
 
-    def returned_status(self, rsp):
-        self.status = unpack_dint(rsp[8:12])
+    def get_address_type(self):
+        return self._replay[ADDRESS_TYPE:ADDRESS_TYPE+2]
+
+    def get_general_status(self):
+        return ord(self._replay[OFFSET_MESSAGE_REQUEST+2:OFFSET_MESSAGE_REQUEST+3])
+
+    def get_extended_status(self):
+        return ord(self._replay[OFFSET_MESSAGE_REQUEST+4:])
+
+    def returned_status(self):
+        self.status = unpack_dint(self._replay[8:12])
         if self.status == 0x0000:
-            print "Returned %s" % STATUS[self.status]
             return False
         elif self.status in STATUS:
             print "Returned %s" % STATUS[self.status]
@@ -62,37 +71,37 @@ class Cip:
             print "Returned Unrecognized error %d (0x%08x)" % (self.status, self.status)
         return True
 
-    def parse_replay(self, rsp):
-        if self.returned_status(rsp):
+    def parse_replay(self):
+        if self._replay is None:
+            return False
+
+        if self.returned_status():
             return False
 
         # Get Command
-        command = unpack_uint(rsp[:2])
-        print "Command %d (0x%02x)" % (command, command)
+        command = unpack_uint(self._replay[:2])
 
         if command == COMMAND['register_session']:
-            self.session = unpack_dint(rsp[4:8])
-            print "COMMAND[register_session] Handle = %d (0x%04x)" % (self.session, self.session)
+            self.session = unpack_dint(self._replay[4:8])
             self.session_registered = True
         elif command == COMMAND['list_identity']:
-            print "COMMAND[ist_identity] item count %d" % unpack_uint(rsp[24:28])
-            # print_bytes(rsp[28:])
+            pass
         elif command == COMMAND['list_services']:
-            print "COMMAND[list_services]  item count %d" % unpack_uint(rsp[24:28])
-            # print_bytes(rsp[28:])
+            pass
         elif command == COMMAND['list_interfaces']:
-            print "COMMAND[list_interfaces]  item count %d" % unpack_uint(rsp[24:28])
-            # print_bytes(rsp[28:])
+            pass
         elif command == COMMAND['send_rr_data']:
-            print "COMMAND[send_rr_data]  item count %d" % unpack_uint(rsp[24:28])
-            # print_bytes(rsp[28:])
-            print "Read =", unpack_dint(rsp[-4:])
-            print "Read =", unpack_uint(rsp[-2:])
+            if unpack_uint(self.get_address_type()) == UCMM['Address Type ID']:
+                # Is UCMM
+                if self.get_general_status() != SUCCESS:
+                    print SERVICE_STATUS[self.get_general_status()]
+
+            print list(self._replay[OFFSET_MESSAGE_REQUEST:])
+            print "Read =", unpack_dint(self._replay[-4:])
         else:
             print "Command %d (0x%02x) unknown or not implemented" % (command, command)
 
             return False
-        print_info(rsp)
         return True
 
     def build_header(self, command, length):
@@ -116,79 +125,98 @@ class Cip:
         msg = self.build_header(COMMAND['list_identity'], 0)
         self.send(msg)
         # parse the response
-        print_info(self.parse_replay(self.__sock.receive()))
+        self.parse_replay(self.__sock.receive())
 
     def register_session(self):
         msg = self.build_header(COMMAND['register_session'], 4)
         msg += pack_uint(self.protocol_version)
         msg += pack_uint(0)
-        print_bytes(msg)
-        self.__sock.send(msg)
+        self.send(msg)
 
+        self.receive()
         # parse the response
-        self.parse_replay(self.__sock.receive())
+        self.parse_replay()
 
         return self.session
 
     def unregister_session(self):
         msg = self.build_header(COMMAND['unregister_session'], 0)
-        self.__sock.send(msg)
+        self.send(msg)
         self.session = 0
 
-    def read_tag(self, tag):
+    def read_tag(self, tag, time_out=10):
+        # TO DO: add control tag's validity
         if self.session_registered:
-
             tag_length = len(tag)
-            request_path = "\x91" + chr(tag_length)
 
-            print "request_path =", list(request_path)
+            # Create the request path
+            rp = [
+                EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
+                chr(tag_length)             # Length of the tag
+            ]
 
-            request_path_length = tag_length + 2
-
+            # Add the tag to the Request path
             for char in tag:
-                request_path += char
-            print "request_path =", list(request_path)
+                rp.append(char)
 
+            # Add pad byte because total length of Request path must be word-aligned
             if tag_length % 2:
-                # add pad byte because length must be word-aligned
-                request_path += '\x00'
-                request_path_length += 1
-            print "request_path =", list(request_path)
+                rp.append('\x00')
 
-            mr = '\x4c'     # Request Service
-            mr += chr(request_path_length/2)   # Request Length
-            print "mr =", list(mr)
-            mr += request_path     # Request Path
-            print "mr =", list(mr)
-            mr += '\x01\x00'  # \x01\x00\x01\x01'
-            print "mr =", list(mr)
+            # At this point the Request Path is completed,
+            rp = ''.join(rp)
 
-            msg = self.build_header(COMMAND['send_rr_data'], len(mr) + 16 )
-            msg += pack_dint(0)         # Interface Handle shall be 0 for CIP
-            msg += pack_uint(10)        # timeout
-            msg += pack_uint(2)         # Item count this field should be 2
-            msg += pack_uint(0)         # Address Type ID This field should be o indicating  UCMM message
-            msg += pack_uint(0)         # Address Length should be 0 since UCMM  use the NULL address item
-            msg += pack_uint(178)       # Data Type ID x00b2 or 178 in decimal
-            msg += pack_uint(len(mr))
-            msg += mr
+            # Creating the Message Request Packet
+            mr = [
+                chr(SERVICES_REQUEST['Read Tag']),  # the Request Service
+                chr(len(rp) / 2),           # the Request Path Size length in word
+                rp,                         # the request path
+                pack_uint(1)                # Add the number of tag to read
+            ]
 
-            print "msg =", list(msg)
+            # join the the list
+            packet = ''.join(mr)
 
+            # preparing the head of the Command Specific data
+            head = [
+                pack_dint(UCMM['Interface Handle']),    # The Interface Handle: should be 0
+                pack_uint(time_out),                    # Timeout
+                pack_uint(UCMM['Item Count']),          # Item Count: should be 2
+                pack_uint(UCMM['Address Type ID']),     # Address Type ID: should be 0
+                pack_uint(UCMM['Address Length']),      # Address Length: should be 0
+                pack_uint(UCMM['Data Type ID']),        # Data Type ID: should be 0x00b2 or 178
+                pack_uint(len(packet))                  # Length of the MR request packet
+            ]
+
+            # Command Specific Data is composed by head and packet
+            command_specific_data = ''.join(head) + packet
+
+            # Now put together Encapsulation Header and Command Specific Data
+            msg = self.build_header(COMMAND['send_rr_data'], len(command_specific_data)) + command_specific_data
+
+            # Debug
+            print_info(msg)
+
+            # Send the UCMM Request
             self.send(msg)
+
+            # Get replay
+            self.receive()
+
             # parse the response
-            #print "Received =", list(self.__sock.receive())
-            self.parse_replay(self.__sock.receive())
+            self.parse_replay()
 
         else:
             print "session not registered yet"
             return None
 
     def send(self, msg):
-        return self.__sock.send(msg)
+        self.__sock.send(msg)
+        return True
 
-    def receive(self, msg):
-        return self.__sock.receive(msg)
+    def receive(self):
+        self._replay = self.__sock.receive()
+        return True
 
     def open(self, ip_address):
         # handle the socket layer

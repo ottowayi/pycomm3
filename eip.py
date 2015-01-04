@@ -343,6 +343,7 @@ class Eip:
             # print_bytes(rsp[28:])
             print "Read =", unpack_dint(rsp[-4:])
             print "Read =", unpack_uint(rsp[-2:])
+
         else:
             print "Command %d (0x%02x) unknown or not implemented" % (command, command)
 

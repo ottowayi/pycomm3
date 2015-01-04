@@ -1,6 +1,6 @@
 import struct
 import socket
-from cip_const import HEADER_SIZE
+from cip_const import *
 
 
 def pack_uint(n):
@@ -137,8 +137,6 @@ class Socket:
                 if one_shot:
                     data_size = int(struct.unpack('<H', chunk[2:4])[0])  # Length
                     msg_len = HEADER_SIZE + data_size
-                    print "Total Length = %d" % msg_len
-                    print " Data Length = %d" % data_size
                     one_shot = False
 
                 chunks.append(chunk)
