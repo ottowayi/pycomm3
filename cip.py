@@ -1,7 +1,6 @@
 _version__ = "$Revision$"
 # $Source$
 
-from cip_const import *
 from cip_base import *
 
 
@@ -18,6 +17,7 @@ class Cip:
         self.session_registered = False
         self.connection_opened = False
         self._replay = None
+        self._message = None
 
     @property
     def port(self):
@@ -118,30 +118,28 @@ class Cip:
         return h
 
     def nop(self):
-        msg = self.build_header(COMMAND['nop'], 0)
-        self.__sock.send(msg)
+        self._message = self.build_header(COMMAND['nop'], 0)
+        self.send()
 
     def list_identity(self):
-        msg = self.build_header(COMMAND['list_identity'], 0)
-        self.send(msg)
-        # parse the response
-        self.parse_replay(self.__sock.receive())
+        self._message = self.build_header(COMMAND['list_identity'], 0)
+        self.send()
+        self.receive()
+        self.parse_replay()
 
     def register_session(self):
-        msg = self.build_header(COMMAND['register_session'], 4)
-        msg += pack_uint(self.protocol_version)
-        msg += pack_uint(0)
-        self.send(msg)
-
+        self._message = self.build_header(COMMAND['register_session'], 4)
+        self._message += pack_uint(self.protocol_version)
+        self._message += pack_uint(0)
+        self.send()
         self.receive()
-        # parse the response
         self.parse_replay()
 
         return self.session
 
     def unregister_session(self):
-        msg = self.build_header(COMMAND['unregister_session'], 0)
-        self.send(msg)
+        self._message = self.build_header(COMMAND['unregister_session'], 0)
+        self.send()
         self.session = 0
 
     def read_tag(self, tag, time_out=10):
@@ -192,13 +190,14 @@ class Cip:
             command_specific_data = ''.join(head) + packet
 
             # Now put together Encapsulation Header and Command Specific Data
-            msg = self.build_header(COMMAND['send_rr_data'], len(command_specific_data)) + command_specific_data
+            self._message = self.build_header(COMMAND['send_rr_data'],
+                                              len(command_specific_data)) + command_specific_data
 
             # Debug
-            print_info(msg)
+            print_info(self._message)
 
             # Send the UCMM Request
-            self.send(msg)
+            self.send()
 
             # Get replay
             self.receive()
@@ -210,8 +209,8 @@ class Cip:
             print "session not registered yet"
             return None
 
-    def send(self, msg):
-        self.__sock.send(msg)
+    def send(self):
+        self.__sock.send(self._message)
         return True
 
     def receive(self):

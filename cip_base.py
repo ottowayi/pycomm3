@@ -86,8 +86,6 @@ def print_bytes(msg):
         print ("%02X" % ord(ch))
     return
 
-
-
 class Socket:
     def __init__(self, timeout):
         self.timeout = 5.0
