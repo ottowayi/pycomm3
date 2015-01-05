@@ -3,6 +3,17 @@ import socket
 from cip_const import *
 
 
+class ProtocolError(Exception):
+    code = {1001: "Message not implemented yet.",
+            1999: "Unknown Protocol Error."}
+
+
+class SocketError(Exception):
+    code = {2001: "Socket timeout during connection.",
+            2002: "socket connection broken.",
+            2999: "Unknown Socket Error."}
+
+
 def pack_uint(n):
     """pack 16 bit into 2 bytes little indian"""
     return struct.pack('<H', n)
@@ -86,6 +97,7 @@ def print_bytes(msg):
         print ("%02X" % ord(ch))
     return
 
+
 class Socket:
     def __init__(self, timeout):
         self.timeout = 5.0
@@ -108,7 +120,7 @@ class Socket:
         try:
             self.sock.connect((host, port))
         except socket.timeout:
-            raise RuntimeError("socket connection timeout")
+            raise SocketError(2001)
 
     def send(self, msg):
         total_sent = 0
@@ -116,10 +128,10 @@ class Socket:
             try:
                 sent = self.sock.send(msg[total_sent:])
                 if sent == 0:
-                    raise RuntimeError("socket connection broken")
+                    raise SocketError(2002)
                 total_sent += sent
             except socket.error:
-                raise RuntimeError("socket connection broken")
+                raise SocketError(2002)
         return total_sent
 
     def receive(self):
@@ -131,7 +143,7 @@ class Socket:
             try:
                 chunk = self.sock.recv(min(msg_len - bytes_recd, 2048))
                 if chunk == '':
-                    raise RuntimeError("socket connection broken")
+                    raise SocketError(2002)
                 if one_shot:
                     data_size = int(struct.unpack('<H', chunk[2:4])[0])  # Length
                     msg_len = HEADER_SIZE + data_size
@@ -140,7 +152,7 @@ class Socket:
                 chunks.append(chunk)
                 bytes_recd += len(chunk)
             except socket.error:
-                raise RuntimeError("socket connection broken")
+                raise SocketError(2002)
         return ''.join(chunks)
 
     def close(self):

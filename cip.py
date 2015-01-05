@@ -206,7 +206,7 @@ class Cip:
             self.parse_replay()
 
         else:
-            print "session not registered yet"
+            print "Session not registered yet."
             return None
 
     def send(self):
@@ -220,10 +220,13 @@ class Cip:
     def open(self, ip_address):
         # handle the socket layer
         if not self.connection_opened:
-            self.__sock.connect(ip_address, self.port)
-            self.connection_opened = True
-            self.register_session()
-            return True
+            try:
+                self.__sock.connect(ip_address, self.port)
+                self.connection_opened = True
+                self.register_session()
+                return True
+            except SocketError, e:
+                print "%d: %s" % (e.args[0], e.code[e.args[0]])
         return False
 
     def close(self):
