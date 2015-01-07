@@ -14,6 +14,6 @@ if __name__ == '__main__':
     # c.list_services()
     # c.list_identity()
     c.read_tag('TotalCount')
-    # c.read_tag('ctrl_aComplex[0].bVal')
+    c.get_symbol_object_instances()
     c.close()
 

@@ -56,13 +56,19 @@ STATUS = {
     0x0069: "Unsupported Protocol Version"
 }
 
+CLASS = {
+    "Symbol Class": 0x6b,
+    "Template Class": 0x6c
+}
+
 SERVICES_REQUEST = {
     "Read Tag": 0x4c,
     "Read Tag Fragmented": 0x52,
     "Write Tag": 0x4d,
     "Write Tag Fragmented": 0x53,
     "Read Modify Write Tag": 0x4e,
-    "Multiple Service Packet": 0x0a
+    "Multiple Service Packet": 0x0a,
+    "Get Instance Attribute List": 0x55
 }
 
 SERVICES_REPLAY = {
@@ -71,7 +77,8 @@ SERVICES_REPLAY = {
     "Write Tag": 0xcd,
     "Write Tag Fragmented": 0xd3,
     "Read Modify Write Tag": 0xce,
-    "Multiple Service Packet": 0x8a
+    "Multiple Service Packet": 0x8a,
+    "Get Instance Attribute List": 0xd5
 }
 
 SERVICE_STATUS = {
@@ -159,6 +166,4 @@ REQUEST_SERVICE = 0
 REQUEST_PATH_SIZE = 1
 REQUEST_PATH = 2
 SUCCESS = 0x00
-OFFSET_MESSAGE_REQUEST = HEADER_SIZE + 16
-ADDRESS_TYPE = HEADER_SIZE + 8
-GENERAL_STATUS = OFFSET_MESSAGE_REQUEST + 2
+OFFSET_MESSAGE_REQUEST = 40
