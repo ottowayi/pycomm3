@@ -4,7 +4,7 @@ Atomic Data Type:
           Bit = Bool
      Bit array = DWORD (32-bit boolean aray)
  8-bit integer = SINT
-16-bit integer = INT
+16-bit integer = UINT
 32-bit integer = DINT
   32-bit float = REAL
 64-bit integer = LINT

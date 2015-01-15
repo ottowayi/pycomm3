@@ -2,19 +2,23 @@ _version__ = "$Revision$"
 # $Source$
 
 from cip_base import *
+from tag import *
 
-
-class tag:
-    def __init__(self, name=''):
-        self.name = name
-
-
-class tag_list:
+class TagList:
     def __init__(self):
-        self.tokenList = []
+        self.tagList = []
 
     def add_tag(self, t):
-        self.tokenList.append(t)
+        self.tagList.append(t)
+
+
+class MessageRequest:
+    pass
+
+
+class MessageRequestResponse:
+    pass
+
 
 class Cip:
     def __init__(self):
@@ -23,7 +27,6 @@ class Cip:
         self.session = 0
         self.context = '_pycomm_'
         self.protocol_version = 1
-        self.status = 0
         self.general_status = 0
         self.extend_status = 0
         self.option = 0
@@ -32,39 +35,6 @@ class Cip:
         self._replay = None
         self._message = None
 
-
-    @property
-    def port(self):
-        return self.port
-
-    @port.setter
-    def port(self, par):
-        self.port = par
-
-    @property
-    def session(self):
-        """The session property"""
-        return self.session
-
-    @session.setter
-    def session(self, par):
-        self.session = par
-
-    @property
-    def context(self):
-        return self.context
-
-    @context.setter
-    def context(self, par):
-        self.context = par
-
-    @property
-    def status(self):
-        return self.status
-
-    @status.setter
-    def status(self, par):
-        self.status = par
 
     def get_address_type(self):
         """
@@ -82,15 +52,6 @@ class Cip:
         """
         return ord(self._replay[40])
 
-    def get_general_status(self):
-        """
-            General Status is  2 byte  after Replay Service
-            Replay Service 1 byte long
-        :return:
-        """
-        self.general_status = ord(self._replay[42])
-        return self.general_status
-
     def get_extended_status(self):
         """
             Extended Status is  3 byte  after Replay Service
@@ -105,21 +66,16 @@ class Cip:
             self.extend_status = unpack_uint(self._replay[44:45])
         return self.extend_status
 
-    def returned_status(self):
-        self.status = unpack_dint(self._replay[8:12])
-        if self.status == 0x0000:
-            return False
-        elif self.status in STATUS:
-            print "Returned %s" % STATUS[self.status]
-        else:
-            print "Returned Unrecognized error %d (0x%08x)" % (self.status, self.status)
-        return True
-
-    def parse_replay(self):
+    def parse(self):
         if self._replay is None:
             return False
 
-        if self.returned_status():
+        replay_status = unpack_dint(self._replay[8:12])
+        if replay_status != SUCCESS:
+            if replay_status in STATUS.keys():
+                print "Returned %s" % STATUS[replay_status]
+            else:
+                print "Returned Unrecognized error %d (0x%08x)" % (replay_status, replay_status)
             return False
 
         # Get Command
@@ -134,15 +90,6 @@ class Cip:
         elif command == COMMAND['list_interfaces']:
             pass
         elif command == COMMAND['send_rr_data']:
-            if self.get_address_type() == UCMM['Address Type ID']:
-                # Is UCMM
-                self.get_general_status()
-                if self.general_status != SUCCESS and self.general_status != 0x06:
-                    # there is an error
-                    print SERVICE_STATUS[self.general_status]
-
-
-            print list(self._replay[OFFSET_MESSAGE_REQUEST:])
             print "Read =", unpack_dint(self._replay[-4:])
         else:
             print "Command %d (0x%02x) unknown or not implemented" % (command, command)
@@ -158,7 +105,7 @@ class Cip:
         h = pack_uint(command)          # Command UINT
         h += pack_uint(length)          # Length UINT
         h += pack_dint(self.session)    # Session Handle UDINT
-        h += pack_dint(self.status)     # Status UDINT
+        h += pack_dint(0)               # Status UDINT
         h += self.context               # Sender Context 8 bytes
         h += pack_dint(self.option)     # Option UDINT
         return h
@@ -171,7 +118,7 @@ class Cip:
         self._message = self.build_header(COMMAND['list_identity'], 0)
         self.send()
         self.receive()
-        self.parse_replay()
+        self.parse()
 
     def register_session(self):
         self._message = self.build_header(COMMAND['register_session'], 4)
@@ -179,7 +126,7 @@ class Cip:
         self._message += pack_uint(0)
         self.send()
         self.receive()
-        self.parse_replay()
+        self.parse()
 
         return self.session
 
@@ -252,7 +199,7 @@ class Cip:
         self.receive()
 
         # parse the response
-        self.parse_replay()
+        self.parse()
 
     def get_symbol_object_instances(self, time_out=10):
         if self.session == 0:
@@ -261,6 +208,8 @@ class Cip:
 
         instance = 0
         self.general_status = -1
+
+        l=[]
 
         #while self.general_status != 0:
         # Creating the Message Request Packet
@@ -308,7 +257,26 @@ class Cip:
         self.receive()
 
         # parse the response
-        self.parse_replay()
+        if self._replay is None:
+            return False
+
+        if unpack_uint(self._replay[:2]) != COMMAND['send_rr_data']:
+            return False
+
+        size = unpack_uint(self._replay[2:4]) - 16
+
+        print size
+        print list(self._replay[OFFSET_MESSAGE_REQUEST:])  # Get size command specific
+        i = 0
+        for c in self._replay[OFFSET_MESSAGE_REQUEST:]:
+            i = i + 1
+        print i
+
+        # Here is a good message replay
+        #general_status = ord(self._replay[42])
+        #if general_status == 0x06:
+
+
 
     def send(self):
         self.__sock.send(self._message)
