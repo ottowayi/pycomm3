@@ -56,9 +56,16 @@ STATUS = {
     0x0069: "Unsupported Protocol Version"
 }
 
+"""
+When a tag is created, an instance of the Symbol Object (Class ID 0x6B) is created
+inside the controller.
+
+When a UDT is created, an instance of the Template object (Class ID 0x6C) is
+created to hold information about the structure makeup.
+"""
 CLASS = {
-    "Symbol Class": 0x6b,
-    "Template Class": 0x6c
+    "Symbol Object": 0x6b,
+    "Template Object": 0x6c
 }
 
 SERVICES_REQUEST = {

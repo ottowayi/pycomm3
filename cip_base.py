@@ -119,7 +119,9 @@ class Socket:
         except socket.timeout:
             raise SocketError("Socket timeout during connection.")
 
-    def send(self, msg):
+    def send(self, msg, timeout=0):
+        if timeout != 0:
+            self.sock.settimeout(timeout)
         total_sent = 0
         while total_sent < len(msg):
             try:
@@ -131,7 +133,9 @@ class Socket:
                 raise SocketError("socket connection broken.")
         return total_sent
 
-    def receive(self):
+    def receive(self, timeout):
+        if timeout != 0:
+            self.sock.settimeout(timeout)
         msg_len = 28
         chunks = []
         bytes_recd = 0

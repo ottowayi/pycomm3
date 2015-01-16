@@ -4,20 +4,13 @@ _version__ = "$Revision$"
 from cip_base import *
 from tag import *
 
+
 class TagList:
     def __init__(self):
         self.tagList = []
 
     def add_tag(self, t):
         self.tagList.append(t)
-
-
-class MessageRequest:
-    pass
-
-
-class MessageRequestResponse:
-    pass
 
 
 class Cip:
@@ -34,7 +27,6 @@ class Cip:
         self.connection_opened = False
         self._replay = None
         self._message = None
-
 
     def get_address_type(self):
         """
@@ -136,6 +128,21 @@ class Cip:
         self.session = None
 
     def read_tag(self, tag, time_out=10):
+        """
+        From Rockwell Automation Publication 1756-PM020C-EN-P - November 2012:
+        The Read Tag Service reads the data associated with the tag specified in the path.
+            1) Any data that fits into the reply packet is returned, even if it does not all fit.
+            2) If all the data does not fit into the packet, the error 0x06 is returned along
+            with the data.
+            3) When reading a two or three dimensional array of data, all dimensions
+            must be specified.
+            4) When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xFF,
+            respectively.
+
+        :param tag: The tag to read
+        :param time_out: Operation Timeout
+        :return: the tag value or None if any error
+        """
         # TO DO: add control tag's validity
         if self.session == 0:
             print "Session not registered yet."
@@ -201,29 +208,40 @@ class Cip:
         # parse the response
         self.parse()
 
-    def get_symbol_object_instances(self, time_out=10):
+    def _get_symbol_object_instances(self, instance=0, time_out=10):
+        """
+        When a tag is created, an instance of the Symbol class (Class ID 0x6B) is created
+        inside the controller. The name of the tag is stored in attribute 1 of the instance.
+        The data type of the tag is stored in attribute 2(*).
+
+        We send this Message Request to get the list of tags name and type in the controller.
+
+        (*) From Rockwell Automation Publication 1756-PM020C-EN-P - November 2012
+
+        :param instance: The instance to retrieve. First time will be 0
+        :param time_out: Operation Timeout
+        :return: the message composed or None if any error
+        """
         if self.session == 0:
             print "Session not registered yet."
             return None
 
-        instance = 0
-        self.general_status = -1
-
-        l=[]
-
-        #while self.general_status != 0:
         # Creating the Message Request Packet
         mr = [
-            chr(SERVICES_REQUEST['Get Instance Attribute List']),   # the Request Service
-            chr(3),                                            # the Request Path Size length in word
-            chr(CLASS_ID["8-bit"]),
-            chr(CLASS["Symbol Class"]),      # ANSI Ext. symbolic segment
-            chr(INSTANCE_ID["16-bit"]),      # Instance Segment
-            '\x00',
-            pack_uint(instance),
-            pack_uint(2),
-            pack_uint(1),
-            pack_uint(2)
+            # Request Service
+            chr(SERVICES_REQUEST['Get Instance Attribute List']),
+            # the Request Path Size length in word
+            chr(3),
+            # Request Path ( 20 6B 25 00 Instance )
+            chr(CLASS_ID["8-bit"]),       # Class id = 20 from spec 0x20
+            chr(CLASS["Symbol Object"]),  # Logical segment: Symbolic Object 0x6B
+            chr(INSTANCE_ID["16-bit"]),   # Instance Segment: 16 Bit instance 0x25
+            '\x00',                       # Add pad byte because total length of Request path must be word-aligned
+            pack_uint(instance),          # The instance
+            # Request Data
+            pack_uint(2),   # Number of attributes to retrieve
+            pack_uint(1),   # Attribute 1: Symbol name
+            pack_uint(2)    # Attribute 2: Symbol type
         ]
 
         # join the the list
@@ -256,9 +274,14 @@ class Cip:
         # Get replay
         self.receive()
 
+    def get_tags_list(self):
         # parse the response
+        self._get_symbol_object_instances(instance=0)
+
         if self._replay is None:
             return False
+
+        self.general_status = -1
 
         if unpack_uint(self._replay[:2]) != COMMAND['send_rr_data']:
             return False
@@ -275,8 +298,6 @@ class Cip:
         # Here is a good message replay
         #general_status = ord(self._replay[42])
         #if general_status == 0x06:
-
-
 
     def send(self):
         self.__sock.send(self._message)
@@ -295,7 +316,7 @@ class Cip:
                 self.register_session()
                 return True
             except SocketError, e:
-                print "%d: %s" % (e.args[0], e.code[e.args[0]])
+                print e
         return False
 
     def close(self):

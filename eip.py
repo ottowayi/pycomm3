@@ -189,22 +189,14 @@ class Eip:
         pass
 
     class Socket:
-        def __init__(self, timeout):
-            self.timeout = 5.0
+        def __init__(self, timeout=5.0):
+            self.timeout = timeout
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             if timeout is None:
                 self.sock.settimeout(self.timeout)
             else:
                 self.sock.settimeout(timeout)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-
-        @property
-        def timeout(self):
-            return self.timeout
-
-        @timeout.setter
-        def timeout(self, par):
-            self.timeout = par
 
         def connect(self, host, port):
             try:
@@ -258,7 +250,6 @@ class Eip:
         self.context = '_pycomm_'
         self.protocol_version = 1
         self.status = 0
-        self.name = 'ucmm'
         self.option = 0
         self.port = 0xAF12
         self.session_registered = False
@@ -297,14 +288,6 @@ class Eip:
     @status.setter
     def status(self, par):
         self.status = par
-
-    @property
-    def name(self):
-        return self.port
-
-    @name.setter
-    def name(self, par):
-        self.name = par
 
     def returned_status(self, rsp):
         self.status = unpack_dint(rsp[8:12])
@@ -370,18 +353,6 @@ class Eip:
 
     def list_identity(self):
         msg = self.build_header(COMMAND['list_identity'], 0)
-        self.send(msg)
-        # parse the response
-        self.parse_replay(self.__sock.receive())
-
-    def list_services(self):
-        msg = self.build_header(COMMAND['list_services'], 0)
-        self.send(msg)
-        # parse the response
-        self.parse_replay(self.__sock.receive())
-
-    def list_interfaces(self):
-        msg = self.build_header(COMMAND['list_interfaces'], 0)
         self.send(msg)
         # parse the response
         self.parse_replay(self.__sock.receive())
