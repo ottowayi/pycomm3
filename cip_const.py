@@ -14,36 +14,36 @@ When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xff, respect
 """
 
 ELEMENT_ID = {
-    "8-bit": 0x28,
-    "16-bit": 0x29,
-    "32-bit": 0x2a
+    "8-bit": '\x28',
+    "16-bit": '\x29',
+    "32-bit": '\x2a'
 }
 
 CLASS_ID = {
-    "8-bit": 0x20,
-    "16-bit": 0x21,
+    "8-bit": '\x20',
+    "16-bit": '\x21',
 }
 
 INSTANCE_ID = {
-    "8-bit": 0x24,
-    "16-bit": 0x25,
+    "8-bit": '\x24',
+    "16-bit": '\x25'
 }
 
 ATTRIBUTE_ID = {
-    "8-bit": 0x30,
-    "16-bit": 0x31,
+    "8-bit": '\x30',
+    "16-bit": '\x31'
 }
 
-COMMAND = {
-    "nop": 0x00,
-    "list_targets": 0x01,
-    "list_services": 0x04,
-    "list_identity": 0x63,
-    "list_interfaces": 0x64,
-    "register_session": 0x65,
-    "unregister_session": 0x66,
-    "send_rr_data": 0x6F,
-    "send_unit_data": 0x70
+ENCAPSULATION_COMMAND = {  # Volume 2: 2-3.2 Command Field UINT 2 byte
+    "nop": '\x00\x00',
+    "list_targets": '\x01\x00',
+    "list_services": '\x04\x00',
+    "list_identity": '\x63\x00',
+    "list_interfaces": '\x64\x00',
+    "register_session": '\x65\x00',
+    "unregister_session": '\x66\x00',
+    "send_rr_data": '\x6F\x00',
+    "send_unit_data": '\x70\x00'
 }
 
 STATUS = {
@@ -63,12 +63,18 @@ inside the controller.
 When a UDT is created, an instance of the Template object (Class ID 0x6C) is
 created to hold information about the structure makeup.
 """
-CLASS = {
-    "Symbol Object": 0x6b,
-    "Template Object": 0x6c
+CLASS_CODE = {
+    "Message Router Object": '\x02',  # Volume 1: 5-1
+    "Symbol Object": '\x6b',
+    "Template Object": '\x6c',
+    "Connection Manager": '\x06'  # Volume 1: 3-5
 }
 
-SERVICES_REQUEST = {
+CONNECTION_MANAGER_INSTANCE = {
+    'Open Request': '\x01',
+}
+
+TAG_SERVICES_REQUEST = {
     "Read Tag": 0x4c,
     "Read Tag Fragmented": 0x52,
     "Write Tag": 0x4d,
@@ -78,7 +84,7 @@ SERVICES_REQUEST = {
     "Get Instance Attribute List": 0x55
 }
 
-SERVICES_REPLAY = {
+TAG_SERVICES_REPLAY = {
     "Read Tag": 0xcc,
     "Read Tag Fragmented": 0xd2,
     "Write Tag": 0xcd,
@@ -87,6 +93,8 @@ SERVICES_REPLAY = {
     "Multiple Service Packet": 0x8a,
     "Get Instance Attribute List": 0xd5
 }
+
+
 
 SERVICE_STATUS = {
     0x01: "Ext error code",
@@ -157,6 +165,15 @@ SERVICE_EXTEND_STATUS = {
         0x2802: "Safety Status: The controller is in a state in which Safety Memory cannot be modified."
     }
 }
+DATA_ITEM = {
+    'Connected': '\xb1\x00',
+    'Unconnected': '\xb2\x00'
+}
+
+ADDRESS_ITEM = {
+    'Connection Based': '\xa1\x00',
+    'Null': '\x00\x00'
+}
 
 UCMM = {
     'Interface Handle': 0,
@@ -174,3 +191,19 @@ REQUEST_PATH_SIZE = 1
 REQUEST_PATH = 2
 SUCCESS = 0x00
 OFFSET_MESSAGE_REQUEST = 40
+
+
+FORWARD_CLOSE = '\x4e'
+UNCONNECTED_SEND = '\52'
+FORWARD_OPEN = '\x54'
+LARGE_FORWARD_OPEN = '\x5b'
+GET_CONNECTION_DATA = '\x56'
+SEARCH_CONNECTION_DATA = '\x57'
+GET_CONNECTION_OWNER = '\x5a'
+
+
+
+
+
+
+

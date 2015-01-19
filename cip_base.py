@@ -10,7 +10,6 @@ class ProtocolError(Exception):
 class SocketError(Exception):
     pass
 
-
 def pack_uint(n):
     """pack 16 bit into 2 bytes little indian"""
     return struct.pack('<H', n)
@@ -92,7 +91,6 @@ def print_bytes(msg):
     print '[%d]\n' % len(msg)
     for ch in msg:
         print ("%02X" % ord(ch))
-    return
 
 
 class Socket:
@@ -133,7 +131,7 @@ class Socket:
                 raise SocketError("socket connection broken.")
         return total_sent
 
-    def receive(self, timeout):
+    def receive(self, timeout=0):
         if timeout != 0:
             self.sock.settimeout(timeout)
         msg_len = 28

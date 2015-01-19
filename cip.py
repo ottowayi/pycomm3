@@ -4,6 +4,9 @@ _version__ = "$Revision$"
 from cip_base import *
 from tag import *
 
+PRIORITY = '\x0a'
+TIMEOUT = '\x05'
+
 
 class TagList:
     def __init__(self):
@@ -14,7 +17,8 @@ class TagList:
 
 
 class Cip:
-    def __init__(self):
+
+    def __init__(self, cid='\x27\x04\x19\x71'):
         self.__version__ = '0.1'
         self.__sock = Socket(None)
         self.session = 0
@@ -27,6 +31,7 @@ class Cip:
         self.connection_opened = False
         self._replay = None
         self._message = None
+        self.connection_id = cid
 
     def get_address_type(self):
         """
@@ -71,17 +76,19 @@ class Cip:
             return False
 
         # Get Command
-        command = unpack_uint(self._replay[:2])
+        command = self._replay[:2]
 
-        if command == COMMAND['register_session']:
+        if command == ENCAPSULATION_COMMAND['register_session']:
             self.session = unpack_dint(self._replay[4:8])
-        elif command == COMMAND['list_identity']:
+        elif command == ENCAPSULATION_COMMAND['list_identity']:
             pass
-        elif command == COMMAND['list_services']:
+        elif command == ENCAPSULATION_COMMAND['list_services']:
             pass
-        elif command == COMMAND['list_interfaces']:
+        elif command == ENCAPSULATION_COMMAND['list_interfaces']:
             pass
-        elif command == COMMAND['send_rr_data']:
+        elif command == ENCAPSULATION_COMMAND['send_rr_data']:
+            print_bytes(self._replay)
+
             print "Read =", unpack_dint(self._replay[-4:])
         else:
             print "Command %d (0x%02x) unknown or not implemented" % (command, command)
@@ -94,7 +101,7 @@ class Cip:
         build the encapsulated message header which is a 24 bytes fixed length.
         The header includes the command and the length of the optional data portion
         """
-        h = pack_uint(command)          # Command UINT
+        h = command                     # Command UINT
         h += pack_uint(length)          # Length UINT
         h += pack_dint(self.session)    # Session Handle UDINT
         h += pack_dint(0)               # Status UDINT
@@ -103,29 +110,83 @@ class Cip:
         return h
 
     def nop(self):
-        self._message = self.build_header(COMMAND['nop'], 0)
+        self._message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
         self.send()
 
     def list_identity(self):
-        self._message = self.build_header(COMMAND['list_identity'], 0)
+        self._message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
         self.send()
         self.receive()
         self.parse()
 
     def register_session(self):
-        self._message = self.build_header(COMMAND['register_session'], 4)
+        self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
         self._message += pack_uint(self.protocol_version)
         self._message += pack_uint(0)
+        print_bytes(self._message)
         self.send()
         self.receive()
         self.parse()
-
         return self.session
 
-    def unregister_session(self):
-        self._message = self.build_header(COMMAND['unregister_session'], 0)
+    def un_register_session(self):
+        self._message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
         self.send()
         self.session = None
+
+    def send_rr_data(self, msg):
+        self._message = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(msg))
+        self._message += msg
+        print_bytes(self._message)
+        self.send()
+        self.receive()
+
+    def test(self):
+        if self.session == 0:
+            print "Session not registered yet."
+            return None
+
+        un_connect_request = [
+            FORWARD_OPEN,
+            '\x02',
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
+            INSTANCE_ID["8-bit"],
+            CONNECTION_MANAGER_INSTANCE['Open Request'],
+            PRIORITY,
+            TIMEOUT,
+            pack_dint(0),
+            self.connection_id,
+            '\x27\x04',
+            '\x27\x04',
+            '\x27\x04\x19\x71',
+            '\x01',
+            '\x00\x00\x00',
+            pack_dint(5000000),
+            '\xf8\x43',
+            pack_dint(5000000),
+            '\xf8\x43',
+            '\xa3',  # Transport Class
+            '\x03',  # Size Connection Path
+            '\x01',  # Backplane port 1756-ENET
+            '\x00',  # Logix5000 slot 0
+            CLASS_ID["8-bit"],
+            '\x02',
+            INSTANCE_ID["8-bit"],
+            '\x01'
+        ]
+        un_connect_request = ''.join(un_connect_request)
+
+        msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
+        msg += pack_uint(1)   # timeout
+        msg += pack_uint(2)  # Item count: should be at list 2 (Address and Data)
+        msg += ADDRESS_ITEM['Null']  # Address Item Type ID
+        msg += pack_uint(0)  # Address Item Length
+        msg += DATA_ITEM['Unconnected']  # Data Type ID
+        msg += pack_uint(len(un_connect_request))   # Data Item Length
+        msg += un_connect_request
+        self.send_rr_data(msg)
+        print_bytes(self._replay)
 
     def read_tag(self, tag, time_out=10):
         """
@@ -169,10 +230,10 @@ class Cip:
 
         # Creating the Message Request Packet
         mr = [
-            chr(SERVICES_REQUEST['Read Tag']),   # the Request Service
+            chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
             chr(len(rp) / 2),               # the Request Path Size length in word
             rp,                             # the request path
-            pack_uint(1)                    # Add the number of tag to read
+            pack_uint(1),                    # Add the number of tag to read
         ]
 
         # join the the list
@@ -189,15 +250,17 @@ class Cip:
             pack_uint(len(packet))                  # Length of the MR request packet
         ]
 
+
         # Command Specific Data is composed by head and packet
         command_specific_data = ''.join(head) + packet
 
         # Now put together Encapsulation Header and Command Specific Data
-        self._message = self.build_header(COMMAND['send_rr_data'],
+        self._message = self.build_header(ENCAPSULATION_COMMAND['send_rr_data'],
                                           len(command_specific_data)) + command_specific_data
 
         # Debug
-        print_info(self._message)
+        print print_bytes(packet)
+        # print_info(self._message)
 
         # Send the UCMM Request
         self.send()
@@ -229,13 +292,13 @@ class Cip:
         # Creating the Message Request Packet
         mr = [
             # Request Service
-            chr(SERVICES_REQUEST['Get Instance Attribute List']),
+            chr(TAG_SERVICES_REQUEST['Get Instance Attribute List']),
             # the Request Path Size length in word
             chr(3),
             # Request Path ( 20 6B 25 00 Instance )
-            chr(CLASS_ID["8-bit"]),       # Class id = 20 from spec 0x20
-            chr(CLASS["Symbol Object"]),  # Logical segment: Symbolic Object 0x6B
-            chr(INSTANCE_ID["16-bit"]),   # Instance Segment: 16 Bit instance 0x25
+            CLASS_ID["8-bit"],       # Class id = 20 from spec 0x20
+            CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
+            INSTANCE_ID["16-bit"],   # Instance Segment: 16 Bit instance 0x25
             '\x00',                       # Add pad byte because total length of Request path must be word-aligned
             pack_uint(instance),          # The instance
             # Request Data
@@ -262,7 +325,7 @@ class Cip:
         command_specific_data = ''.join(head) + packet
 
         # Now put together Encapsulation Header and Command Specific Data
-        self._message = self.build_header(COMMAND['send_rr_data'],
+        self._message = self.build_header(ENCAPSULATION_COMMAND['send_rr_data'],
                                           len(command_specific_data)) + command_specific_data
 
         # Debug
@@ -273,31 +336,6 @@ class Cip:
 
         # Get replay
         self.receive()
-
-    def get_tags_list(self):
-        # parse the response
-        self._get_symbol_object_instances(instance=0)
-
-        if self._replay is None:
-            return False
-
-        self.general_status = -1
-
-        if unpack_uint(self._replay[:2]) != COMMAND['send_rr_data']:
-            return False
-
-        size = unpack_uint(self._replay[2:4]) - 16
-
-        print size
-        print list(self._replay[OFFSET_MESSAGE_REQUEST:])  # Get size command specific
-        i = 0
-        for c in self._replay[OFFSET_MESSAGE_REQUEST:]:
-            i = i + 1
-        print i
-
-        # Here is a good message replay
-        #general_status = ord(self._replay[42])
-        #if general_status == 0x06:
 
     def send(self):
         self.__sock.send(self._message)
@@ -321,7 +359,7 @@ class Cip:
 
     def close(self):
         if self.session != 0:
-            self.unregister_session()
+            self.un_register_session()
         self.__sock.close()
         self.__sock = None
         self.session = 0
