@@ -10,6 +10,11 @@ class ProtocolError(Exception):
 class SocketError(Exception):
     pass
 
+
+def pack_sint(n):
+    return struct.pack('b', n)
+
+
 def pack_uint(n):
     """pack 16 bit into 2 bytes little indian"""
     return struct.pack('<H', n)
@@ -18,6 +23,10 @@ def pack_uint(n):
 def pack_dint(n):
     """pack 32 bit into 4 bytes little indian"""
     return struct.pack('<I', n)
+
+
+def unpack_sint(st):
+    return int(struct.unpack('b', st[0])[0])
 
 
 def unpack_uint(st):
@@ -89,8 +98,10 @@ def print_info(msg):
 
 def print_bytes(msg):
     print '[%d]\n' % len(msg)
+    i = 0
     for ch in msg:
-        print ("%02X" % ord(ch))
+        i += 1
+        print "{:3d}) {:0>2x}".format(i, ord(ch))
 
 
 class Socket:

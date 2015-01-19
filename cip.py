@@ -141,14 +141,14 @@ class Cip:
         self.send()
         self.receive()
 
-    def test(self):
+    def test(self, backplane=1, cpu_slot=0):
         if self.session == 0:
             print "Session not registered yet."
             return None
 
         un_connect_request = [
             FORWARD_OPEN,
-            '\x02',
+            pack_sint(2),
             CLASS_ID["8-bit"],
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
             INSTANCE_ID["8-bit"],
@@ -162,14 +162,14 @@ class Cip:
             '\x27\x04\x19\x71',
             '\x01',
             '\x00\x00\x00',
-            pack_dint(5000000),
+            pack_dint(5000*1000),
             '\xf8\x43',
-            pack_dint(5000000),
+            pack_dint(5000*1000),
             '\xf8\x43',
             '\xa3',  # Transport Class
             '\x03',  # Size Connection Path
-            '\x01',  # Backplane port 1756-ENET
-            '\x00',  # Logix5000 slot 0
+            pack_sint(backplane),  # Backplane port 1756-ENET
+            pack_sint(cpu_slot),   # Logix5000 slot 0
             CLASS_ID["8-bit"],
             '\x02',
             INSTANCE_ID["8-bit"],
