@@ -2,10 +2,6 @@ _version__ = "$Revision$"
 # $Source$
 
 from cip_base import *
-from tag import *
-
-PRIORITY = '\x0a'
-TIMEOUT = '\x05'
 
 
 class TagList:
@@ -17,8 +13,7 @@ class TagList:
 
 
 class Cip:
-
-    def __init__(self, cid='\x27\x04\x19\x71'):
+    def __init__(self):
         self.__version__ = '0.1'
         self.__sock = Socket(None)
         self.session = 0
@@ -31,7 +26,12 @@ class Cip:
         self.connection_opened = False
         self._replay = None
         self._message = None
-        self.connection_id = cid
+        self.cid = '\x27\x04\x19\x71'
+        self.csn = '\x27\x04'
+        self.vid = '\x09\x10'
+        self.vsn = '\x09\x10\x19\x71'
+        self.target_cid = pack_dint(0)
+
 
     def get_address_type(self):
         """
@@ -63,6 +63,17 @@ class Cip:
             self.extend_status = unpack_uint(self._replay[44:45])
         return self.extend_status
 
+    def is_replay_ok(self):
+        if self._replay is None:
+            return False
+
+        if unpack_dint(self._replay[8:12]) == SUCCESS:
+            return True
+        else:
+            print (er)
+            return False
+
+
     def parse(self):
         if self._replay is None:
             return False
@@ -80,6 +91,8 @@ class Cip:
 
         if command == ENCAPSULATION_COMMAND['register_session']:
             self.session = unpack_dint(self._replay[4:8])
+            print 'Session Registered:'
+            print_bytes(pack_dint(self.session))
         elif command == ENCAPSULATION_COMMAND['list_identity']:
             pass
         elif command == ENCAPSULATION_COMMAND['list_services']:
@@ -87,7 +100,7 @@ class Cip:
         elif command == ENCAPSULATION_COMMAND['list_interfaces']:
             pass
         elif command == ENCAPSULATION_COMMAND['send_rr_data']:
-            print_bytes(self._replay)
+            pass
 
             print "Read =", unpack_dint(self._replay[-4:])
         else:
@@ -123,7 +136,6 @@ class Cip:
         self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
         self._message += pack_uint(self.protocol_version)
         self._message += pack_uint(0)
-        print_bytes(self._message)
         self.send()
         self.receive()
         self.parse()
@@ -141,12 +153,24 @@ class Cip:
         self.send()
         self.receive()
 
-    def test(self, backplane=1, cpu_slot=0):
+    @staticmethod
+    def build_common_cpf(message_type, message):
+        msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
+        msg += pack_uint(1)   # timeout
+        msg += pack_uint(2)  # Item count: should be at list 2 (Address and Data)
+        msg += ADDRESS_ITEM['Null']  # Address Item Type ID
+        msg += pack_uint(0)  # Address Item Length
+        msg += message_type  # Data Type ID
+        msg += pack_uint(len(message))   # Data Item Length
+        msg += message
+        return msg
+
+    def forward_open(self, backplane=1, cpu_slot=0, rpi=5000):
         if self.session == 0:
             print "Session not registered yet."
             return None
 
-        un_connect_request = [
+        forward_open_msg = [
             FORWARD_OPEN,
             pack_sint(2),
             CLASS_ID["8-bit"],
@@ -154,28 +178,28 @@ class Cip:
             INSTANCE_ID["8-bit"],
             CONNECTION_MANAGER_INSTANCE['Open Request'],
             PRIORITY,
-            TIMEOUT,
-            pack_dint(0),
-            self.connection_id,
-            '\x27\x04',
-            '\x27\x04',
-            '\x27\x04\x19\x71',
-            '\x01',
+            TIMEOUT_TICKS,
+            self.target_cid,
+            self.cid,
+            self.csn,
+            self.vid,
+            self.vsn,
+            TIMEOUT_MULTIPLIER,
             '\x00\x00\x00',
-            pack_dint(5000*1000),
-            '\xf8\x43',
-            pack_dint(5000*1000),
-            '\xf8\x43',
-            '\xa3',  # Transport Class
-            '\x03',  # Size Connection Path
-            pack_sint(backplane),  # Backplane port 1756-ENET
-            pack_sint(cpu_slot),   # Logix5000 slot 0
+            pack_dint(rpi*1000),
+            pack_uint(CONNECTION_PARAMETER['Default']),
+            pack_dint(rpi*1000),
+            pack_uint(CONNECTION_PARAMETER['Default']),
+            TRANSPORT_CLASS,  # Transport Class
+            CONNECTION_SIZE['Backplane'],
+            pack_sint(backplane),
+            pack_sint(cpu_slot),
             CLASS_ID["8-bit"],
-            '\x02',
+            CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
-            '\x01'
+            pack_sint(1)
         ]
-        un_connect_request = ''.join(un_connect_request)
+        forward_open_msg = ''.join(forward_open_msg)
 
         msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
         msg += pack_uint(1)   # timeout
@@ -183,10 +207,70 @@ class Cip:
         msg += ADDRESS_ITEM['Null']  # Address Item Type ID
         msg += pack_uint(0)  # Address Item Length
         msg += DATA_ITEM['Unconnected']  # Data Type ID
-        msg += pack_uint(len(un_connect_request))   # Data Item Length
-        msg += un_connect_request
+        msg += pack_uint(len(forward_open_msg))   # Data Item Length
+        msg += forward_open_msg
         self.send_rr_data(msg)
         print_bytes(self._replay)
+
+    def test(self, backplane=1, cpu_slot=0, rpi=5000):
+        self.forward_open()
+
+    def ucmm_request(self, tag, path):
+        if self.session == 0:
+            print "Session not registered yet."
+            return None
+        tag_length = len(tag)
+
+        # Create the request path
+        rp = [
+            EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
+            chr(tag_length)             # Length of the tag
+        ]
+
+        # Add the tag to the Request path
+        for char in tag:
+            rp.append(char)
+
+        # Add pad byte because total length of Request path must be word-aligned
+        if tag_length % 2:
+
+            rp.append('\x00')
+        # At this point the Request Path is completed,
+        rp = ''.join(rp)
+
+        # Creating the Message Request Packet
+        message_request = [
+            chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
+            chr(len(rp) / 2),               # the Request Path Size length in word
+            rp,                             # the request path
+            pack_uint(1),                    # Add the number of tag to read
+        ]
+        message_request = ''.join(message_request)
+
+        route_path = []
+
+        # Pad present if mr size is odd
+        if len(message_request) % 2:
+            route_path.append('\x00')
+
+        # Check to see if path need to be padded
+        if len(path) % 2:
+            path.append(0)
+
+        route_path.append(pack_sint(len(path)/2))
+
+        route_path.append('\x00')  # reserved
+
+        for item in path:
+            route_path.append(pack_sint(item))
+
+        route_path = ''.join(route_path)
+
+        unconnect_send_msg = message_request + route_path
+
+        self.send_rr_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'], unconnect_send_msg))
+        print_bytes(self._replay)
+        self.parse()
 
     def read_tag(self, tag, time_out=10):
         """
@@ -205,71 +289,7 @@ class Cip:
         :return: the tag value or None if any error
         """
         # TO DO: add control tag's validity
-        if self.session == 0:
-            print "Session not registered yet."
-            return None
-
-        tag_length = len(tag)
-
-        # Create the request path
-        rp = [
-            EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
-            chr(tag_length)             # Length of the tag
-        ]
-
-        # Add the tag to the Request path
-        for char in tag:
-            rp.append(char)
-
-        # Add pad byte because total length of Request path must be word-aligned
-        if tag_length % 2:
-            rp.append('\x00')
-
-        # At this point the Request Path is completed,
-        rp = ''.join(rp)
-
-        # Creating the Message Request Packet
-        mr = [
-            chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
-            chr(len(rp) / 2),               # the Request Path Size length in word
-            rp,                             # the request path
-            pack_uint(1),                    # Add the number of tag to read
-        ]
-
-        # join the the list
-        packet = ''.join(mr)
-
-        # preparing the head of the Command Specific data
-        head = [
-            pack_dint(UCMM['Interface Handle']),    # The Interface Handle: should be 0
-            pack_uint(time_out),                    # Timeout
-            pack_uint(UCMM['Item Count']),          # Item Count: should be 2
-            pack_uint(UCMM['Address Type ID']),     # Address Type ID: should be 0
-            pack_uint(UCMM['Address Length']),      # Address Length: should be 0
-            pack_uint(UCMM['Data Type ID']),        # Data Type ID: should be 0x00b2 or 178
-            pack_uint(len(packet))                  # Length of the MR request packet
-        ]
-
-
-        # Command Specific Data is composed by head and packet
-        command_specific_data = ''.join(head) + packet
-
-        # Now put together Encapsulation Header and Command Specific Data
-        self._message = self.build_header(ENCAPSULATION_COMMAND['send_rr_data'],
-                                          len(command_specific_data)) + command_specific_data
-
-        # Debug
-        print print_bytes(packet)
-        # print_info(self._message)
-
-        # Send the UCMM Request
-        self.send()
-
-        # Get replay
-        self.receive()
-
-        # parse the response
-        self.parse()
+        pass
 
     def _get_symbol_object_instances(self, instance=0, time_out=10):
         """

@@ -64,7 +64,7 @@ When a UDT is created, an instance of the Template object (Class ID 0x6C) is
 created to hold information about the structure makeup.
 """
 CLASS_CODE = {
-    "Message Router Object": '\x02',  # Volume 1: 5-1
+    "Message Router": '\x02',  # Volume 1: 5-1
     "Symbol Object": '\x6b',
     "Template Object": '\x6c',
     "Connection Manager": '\x06'  # Volume 1: 3-5
@@ -72,6 +72,13 @@ CLASS_CODE = {
 
 CONNECTION_MANAGER_INSTANCE = {
     'Open Request': '\x01',
+    'Open Format Rejected': '\x02',
+    'Open Resource  Rejected': '\x03',
+    'Open Other Rejected': '\x04',
+    'Close Request': '\x05',
+    'Close Format Request': '\x06',
+    'Close Other Request': '\x07',
+    'Connection Timeout': '\x08'
 }
 
 TAG_SERVICES_REQUEST = {
@@ -183,6 +190,11 @@ UCMM = {
     'Data Type ID': 0x00b2
 }
 
+CONNECTION_SIZE = {
+    'Backplane': '\x03',     # CLX
+    'Direct Network': '\x02'
+}
+
 HEADER_SIZE = 24
 EXTENDED_SYMBOL = '\x91'
 BOOL_ONE = 0xff
@@ -194,16 +206,24 @@ OFFSET_MESSAGE_REQUEST = 40
 
 
 FORWARD_CLOSE = '\x4e'
-UNCONNECTED_SEND = '\52'
+UNCONNECTED_SEND = '\x52'
 FORWARD_OPEN = '\x54'
 LARGE_FORWARD_OPEN = '\x5b'
 GET_CONNECTION_DATA = '\x56'
 SEARCH_CONNECTION_DATA = '\x57'
 GET_CONNECTION_OWNER = '\x5a'
+MR_SERVICE_SIZE = 2
 
 
+PRIORITY = '\x0a'
+TIMEOUT_TICKS = '\x05'
+TIMEOUT_MULTIPLIER = '\x01'
+TRANSPORT_CLASS = '\xa3'
 
-
-
-
-
+CONNECTION_PARAMETER = {
+    'PLC5': 0x4302,
+    'SLC500': 0x4302,
+    'CNET': 0x4320,
+    'DHP': 0x4302,
+    'Default': 0x43f8,
+}
