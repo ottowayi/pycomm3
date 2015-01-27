@@ -153,13 +153,22 @@ class Cip:
         self.send()
         self.receive()
 
+    def send_unit_data(self, msg):
+        self._message = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(msg))
+        self._message += msg
+        print_bytes(self._message)
+        self.send()
+        self.receive()
+
     @staticmethod
-    def build_common_cpf(message_type, message):
+    def build_common_cpf(message_type, message, addr_type, addr_length=0, addr_data=None, timeout=0):
         msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
-        msg += pack_uint(1)   # timeout
+        msg += pack_uint(timeout)   # timeout
         msg += pack_uint(2)  # Item count: should be at list 2 (Address and Data)
-        msg += ADDRESS_ITEM['Null']  # Address Item Type ID
-        msg += pack_uint(0)  # Address Item Length
+        msg += addr_type  # Address Item Type ID
+        msg += pack_uint(addr_length)  # Address Item Length
+        if addr_data is not None:
+            msg += addr_data
         msg += message_type  # Data Type ID
         msg += pack_uint(len(message))   # Data Item Length
         msg += message
@@ -199,21 +208,62 @@ class Cip:
             INSTANCE_ID["8-bit"],
             pack_sint(1)
         ]
-        forward_open_msg = ''.join(forward_open_msg)
-
-        msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
-        msg += pack_uint(1)   # timeout
-        msg += pack_uint(2)  # Item count: should be at list 2 (Address and Data)
-        msg += ADDRESS_ITEM['Null']  # Address Item Type ID
-        msg += pack_uint(0)  # Address Item Length
-        msg += DATA_ITEM['Unconnected']  # Data Type ID
-        msg += pack_uint(len(forward_open_msg))   # Data Item Length
-        msg += forward_open_msg
-        self.send_rr_data(msg)
-        print_bytes(self._replay)
+        # forward_open_msg = ''.join(forward_open_msg)
+        self.send_rr_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'],
+                                               ADDRESS_ITEM['Null'],
+                                               ''.join(forward_open_msg),
+                                               timeout=1))
 
     def test(self, backplane=1, cpu_slot=0, rpi=5000):
         self.forward_open()
+        print_bytes(self._replay)
+
+        # Exit if replay is not  valid
+        if self._replay is None:
+            print 'forward_open without reply'
+            return False
+
+        # Exit if send_rr_data returned error
+        if unpack_dint(self._replay[8:12]) != SUCCESS:
+            print 'send_rr_data reply error'
+            return False
+
+        # Exit if  forward_open replay returned error
+        if unpack_sint(self._replay[42:43]) != SUCCESS:
+            print 'send_rr_data reply error'
+            return False
+
+        self.target_cid = self._replay[44:48]
+        connected_msg = [
+            pack_sint(2),
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
+            INSTANCE_ID["8-bit"],
+            CONNECTION_MANAGER_INSTANCE['Open Request'],
+            PRIORITY,
+            TIMEOUT_TICKS,
+            self.target_cid,
+            self.cid,
+            self.csn,
+            self.vid,
+            self.vsn,
+            TIMEOUT_MULTIPLIER,
+            '\x00\x00\x00',
+            pack_dint(rpi*1000),
+            pack_uint(CONNECTION_PARAMETER['Default']),
+            pack_dint(rpi*1000),
+            pack_uint(CONNECTION_PARAMETER['Default']),
+            TRANSPORT_CLASS,  # Transport Class
+            CONNECTION_SIZE['Backplane'],
+            pack_sint(backplane),
+            pack_sint(cpu_slot),
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Message Router"],
+            INSTANCE_ID["8-bit"],
+            pack_sint(1)
+        ]
+        # self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'], '', 0))
+
 
     def ucmm_request(self, tag, path):
         if self.session == 0:
@@ -268,7 +318,10 @@ class Cip:
 
         unconnect_send_msg = message_request + route_path
 
-        self.send_rr_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'], unconnect_send_msg))
+        self.send_rr_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'],
+                                               ADDRESS_ITEM['Null'],
+                                               unconnect_send_msg,
+                                               timeout=1))
         print_bytes(self._replay)
         self.parse()
 
@@ -289,7 +342,9 @@ class Cip:
         :return: the tag value or None if any error
         """
         # TO DO: add control tag's validity
-        pass
+        self._replay = None
+        self.forward_open()
+
 
     def _get_symbol_object_instances(self, instance=0, time_out=10):
         """
@@ -358,11 +413,22 @@ class Cip:
         self.receive()
 
     def send(self):
-        self.__sock.send(self._message)
+        try:
+            self.__sock.send(self._message)
+        except SocketError, e:
+            print 'Error {%s} during {%s}'.format(e, 'send')
+            return False
+
         return True
 
     def receive(self):
-        self._replay = self.__sock.receive()
+        try:
+            self._replay = self.__sock.receive()
+        except SocketError, e:
+            print 'Error {%s} during {%s}'.format(e, 'receive')
+            self._replay = None
+            return False
+
         return True
 
     def open(self, ip_address):
@@ -374,7 +440,8 @@ class Cip:
                 self.register_session()
                 return True
             except SocketError, e:
-                print e
+                print 'Error {%s} during {%s}'.format(e, 'open')
+
         return False
 
     def close(self):

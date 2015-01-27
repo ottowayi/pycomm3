@@ -98,10 +98,8 @@ def print_info(msg):
 
 def print_bytes(msg):
     print '[%d]\n' % len(msg)
-    i = 0
-    for ch in msg:
-        i += 1
-        print "{:3d}) {:0>2x}".format(i, ord(ch))
+    for idx, ch in enumerate(msg):
+        print "{:3d}) {:0>2x}".format(idx, ord(ch))
 
 
 class Socket:
