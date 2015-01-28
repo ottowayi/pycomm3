@@ -161,14 +161,17 @@ class Cip:
         self.receive()
 
     @staticmethod
-    def build_common_cpf(message_type, message, addr_type, addr_length=0, addr_data=None, timeout=0):
+    def build_common_cpf(message_type, message, addr_type, addr_data=None, timeout=0):
         msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
         msg += pack_uint(timeout)   # timeout
         msg += pack_uint(2)  # Item count: should be at list 2 (Address and Data)
         msg += addr_type  # Address Item Type ID
-        msg += pack_uint(addr_length)  # Address Item Length
+
         if addr_data is not None:
+            msg += pack_uint(len(addr_data))  # Address Item Length
             msg += addr_data
+        else:
+            msg += pack_uint(0)  # Address Item Length
         msg += message_type  # Data Type ID
         msg += pack_uint(len(message))   # Data Item Length
         msg += message
@@ -210,14 +213,14 @@ class Cip:
         ]
         # forward_open_msg = ''.join(forward_open_msg)
         self.send_rr_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'],
-                                               ADDRESS_ITEM['Null'],
                                                ''.join(forward_open_msg),
+                                               ADDRESS_ITEM['Null'],
                                                timeout=1))
 
-    def test(self, backplane=1, cpu_slot=0, rpi=5000):
+    def read(self, backplane=1, cpu_slot=0, rpi=5000):
         self.forward_open()
         print_bytes(self._replay)
-
+        tag = 'Counts'
         # Exit if replay is not  valid
         if self._replay is None:
             print 'forward_open without reply'
@@ -230,45 +233,13 @@ class Cip:
 
         # Exit if  forward_open replay returned error
         if unpack_sint(self._replay[42:43]) != SUCCESS:
-            print 'send_rr_data reply error'
+            print 'forward_open reply error'
             return False
 
         self.target_cid = self._replay[44:48]
-        connected_msg = [
-            pack_sint(2),
-            CLASS_ID["8-bit"],
-            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
-            INSTANCE_ID["8-bit"],
-            CONNECTION_MANAGER_INSTANCE['Open Request'],
-            PRIORITY,
-            TIMEOUT_TICKS,
-            self.target_cid,
-            self.cid,
-            self.csn,
-            self.vid,
-            self.vsn,
-            TIMEOUT_MULTIPLIER,
-            '\x00\x00\x00',
-            pack_dint(rpi*1000),
-            pack_uint(CONNECTION_PARAMETER['Default']),
-            pack_dint(rpi*1000),
-            pack_uint(CONNECTION_PARAMETER['Default']),
-            TRANSPORT_CLASS,  # Transport Class
-            CONNECTION_SIZE['Backplane'],
-            pack_sint(backplane),
-            pack_sint(cpu_slot),
-            CLASS_ID["8-bit"],
-            CLASS_CODE["Message Router"],
-            INSTANCE_ID["8-bit"],
-            pack_sint(1)
-        ]
-        # self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'], '', 0))
 
+        print_bytes(self.target_cid)
 
-    def ucmm_request(self, tag, path):
-        if self.session == 0:
-            print "Session not registered yet."
-            return None
         tag_length = len(tag)
 
         # Create the request path
@@ -290,40 +261,23 @@ class Cip:
 
         # Creating the Message Request Packet
         message_request = [
+            pack_uint(2),
+            chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
+            chr(len(rp) / 2),               # the Request Path Size length in word
+            rp,                             # the request path
+            pack_uint(1),                    # Add the number of tag to read
             chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
             chr(len(rp) / 2),               # the Request Path Size length in word
             rp,                             # the request path
             pack_uint(1),                    # Add the number of tag to read
         ]
-        message_request = ''.join(message_request)
 
-        route_path = []
+        self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Connected'],
+                                                 ''.join(message_request),
+                                                 ADDRESS_ITEM['Connection Based'],
+                                                 addr_data=self.target_cid))
 
-        # Pad present if mr size is odd
-        if len(message_request) % 2:
-            route_path.append('\x00')
-
-        # Check to see if path need to be padded
-        if len(path) % 2:
-            path.append(0)
-
-        route_path.append(pack_sint(len(path)/2))
-
-        route_path.append('\x00')  # reserved
-
-        for item in path:
-            route_path.append(pack_sint(item))
-
-        route_path = ''.join(route_path)
-
-        unconnect_send_msg = message_request + route_path
-
-        self.send_rr_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'],
-                                               ADDRESS_ITEM['Null'],
-                                               unconnect_send_msg,
-                                               timeout=1))
         print_bytes(self._replay)
-        self.parse()
 
     def read_tag(self, tag, time_out=10):
         """
