@@ -16,7 +16,7 @@ if __name__ == '__main__':
     # c.read_tag('TotalCount')
     # c.read_tag('SQL_ENDPOINT_STATUS')
     # c.get_tags_list()
-    c.read()
+    c.test()
     # c.ucmm_request('Counts', [1, 0])
     c.close()
 

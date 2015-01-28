@@ -217,7 +217,7 @@ class Cip:
                                                ADDRESS_ITEM['Null'],
                                                timeout=1))
 
-    def read(self, backplane=1, cpu_slot=0, rpi=5000):
+    def test(self, backplane=1, cpu_slot=0, rpi=5000):
         self.forward_open()
         print_bytes(self._replay)
         tag = 'Counts'
@@ -261,11 +261,79 @@ class Cip:
 
         # Creating the Message Request Packet
         message_request = [
-            pack_uint(2),
+            pack_uint(1),
             chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
             chr(len(rp) / 2),               # the Request Path Size length in word
             rp,                             # the request path
             pack_uint(1),                    # Add the number of tag to read
+        ]
+
+        self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Connected'],
+                                                 ''.join(message_request),
+                                                 ADDRESS_ITEM['Connection Based'],
+                                                 addr_data=self.target_cid))
+
+        print_bytes(self._replay)
+
+        # return False
+        # ####################################################################
+
+                # Create the request path
+        rp = [
+            EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
+            chr(tag_length)             # Length of the tag
+        ]
+
+        # Add the tag to the Request path
+        for char in tag:
+            rp.append(char)
+
+        # Add pad byte because total length of Request path must be word-aligned
+        if tag_length % 2:
+
+            rp.append('\x00')
+        # At this point the Request Path is completed,
+        rp = ''.join(rp)
+
+        # Creating the Message Request Packet
+        message_request = [
+            pack_uint(2),
+            chr(TAG_SERVICES_REQUEST["Write Tag"]),   # the Request Service
+            chr(len(rp) / 2),               # the Request Path Size length in word
+            rp,                             # the request path
+            pack_dint(0xc3),                # data type
+            pack_uint(1),                    # Add the number of tag to write
+            pack_uint(7)
+        ]
+
+        self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Connected'],
+                                                 ''.join(message_request),
+                                                 ADDRESS_ITEM['Connection Based'],
+                                                 addr_data=self.target_cid))
+        print_bytes(self._replay)
+
+        # return False
+        ################################
+                # Create the request path
+        rp = [
+            EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
+            chr(tag_length)             # Length of the tag
+        ]
+
+        # Add the tag to the Request path
+        for char in tag:
+            rp.append(char)
+
+        # Add pad byte because total length of Request path must be word-aligned
+        if tag_length % 2:
+
+            rp.append('\x00')
+        # At this point the Request Path is completed,
+        rp = ''.join(rp)
+
+        # Creating the Message Request Packet
+        message_request = [
+            pack_uint(3),
             chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
             chr(len(rp) / 2),               # the Request Path Size length in word
             rp,                             # the request path
