@@ -30,7 +30,7 @@ class Cip:
         self.csn = '\x27\x04'
         self.vid = '\x09\x10'
         self.vsn = '\x09\x10\x19\x71'
-        self.target_cid = pack_dint(0)
+        self.target_cid = None
 
 
     def get_address_type(self):
@@ -161,6 +161,27 @@ class Cip:
         self.receive()
 
     @staticmethod
+    def create_tag_rp(tag):
+        tag_length = len(tag)
+
+        # Create the request path
+        rp = [
+            EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
+            chr(tag_length)             # Length of the tag
+        ]
+
+        # Add the tag to the Request path
+        for char in tag:
+            rp.append(char)
+
+        # Add pad byte because total length of Request path must be word-aligned
+        if tag_length % 2:
+
+            rp.append('\x00')
+        # At this point the Request Path is completed,
+        return ''.join(rp)
+
+    @staticmethod
     def build_common_cpf(message_type, message, addr_type, addr_data=None, timeout=0):
         msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
         msg += pack_uint(timeout)   # timeout
@@ -191,7 +212,7 @@ class Cip:
             CONNECTION_MANAGER_INSTANCE['Open Request'],
             PRIORITY,
             TIMEOUT_TICKS,
-            self.target_cid,
+            pack_dint(0),
             self.cid,
             self.csn,
             self.vid,
@@ -217,47 +238,52 @@ class Cip:
                                                ADDRESS_ITEM['Null'],
                                                timeout=1))
 
-    def test(self, backplane=1, cpu_slot=0, rpi=5000):
+    def _get_target_cid(self):
         self.forward_open()
         print_bytes(self._replay)
-        tag = 'Counts'
+
         # Exit if replay is not  valid
         if self._replay is None:
             print 'forward_open without reply'
-            return False
+            self.target_cid = None
+            return None
 
         # Exit if send_rr_data returned error
         if unpack_dint(self._replay[8:12]) != SUCCESS:
             print 'send_rr_data reply error'
-            return False
+            return None
 
         # Exit if  forward_open replay returned error
         if unpack_sint(self._replay[42:43]) != SUCCESS:
             print 'forward_open reply error'
-            return False
+            self.target_cid = None
+            return None
 
         self.target_cid = self._replay[44:48]
 
-        print_bytes(self.target_cid)
+        return self.target_cid
 
-        tag_length = len(tag)
+    def read_tag(self, tag='Counts', backplane=1, cpu_slot=0, rpi=5000):
+        """
+        From Rockwell Automation Publication 1756-PM020C-EN-P - November 2012:
+        The Read Tag Service reads the data associated with the tag specified in the path.
+            1) Any data that fits into the reply packet is returned, even if it does not all fit.
+            2) If all the data does not fit into the packet, the error 0x06 is returned along
+            with the data.
+            3) When reading a two or three dimensional array of data, all dimensions
+            must be specified.
+            4) When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xFF,
+            respectively.
 
-        # Create the request path
-        rp = [
-            EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
-            chr(tag_length)             # Length of the tag
-        ]
+        :param tag: The tag to read
+        :param time_out: Operation Timeout
+        :return: the tag value or None if any error
+        """
+        if self.target_cid is None:
+             if self._get_target_cid() is None:
+                return None
 
-        # Add the tag to the Request path
-        for char in tag:
-            rp.append(char)
-
-        # Add pad byte because total length of Request path must be word-aligned
-        if tag_length % 2:
-
-            rp.append('\x00')
-        # At this point the Request Path is completed,
-        rp = ''.join(rp)
+        rp = Cip.create_tag_rp(tag)
 
         # Creating the Message Request Packet
         message_request = [
@@ -275,79 +301,8 @@ class Cip:
 
         print_bytes(self._replay)
 
-        # return False
-        # ####################################################################
 
-                # Create the request path
-        rp = [
-            EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
-            chr(tag_length)             # Length of the tag
-        ]
-
-        # Add the tag to the Request path
-        for char in tag:
-            rp.append(char)
-
-        # Add pad byte because total length of Request path must be word-aligned
-        if tag_length % 2:
-
-            rp.append('\x00')
-        # At this point the Request Path is completed,
-        rp = ''.join(rp)
-
-        # Creating the Message Request Packet
-        message_request = [
-            pack_uint(2),
-            chr(TAG_SERVICES_REQUEST["Write Tag"]),   # the Request Service
-            chr(len(rp) / 2),               # the Request Path Size length in word
-            rp,                             # the request path
-            pack_dint(0xc3),                # data type
-            pack_uint(1),                    # Add the number of tag to write
-            pack_uint(7)
-        ]
-
-        self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Connected'],
-                                                 ''.join(message_request),
-                                                 ADDRESS_ITEM['Connection Based'],
-                                                 addr_data=self.target_cid))
-        print_bytes(self._replay)
-
-        # return False
-        ################################
-                # Create the request path
-        rp = [
-            EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
-            chr(tag_length)             # Length of the tag
-        ]
-
-        # Add the tag to the Request path
-        for char in tag:
-            rp.append(char)
-
-        # Add pad byte because total length of Request path must be word-aligned
-        if tag_length % 2:
-
-            rp.append('\x00')
-        # At this point the Request Path is completed,
-        rp = ''.join(rp)
-
-        # Creating the Message Request Packet
-        message_request = [
-            pack_uint(3),
-            chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
-            chr(len(rp) / 2),               # the Request Path Size length in word
-            rp,                             # the request path
-            pack_uint(1),                    # Add the number of tag to read
-        ]
-
-        self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Connected'],
-                                                 ''.join(message_request),
-                                                 ADDRESS_ITEM['Connection Based'],
-                                                 addr_data=self.target_cid))
-
-        print_bytes(self._replay)
-
-    def read_tag(self, tag, time_out=10):
+    def write_tag(self, tag='Counts'):
         """
         From Rockwell Automation Publication 1756-PM020C-EN-P - November 2012:
         The Read Tag Service reads the data associated with the tag specified in the path.
@@ -363,10 +318,30 @@ class Cip:
         :param time_out: Operation Timeout
         :return: the tag value or None if any error
         """
-        # TO DO: add control tag's validity
-        self._replay = None
-        self.forward_open()
+        if self.target_cid is None:
+            if self._get_target_cid() is None:
+                return None
 
+        rp = Cip.create_tag_rp(tag)
+
+        # Creating the Message Request Packet
+        message_request = [
+            pack_uint(2),
+            chr(TAG_SERVICES_REQUEST["Write Tag"]),   # the Request Service
+            chr(len(rp) / 2),               # the Request Path Size length in word
+            rp,                             # the request path
+            pack_uint(DATA_TYPE['INT']),                # data type
+            pack_uint(1),                    # Add the number of tag to write
+            pack_uint(8)
+        ]
+
+        self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Connected'],
+                                                 ''.join(message_request),
+                                                 ADDRESS_ITEM['Connection Based'],
+                                                 addr_data=self.target_cid))
+        print_bytes(self._replay)
+
+        # return False
 
     def _get_symbol_object_instances(self, instance=0, time_out=10):
         """

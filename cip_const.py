@@ -227,3 +227,35 @@ CONNECTION_PARAMETER = {
     'DHP': 0x4302,
     'Default': 0x43f8,
 }
+
+DATA_TYPE = {
+    'SINT': 0xc2,    # Signed 8-bit integer
+    'INT': 0xc3,     # Signed 16-bit integer
+    'DINT': 0xc4,    # Signed 32-bit integer
+    'LINT': 0xc5,    # Signed 64-bit integer
+    'USINT': 0xc6,   # Unsigned 8-bit integer
+    'UINT': 0xc7,    # Unsigned 16-bit integer
+    'UDINT': 0xc8,   # Unsigned 32-bit integer
+    'ULINT': 0xc9,   # Unsigned 64-bit integer
+    'REAL': 0xca,    # 32-bit floating point
+    'LREAL': 0xcb,   # 64-bit floating point
+    'STIME': 0xcc,   # Synchronous time
+    'DATE': 0xcd,
+    'TIME_OF_DAY': 0xce,
+    'DATE_AND_TIME': 0xcf,
+    'STRING': 0xd0,   # character string (1 byte per character)
+    'BYTE': 0xd1,     # byte string 8-bits
+    'WORD': 0xd2,     # byte string 16-bits
+    'DWORD': 0xd3,    # byte string 32-bits
+    'LWORD': 0xd4,    # byte string 64-bits
+    'STRING2': 0xd5,  # character string (2 byte per character)
+    'FTIME': 0xd6,    # Duration high resolution
+    'LTIME': 0xd7,    # Duration long
+    'ITIME': 0xd8,    # Duration short
+    'STRINGN': 0xd9,  # character string (n byte per character)
+    'SHORT_STRING': 0xda,  # character string (1 byte per character, 1 byte length indicator)
+    'TIME': 0xdb,     # Duration in milliseconds
+    'EPATH': 0xdc,    # CIP Path segment
+    'ENGUNIT': 0xdd,  # Engineering Units
+    'STRINGI': 0xde   # International character string
+}
