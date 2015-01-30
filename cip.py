@@ -31,15 +31,7 @@ class Cip:
         self.vid = '\x09\x10'
         self.vsn = '\x09\x10\x19\x71'
         self.target_cid = None
-
-
-    def get_address_type(self):
-        """
-            Address Type Id  Position start 8 chars after Encapsulation HEADER (size 24)
-            Address Type Id is UINT type
-        :return:
-        """
-        return unpack_uint(self._replay[32:34])
+        self.target_is_connected = False
 
     def service_replayed(self):
         """
@@ -62,17 +54,6 @@ class Cip:
             # Extended status should be 2 byte
             self.extend_status = unpack_uint(self._replay[44:45])
         return self.extend_status
-
-    def is_replay_ok(self):
-        if self._replay is None:
-            return False
-
-        if unpack_dint(self._replay[8:12]) == SUCCESS:
-            return True
-        else:
-            print (er)
-            return False
-
 
     def parse(self):
         if self._replay is None:
@@ -149,16 +130,34 @@ class Cip:
     def send_rr_data(self, msg):
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(msg))
         self._message += msg
-        print_bytes(self._message)
         self.send()
         self.receive()
 
     def send_unit_data(self, msg):
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(msg))
         self._message += msg
-        print_bytes(self._message)
         self.send()
         self.receive()
+
+    def _send_rr_data_replay(self, info):
+        # Exit if replay is not  valid
+        if self._replay is None:
+            print '%s without reply' % info
+            return None
+
+        # Exit if send_rr_data returned error
+        if unpack_dint(self._replay[8:12]) != SUCCESS:
+            print 'send_rr_data %s reply error' % info
+            return None
+
+        # Exit if  forward_open replay returned error
+        # 42 General Status
+        # 43 Size of additional status
+        # 44..n additional status
+        if unpack_sint(self._replay[42:43]) != SUCCESS:
+            print '%s reply error'  % info
+            return None
+        return True
 
     @staticmethod
     def create_tag_rp(tag):
@@ -237,31 +236,49 @@ class Cip:
                                                ''.join(forward_open_msg),
                                                ADDRESS_ITEM['Null'],
                                                timeout=1))
+        return self._send_rr_data_replay('forward_open')
+
+    def forward_close(self, backplane=1, cpu_slot=0, rpi=5000):
+        if self.session == 0:
+            print "Session not registered yet."
+            return None
+
+        forward_close_msg = [
+            FORWARD_CLOSE,
+            pack_sint(2),
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
+            INSTANCE_ID["8-bit"],
+            CONNECTION_MANAGER_INSTANCE['Open Request'],
+            PRIORITY,
+            TIMEOUT_TICKS,
+            self.csn,
+            self.vid,
+            self.vsn,
+            CONNECTION_SIZE['Backplane'],
+            '\x00',     # Reserved
+            pack_sint(backplane),
+            pack_sint(cpu_slot),
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Message Router"],
+            INSTANCE_ID["8-bit"],
+            pack_sint(1)
+        ]
+
+        self.send_rr_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'],
+                                               ''.join(forward_close_msg),
+                                               ADDRESS_ITEM['Null'],
+                                               timeout=1))
+
+        return self._send_rr_data_replay('forward_close')
 
     def _get_target_cid(self):
-        self.forward_open()
-        print_bytes(self._replay)
-
-        # Exit if replay is not  valid
-        if self._replay is None:
-            print 'forward_open without reply'
-            self.target_cid = None
+        if self.forward_open():
+            self.target_cid = self._replay[44:48]
+            self.target_is_connected = True
+            return self.target_cid
+        else:
             return None
-
-        # Exit if send_rr_data returned error
-        if unpack_dint(self._replay[8:12]) != SUCCESS:
-            print 'send_rr_data reply error'
-            return None
-
-        # Exit if  forward_open replay returned error
-        if unpack_sint(self._replay[42:43]) != SUCCESS:
-            print 'forward_open reply error'
-            self.target_cid = None
-            return None
-
-        self.target_cid = self._replay[44:48]
-
-        return self.target_cid
 
     def read_tag(self, tag='Counts', backplane=1, cpu_slot=0, rpi=5000):
         """
@@ -280,7 +297,7 @@ class Cip:
         :return: the tag value or None if any error
         """
         if self.target_cid is None:
-             if self._get_target_cid() is None:
+            if self._get_target_cid() is None:
                 return None
 
         rp = Cip.create_tag_rp(tag)
@@ -298,9 +315,6 @@ class Cip:
                                                  ''.join(message_request),
                                                  ADDRESS_ITEM['Connection Based'],
                                                  addr_data=self.target_cid))
-
-        print_bytes(self._replay)
-
 
     def write_tag(self, tag='Counts'):
         """
@@ -339,9 +353,6 @@ class Cip:
                                                  ''.join(message_request),
                                                  ADDRESS_ITEM['Connection Based'],
                                                  addr_data=self.target_cid))
-        print_bytes(self._replay)
-
-        # return False
 
     def _get_symbol_object_instances(self, instance=0, time_out=10):
         """
@@ -400,9 +411,6 @@ class Cip:
         self._message = self.build_header(ENCAPSULATION_COMMAND['send_rr_data'],
                                           len(command_specific_data)) + command_specific_data
 
-        # Debug
-        print_info(self._message)
-
         # Send the UCMM Request
         self.send()
 
@@ -442,6 +450,8 @@ class Cip:
         return False
 
     def close(self):
+        if self.target_is_connected:
+            self.forward_close()
         if self.session != 0:
             self.un_register_session()
         self.__sock.close()
