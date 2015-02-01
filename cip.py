@@ -1,7 +1,10 @@
-_version__ = "$Revision$"
+_version__ = "Revision 1.0"
 # $Source$
 
 from cip_base import *
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TagList:
@@ -32,14 +35,7 @@ class Cip:
         self.vsn = '\x09\x10\x19\x71'
         self.target_cid = None
         self.target_is_connected = False
-
-    def service_replayed(self):
-        """
-            Replay Service 16 chars after Encapsulation HEADER (size 24)
-            Replay Service 1 byte long
-        :return:
-        """
-        return ord(self._replay[40])
+        self._sequence = 1
 
     def get_extended_status(self):
         """
@@ -55,41 +51,6 @@ class Cip:
             self.extend_status = unpack_uint(self._replay[44:45])
         return self.extend_status
 
-    def parse(self):
-        if self._replay is None:
-            return False
-
-        replay_status = unpack_dint(self._replay[8:12])
-        if replay_status != SUCCESS:
-            if replay_status in STATUS.keys():
-                print "Returned %s" % STATUS[replay_status]
-            else:
-                print "Returned Unrecognized error %d (0x%08x)" % (replay_status, replay_status)
-            return False
-
-        # Get Command
-        command = self._replay[:2]
-
-        if command == ENCAPSULATION_COMMAND['register_session']:
-            self.session = unpack_dint(self._replay[4:8])
-            print 'Session Registered:'
-            print_bytes(pack_dint(self.session))
-        elif command == ENCAPSULATION_COMMAND['list_identity']:
-            pass
-        elif command == ENCAPSULATION_COMMAND['list_services']:
-            pass
-        elif command == ENCAPSULATION_COMMAND['list_interfaces']:
-            pass
-        elif command == ENCAPSULATION_COMMAND['send_rr_data']:
-            pass
-
-            print "Read =", unpack_dint(self._replay[-4:])
-        else:
-            print "Command %d (0x%02x) unknown or not implemented" % (command, command)
-
-            return False
-        return True
-
     def build_header(self, command, length):
         """
         build the encapsulated message header which is a 24 bytes fixed length.
@@ -104,59 +65,104 @@ class Cip:
         return h
 
     def nop(self):
+        logger.debug('>>> nop')
         self._message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
         self.send()
+        logger.debug('nop >>>')
 
     def list_identity(self):
+        logger.debug('>>> list_identity')
         self._message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
         self.send()
         self.receive()
-        self.parse()
+        logger.debug('list_identity >>>')
 
     def register_session(self):
+        logger.debug('>>> register_session')
+        if self.session:
+            logger.warn('Session already registered')
+            return self.session
+
         self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
         self._message += pack_uint(self.protocol_version)
         self._message += pack_uint(0)
         self.send()
         self.receive()
-        self.parse()
-        return self.session
+        if self._check_replay():
+            self.session = unpack_dint(self._replay[4:8])
+            logger.debug('register_session (session =%s) >>>' % print_bytes_line(self._replay[4:8]))
+            return self.session
+        logger.warn('Leaving register_session (session =None) >>>')
+        return None
 
     def un_register_session(self):
+        logger.debug('>>> un_register_session')
         self._message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
         self.send()
         self.session = None
+        logger.debug('un_register_session >>>')
 
     def send_rr_data(self, msg):
+        logger.debug('>>> send_rr_data')
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(msg))
         self._message += msg
         self.send()
         self.receive()
+        logger.debug('send_rr_data >>>')
+        return self._check_replay()
 
     def send_unit_data(self, msg):
+        logger.debug('>>> send_unit_data')
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(msg))
         self._message += msg
         self.send()
         self.receive()
+        logger.debug('send_unit_data >>>')
+        return self._check_replay()
 
-    def _send_rr_data_replay(self, info):
-        # Exit if replay is not  valid
+    def _get_sequence(self):
+        if self._sequence < 65535:
+            self._sequence += 1
+        else:
+            self._sequence = 1
+        return self._sequence
+
+    def _check_replay(self):
+        """
+        :param info: a string to attach to the print msg
+        :return: False  if there are error in the replay
+                 True if thee replay is valid
+        """
         if self._replay is None:
-            print '%s without reply' % info
-            return None
+            logger.warning('%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
+            return False
+        typ = unpack_uint(self._replay[:2])
 
         # Exit if send_rr_data returned error
         if unpack_dint(self._replay[8:12]) != SUCCESS:
-            print 'send_rr_data %s reply error' % info
-            return None
+            logger.warning('%s reply error' % REPLAY_INFO[typ])
+            return False
 
-        # Exit if  forward_open replay returned error
-        # 42 General Status
-        # 43 Size of additional status
-        # 44..n additional status
-        if unpack_sint(self._replay[42:43]) != SUCCESS:
-            print '%s reply error'  % info
-            return None
+        if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
+            # Exit if  send_rr_data replay returned error
+            # 42 General Status
+            # 43 Size of additional status
+            # 44..n additional status
+            if unpack_sint(self._replay[42:43]) != SUCCESS:
+                logger.warning('%s reply error' % REPLAY_INFO[unpack_sint(self._message[40:41])])
+                return False
+        elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
+            # Exit if  send_unit_data replay returned error
+            # 48 General Status
+            # 49 Size of additional status
+            # 50..n additional status
+            if unpack_sint(self._replay[48]) != SUCCESS:
+                logger.warning('%s reply error' % TAG_SERVICES_REPLAY[unpack_sint(self._replay[46])])
+                return False
+        elif typ not in REPLAY_INFO:
+            logger.warning('Replay to unknown encapsulation message [%d]' % typ)
+            return False
+
         return True
 
     @staticmethod
@@ -198,8 +204,9 @@ class Cip:
         return msg
 
     def forward_open(self, backplane=1, cpu_slot=0, rpi=5000):
+        logger.debug('>>> forward_open')
         if self.session == 0:
-            print "Session not registered yet."
+            logger.warning("Session not registered yet.")
             return None
 
         forward_open_msg = [
@@ -231,16 +238,26 @@ class Cip:
             INSTANCE_ID["8-bit"],
             pack_sint(1)
         ]
-        # forward_open_msg = ''.join(forward_open_msg)
-        self.send_rr_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'],
-                                               ''.join(forward_open_msg),
-                                               ADDRESS_ITEM['Null'],
-                                               timeout=1))
-        return self._send_rr_data_replay('forward_open')
 
-    def forward_close(self, backplane=1, cpu_slot=0, rpi=5000):
+        if self.send_rr_data(
+                Cip.build_common_cpf(
+                        DATA_ITEM['Unconnected'],
+                        ''.join(forward_open_msg),
+                        ADDRESS_ITEM['Null'],
+                        timeout=1
+                )):
+            self.target_cid = self._replay[44:48]
+            self.target_is_connected = True
+            logger.info("The target is connected end returned CID %s" % print_bytes_line(self.target_cid))
+            logger.debug('forward_open >>>')
+            return True
+        logger.warning('forward_open returning False>>>')
+        return False
+
+    def forward_close(self, backplane=1, cpu_slot=0):
+        logger.debug('>>> forward_close')
         if self.session == 0:
-            print "Session not registered yet."
+            logger.warning("Session not registered yet.")
             return None
 
         forward_close_msg = [
@@ -264,23 +281,21 @@ class Cip:
             INSTANCE_ID["8-bit"],
             pack_sint(1)
         ]
+        if self.send_rr_data(
+                Cip.build_common_cpf(
+                        DATA_ITEM['Unconnected'],
+                        ''.join(forward_close_msg),
+                        ADDRESS_ITEM['Null'],
+                        timeout=1
+                )):
+            self.target_is_connected = False
+            logger.debug('forward_close >>>')
+            return True
+        logger.warning('forward_close returning False>>>')
+        return False
 
-        self.send_rr_data(Cip.build_common_cpf(DATA_ITEM['Unconnected'],
-                                               ''.join(forward_close_msg),
-                                               ADDRESS_ITEM['Null'],
-                                               timeout=1))
 
-        return self._send_rr_data_replay('forward_close')
-
-    def _get_target_cid(self):
-        if self.forward_open():
-            self.target_cid = self._replay[44:48]
-            self.target_is_connected = True
-            return self.target_cid
-        else:
-            return None
-
-    def read_tag(self, tag='Counts', backplane=1, cpu_slot=0, rpi=5000):
+    def read_tag(self, tag):
         """
         From Rockwell Automation Publication 1756-PM020C-EN-P - November 2012:
         The Read Tag Service reads the data associated with the tag specified in the path.
@@ -296,27 +311,46 @@ class Cip:
         :param time_out: Operation Timeout
         :return: the tag value or None if any error
         """
-        if self.target_cid is None:
-            if self._get_target_cid() is None:
+        logger.debug('>>> read_tag')
+        if self.session == 0:
+            logger.warning("Session not registered yet.")
+            return None
+
+        if not self.target_is_connected:
+            if not self.forward_open():
+                logger.warning("Target did not connected")
                 return None
 
         rp = Cip.create_tag_rp(tag)
 
         # Creating the Message Request Packet
         message_request = [
-            pack_uint(1),
+            pack_uint(self._get_sequence()),
             chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
             chr(len(rp) / 2),               # the Request Path Size length in word
             rp,                             # the request path
             pack_uint(1),                    # Add the number of tag to read
         ]
 
-        self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Connected'],
-                                                 ''.join(message_request),
-                                                 ADDRESS_ITEM['Connection Based'],
-                                                 addr_data=self.target_cid))
+        if self.send_unit_data(
+                Cip.build_common_cpf(
+                    DATA_ITEM['Connected'],
+                    ''.join(message_request),
+                    ADDRESS_ITEM['Connection Based'],
+                    addr_data=self.target_cid
+                )):
+            # Get the data type
+            for key, value in DATA_TYPE.iteritems():
+                if value == unpack_uint(self._replay[50:52]):
+                    logger.debug('read_tag {0}={1} >>>'.format(tag, UNPACK_DATA_FUNCTION[key](self._replay[52:])))
+                    return UNPACK_DATA_FUNCTION[key](self._replay[52:]), key
+            logger.warning('read_tag returned none because data type is unknown>>>')
+            return None
+        else:
+            logger.warning('read_tag returned None >>>')
+            return None
 
-    def write_tag(self, tag='Counts'):
+    def write_tag(self, tag, value, typ):
         """
         From Rockwell Automation Publication 1756-PM020C-EN-P - November 2012:
         The Read Tag Service reads the data associated with the tag specified in the path.
@@ -332,27 +366,39 @@ class Cip:
         :param time_out: Operation Timeout
         :return: the tag value or None if any error
         """
-        if self.target_cid is None:
-            if self._get_target_cid() is None:
+        logger.debug('>>> write_tag')
+        if self.session == 0:
+            logger.warning("Session not registered yet.")
+            return None
+
+        if not self.target_is_connected:
+            if not self.forward_open():
+                logger.warning("Target did not connected")
                 return None
 
         rp = Cip.create_tag_rp(tag)
 
         # Creating the Message Request Packet
         message_request = [
-            pack_uint(2),
+            pack_uint(self._get_sequence()),
             chr(TAG_SERVICES_REQUEST["Write Tag"]),   # the Request Service
             chr(len(rp) / 2),               # the Request Path Size length in word
             rp,                             # the request path
-            pack_uint(DATA_TYPE['INT']),                # data type
+            pack_uint(DATA_TYPE[typ]),    # data type
             pack_uint(1),                    # Add the number of tag to write
-            pack_uint(8)
+            PACK_DATA_FUNCTION[typ](value)
         ]
-
-        self.send_unit_data(Cip.build_common_cpf(DATA_ITEM['Connected'],
-                                                 ''.join(message_request),
-                                                 ADDRESS_ITEM['Connection Based'],
-                                                 addr_data=self.target_cid))
+        logger.debug('writing tag:{0} value:{1} type:{2}'.format(tag, value, typ))
+        ret_val = self.send_unit_data(
+            Cip.build_common_cpf(
+                DATA_ITEM['Connected'],
+                ''.join(message_request),
+                ADDRESS_ITEM['Connection Based'],
+                addr_data=self.target_cid
+            )
+        )
+        logger.debug('write_tag >>>')
+        return ret_val
 
     def _get_symbol_object_instances(self, instance=0, time_out=10):
         """
@@ -419,9 +465,10 @@ class Cip:
 
     def send(self):
         try:
+            logger.debug(print_bytes_msg(self._message,  'SEND --------------'))
             self.__sock.send(self._message)
         except SocketError, e:
-            print 'Error {%s} during {%s}'.format(e, 'send')
+            logger.error('Error {%s} during {%s}'.format(e, 'send'), exc_info=True)
             return False
 
         return True
@@ -429,27 +476,33 @@ class Cip:
     def receive(self):
         try:
             self._replay = self.__sock.receive()
+            logger.debug(print_bytes_msg(self._replay, 'RECEIVE -----------'))
         except SocketError, e:
-            print 'Error {%s} during {%s}'.format(e, 'receive')
+            logger.error('Error {%s} during {%s}'.format(e, 'receive'), exc_info=True)
             self._replay = None
             return False
 
         return True
 
     def open(self, ip_address):
+        logger.debug('>>> open %s' % ip_address)
         # handle the socket layer
         if not self.connection_opened:
             try:
                 self.__sock.connect(ip_address, self.port)
                 self.connection_opened = True
-                self.register_session()
+                if self.register_session() is None:
+                    logger.warning("Session not registered")
+                    logger.debug('open >>>')
+                    return False
+                logger.debug('open >>>')
                 return True
             except SocketError, e:
-                print 'Error {%s} during {%s}'.format(e, 'open')
-
+                logger.error('Error {%s} during {%s}'.format(e, 'open'), exc_info=True)
         return False
 
     def close(self):
+        logger.debug('>>> close')
         if self.target_is_connected:
             self.forward_close()
         if self.session != 0:
@@ -458,3 +511,4 @@ class Cip:
         self.__sock = None
         self.session = 0
         self.connection_opened = False
+        logger.debug('close >>>')

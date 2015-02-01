@@ -2,6 +2,25 @@ import struct
 import socket
 from cip_const import *
 
+import os
+import json
+import logging.config
+
+
+def setup_logging(default_path='logging.json', default_level=logging.INFO, env_key='LOG_CFG'):
+    """Setup logging configuration
+
+    """
+    path = default_path
+    value = os.getenv(env_key, None)
+    if value:
+        path = value
+    if os.path.exists(path):
+        with open(path, 'rt') as f:
+            config = json.load(f)
+        logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level=default_level)
 
 class ProtocolError(Exception):
     pass
@@ -25,6 +44,16 @@ def pack_dint(n):
     return struct.pack('<I', n)
 
 
+def pack_real(r):
+    """unpack 4 bytes little indian to int"""
+    return struct.pack('<f', r)
+
+
+def pack_lint(l):
+    """unpack 4 bytes little indian to int"""
+    return struct.unpack('<q', l)
+
+
 def unpack_sint(st):
     return int(struct.unpack('b', st[0])[0])
 
@@ -38,6 +67,36 @@ def unpack_dint(st):
     """unpack 4 bytes little indian to int"""
     return int(struct.unpack('<I', st[0:4])[0])
 
+
+def unpack_real(st):
+    """unpack 4 bytes little indian to int"""
+    return float(struct.unpack('<f', st[0:4])[0])
+
+
+def unpack_lint(st):
+    """unpack 4 bytes little indian to int"""
+    return int(struct.unpack('<q', st[0:8])[0])
+
+
+UNPACK_DATA_FUNCTION = {
+    'BOOL': unpack_sint,
+    'SINT': unpack_sint,    # Signed 8-bit integer
+    'INT': unpack_uint,     # Signed 16-bit integer
+    'DINT': unpack_dint,    # Signed 32-bit integer
+    'REAL': unpack_real,    # 32-bit floating point,
+    'DWORD': unpack_dint,    # byte string 32-bits
+    'LINT': unpack_lint,
+}
+
+PACK_DATA_FUNCTION = {
+    'BOOL': pack_sint,
+    'SINT': pack_sint,    # Signed 8-bit integer
+    'INT': pack_uint,     # Signed 16-bit integer
+    'DINT': pack_dint,    # Signed 32-bit integer
+    'REAL': pack_real,    # 32-bit floating point,
+    'DWORD': pack_dint,    # byte string 32-bits
+    'LINT': pack_lint,
+}
 
 def print_info(msg):
     """
@@ -96,10 +155,28 @@ def print_info(msg):
     return msg
 
 
-def print_bytes(msg):
-    print '[%d]\n' % len(msg)
+def print_bytes_line(msg):
+    out = ''
+    for ch in msg:
+        out += "{:0>2x}".format(ord(ch))
+    return out
+
+def print_bytes_msg(msg, info=''):
+    out = info
+    new_line = True
+    line = 0
+    column = 0
     for idx, ch in enumerate(msg):
-        print "{:3d}) {:0>2x}".format(idx, ord(ch))
+        if new_line:
+            out += "\n({:0>4d}) ".format(line * 10)
+            new_line = False
+        out += "{:0>2x} ".format(ord(ch))
+        column += 1
+        if column == 9:
+            new_line = True
+            column = 0
+            line += 1
+    return out
 
 
 class Socket:

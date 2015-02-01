@@ -92,13 +92,13 @@ TAG_SERVICES_REQUEST = {
 }
 
 TAG_SERVICES_REPLAY = {
-    "Read Tag": 0xcc,
-    "Read Tag Fragmented": 0xd2,
-    "Write Tag": 0xcd,
-    "Write Tag Fragmented": 0xd3,
-    "Read Modify Write Tag": 0xce,
-    "Multiple Service Packet": 0x8a,
-    "Get Instance Attribute List": 0xd5
+    0xcc: "Read Tag",
+    0xd2: "Read Tag Fragmented",
+    0xcd: "Write Tag",
+    0xd3: "Write Tag Fragmented",
+    0xce: "Read Modify Write Tag",
+    0x8a: "Multiple Service Packet",
+    0xd5: "Get Instance Attribute List"
 }
 
 
@@ -229,6 +229,7 @@ CONNECTION_PARAMETER = {
 }
 
 DATA_TYPE = {
+    'BOOL': 0xc1,
     'SINT': 0xc2,    # Signed 8-bit integer
     'INT': 0xc3,     # Signed 16-bit integer
     'DINT': 0xc4,    # Signed 32-bit integer
@@ -258,4 +259,21 @@ DATA_TYPE = {
     'EPATH': 0xdc,    # CIP Path segment
     'ENGUNIT': 0xdd,  # Engineering Units
     'STRINGI': 0xde   # International character string
+}
+
+
+
+REPLAY_INFO = {
+    0x4e: 'FORWARD_CLOSE (4E,00)',
+    0x52: 'UNCONNECTED_SEND (52,00)',
+    0x54: 'FORWARD_OPEN (54,00)',
+    0x6f: 'send_rr_data (6F,00)',
+    0x70: 'send_unit_data (70,00)',
+    0x00: 'nop',
+    0x01: 'list_targets',
+    0x04: 'list_services',
+    0x63: 'list_identity',
+    0x64: 'list_interfaces',
+    0x65: 'register_session',
+    0x66: 'unregister_session',
 }
