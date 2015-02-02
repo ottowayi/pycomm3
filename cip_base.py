@@ -22,6 +22,7 @@ def setup_logging(default_path='logging.json', default_level=logging.INFO, env_k
     else:
         logging.basicConfig(level=default_level)
 
+
 class ProtocolError(Exception):
     pass
 
@@ -31,7 +32,7 @@ class SocketError(Exception):
 
 
 def pack_sint(n):
-    return struct.pack('b', n)
+    return struct.pack('B', n)
 
 
 def pack_uint(n):
@@ -54,8 +55,13 @@ def pack_lint(l):
     return struct.unpack('<q', l)
 
 
+def unpack_bool(st):
+    if int(struct.unpack('B', st[0])[0]) == 255:
+        return 1
+    return 0
+
 def unpack_sint(st):
-    return int(struct.unpack('b', st[0])[0])
+    return int(struct.unpack('B', st[0])[0])
 
 
 def unpack_uint(st):
@@ -79,7 +85,7 @@ def unpack_lint(st):
 
 
 UNPACK_DATA_FUNCTION = {
-    'BOOL': unpack_sint,
+    'BOOL': unpack_bool,
     'SINT': unpack_sint,    # Signed 8-bit integer
     'INT': unpack_uint,     # Signed 16-bit integer
     'DINT': unpack_dint,    # Signed 32-bit integer
@@ -171,11 +177,12 @@ def print_bytes_msg(msg, info=''):
             out += "\n({:0>4d}) ".format(line * 10)
             new_line = False
         out += "{:0>2x} ".format(ord(ch))
-        column += 1
         if column == 9:
             new_line = True
             column = 0
             line += 1
+        else:
+            column += 1
     return out
 
 

@@ -39,9 +39,9 @@ class Cip:
 
     def get_extended_status(self):
         """
-            Extended Status is  3 byte  after Replay Service
-            Replay Service 1 byte long
-        :return:
+        Return the extend status.
+
+        Status is  3 byte  after Replay Service Replay Service 1 byte long.
         """
         if ord(self._replay[43]) == 0:
             # no extend_status
@@ -141,6 +141,10 @@ class Cip:
         # Exit if send_rr_data returned error
         if unpack_dint(self._replay[8:12]) != SUCCESS:
             logger.warning('%s reply error' % REPLAY_INFO[typ])
+            logger.warning('{0} reply status:{1}'.format(
+                REPLAY_INFO[typ],
+                SERVICE_STATUS[unpack_dint(self._replay[8:12])]
+            ))
             return False
 
         if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
@@ -149,15 +153,53 @@ class Cip:
             # 43 Size of additional status
             # 44..n additional status
             if unpack_sint(self._replay[42:43]) != SUCCESS:
-                logger.warning('%s reply error' % REPLAY_INFO[unpack_sint(self._message[40:41])])
+                logger.warning('{0} reply status:{1}'.format(
+                    REPLAY_INFO[unpack_sint(self._message[40:41])],
+                    SERVICE_STATUS[unpack_sint(self._replay[42:43])]
+                ))
+                extended_status_size = unpack_sint(self._replay[43:44])
+                if extended_status_size != 0:
+                        # There is an additional status
+                        if extended_status_size == 1:
+                            extended_status_str = SERVICE_STATUS[unpack_sint(self._replay[44:45])]
+                        elif extended_status_size == 2:
+                            extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[44:46])]
+                        elif extended_status_size == 4:
+                            extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[44:47])]
+                        else:
+                            extended_status_str = 'Unknown Extended Status'
+                        logger.warning('{0} extended status:{1}'.format(
+                            TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
+                            extended_status_str
+                        ))
                 return False
         elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
             # Exit if  send_unit_data replay returned error
             # 48 General Status
             # 49 Size of additional status
             # 50..n additional status
-            if unpack_sint(self._replay[48]) != SUCCESS:
-                logger.warning('%s reply error' % TAG_SERVICES_REPLAY[unpack_sint(self._replay[46])])
+            if unpack_sint(self._replay[48:49]) != SUCCESS:
+                logger.debug(print_bytes_msg(self._replay))
+                logger.warning('{0} reply status:{1}'.format(
+                    TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
+                    SERVICE_STATUS[unpack_sint(self._replay[48:49])]
+                ))
+                extended_status_size = unpack_sint(self._replay[49:50])
+                if extended_status_size != 0:
+                        # There is an additional status
+                        if extended_status_size == 1:
+                            extended_status_str = SERVICE_STATUS[unpack_sint(self._replay[50:51])]
+                        elif extended_status_size == 2:
+                            extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[50:52])]
+                        elif extended_status_size == 4:
+                            extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[50:54])]
+                        else:
+                            extended_status_str = 'Unknown Extended Status'
+                        logger.warning('{0} extended status:{1}'.format(
+                            TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
+                            extended_status_str
+                        ))
+
                 return False
         elif typ not in REPLAY_INFO:
             logger.warning('Replay to unknown encapsulation message [%d]' % typ)
@@ -167,22 +209,43 @@ class Cip:
 
     @staticmethod
     def create_tag_rp(tag):
-        tag_length = len(tag)
+        tags = tag.split('.')
+        rp = []
+        for tag in tags:
+            add_index = False
+            # Check if is an array tag
+            if tag.find('[') != -1:
+                # Remove the last square bracket
+                tag = tag[:len(tag)-1]
+                # Isolate the index
+                index = tag[tag.find('[')+1:]
+                add_index = True
+                # Get only the tag part
+                tag = tag[:tag.find('[')]
 
-        # Create the request path
-        rp = [
-            EXTENDED_SYMBOL,            # ANSI Ext. symbolic segment
-            chr(tag_length)             # Length of the tag
-        ]
+            tag_length = len(tag)
+            # Create the request path
+            rp.append(EXTENDED_SYMBOL)  # ANSI Ext. symbolic segment
+            rp.append(chr(tag_length))  # Length of the tag
+            # Add the tag to the Request path
+            for char in tag:
+                rp.append(char)
+            # Add pad byte because total length of Request path must be word-aligned
+            if tag_length % 2:
+                rp.append('\x00')
 
-        # Add the tag to the Request path
-        for char in tag:
-            rp.append(char)
+            if add_index:
+                val = int(index)
+                if val <= 0xff:
+                    rp.append('\x28')
+                    rp.append(pack_sint(val))
+                elif val <= 0xffff:
+                    rp.append('\x29\x00')
+                    rp.append(pack_uint(val))
+                else:
+                    rp.append('\x2a\x00')
+                    rp.append(pack_dint(val))
 
-        # Add pad byte because total length of Request path must be word-aligned
-        if tag_length % 2:
-
-            rp.append('\x00')
         # At this point the Request Path is completed,
         return ''.join(rp)
 
@@ -317,6 +380,7 @@ class Cip:
             return None
 
         if not self.target_is_connected:
+            logger.debug('target not connected yet. Will execute a forward_open to connect')
             if not self.forward_open():
                 logger.warning("Target did not connected")
                 return None
@@ -337,7 +401,8 @@ class Cip:
                     DATA_ITEM['Connected'],
                     ''.join(message_request),
                     ADDRESS_ITEM['Connection Based'],
-                    addr_data=self.target_cid
+                    addr_data=self.target_cid,
+                    timeout=1
                 )):
             # Get the data type
             for key, value in DATA_TYPE.iteritems():
@@ -394,7 +459,8 @@ class Cip:
                 DATA_ITEM['Connected'],
                 ''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
-                addr_data=self.target_cid
+                addr_data=self.target_cid,
+                timeout=1
             )
         )
         logger.debug('write_tag >>>')
@@ -478,7 +544,7 @@ class Cip:
             self._replay = self.__sock.receive()
             logger.debug(print_bytes_msg(self._replay, 'RECEIVE -----------'))
         except SocketError, e:
-            logger.error('Error {%s} during {%s}'.format(e, 'receive'), exc_info=True)
+            logger.error('Error {0} during {1}'.format(e, 'receive'), exc_info=True)
             self._replay = None
             return False
 

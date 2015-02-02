@@ -262,7 +262,6 @@ DATA_TYPE = {
 }
 
 
-
 REPLAY_INFO = {
     0x4e: 'FORWARD_CLOSE (4E,00)',
     0x52: 'UNCONNECTED_SEND (52,00)',

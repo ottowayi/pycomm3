@@ -10,7 +10,7 @@
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "level": "DEBUG",
+            "level": "INFO",
             "formatter": "simple",
             "stream": "ext://sys.stdout"
         },
@@ -38,13 +38,13 @@
 
     "loggers": {
         "cip": {
-            "level": "DEBUG",
-            "handlers": ["console"],
+            "level": "INFO",
+            "handlers": ["info_file_handler"],
             "propagate": "no"
         },
         "__main__": {
-            "level": "DEBUG",
-            "handlers": ["console"],
+            "level": "INFO",
+            "handlers": ["info_file_handler"],
             "propagate": "no"
         }
     },
