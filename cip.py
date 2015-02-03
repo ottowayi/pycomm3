@@ -159,19 +159,24 @@ class Cip:
                 ))
                 extended_status_size = unpack_sint(self._replay[43:44])
                 if extended_status_size != 0:
-                        # There is an additional status
-                        if extended_status_size == 1:
+                    # There is an additional status
+                    extended_status_str = 'Unknown Extended Status'
+                    if extended_status_size == 1:
+                        if unpack_sint(self._replay[44:45]) in SERVICE_STATUS:
                             extended_status_str = SERVICE_STATUS[unpack_sint(self._replay[44:45])]
-                        elif extended_status_size == 2:
+                    elif extended_status_size == 2:
+                        if unpack_uint(self._replay[44:46]) in SERVICE_STATUS:
                             extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[44:46])]
-                        elif extended_status_size == 4:
+                    elif extended_status_size == 4:
+                        if unpack_uint(self._replay[44:47]):
                             extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[44:47])]
-                        else:
-                            extended_status_str = 'Unknown Extended Status'
-                        logger.warning('{0} extended status:{1}'.format(
-                            TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
-                            extended_status_str
-                        ))
+                    else:
+                        extended_status_str = 'Extended Status Size Unknown'
+
+                    logger.warning('{0} extended status:{1}'.format(
+                        TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
+                        extended_status_str
+                    ))
                 return False
         elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
             # Exit if  send_unit_data replay returned error
@@ -186,19 +191,23 @@ class Cip:
                 ))
                 extended_status_size = unpack_sint(self._replay[49:50])
                 if extended_status_size != 0:
-                        # There is an additional status
-                        if extended_status_size == 1:
+                    # There is an additional status
+                    extended_status_str = 'Unknown Extended Status'
+                    if extended_status_size == 1:
+                        if unpack_sint(self._replay[50:51]) in SERVICE_STATUS:
                             extended_status_str = SERVICE_STATUS[unpack_sint(self._replay[50:51])]
-                        elif extended_status_size == 2:
+                    elif extended_status_size == 2:
+                        if unpack_uint(self._replay[50:52]) in SERVICE_STATUS:
                             extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[50:52])]
-                        elif extended_status_size == 4:
+                    elif extended_status_size == 4:
+                        if unpack_uint(self._replay[50:54]) in SERVICE_STATUS:
                             extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[50:54])]
-                        else:
-                            extended_status_str = 'Unknown Extended Status'
-                        logger.warning('{0} extended status:{1}'.format(
-                            TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
-                            extended_status_str
-                        ))
+                    else:
+                        extended_status_str = 'Extended Status Size Unknown'
+                    logger.warning('{0} extended status:{1}'.format(
+                        TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
+                        extended_status_str
+                    ))
 
                 return False
         elif typ not in REPLAY_INFO:
@@ -209,6 +218,9 @@ class Cip:
 
     @staticmethod
     def create_tag_rp(tag):
+        """ Create tag Request Packet
+
+        """
         tags = tag.split('.')
         rp = []
         for tag in tags:
@@ -242,9 +254,12 @@ class Cip:
                 elif val <= 0xffff:
                     rp.append('\x29\x00')
                     rp.append(pack_uint(val))
-                else:
+                elif val <= 0xfffffffff:
                     rp.append('\x2a\x00')
                     rp.append(pack_dint(val))
+                else:
+                    logger.warning('create_tag_rp tag index error {0}[{1}]'.format(tag, val))
+                    return None
 
         # At this point the Request Path is completed,
         return ''.join(rp)
@@ -387,6 +402,10 @@ class Cip:
 
         rp = Cip.create_tag_rp(tag)
 
+        if rp is None:
+            logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+            return None
+
         # Creating the Message Request Packet
         message_request = [
             pack_uint(self._get_sequence()),
@@ -442,6 +461,10 @@ class Cip:
                 return None
 
         rp = Cip.create_tag_rp(tag)
+
+        if rp is None:
+            logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+            return None
 
         # Creating the Message Request Packet
         message_request = [
