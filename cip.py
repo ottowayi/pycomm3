@@ -223,18 +223,21 @@ class Cip:
         """
         tags = tag.split('.')
         rp = []
+        index = []
         for tag in tags:
             add_index = False
             # Check if is an array tag
             if tag.find('[') != -1:
                 # Remove the last square bracket
                 tag = tag[:len(tag)-1]
-                # Isolate the index
-                index = tag[tag.find('[')+1:]
+                # Isolate the value inside bracket
+                inside_value = tag[tag.find('[')+1:]
+                # Now split the inside value in case part of multidimensional array
+                index = inside_value.split(',')
+                # Flag the existence of one o more index
                 add_index = True
                 # Get only the tag part
                 tag = tag[:tag.find('[')]
-
             tag_length = len(tag)
             # Create the request path
             rp.append(EXTENDED_SYMBOL)  # ANSI Ext. symbolic segment
@@ -245,21 +248,22 @@ class Cip:
             # Add pad byte because total length of Request path must be word-aligned
             if tag_length % 2:
                 rp.append('\x00')
-
+            # Add any index
             if add_index:
-                val = int(index)
-                if val <= 0xff:
-                    rp.append('\x28')
-                    rp.append(pack_sint(val))
-                elif val <= 0xffff:
-                    rp.append('\x29\x00')
-                    rp.append(pack_uint(val))
-                elif val <= 0xfffffffff:
-                    rp.append('\x2a\x00')
-                    rp.append(pack_dint(val))
-                else:
-                    logger.warning('create_tag_rp tag index error {0}[{1}]'.format(tag, val))
-                    return None
+                for idx in index:
+                    val = int(idx)
+                    if val <= 0xff:
+                        rp.append('\x28')
+                        rp.append(pack_sint(val))
+                    elif val <= 0xffff:
+                        rp.append('\x29\x00')
+                        rp.append(pack_uint(val))
+                    elif val <= 0xfffffffff:
+                        rp.append('\x2a\x00')
+                        rp.append(pack_dint(val))
+                    else:
+                        logger.warning('create_tag_rp tag index error {0}[{1}]'.format(tag, val))
+                        return None
 
         # At this point the Request Path is completed,
         return ''.join(rp)
