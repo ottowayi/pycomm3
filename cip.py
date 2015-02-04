@@ -508,7 +508,7 @@ class Cip:
         :return: the message composed or None if any error
         """
         if self.session == 0:
-            print "Session not registered yet."
+            print("Session not registered yet.")
             return None
 
         # Creating the Message Request Packet
@@ -560,8 +560,8 @@ class Cip:
         try:
             logger.debug(print_bytes_msg(self._message,  'SEND --------------'))
             self.__sock.send(self._message)
-        except SocketError, e:
-            logger.error('Error {%s} during {%s}'.format(e, 'send'), exc_info=True)
+        except SocketError as e:
+            logger.error('Error {0} during {1}'.format(e, 'send'), exc_info=True)
             return False
 
         return True
@@ -570,7 +570,7 @@ class Cip:
         try:
             self._replay = self.__sock.receive()
             logger.debug(print_bytes_msg(self._replay, 'RECEIVE -----------'))
-        except SocketError, e:
+        except SocketError as e:
             logger.error('Error {0} during {1}'.format(e, 'receive'), exc_info=True)
             self._replay = None
             return False
@@ -590,8 +590,8 @@ class Cip:
                     return False
                 logger.debug('open >>>')
                 return True
-            except SocketError, e:
-                logger.error('Error {%s} during {%s}'.format(e, 'open'), exc_info=True)
+            except SocketError as e:
+                logger.error('Error {0} during {1}'.format(e, 'open'), exc_info=True)
         return False
 
     def close(self):
