@@ -1,5 +1,7 @@
-_version__ = "Revision 1.0"
-# $Source$
+__author__ = "Agostino Ruscito <ruscito@gmail.com>"
+__status__ = "testing"
+__version__ = "0.1"
+__date__ = "01 01 2015"
 
 from cip_base import *
 import logging
@@ -36,6 +38,10 @@ class Cip:
         self.target_cid = None
         self.target_is_connected = False
         self._sequence = 1
+        self.backplane = 1
+        self.cpu_slot = 0
+        self.rpi = 5000
+        setup_logging()
 
     def get_extended_status(self):
         """
@@ -128,17 +134,16 @@ class Cip:
         return self._sequence
 
     def _check_replay(self):
-        """
-        :param info: a string to attach to the print msg
-        :return: False  if there are error in the replay
-                 True if thee replay is valid
+        """ _check_replay
+
         """
         if self._replay is None:
             logger.warning('%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
             return False
+        # Get the type of command
         typ = unpack_uint(self._replay[:2])
 
-        # Exit if send_rr_data returned error
+        # Encapsulation status check
         if unpack_dint(self._replay[8:12]) != SUCCESS:
             logger.warning('%s reply error' % REPLAY_INFO[typ])
             logger.warning('{0} reply status:{1}'.format(
@@ -147,69 +152,68 @@ class Cip:
             ))
             return False
 
+        # Command Specific Status check
         if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
+            status = unpack_sint(self._replay[42:43])
             # Exit if  send_rr_data replay returned error
             # 42 General Status
             # 43 Size of additional status
             # 44..n additional status
-            if unpack_sint(self._replay[42:43]) != SUCCESS:
-                logger.warning('{0} reply status:{1}'.format(
+            if status != SUCCESS:
+                logger.warning('{0} reply status {1}: {2}'.format(
                     REPLAY_INFO[unpack_sint(self._message[40:41])],
-                    SERVICE_STATUS[unpack_sint(self._replay[42:43])]
+                    "{:0>2x} ".format(ord(self._replay[42:43])),
+                    SERVICE_STATUS[status]
                 ))
                 extended_status_size = unpack_sint(self._replay[43:44])
                 if extended_status_size != 0:
                     # There is an additional status
-                    extended_status_str = 'Unknown Extended Status'
-                    if extended_status_size == 1:
-                        if unpack_sint(self._replay[44:45]) in SERVICE_STATUS:
-                            extended_status_str = SERVICE_STATUS[unpack_sint(self._replay[44:45])]
-                    elif extended_status_size == 2:
-                        if unpack_uint(self._replay[44:46]) in SERVICE_STATUS:
-                            extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[44:46])]
-                    elif extended_status_size == 4:
-                        if unpack_uint(self._replay[44:47]):
-                            extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[44:47])]
-                    else:
-                        extended_status_str = 'Extended Status Size Unknown'
-
-                    logger.warning('{0} extended status:{1}'.format(
-                        TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
-                        extended_status_str
-                    ))
-                return False
+                    try:
+                        if extended_status_size == 1:
+                            extended_status = unpack_sint(self._replay[44:45])
+                        elif extended_status_size == 2:
+                            extended_status = unpack_sint(self._replay[44:46])
+                        elif extended_status_size == 4:
+                            extended_status = unpack_dint(self._replay[44:48])
+                        else:
+                            logger.warning('Extended Status Size Unknown')
+                            return False
+                    except LookupError:
+                        logger.warning('Extended status [{0}] not coded '.format(pack_dint(extended_status)))
+                        return False
+                    logger.warning('Extended status :{0}'.format(EXTEND_CODES[status][extended_status]))
+                    return False
         elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
             # Exit if  send_unit_data replay returned error
             # 48 General Status
             # 49 Size of additional status
             # 50..n additional status
-            if unpack_sint(self._replay[48:49]) != SUCCESS:
+            status = unpack_sint(self._replay[48:49])
+            if status != SUCCESS:
                 logger.debug(print_bytes_msg(self._replay))
-                logger.warning('{0} reply status:{1}'.format(
+                logger.warning('{0} reply status {1}: {2}'.format(
                     TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
-                    SERVICE_STATUS[unpack_sint(self._replay[48:49])]
+                    "{:0>2x} ".format(ord(self._replay[48:49])),
+                    SERVICE_STATUS[status]
                 ))
                 extended_status_size = unpack_sint(self._replay[49:50])
                 if extended_status_size != 0:
                     # There is an additional status
-                    extended_status_str = 'Unknown Extended Status'
-                    if extended_status_size == 1:
-                        if unpack_sint(self._replay[50:51]) in SERVICE_STATUS:
-                            extended_status_str = SERVICE_STATUS[unpack_sint(self._replay[50:51])]
-                    elif extended_status_size == 2:
-                        if unpack_uint(self._replay[50:52]) in SERVICE_STATUS:
-                            extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[50:52])]
-                    elif extended_status_size == 4:
-                        if unpack_uint(self._replay[50:54]) in SERVICE_STATUS:
-                            extended_status_str = SERVICE_STATUS[unpack_uint(self._replay[50:54])]
-                    else:
-                        extended_status_str = 'Extended Status Size Unknown'
-                    logger.warning('{0} extended status:{1}'.format(
-                        TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
-                        extended_status_str
-                    ))
-
-                return False
+                    try:
+                        if extended_status_size == 1:
+                            extended_status = unpack_sint(self._replay[50:51])
+                        elif extended_status_size == 2:
+                            extended_status = unpack_sint(self._replay[50:52])
+                        elif extended_status_size == 4:
+                            extended_status = unpack_dint(self._replay[50:54])
+                        else:
+                            logger.warning('Extended Status Size Unknown')
+                            return False
+                    except LookupError:
+                        logger.warning('Extended status [{0}] not coded '.format(pack_dint(extended_status)))
+                        return False
+                    logger.warning('Extended status :{0}'.format(EXTEND_CODES[status][extended_status]))
+                    return False
         elif typ not in REPLAY_INFO:
             logger.warning('Replay to unknown encapsulation message [%d]' % typ)
             return False
@@ -285,7 +289,7 @@ class Cip:
         msg += message
         return msg
 
-    def forward_open(self, backplane=1, cpu_slot=0, rpi=5000):
+    def forward_open(self):
         logger.debug('>>> forward_open')
         if self.session == 0:
             logger.warning("Session not registered yet.")
@@ -307,14 +311,14 @@ class Cip:
             self.vsn,
             TIMEOUT_MULTIPLIER,
             '\x00\x00\x00',
-            pack_dint(rpi*1000),
+            pack_dint(self.rpi*1000),
             pack_uint(CONNECTION_PARAMETER['Default']),
-            pack_dint(rpi*1000),
+            pack_dint(self.rpi*1000),
             pack_uint(CONNECTION_PARAMETER['Default']),
             TRANSPORT_CLASS,  # Transport Class
             CONNECTION_SIZE['Backplane'],
-            pack_sint(backplane),
-            pack_sint(cpu_slot),
+            pack_sint(self.backplane),
+            pack_sint(self.cpu_slot),
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
@@ -378,20 +382,8 @@ class Cip:
 
 
     def read_tag(self, tag):
-        """
-        From Rockwell Automation Publication 1756-PM020C-EN-P - November 2012:
-        The Read Tag Service reads the data associated with the tag specified in the path.
-            1) Any data that fits into the reply packet is returned, even if it does not all fit.
-            2) If all the data does not fit into the packet, the error 0x06 is returned along
-            with the data.
-            3) When reading a two or three dimensional array of data, all dimensions
-            must be specified.
-            4) When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xFF,
-            respectively.
+        """ read_tag
 
-        :param tag: The tag to read
-        :param time_out: Operation Timeout
-        :return: the tag value or None if any error
         """
         logger.debug('>>> read_tag')
         if self.session == 0:
@@ -413,10 +405,10 @@ class Cip:
         # Creating the Message Request Packet
         message_request = [
             pack_uint(self._get_sequence()),
-            chr(TAG_SERVICES_REQUEST['Read Tag']),   # the Request Service
-            chr(len(rp) / 2),               # the Request Path Size length in word
-            rp,                             # the request path
-            pack_uint(1),                    # Add the number of tag to read
+            chr(TAG_SERVICES_REQUEST['Read Tag']),  # the Request Service
+            chr(len(rp) / 2),                       # the Request Path Size length in word
+            rp,                                     # the request path
+            pack_uint(1),                           # Add the number of tag to read
         ]
 
         if self.send_unit_data(
@@ -439,20 +431,8 @@ class Cip:
             return None
 
     def write_tag(self, tag, value, typ):
-        """
-        From Rockwell Automation Publication 1756-PM020C-EN-P - November 2012:
-        The Read Tag Service reads the data associated with the tag specified in the path.
-            1) Any data that fits into the reply packet is returned, even if it does not all fit.
-            2) If all the data does not fit into the packet, the error 0x06 is returned along
-            with the data.
-            3) When reading a two or three dimensional array of data, all dimensions
-            must be specified.
-            4) When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xFF,
-            respectively.
+        """ write_tag
 
-        :param tag: The tag to read
-        :param time_out: Operation Timeout
-        :return: the tag value or None if any error
         """
         logger.debug('>>> write_tag')
         if self.session == 0:
@@ -494,18 +474,8 @@ class Cip:
         return ret_val
 
     def _get_symbol_object_instances(self, instance=0, time_out=10):
-        """
-        When a tag is created, an instance of the Symbol class (Class ID 0x6B) is created
-        inside the controller. The name of the tag is stored in attribute 1 of the instance.
-        The data type of the tag is stored in attribute 2(*).
+        """ _get_symbol_object_instances
 
-        We send this Message Request to get the list of tags name and type in the controller.
-
-        (*) From Rockwell Automation Publication 1756-PM020C-EN-P - November 2012
-
-        :param instance: The instance to retrieve. First time will be 0
-        :param time_out: Operation Timeout
-        :return: the message composed or None if any error
         """
         if self.session == 0:
             print("Session not registered yet.")
@@ -577,9 +547,12 @@ class Cip:
 
         return True
 
-    def open(self, ip_address):
+    def open(self, ip_address, backplane=1, cpu_slot=0, rpi=5000):
         logger.debug('>>> open %s' % ip_address)
         # handle the socket layer
+        self.backplane = backplane
+        self.cpu_slot = cpu_slot
+        self.rpi = rpi
         if not self.connection_opened:
             try:
                 self.__sock.connect(ip_address, self.port)

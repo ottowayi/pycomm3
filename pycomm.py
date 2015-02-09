@@ -1,20 +1,16 @@
-
 from cip import Cip
 import logging
-from cip_base import setup_logging
-
+import ab_cip_const
 
 if __name__ == '__main__':
-    logger = logging.getLogger(__name__)
-    setup_logging()
+    print (ab_cip_const.EXTEND_CODES[5][1])
     c = Cip()
     c.open('192.168.1.10')
     # c.open('172.16.32.100')
-    v = c.read_tag('TEST6[9,9,9].sData.iVal')
+    v = c.read_tag('Counts')
     print v
     if v is not None:
-        c.write_tag('TEST6[9,9,9].sData.iVal', v[0]+1, 'DINT')
+        c.write_tag('Counts', 23, 'DINT')
     c.close()
-    logger.info('Done')
     logging.shutdown()
 

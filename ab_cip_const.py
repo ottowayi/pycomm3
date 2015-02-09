@@ -1,17 +1,4 @@
-"""
-Atomic Data Type:
 
-          Bit = Bool
-     Bit array = DWORD (32-bit boolean aray)
- 8-bit integer = SINT
-16-bit integer = UINT
-32-bit integer = DINT
-  32-bit float = REAL
-64-bit integer = LINT
-
-From Rockwell Automation Publication 1756-PM020C-EN-P November 2012:
-When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xff, respectively.
-"""
 
 ELEMENT_ID = {
     "8-bit": '\x28',
@@ -44,16 +31,6 @@ ENCAPSULATION_COMMAND = {  # Volume 2: 2-3.2 Command Field UINT 2 byte
     "unregister_session": '\x66\x00',
     "send_rr_data": '\x6F\x00',
     "send_unit_data": '\x70\x00'
-}
-
-STATUS = {
-    0x0000: "Success",
-    0x0001: "The sender issued an invalid or unsupported encapsulation command",
-    0x0002: "Insufficient memory",
-    0x0003: "Poorly formed or incorrect data in the data portion",
-    0x0064: "An originator used an invalid session handle when sending an encapsulation message to the target",
-    0x0065: "The target received a message of invalid length",
-    0x0069: "Unsupported Protocol Version"
 }
 
 """
@@ -101,75 +78,137 @@ TAG_SERVICES_REPLAY = {
     0xd5: "Get Instance Attribute List"
 }
 
+"""
+EtherNet/IP Encapsulation Error Codes
 
+Standard CIP Encapsulation Error returned in the cip message header
+"""
+STATUS = {
+    0x0000: "Success",
+    0x0001: "The sender issued an invalid or unsupported encapsulation command",
+    0x0002: "Insufficient memory",
+    0x0003: "Poorly formed or incorrect data in the data portion",
+    0x0064: "An originator used an invalid session handle when sending an encapsulation message to the target",
+    0x0065: "The target received a message of invalid length",
+    0x0069: "Unsupported Protocol Version"
+}
 
+"""
+MSG Error Codes:
+
+The following error codes have been taken from:
+
+Rockwell Automation Publication
+1756-RM003P-EN-P - December 2014
+"""
 SERVICE_STATUS = {
-    0x01: "Ext error code",
-    0x02: "Resource unavailable",
-    0x03: "Invalid parameters value",
-    0x04: "A syntax error was detected decoding the Request Path.",
-    0x05: "Request Path destination unknown: Probably instance number is not present.",
-    0x06: "Insufficient Packet Space: Not enough room in the response buffer for all the data.",
+    0x01: "Connection failure (see extended codes)",
+    0x02: "Insufficient resource",
+    0x03: "Invalid value",
+    0x04: "IOI syntax error. A syntax error was detected decoding the Request Path (see extended codes)",
+    0x05: "Destination unknown, class unsupported, instance \nundefined or structure element undefined (see extended codes)",
+    0x06: "Insufficient Packet Space",
     0x07: "Connection lost",
     0x08: "Service not supported",
-    0x09: "Invalid attribute value",
+    0x09: "Error in data segment or invalid attribute value",
     0x0A: "Attribute list error",
-    0x0B: "Already in requested mode/state",
+    0x0B: "State already exist",
     0x0C: "Object state conflict",
     0x0D: "Object already exist",
     0x0E: "Attribute not settable",
-    0x0F: "Privilege violation",
-    0x10: "Device state conflict: See extended status",
+    0x0F: "Permission denied",
+    0x10: "Device state conflict",
     0x11: "Reply data too large",
     0x12: "Fragmentation of a primitive value",
-    0x13: "Insufficient Request Data: Data too short for expected parameters.",
+    0x13: "Insufficient command data",
     0x14: "Attribute not supported",
     0x15: "Too much data",
-    0x16: "Object does not exist",
-    0x17: "Service fragmentation sequence not in progress",
-    0x18: "No stored attribute data",
-    0x19: "Store operation failure",
-    0x1A: "Routing failure,request packet too large",
-    0x1B: "Routing failure,response packet too large",
-    0x1C: "Missing attribute list entry data",
-    0x1D: "Invalid attribute value list",
+    0x1A: "Bridge request too large",
+    0x1B: "Bridge response too large",
+    0x1C: "Attribute list shortage",
+    0x1D: "Invalid attribute list",
     0x1E: "Embedded service error",
-    0x1F: "Vendor specific",
-    0x20: "Invalid parameter",
-    0x21: "Write once value or medium already written",
+    0x1F: "Connection related failure (see extended codes)",
     0x22: "Invalid reply received",
-    0x25: "Key failure in path",
-    0x26: "The Request Path Size received was shorter or longer than expected.",
+    0x25: "Key segment error",
+    0x26: "Invalid IOI error",
     0x27: "Unexpected attribute in list",
-    0x28: "Invalid member ID",
-    0x29: "Member not settable",
-    0x2A: "Group 2 only server general failure",
-    0xff: "General Error: See extended status."
+    0x28: "DeviceNet error - invalid member ID",
+    0x29: "DeviceNet error - member not settable",
+    0xD1: "Module not in run state",
+    0xFB: "Message port not supported",
+    0xFC: "Message unsupported data type",
+    0xFD: "Message uninitialized",
+    0xFE: "Message timeout",
+    0xff: "General Error (see extended codes)"
 }
 
-SERVICE_EXTEND_STATUS = {
-    0x45: {
-        0x2105: "Access beyond end of the object."
+EXTEND_CODES = {
+    0x01: {
+        0x0100: "Connection in use",
+        0x0103: "Transport not supported",
+        0x0106: "Ownership conflict",
+        0x0107: "Connection not found",
+        0x0108: "Invalid connection type",
+        0x0109: "Invalid connection size",
+        0x0110: "Module not configured",
+        0x0111: "EPR not supported",
+        0x0114: "Wrong module",
+        0x0115: "Wrong device type",
+        0x0116: "Wrong revision",
+        0x0118: "Invalid configuration format",
+        0x011A: "Application out of connections",
+        0x0203: "Connection timeout",
+        0x0204: "Unconnected message timeout",
+        0x0205: "Unconnected send parameter error",
+        0x0206: "Message too large",
+        0x0301: "No buffer memory",
+        0x0302: "Bandwidth not available",
+        0x0303: "No screeners available",
+        0x0305: "Signature match",
+        0x0311: "Port not available",
+        0x0312: "Link address not available",
+        0x0315: "Invalid segment type",
+        0x0317: "Connection not scheduled"
     },
-    0x52: {
-        0x2105: "Number of Elements or Byte Offset is beyond the end of the requested tag."
+    0x04: {
+        0x0000: "Extended status out of memory",
+        0x0001: "Extended status out of instances"
     },
-    0x4d: {
-        0x2101: "Keyswitch Position: The requester is attempting to change force information in HARD RUN mode.",
-        0x2105: "Number of Elements extends beyond the end of the requested tag.",
-        0x2107: "Tag type used in the request does not match the target's tag data type.",
-        0x2802: "Safety Status: The controller is in a state in which Safety Memory cannot be modified."
+    0x05: {
+        0x0000: "Extended status out of memory",
+        0x0001: "Extended status out of instances"
     },
-    0x53: {
-        0x2101: "Keyswitch Position: The requester is attempting to change force information in HARD RUN mode.",
-        0x2104: "Offset is beyond end of the requested tag.",
-        0x2105: "Offset plus Number of Elements extends beyond the end of the requested tag.",
-        0x2107: "Data type used in the request does not match the target's tag data type.",
-        0x2802: "Safety Status: The controller is in a state in which Safety Memory cannot be modified."
+    0x1F: {
+        0x0203: "Connection timeout"
     },
-    0x4c: {
-        0x2101: "Keyswitch Position: The requester is attempting to change force information in HARD RUN mode.",
-        0x2802: "Safety Status: The controller is in a state in which Safety Memory cannot be modified."
+    0xff: {
+        0x7: "Wrong data type",
+        0x2001: "Excessive IOI",
+        0x2002: "Bad parameter value",
+        0x2018: "Semaphore reject",
+        0x201B: "Size too small",
+        0x201C: "Invalid size",
+        0x2100: "Privilege failure",
+        0x2101: "Invalid keyswitch position",
+        0x2102: "Password invalid",
+        0x2103: "No password issued",
+        0x2104: "Address out of range",
+        0x2105: "Address and how many out of range",
+        0x2106: "Data in use",
+        0x2107: "Type is invalid or not supported",
+        0x2108: "Controller in upload or download mode",
+        0x2109: "Attempt to change number of array dimensions",
+        0x210A: "Invalid symbol name",
+        0x210B: "Symbol does not exist",
+        0x210E: "Search failed",
+        0x210F: "Task cannot start",
+        0x2110: "Unable to write",
+        0x2111: "Unable to read",
+        0x2112: "Shared routine not editable",
+        0x2113: "Controller in faulted mode",
+        0x2114: "Run mode inhibited"
+
     }
 }
 DATA_ITEM = {
@@ -227,6 +266,21 @@ CONNECTION_PARAMETER = {
     'DHP': 0x4302,
     'Default': 0x43f8,
 }
+
+"""
+Atomic Data Type:
+
+          Bit = Bool
+     Bit array = DWORD (32-bit boolean aray)
+ 8-bit integer = SINT
+16-bit integer = UINT
+32-bit integer = DINT
+  32-bit float = REAL
+64-bit integer = LINT
+
+From Rockwell Automation Publication 1756-PM020C-EN-P November 2012:
+When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xff, respectively.
+"""
 
 DATA_TYPE = {
     'BOOL': 0xc1,

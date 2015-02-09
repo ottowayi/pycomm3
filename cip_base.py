@@ -1,6 +1,6 @@
 import struct
 import socket
-from cip_const import *
+from ab_cip_const import *
 
 import os
 import json
@@ -28,6 +28,10 @@ class ProtocolError(Exception):
 
 
 class SocketError(Exception):
+    pass
+
+
+class CipError(Exception):
     pass
 
 
@@ -167,6 +171,7 @@ def print_bytes_line(msg):
         out += "{:0>2x}".format(ord(ch))
     return out
 
+
 def print_bytes_msg(msg, info=''):
     out = info
     new_line = True
@@ -185,6 +190,9 @@ def print_bytes_msg(msg, info=''):
             column += 1
     return out
 
+
+def get_extended_status(msg):
+    pass
 
 class Socket:
     def __init__(self, timeout):
@@ -249,3 +257,4 @@ class Socket:
 
     def close(self):
         self.sock.close()
+
