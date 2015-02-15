@@ -17,7 +17,7 @@ class TagList:
         self.tagList.append(t)
 
 
-class Cip:
+class ClxDriver:
     def __init__(self):
         self.__version__ = '0.1'
         self.__sock = Socket(None)
@@ -183,6 +183,7 @@ class Cip:
                         return False
                     logger.warning('Extended status :{0}'.format(EXTEND_CODES[status][extended_status]))
                     return False
+
         elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
             # Exit if  send_unit_data replay returned error
             # 48 General Status
@@ -219,75 +220,6 @@ class Cip:
             return False
 
         return True
-
-    @staticmethod
-    def create_tag_rp(tag):
-        """ Create tag Request Packet
-
-        """
-        tags = tag.split('.')
-        rp = []
-        index = []
-        for tag in tags:
-            add_index = False
-            # Check if is an array tag
-            if tag.find('[') != -1:
-                # Remove the last square bracket
-                tag = tag[:len(tag)-1]
-                # Isolate the value inside bracket
-                inside_value = tag[tag.find('[')+1:]
-                # Now split the inside value in case part of multidimensional array
-                index = inside_value.split(',')
-                # Flag the existence of one o more index
-                add_index = True
-                # Get only the tag part
-                tag = tag[:tag.find('[')]
-            tag_length = len(tag)
-            # Create the request path
-            rp.append(EXTENDED_SYMBOL)  # ANSI Ext. symbolic segment
-            rp.append(chr(tag_length))  # Length of the tag
-            # Add the tag to the Request path
-            for char in tag:
-                rp.append(char)
-            # Add pad byte because total length of Request path must be word-aligned
-            if tag_length % 2:
-                rp.append('\x00')
-            # Add any index
-            if add_index:
-                for idx in index:
-                    val = int(idx)
-                    if val <= 0xff:
-                        rp.append('\x28')
-                        rp.append(pack_sint(val))
-                    elif val <= 0xffff:
-                        rp.append('\x29\x00')
-                        rp.append(pack_uint(val))
-                    elif val <= 0xfffffffff:
-                        rp.append('\x2a\x00')
-                        rp.append(pack_dint(val))
-                    else:
-                        logger.warning('create_tag_rp tag index error {0}[{1}]'.format(tag, val))
-                        return None
-
-        # At this point the Request Path is completed,
-        return ''.join(rp)
-
-    @staticmethod
-    def build_common_cpf(message_type, message, addr_type, addr_data=None, timeout=0):
-        msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
-        msg += pack_uint(timeout)   # timeout
-        msg += pack_uint(2)  # Item count: should be at list 2 (Address and Data)
-        msg += addr_type  # Address Item Type ID
-
-        if addr_data is not None:
-            msg += pack_uint(len(addr_data))  # Address Item Length
-            msg += addr_data
-        else:
-            msg += pack_uint(0)  # Address Item Length
-        msg += message_type  # Data Type ID
-        msg += pack_uint(len(message))   # Data Item Length
-        msg += message
-        return msg
 
     def forward_open(self):
         logger.debug('>>> forward_open')
@@ -326,7 +258,7 @@ class Cip:
         ]
 
         if self.send_rr_data(
-                Cip.build_common_cpf(
+                build_common_packet_format(
                         DATA_ITEM['Unconnected'],
                         ''.join(forward_open_msg),
                         ADDRESS_ITEM['Null'],
@@ -368,7 +300,7 @@ class Cip:
             pack_sint(1)
         ]
         if self.send_rr_data(
-                Cip.build_common_cpf(
+                build_common_packet_format(
                         DATA_ITEM['Unconnected'],
                         ''.join(forward_close_msg),
                         ADDRESS_ITEM['Null'],
@@ -396,7 +328,7 @@ class Cip:
                 logger.warning("Target did not connected")
                 return None
 
-        rp = Cip.create_tag_rp(tag)
+        rp = create_tag_rp(tag)
 
         if rp is None:
             logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
@@ -412,7 +344,7 @@ class Cip:
         ]
 
         if self.send_unit_data(
-                Cip.build_common_cpf(
+                build_common_packet_format(
                     DATA_ITEM['Connected'],
                     ''.join(message_request),
                     ADDRESS_ITEM['Connection Based'],
@@ -444,7 +376,7 @@ class Cip:
                 logger.warning("Target did not connected")
                 return None
 
-        rp = Cip.create_tag_rp(tag)
+        rp = create_tag_rp(tag)
 
         if rp is None:
             logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
@@ -462,7 +394,7 @@ class Cip:
         ]
         logger.debug('writing tag:{0} value:{1} type:{2}'.format(tag, value, typ))
         ret_val = self.send_unit_data(
-            Cip.build_common_cpf(
+            build_common_packet_format(
                 DATA_ITEM['Connected'],
                 ''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],

@@ -1,6 +1,6 @@
 import struct
 import socket
-from ab_cip_const import *
+from cip_const import *
 
 import os
 import json
@@ -191,8 +191,107 @@ def print_bytes_msg(msg, info=''):
     return out
 
 
-def get_extended_status(msg):
-    pass
+def get_extended_status(msg, start):
+    status = unpack_sint(msg[start:start+1])
+    # Exit if  send_rr_data replay returned error
+    # 42 General Status
+    # 43 Size of additional status
+    # 44..n additional status
+    extended_status_size = unpack_sint(msg[start+1:start+2])
+    if extended_status_size != 0:
+        # There is an additional status
+        try:
+            if extended_status_size == 1:
+                extended_status = unpack_sint(msg[start+2:start+3])
+            elif extended_status_size == 2:
+                extended_status = unpack_sint(msg[start+2:start+4])
+            elif extended_status_size == 4:
+                extended_status = unpack_dint(msg[start+2:start+6])
+            else:
+                print ('Extended Status Size Unknown')
+                return False
+        except LookupError:
+            print ('Extended status [{0}] not coded '.format(pack_dint(extended_status)))
+            return False
+
+    print ('Extended status :{0}'.format(EXTEND_CODES[status][extended_status]))
+    return False
+
+
+def create_tag_rp(tag):
+    """ Create tag Request Packet
+
+    It returns the request packed wrapped around the tag passed.
+    If any error it returns none
+    """
+    tags = tag.split('.')
+    rp = []
+    index = []
+    for tag in tags:
+        add_index = False
+        # Check if is an array tag
+        if tag.find('[') != -1:
+            # Remove the last square bracket
+            tag = tag[:len(tag)-1]
+            # Isolate the value inside bracket
+            inside_value = tag[tag.find('[')+1:]
+            # Now split the inside value in case part of multidimensional array
+            index = inside_value.split(',')
+            # Flag the existence of one o more index
+            add_index = True
+            # Get only the tag part
+            tag = tag[:tag.find('[')]
+        tag_length = len(tag)
+        # Create the request path
+        rp.append(EXTENDED_SYMBOL)  # ANSI Ext. symbolic segment
+        rp.append(chr(tag_length))  # Length of the tag
+        # Add the tag to the Request path
+        for char in tag:
+            rp.append(char)
+        # Add pad byte because total length of Request path must be word-aligned
+        if tag_length % 2:
+            rp.append(PADDING_BYTE)
+        # Add any index
+        if add_index:
+            for idx in index:
+                val = int(idx)
+                if val <= 0xff:
+                    rp.append(ELEMENT_ID["8-bit"])
+                    rp.append(pack_sint(val))
+                elif val <= 0xffff:
+                    rp.append(ELEMENT_ID["16-bit"]+PADDING_BYTE)
+                    rp.append(pack_uint(val))
+                elif val <= 0xfffffffff:
+                    rp.append(ELEMENT_ID["32-bit"]+PADDING_BYTE)
+                    rp.append(pack_dint(val))
+                else:
+                    # Cannot create a valid request packet
+                    return None
+
+    # At this point the Request Path is completed,
+    return ''.join(rp)
+
+
+def build_common_packet_format(message_type, message, addr_type, addr_data=None, timeout=0):
+    """ build_common_packet_format
+
+    It creates the common part for a CIP message. Check Volume 2 (page 2.22) of CIP specification  for reference
+    """
+    msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
+    msg += pack_uint(timeout)   # timeout
+    msg += pack_uint(2)  # Item count: should be at list 2 (Address and Data)
+    msg += addr_type  # Address Item Type ID
+
+    if addr_data is not None:
+        msg += pack_uint(len(addr_data))  # Address Item Length
+        msg += addr_data
+    else:
+        msg += pack_uint(0)  # Address Item Length
+    msg += message_type  # Data Type ID
+    msg += pack_uint(len(message))   # Data Item Length
+    msg += message
+    return msg
+
 
 class Socket:
     def __init__(self, timeout):
