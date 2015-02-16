@@ -17,7 +17,3 @@ def setup_logging(default_path='logging.json', default_level=logging.INFO, env_k
         logging.config.dictConfig(config)
     else:
         logging.basicConfig(level=default_level)
-
-
-
-

@@ -18,6 +18,7 @@ class TagList:
 
 class ClxDriver:
     logger = logging.getLogger('ClxDriver')
+
     def __init__(self):
         self.__version__ = '0.1'
         self.__sock = Socket(None)
@@ -42,21 +43,6 @@ class ClxDriver:
         self.cpu_slot = 0
         self.rpi = 5000
         self._more_packets_available = False
-        setup_logging()
-
-    def get_extended_status(self):
-        """
-        Return the extend status.
-
-        Status is  3 byte  after Replay Service Replay Service 1 byte long.
-        """
-        if ord(self._replay[43]) == 0:
-            # no extend_status
-            return 0
-        else:
-            # Extended status should be 2 byte
-            self.extend_status = unpack_uint(self._replay[44:45])
-        return self.extend_status
 
     def build_header(self, command, length):
         """
