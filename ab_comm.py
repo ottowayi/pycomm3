@@ -4,9 +4,8 @@ __version__ = "0.1"
 __date__ = "01 01 2015"
 
 from cip_base import *
+from pycomm import setup_logging
 import logging
-
-logger = logging.getLogger(__name__)
 
 
 class TagList:
@@ -18,6 +17,7 @@ class TagList:
 
 
 class ClxDriver:
+    logger = logging.getLogger('ClxDriver')
     def __init__(self):
         self.__version__ = '0.1'
         self.__sock = Socket(None)
@@ -41,6 +41,7 @@ class ClxDriver:
         self.backplane = 1
         self.cpu_slot = 0
         self.rpi = 5000
+        self._more_packets_available = False
         setup_logging()
 
     def get_extended_status(self):
@@ -71,22 +72,22 @@ class ClxDriver:
         return h
 
     def nop(self):
-        logger.debug('>>> nop')
+        self.self.logger.debug('>>> nop')
         self._message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
         self.send()
-        logger.debug('nop >>>')
+        self.logger.debug('nop >>>')
 
     def list_identity(self):
-        logger.debug('>>> list_identity')
+        self.logger.debug('>>> list_identity')
         self._message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
         self.send()
         self.receive()
-        logger.debug('list_identity >>>')
+        self.logger.debug('list_identity >>>')
 
     def register_session(self):
-        logger.debug('>>> register_session')
+        self.logger.debug('>>> register_session')
         if self.session:
-            logger.warn('Session already registered')
+            self.logger.warn('Session already registered')
             return self.session
 
         self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
@@ -96,34 +97,34 @@ class ClxDriver:
         self.receive()
         if self._check_replay():
             self.session = unpack_dint(self._replay[4:8])
-            logger.debug('register_session (session =%s) >>>' % print_bytes_line(self._replay[4:8]))
+            self.logger.debug('register_session (session =%s) >>>' % print_bytes_line(self._replay[4:8]))
             return self.session
-        logger.warn('Leaving register_session (session =None) >>>')
+        self.logger.warn('Leaving register_session (session =None) >>>')
         return None
 
     def un_register_session(self):
-        logger.debug('>>> un_register_session')
+        self.logger.debug('>>> un_register_session')
         self._message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
         self.send()
         self.session = None
-        logger.debug('un_register_session >>>')
+        self.logger.debug('un_register_session >>>')
 
     def send_rr_data(self, msg):
-        logger.debug('>>> send_rr_data')
+        self.logger.debug('>>> send_rr_data')
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(msg))
         self._message += msg
         self.send()
         self.receive()
-        logger.debug('send_rr_data >>>')
+        self.logger.debug('send_rr_data >>>')
         return self._check_replay()
 
     def send_unit_data(self, msg):
-        logger.debug('>>> send_unit_data')
+        self.logger.debug('>>> send_unit_data')
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(msg))
         self._message += msg
         self.send()
         self.receive()
-        logger.debug('send_unit_data >>>')
+        self.logger.debug('send_unit_data >>>')
         return self._check_replay()
 
     def _get_sequence(self):
@@ -137,94 +138,57 @@ class ClxDriver:
         """ _check_replay
 
         """
-        if self._replay is None:
-            logger.warning('%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
-            return False
-        # Get the type of command
-        typ = unpack_uint(self._replay[:2])
+        try:
+            if self._replay is None:
+                self.logger.warning('%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
+                return False
+            # Get the type of command
+            typ = unpack_uint(self._replay[:2])
 
-        # Encapsulation status check
-        if unpack_dint(self._replay[8:12]) != SUCCESS:
-            logger.warning('%s reply error' % REPLAY_INFO[typ])
-            logger.warning('{0} reply status:{1}'.format(
-                REPLAY_INFO[typ],
-                SERVICE_STATUS[unpack_dint(self._replay[8:12])]
-            ))
-            return False
-
-        # Command Specific Status check
-        if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
-            status = unpack_sint(self._replay[42:43])
-            # Exit if  send_rr_data replay returned error
-            # 42 General Status
-            # 43 Size of additional status
-            # 44..n additional status
-            if status != SUCCESS:
-                logger.warning('{0} reply status {1}: {2}'.format(
-                    REPLAY_INFO[unpack_sint(self._message[40:41])],
-                    "{:0>2x} ".format(ord(self._replay[42:43])),
-                    SERVICE_STATUS[status]
+            # Encapsulation status check
+            if unpack_dint(self._replay[8:12]) != SUCCESS:
+                self.logger.warning('%s reply error' % REPLAY_INFO[typ])
+                self.logger.warning('{0} reply status:{1}'.format(
+                    REPLAY_INFO[typ],
+                    SERVICE_STATUS[unpack_dint(self._replay[8:12])]
                 ))
-                extended_status_size = unpack_sint(self._replay[43:44])
-                if extended_status_size != 0:
-                    # There is an additional status
-                    try:
-                        if extended_status_size == 1:
-                            extended_status = unpack_sint(self._replay[44:45])
-                        elif extended_status_size == 2:
-                            extended_status = unpack_sint(self._replay[44:46])
-                        elif extended_status_size == 4:
-                            extended_status = unpack_dint(self._replay[44:48])
-                        else:
-                            logger.warning('Extended Status Size Unknown')
-                            return False
-                    except LookupError:
-                        logger.warning('Extended status [{0}] not coded '.format(pack_dint(extended_status)))
-                        return False
-                    logger.warning('Extended status :{0}'.format(EXTEND_CODES[status][extended_status]))
+                return False
+
+            # Command Specific Status check
+            if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
+                status = unpack_sint(self._replay[42:43])
+                if status == INSUFFICIENT_PACKETS:
+                    self._more_packets_available = True
+                    return True
+
+                if status != SUCCESS:
+                    self.logger.warning('send_rr_data reply status {0}: {1}'.format(
+                        "{:0>2x} ".format(ord(self._replay[42:43])),
+                        SERVICE_STATUS[status]))
+                    self.logger.warning(get_extended_status(self._replay, 42))
                     return False
 
-        elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
-            # Exit if  send_unit_data replay returned error
-            # 48 General Status
-            # 49 Size of additional status
-            # 50..n additional status
-            status = unpack_sint(self._replay[48:49])
-            if status != SUCCESS:
-                logger.debug(print_bytes_msg(self._replay))
-                logger.warning('{0} reply status {1}: {2}'.format(
-                    TAG_SERVICES_REPLAY[unpack_sint(self._replay[46:47])],
-                    "{:0>2x} ".format(ord(self._replay[48:49])),
-                    SERVICE_STATUS[status]
-                ))
-                extended_status_size = unpack_sint(self._replay[49:50])
-                if extended_status_size != 0:
-                    # There is an additional status
-                    try:
-                        if extended_status_size == 1:
-                            extended_status = unpack_sint(self._replay[50:51])
-                        elif extended_status_size == 2:
-                            extended_status = unpack_sint(self._replay[50:52])
-                        elif extended_status_size == 4:
-                            extended_status = unpack_dint(self._replay[50:54])
-                        else:
-                            logger.warning('Extended Status Size Unknown')
-                            return False
-                    except LookupError:
-                        logger.warning('Extended status [{0}] not coded '.format(pack_dint(extended_status)))
-                        return False
-                    logger.warning('Extended status :{0}'.format(EXTEND_CODES[status][extended_status]))
+            elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
+                status = unpack_sint(self._replay[48:49])
+                if status == INSUFFICIENT_PACKETS:
+                    self._more_packets_available = True
+                    return True
+                if status != SUCCESS:
+                    self.logger.debug(print_bytes_msg(self._replay))
+                    self.logger.warning('send_unit_data reply status {0}: {1}'.format(
+                        "{:0>2x} ".format(ord(self._replay[48:49])),
+                        SERVICE_STATUS[status]))
+                    self.logger.warning(get_extended_status(self._replay, 48))
                     return False
-        elif typ not in REPLAY_INFO:
-            logger.warning('Replay to unknown encapsulation message [%d]' % typ)
-            return False
 
+        except LookupError:
+            self.logger.warning('LookupError inside _check_replay')
         return True
 
     def forward_open(self):
-        logger.debug('>>> forward_open')
+        self.logger.debug('>>> forward_open')
         if self.session == 0:
-            logger.warning("Session not registered yet.")
+            self.logger.warning("Session not registered yet.")
             return None
 
         forward_open_msg = [
@@ -266,16 +230,16 @@ class ClxDriver:
                 )):
             self.target_cid = self._replay[44:48]
             self.target_is_connected = True
-            logger.info("The target is connected end returned CID %s" % print_bytes_line(self.target_cid))
-            logger.debug('forward_open >>>')
+            self.logger.info("The target is connected end returned CID %s" % print_bytes_line(self.target_cid))
+            self.logger.debug('forward_open >>>')
             return True
-        logger.warning('forward_open returning False>>>')
+        self.logger.warning('forward_open returning False>>>')
         return False
 
     def forward_close(self, backplane=1, cpu_slot=0):
-        logger.debug('>>> forward_close')
+        self.logger.debug('>>> forward_close')
         if self.session == 0:
-            logger.warning("Session not registered yet.")
+            self.logger.warning("Session not registered yet.")
             return None
 
         forward_close_msg = [
@@ -307,9 +271,9 @@ class ClxDriver:
                         timeout=1
                 )):
             self.target_is_connected = False
-            logger.debug('forward_close >>>')
+            self.logger.debug('forward_close >>>')
             return True
-        logger.warning('forward_close returning False>>>')
+        self.logger.warning('forward_close returning False>>>')
         return False
 
 
@@ -317,21 +281,21 @@ class ClxDriver:
         """ read_tag
 
         """
-        logger.debug('>>> read_tag')
+        self.logger.debug('>>> read_tag')
         if self.session == 0:
-            logger.warning("Session not registered yet.")
+            self.logger.warning("Session not registered yet.")
             return None
 
         if not self.target_is_connected:
-            logger.debug('target not connected yet. Will execute a forward_open to connect')
+            self.logger.debug('target not connected yet. Will execute a forward_open to connect')
             if not self.forward_open():
-                logger.warning("Target did not connected")
+                self.logger.warning("Target did not connected")
                 return None
 
         rp = create_tag_rp(tag)
 
         if rp is None:
-            logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+            self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
             return None
 
         # Creating the Message Request Packet
@@ -354,32 +318,32 @@ class ClxDriver:
             # Get the data type
             for key, value in DATA_TYPE.iteritems():
                 if value == unpack_uint(self._replay[50:52]):
-                    logger.debug('read_tag {0}={1} >>>'.format(tag, UNPACK_DATA_FUNCTION[key](self._replay[52:])))
+                    self.logger.debug('read_tag {0}={1} >>>'.format(tag, UNPACK_DATA_FUNCTION[key](self._replay[52:])))
                     return UNPACK_DATA_FUNCTION[key](self._replay[52:]), key
-            logger.warning('read_tag returned none because data type is unknown>>>')
+            self.logger.warning('read_tag returned none because data type is unknown>>>')
             return None
         else:
-            logger.warning('read_tag returned None >>>')
+            self.logger.warning('read_tag returned None >>>')
             return None
 
     def write_tag(self, tag, value, typ):
         """ write_tag
 
         """
-        logger.debug('>>> write_tag')
+        self.logger.debug('>>> write_tag')
         if self.session == 0:
-            logger.warning("Session not registered yet.")
+            self.logger.warning("Session not registered yet.")
             return None
 
         if not self.target_is_connected:
             if not self.forward_open():
-                logger.warning("Target did not connected")
+                self.logger.warning("Target did not connected")
                 return None
 
         rp = create_tag_rp(tag)
 
         if rp is None:
-            logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+            self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
             return None
 
         # Creating the Message Request Packet
@@ -392,7 +356,7 @@ class ClxDriver:
             pack_uint(1),                    # Add the number of tag to write
             PACK_DATA_FUNCTION[typ](value)
         ]
-        logger.debug('writing tag:{0} value:{1} type:{2}'.format(tag, value, typ))
+        self.logger.debug('writing tag:{0} value:{1} type:{2}'.format(tag, value, typ))
         ret_val = self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
@@ -402,7 +366,7 @@ class ClxDriver:
                 timeout=1
             )
         )
-        logger.debug('write_tag >>>')
+        self.logger.debug('write_tag >>>')
         return ret_val
 
     def _get_symbol_object_instances(self, instance=0, time_out=10):
@@ -460,10 +424,10 @@ class ClxDriver:
 
     def send(self):
         try:
-            logger.debug(print_bytes_msg(self._message,  'SEND --------------'))
+            self.logger.debug(print_bytes_msg(self._message,  'SEND --------------'))
             self.__sock.send(self._message)
         except SocketError as e:
-            logger.error('Error {0} during {1}'.format(e, 'send'), exc_info=True)
+            self.logger.error('Error {0} during {1}'.format(e, 'send'), exc_info=True)
             return False
 
         return True
@@ -471,16 +435,16 @@ class ClxDriver:
     def receive(self):
         try:
             self._replay = self.__sock.receive()
-            logger.debug(print_bytes_msg(self._replay, 'RECEIVE -----------'))
+            self.logger.debug(print_bytes_msg(self._replay, 'RECEIVE -----------'))
         except SocketError as e:
-            logger.error('Error {0} during {1}'.format(e, 'receive'), exc_info=True)
+            self.logger.error('Error {0} during {1}'.format(e, 'receive'), exc_info=True)
             self._replay = None
             return False
 
         return True
 
     def open(self, ip_address, backplane=1, cpu_slot=0, rpi=5000):
-        logger.debug('>>> open %s' % ip_address)
+        self.logger.debug('>>> open %s' % ip_address)
         # handle the socket layer
         self.backplane = backplane
         self.cpu_slot = cpu_slot
@@ -490,17 +454,17 @@ class ClxDriver:
                 self.__sock.connect(ip_address, self.port)
                 self.connection_opened = True
                 if self.register_session() is None:
-                    logger.warning("Session not registered")
-                    logger.debug('open >>>')
+                    self.logger.warning("Session not registered")
+                    self.logger.debug('open >>>')
                     return False
-                logger.debug('open >>>')
+                self.logger.debug('open >>>')
                 return True
             except SocketError as e:
-                logger.error('Error {0} during {1}'.format(e, 'open'), exc_info=True)
+                self.logger.error('Error {0} during {1}'.format(e, 'open'), exc_info=True)
         return False
 
     def close(self):
-        logger.debug('>>> close')
+        self.logger.debug('>>> close')
         if self.target_is_connected:
             self.forward_close()
         if self.session != 0:
@@ -509,4 +473,4 @@ class ClxDriver:
         self.__sock = None
         self.session = 0
         self.connection_opened = False
-        logger.debug('close >>>')
+        self.logger.debug('close >>>')

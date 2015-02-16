@@ -2,27 +2,6 @@ import struct
 import socket
 from cip_const import *
 
-import os
-import json
-import logging.config
-
-
-def setup_logging(default_path='logging.json', default_level=logging.INFO, env_key='LOG_CFG'):
-    """Setup logging configuration
-
-    """
-    path = default_path
-    value = os.getenv(env_key, None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path, 'rt') as f:
-            config = json.load(f)
-        logging.config.dictConfig(config)
-    else:
-        logging.basicConfig(level=default_level)
-
-
 class ProtocolError(Exception):
     pass
 
@@ -193,10 +172,15 @@ def print_bytes_msg(msg, info=''):
 
 def get_extended_status(msg, start):
     status = unpack_sint(msg[start:start+1])
-    # Exit if  send_rr_data replay returned error
+    # send_rr_data
     # 42 General Status
     # 43 Size of additional status
     # 44..n additional status
+
+    # send_unit_data
+    # 48 General Status
+    # 49 Size of additional status
+    # 50..n additional status
     extended_status_size = unpack_sint(msg[start+1:start+2])
     if extended_status_size != 0:
         # There is an additional status
@@ -208,14 +192,12 @@ def get_extended_status(msg, start):
             elif extended_status_size == 4:
                 extended_status = unpack_dint(msg[start+2:start+6])
             else:
-                print ('Extended Status Size Unknown')
-                return False
+                return 'Extended Status Size Unknown'
         except LookupError:
-            print ('Extended status [{0}] not coded '.format(pack_dint(extended_status)))
-            return False
+            return 'Extended status [{0}] not coded '.format(pack_dint(extended_status))
 
-    print ('Extended status :{0}'.format(EXTEND_CODES[status][extended_status]))
-    return False
+    return 'Extended status :{0}'.format(EXTEND_CODES[status][extended_status])
+
 
 
 def create_tag_rp(tag):
