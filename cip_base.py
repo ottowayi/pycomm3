@@ -276,22 +276,13 @@ def build_common_packet_format(message_type, message, addr_type, addr_data=None,
 
 
 class Socket:
-    def __init__(self, timeout):
-        self.timeout = 5.0
+    def __init__(self, timeout=5.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if timeout is None:
-            self.sock.settimeout(self.timeout)
+            self.sock.settimeout(5.0)
         else:
             self.sock.settimeout(timeout)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-
-    @property
-    def timeout(self):
-        return self.timeout
-
-    @timeout.setter
-    def timeout(self, par):
-        self.timeout = par
 
     def connect(self, host, port):
         try:
@@ -338,4 +329,3 @@ class Socket:
 
     def close(self):
         self.sock.close()
-

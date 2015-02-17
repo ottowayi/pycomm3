@@ -13,6 +13,6 @@ if __name__ == '__main__':
     v = c.read_tag('Counts')
     print v
     if v is not None:
-        c.write_tag('Countss', 23, 'INT')
+        c.write_tag('Counts', 23, 'INT')
     c.close()
     logging.shutdown()

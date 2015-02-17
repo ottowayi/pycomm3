@@ -4,19 +4,10 @@ __version__ = "0.1"
 __date__ = "01 01 2015"
 
 from cip_base import *
-from pycomm import setup_logging
 import logging
 
 
-class TagList:
-    def __init__(self):
-        self.tagList = []
-
-    def add_tag(self, t):
-        self.tagList.append(t)
-
-
-class ClxDriver:
+class ClxDriver(object):
     logger = logging.getLogger('ClxDriver')
 
     def __init__(self):
@@ -58,17 +49,13 @@ class ClxDriver:
         return h
 
     def nop(self):
-        self.self.logger.debug('>>> nop')
         self._message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
         self.send()
-        self.logger.debug('nop >>>')
 
     def list_identity(self):
-        self.logger.debug('>>> list_identity')
         self._message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
         self.send()
         self.receive()
-        self.logger.debug('list_identity >>>')
 
     def register_session(self):
         self.logger.debug('>>> register_session')
@@ -89,28 +76,22 @@ class ClxDriver:
         return None
 
     def un_register_session(self):
-        self.logger.debug('>>> un_register_session')
         self._message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
         self.send()
         self.session = None
-        self.logger.debug('un_register_session >>>')
 
     def send_rr_data(self, msg):
-        self.logger.debug('>>> send_rr_data')
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(msg))
         self._message += msg
         self.send()
         self.receive()
-        self.logger.debug('send_rr_data >>>')
         return self._check_replay()
 
     def send_unit_data(self, msg):
-        self.logger.debug('>>> send_unit_data')
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(msg))
         self._message += msg
         self.send()
         self.receive()
-        self.logger.debug('send_unit_data >>>')
         return self._check_replay()
 
     def _get_sequence(self):
