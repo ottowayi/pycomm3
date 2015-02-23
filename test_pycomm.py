@@ -10,8 +10,8 @@ if __name__ == '__main__':
     c = ClxDriver()
     c.open('192.168.1.10')
     # c.open('172.16.32.100')
-    # v = c.read_tag(['parts', 'ControlWord', 'Counts'])
-    v = c.read_tag('Counts')
+    # v = c.read_tag(['parts', 'ControlWord', 'Countt'])
+    v = c.read_tag('Countt')
     if v is not None:
         print v
         c.write_tag('Counts', 24, 'INT')

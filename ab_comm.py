@@ -274,7 +274,7 @@ class ClxDriver(object):
                     return None
                 else:
                     rp_list.append(chr(TAG_SERVICES_REQUEST['Read Tag']) + rp + pack_uint(1))
-            message_request = build_multiple_service_service(rp_list, self._get_sequence())
+            message_request = build_multiple_service(rp_list, self._get_sequence())
 
         else:
             rp = create_tag_rp(tag)
@@ -291,14 +291,18 @@ class ClxDriver(object):
                     pack_uint(1)
                 ]
 
-        if self.send_unit_data(
-                build_common_packet_format(
-                    DATA_ITEM['Connected'],
-                    ''.join(message_request),
-                    ADDRESS_ITEM['Connection Based'],
-                    addr_data=self.target_cid,
-                )):
+        #if \
+        self.send_unit_data(
+            build_common_packet_format(
+                DATA_ITEM['Connected'],
+                ''.join(message_request),
+                ADDRESS_ITEM['Connection Based'],
+                addr_data=self.target_cid,
+            ))
 
+        if multi_requests:
+            parse_multi_request(self._replay[50:])
+        else:
             # Get the data type
             data_type = unpack_uint(self._replay[50:52])
             try:
@@ -308,11 +312,11 @@ class ClxDriver(object):
                 )
                 return UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._replay[52:]), I_DATA_TYPE[data_type]
             except LookupError:
-                self.logger.warning('read_tag returned none because data type is unknown>>>')
+                self.logger.warning('read_tag data type unknown>>>')
                 return None
-        else:
-            self.logger.warning('read_tag returned None >>>')
-            return None
+        #else:
+        #    self.logger.warning('read_tag returned Error >>>')
+        #    return None
 
     def write_tag(self, tag, value, typ):
         """ write_tag
@@ -402,7 +406,6 @@ class ClxDriver(object):
         # Now put together Encapsulation Header and Command Specific Data
         self._message = self.build_header(ENCAPSULATION_COMMAND['send_rr_data'],
                                           len(command_specific_data)) + command_specific_data
-
         # Send the UCMM Request
         self.send()
 

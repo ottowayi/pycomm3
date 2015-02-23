@@ -127,7 +127,7 @@ SERVICE_STATUS = {
     0x1B: "Bridge response too large",
     0x1C: "Attribute list shortage",
     0x1D: "Invalid attribute list",
-    0x1E: "Embedded service error",
+    0x1E: "Request service error",
     0x1F: "Connection related failure (see extended codes)",
     0x22: "Invalid reply received",
     0x25: "Key segment error",

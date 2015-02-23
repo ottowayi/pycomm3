@@ -200,9 +200,9 @@ def get_extended_status(msg, start):
         else:
             return 'Extended Status Size Unknown'
     try:
-        return 'Extended Code :{0}'.format(EXTEND_CODES[status][extended_status])
+        return 'Extended Status :{0}'.format(EXTEND_CODES[status][extended_status])
     except LookupError:
-        return 'Extended Code [{0}] not coded '.format(pack_dint(extended_status))
+        return "Extended Status info not present"
 
 
 def create_tag_rp(tag, multi_requests=False):
@@ -287,7 +287,7 @@ def build_common_packet_format(message_type, message, addr_type, addr_data=None,
     return msg
 
 
-def build_multiple_service_service(rp_list, sequence=None):
+def build_multiple_service(rp_list, sequence=None):
 
     mr = []
     if sequence is not None:
@@ -313,6 +313,11 @@ def build_multiple_service_service(rp_list, sequence=None):
     for rp in rp_list:
         mr.append(rp)
     return mr
+
+
+def parse_multi_request(message):
+    number_of_service_replies = unpack_uint(message[:2])
+
 
 
 class Socket:
