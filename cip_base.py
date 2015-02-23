@@ -92,7 +92,32 @@ PACK_DATA_FUNCTION = {
     'DWORD': pack_dint,    # byte string 32-bits
     'LWORD': pack_lint    # byte string 64-bits
 }
+UNPACK_DATA_FUNCTION = {
+    'BOOL': unpack_bool,
+    'SINT': unpack_sint,    # Signed 8-bit integer
+    'INT': unpack_uint,     # Signed 16-bit integer
+    'DINT': unpack_dint,    # Signed 32-bit integer
+    'REAL': unpack_real,    # 32-bit floating point,
+    'LINT': unpack_lint,
+    'BYTE': unpack_sint,     # byte string 8-bits
+    'WORD': unpack_uint,     # byte string 16-bits
+    'DWORD': unpack_dint,    # byte string 32-bits
+    'LWORD': unpack_lint    # byte string 64-bits
+}
 
+
+DATA_FUNCTION_SIZE = {
+    'BOOL': 1,
+    'SINT': 1,    # Signed 8-bit integer
+    'INT': 2,     # Signed 16-bit integer
+    'DINT': 4,    # Signed 32-bit integer
+    'REAL': 4,    # 32-bit floating point
+    'LINT': 8,
+    'BYTE': 1,     # byte string 8-bits
+    'WORD': 2,     # byte string 16-bits
+    'DWORD': 4,    # byte string 32-bits
+    'LWORD': 8    # byte string 64-bits
+}
 def print_info(msg):
     """
     nice formatted print for the encapsulated message
@@ -315,9 +340,30 @@ def build_multiple_service(rp_list, sequence=None):
     return mr
 
 
-def parse_multi_request(message):
-    number_of_service_replies = unpack_uint(message[:2])
+def parse_multi_request(message, tags):
+    offset = 50
+    position = 50
+    number_of_service_replies = unpack_uint(message[offset:offset+2])
+    tag_list = []
+    for index in range(number_of_service_replies):
+        position += 2
+        start = offset + unpack_uint(message[position:position+2])
+        general_status = unpack_sint(message[start+2:start+3])
 
+        if general_status == 0:
+            data_type = unpack_uint(message[start+4:start+6])
+            try:
+                value_begin = start + 6
+                value_end = value_begin + DATA_FUNCTION_SIZE[I_DATA_TYPE[data_type]]
+                value = message[value_begin:value_end]
+                tag_list.append((tags[index],
+                                UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](value),
+                                I_DATA_TYPE[data_type]))
+            except LookupError:
+                tag_list.append((tags[index], None, None))
+        else:
+            tag_list.append((tags[index], None, None))
+    return tag_list
 
 
 class Socket:

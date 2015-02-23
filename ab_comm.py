@@ -291,7 +291,6 @@ class ClxDriver(object):
                     pack_uint(1)
                 ]
 
-        #if \
         self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
@@ -301,7 +300,7 @@ class ClxDriver(object):
             ))
 
         if multi_requests:
-            parse_multi_request(self._replay[50:])
+            return parse_multi_request(self._replay, tag)
         else:
             # Get the data type
             data_type = unpack_uint(self._replay[50:52])
@@ -314,9 +313,6 @@ class ClxDriver(object):
             except LookupError:
                 self.logger.warning('read_tag data type unknown>>>')
                 return None
-        #else:
-        #    self.logger.warning('read_tag returned Error >>>')
-        #    return None
 
     def write_tag(self, tag, value, typ):
         """ write_tag
