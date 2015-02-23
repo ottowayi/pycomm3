@@ -14,38 +14,49 @@ class ClxDriver(object):
         self.__version__ = '0.1'
         self.__sock = Socket(None)
         self.session = 0
-        self.context = '_pycomm_'
-        self.protocol_version = 1
-        self.general_status = 0
-        self.extend_status = 0
-        self.option = 0
-        self.port = 0xAF12
         self.connection_opened = False
         self._replay = None
         self._message = None
-        self.cid = '\x27\x04\x19\x71'
-        self.csn = '\x27\x04'
-        self.vid = '\x09\x10'
-        self.vsn = '\x09\x10\x19\x71'
         self.target_cid = None
         self.target_is_connected = False
         self._sequence = 1
-        self.backplane = 1
-        self.cpu_slot = 0
-        self.rpi = 5000
         self._more_packets_available = False
+        self.attribs = {'context': '_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
+                        'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': '\x27\x04\x19\x71', 'csn': '\x27\x04',
+                        'vid': '\x09\x10', 'vsn': '\x09\x10\x19\x71'}
+
+    def __len__(self):
+        return len(self.attribs)
+
+    def __getitem__(self, key):
+        return self.attribs[key]
+
+    def __setitem__(self, key, value):
+        self.attribs[key] = value
+
+    def __delitem__(self, key):
+        try:
+            del self.attribs[key]
+        except LookupError:
+            pass
+
+    def __iter__(self):
+        return iter(self.attribs)
+
+    def __contains__(self, item):
+        return item in self.attribs
 
     def build_header(self, command, length):
         """
         build the encapsulated message header which is a 24 bytes fixed length.
         The header includes the command and the length of the optional data portion
         """
-        h = command                     # Command UINT
-        h += pack_uint(length)          # Length UINT
-        h += pack_dint(self.session)    # Session Handle UDINT
-        h += pack_dint(0)               # Status UDINT
-        h += self.context               # Sender Context 8 bytes
-        h += pack_dint(self.option)     # Option UDINT
+        h = command                                 # Command UINT
+        h += pack_uint(length)                      # Length UINT
+        h += pack_dint(self.session)                # Session Handle UDINT
+        h += pack_dint(0)                           # Status UDINT
+        h += self.attribs['context']                # Sender Context 8 bytes
+        h += pack_dint(self.attribs['option'])      # Option UDINT
         return h
 
     def nop(self):
@@ -64,7 +75,7 @@ class ClxDriver(object):
             return self.session
 
         self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
-        self._message += pack_uint(self.protocol_version)
+        self._message += pack_uint(self.attribs['protocol version'])
         self._message += pack_uint(0)
         self.send()
         self.receive()
@@ -150,6 +161,8 @@ class ClxDriver(object):
 
         except LookupError:
             self.logger.warning('LookupError inside _check_replay')
+            return False
+
         return True
 
     def forward_open(self):
@@ -168,20 +181,20 @@ class ClxDriver(object):
             PRIORITY,
             TIMEOUT_TICKS,
             pack_dint(0),
-            self.cid,
-            self.csn,
-            self.vid,
-            self.vsn,
+            self.attribs['cid'],
+            self.attribs['csn'],
+            self.attribs['vid'],
+            self.attribs['vsn'],
             TIMEOUT_MULTIPLIER,
             '\x00\x00\x00',
-            pack_dint(self.rpi*1000),
+            pack_dint(self.attribs['rpi'] * 1000),
             pack_uint(CONNECTION_PARAMETER['Default']),
-            pack_dint(self.rpi*1000),
+            pack_dint(self.attribs['rpi'] * 1000),
             pack_uint(CONNECTION_PARAMETER['Default']),
             TRANSPORT_CLASS,  # Transport Class
             CONNECTION_SIZE['Backplane'],
-            pack_sint(self.backplane),
-            pack_sint(self.cpu_slot),
+            pack_sint(self.attribs['backplane']),
+            pack_sint(self.attribs['cpu slot']),
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
@@ -193,7 +206,6 @@ class ClxDriver(object):
                         DATA_ITEM['Unconnected'],
                         ''.join(forward_open_msg),
                         ADDRESS_ITEM['Null'],
-                        timeout=1
                 )):
             self.target_cid = self._replay[44:48]
             self.target_is_connected = True
@@ -203,7 +215,7 @@ class ClxDriver(object):
         self.logger.warning('forward_open returning False>>>')
         return False
 
-    def forward_close(self, backplane=1, cpu_slot=0):
+    def forward_close(self):
         self.logger.debug('>>> forward_close')
         if self.session == 0:
             self.logger.warning("Session not registered yet.")
@@ -218,13 +230,13 @@ class ClxDriver(object):
             CONNECTION_MANAGER_INSTANCE['Open Request'],
             PRIORITY,
             TIMEOUT_TICKS,
-            self.csn,
-            self.vid,
-            self.vsn,
+            self.attribs['csn'],
+            self.attribs['vid'],
+            self.attribs['vsn'],
             CONNECTION_SIZE['Backplane'],
             '\x00',     # Reserved
-            pack_sint(backplane),
-            pack_sint(cpu_slot),
+            pack_sint(self.attribs['backplane']),
+            pack_sint(self.attribs['cpu slot']),
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
@@ -235,7 +247,6 @@ class ClxDriver(object):
                         DATA_ITEM['Unconnected'],
                         ''.join(forward_close_msg),
                         ADDRESS_ITEM['Null'],
-                        timeout=1
                 )):
             self.target_is_connected = False
             self.logger.debug('forward_close >>>')
@@ -243,11 +254,14 @@ class ClxDriver(object):
         self.logger.warning('forward_close returning False>>>')
         return False
 
-
     def read_tag(self, tag):
         """ read_tag
 
         """
+        multi_requests = False
+        if isinstance(tag, list):
+            multi_requests = True
+
         self.logger.debug('>>> read_tag')
         if self.session == 0:
             self.logger.warning("Session not registered yet.")
@@ -258,21 +272,33 @@ class ClxDriver(object):
             if not self.forward_open():
                 self.logger.warning("Target did not connected")
                 return None
+        rp = ''
 
-        rp = create_tag_rp(tag)
+        if multi_requests:
+            rp_list = []
+            for t in tag:
+                rp = create_tag_rp(t, multi_requests=True)
+                if rp is None:
+                    self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+                    return None
+                else:
+                    rp_list.append(chr(TAG_SERVICES_REQUEST['Read Tag']) + rp + pack_uint(1))
+            message_request = build_multiple_service_service(rp_list, self._get_sequence())
 
-        if rp is None:
-            self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
-            return None
-
-        # Creating the Message Request Packet
-        message_request = [
-            pack_uint(self._get_sequence()),
-            chr(TAG_SERVICES_REQUEST['Read Tag']),  # the Request Service
-            chr(len(rp) / 2),                       # the Request Path Size length in word
-            rp,                                     # the request path
-            pack_uint(1),                           # Add the number of tag to read
-        ]
+        else:
+            rp = create_tag_rp(tag)
+            if rp is None:
+                self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+                return None
+            else:
+                # Creating the Message Request Packet
+                message_request = [
+                    pack_uint(self._get_sequence()),
+                    chr(TAG_SERVICES_REQUEST['Read Tag']),  # the Request Service
+                    chr(len(rp) / 2),                       # the Request Path Size length in word
+                    rp,                                     # the request path
+                    pack_uint(1)
+                ]
 
         if self.send_unit_data(
                 build_common_packet_format(
@@ -280,15 +306,19 @@ class ClxDriver(object):
                     ''.join(message_request),
                     ADDRESS_ITEM['Connection Based'],
                     addr_data=self.target_cid,
-                    timeout=1
                 )):
+
             # Get the data type
-            for key, value in DATA_TYPE.iteritems():
-                if value == unpack_uint(self._replay[50:52]):
-                    self.logger.debug('read_tag {0}={1} >>>'.format(tag, UNPACK_DATA_FUNCTION[key](self._replay[52:])))
-                    return UNPACK_DATA_FUNCTION[key](self._replay[52:]), key
-            self.logger.warning('read_tag returned none because data type is unknown>>>')
-            return None
+            data_type = unpack_uint(self._replay[50:52])
+            try:
+                self.logger.debug('read_tag {0}={1} >>>'.format(
+                    tag,
+                    UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._replay[52:]))
+                )
+                return UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._replay[52:]), I_DATA_TYPE[data_type]
+            except LookupError:
+                self.logger.warning('read_tag returned none because data type is unknown>>>')
+                return None
         else:
             self.logger.warning('read_tag returned None >>>')
             return None
@@ -319,7 +349,7 @@ class ClxDriver(object):
             chr(TAG_SERVICES_REQUEST["Write Tag"]),   # the Request Service
             chr(len(rp) / 2),               # the Request Path Size length in word
             rp,                             # the request path
-            pack_uint(DATA_TYPE[typ]),    # data type
+            pack_uint(S_DATA_TYPE[typ]),    # data type
             pack_uint(1),                    # Add the number of tag to write
             PACK_DATA_FUNCTION[typ](value)
         ]
@@ -330,7 +360,6 @@ class ClxDriver(object):
                 ''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self.target_cid,
-                timeout=1
             )
         )
         self.logger.debug('write_tag >>>')
@@ -410,15 +439,12 @@ class ClxDriver(object):
 
         return True
 
-    def open(self, ip_address, backplane=1, cpu_slot=0, rpi=5000):
+    def open(self, ip_address):
         self.logger.debug('>>> open %s' % ip_address)
         # handle the socket layer
-        self.backplane = backplane
-        self.cpu_slot = cpu_slot
-        self.rpi = rpi
         if not self.connection_opened:
             try:
-                self.__sock.connect(ip_address, self.port)
+                self.__sock.connect(ip_address, self.attribs['port'])
                 self.connection_opened = True
                 if self.register_session() is None:
                     self.logger.warning("Session not registered")
@@ -428,6 +454,7 @@ class ClxDriver(object):
                 return True
             except SocketError as e:
                 self.logger.error('Error {0} during {1}'.format(e, 'open'), exc_info=True)
+                self.logger.debug('open >>>')
         return False
 
     def close(self):

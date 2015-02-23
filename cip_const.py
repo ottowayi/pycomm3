@@ -283,7 +283,7 @@ From Rockwell Automation Publication 1756-PM020C-EN-P November 2012:
 When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xff, respectively.
 """
 
-DATA_TYPE = {
+S_DATA_TYPE = {
     'BOOL': 0xc1,
     'SINT': 0xc2,    # Signed 8-bit integer
     'INT': 0xc3,     # Signed 16-bit integer
@@ -316,6 +316,38 @@ DATA_TYPE = {
     'STRINGI': 0xde   # International character string
 }
 
+I_DATA_TYPE = {
+    0xc1: 'BOOL',
+    0xc2: 'SINT',    # Signed 8-bit integer
+    0xc3: 'INT',     # Signed 16-bit integer
+    0xc4: 'DINT',    # Signed 32-bit integer
+    0xc5: 'LINT',    # Signed 64-bit integer
+    0xc6: 'USINT',   # Unsigned 8-bit integer
+    0xc7: 'UINT',    # Unsigned 16-bit integer
+    0xc8: 'UDINT',   # Unsigned 32-bit integer
+    0xc9: 'ULINT',   # Unsigned 64-bit integer
+    0xca: 'REAL',    # 32-bit floating point
+    0xcb: 'LREAL',   # 64-bit floating point
+    0xcc: 'STIME',   # Synchronous time
+    0xcd: 'DATE',
+    0xce: 'TIME_OF_DAY',
+    0xcf: 'DATE_AND_TIME',
+    0xd0: 'STRING',   # character string (1 byte per character)
+    0xd1: 'BYTE',     # byte string 8-bits
+    0xd2: 'WORD',     # byte string 16-bits
+    0xd3: 'DWORD',    # byte string 32-bits
+    0xd4: 'LWORD',    # byte string 64-bits
+    0xd5: 'STRING2',  # character string (2 byte per character)
+    0xd6: 'FTIME',    # Duration high resolution
+    0xd7: 'LTIME',    # Duration long
+    0xd8: 'ITIME',    # Duration short
+    0xd9: 'STRINGN',  # character string (n byte per character)
+    0xda: 'SHORT_STRING',  # character string (1 byte per character, 1 byte length indicator)
+    0xdb: 'TIME',     # Duration in milliseconds
+    0xdc: 'EPATH',    # CIP Path segment
+    0xdd: 'ENGUNIT',  # Engineering Units
+    0xde: 'STRINGI'    # International character string
+}
 
 REPLAY_INFO = {
     0x4e: 'FORWARD_CLOSE (4E,00)',

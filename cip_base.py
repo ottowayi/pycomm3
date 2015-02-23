@@ -73,8 +73,11 @@ UNPACK_DATA_FUNCTION = {
     'INT': unpack_uint,     # Signed 16-bit integer
     'DINT': unpack_dint,    # Signed 32-bit integer
     'REAL': unpack_real,    # 32-bit floating point,
-    'DWORD': unpack_dint,    # byte string 32-bits
     'LINT': unpack_lint,
+    'BYTE': unpack_sint,     # byte string 8-bits
+    'WORD': unpack_uint,     # byte string 16-bits
+    'DWORD': unpack_dint,    # byte string 32-bits
+    'LWORD': unpack_lint    # byte string 64-bits
 }
 
 PACK_DATA_FUNCTION = {
@@ -82,9 +85,12 @@ PACK_DATA_FUNCTION = {
     'SINT': pack_sint,    # Signed 8-bit integer
     'INT': pack_uint,     # Signed 16-bit integer
     'DINT': pack_dint,    # Signed 32-bit integer
-    'REAL': pack_real,    # 32-bit floating point,
-    'DWORD': pack_dint,    # byte string 32-bits
+    'REAL': pack_real,    # 32-bit floating point
     'LINT': pack_lint,
+    'BYTE': pack_sint,     # byte string 8-bits
+    'WORD': pack_uint,     # byte string 16-bits
+    'DWORD': pack_dint,    # byte string 32-bits
+    'LWORD': pack_lint    # byte string 64-bits
 }
 
 def print_info(msg):
@@ -182,25 +188,24 @@ def get_extended_status(msg, start):
     # 49 Size of additional status
     # 50..n additional status
     extended_status_size = unpack_sint(msg[start+1:start+2])
+    extended_status = 0
     if extended_status_size != 0:
         # There is an additional status
-        try:
-            if extended_status_size == 1:
-                extended_status = unpack_sint(msg[start+2:start+3])
-            elif extended_status_size == 2:
-                extended_status = unpack_sint(msg[start+2:start+4])
-            elif extended_status_size == 4:
-                extended_status = unpack_dint(msg[start+2:start+6])
-            else:
-                return 'Extended Status Size Unknown'
-        except LookupError:
-            return 'Extended status [{0}] not coded '.format(pack_dint(extended_status))
-
-    return 'Extended status :{0}'.format(EXTEND_CODES[status][extended_status])
-
+        if extended_status_size == 1:
+            extended_status = unpack_sint(msg[start+2:start+3])
+        elif extended_status_size == 2:
+            extended_status = unpack_sint(msg[start+2:start+4])
+        elif extended_status_size == 4:
+            extended_status = unpack_dint(msg[start+2:start+6])
+        else:
+            return 'Extended Status Size Unknown'
+    try:
+        return 'Extended Code :{0}'.format(EXTEND_CODES[status][extended_status])
+    except LookupError:
+        return 'Extended Code [{0}] not coded '.format(pack_dint(extended_status))
 
 
-def create_tag_rp(tag):
+def create_tag_rp(tag, multi_requests=False):
     """ Create tag Request Packet
 
     It returns the request packed wrapped around the tag passed.
@@ -224,9 +229,11 @@ def create_tag_rp(tag):
             # Get only the tag part
             tag = tag[:tag.find('[')]
         tag_length = len(tag)
+
         # Create the request path
         rp.append(EXTENDED_SYMBOL)  # ANSI Ext. symbolic segment
         rp.append(chr(tag_length))  # Length of the tag
+
         # Add the tag to the Request path
         for char in tag:
             rp.append(char)
@@ -251,10 +258,15 @@ def create_tag_rp(tag):
                     return None
 
     # At this point the Request Path is completed,
-    return ''.join(rp)
+    if multi_requests:
+        request_path = chr(len(rp)/2) + ''.join(rp)
+    else:
+        request_path = ''.join(rp)
+    return request_path
 
 
-def build_common_packet_format(message_type, message, addr_type, addr_data=None, timeout=0):
+
+def build_common_packet_format(message_type, message, addr_type, addr_data=None, timeout=10):
     """ build_common_packet_format
 
     It creates the common part for a CIP message. Check Volume 2 (page 2.22) of CIP specification  for reference
@@ -273,6 +285,34 @@ def build_common_packet_format(message_type, message, addr_type, addr_data=None,
     msg += pack_uint(len(message))   # Data Item Length
     msg += message
     return msg
+
+
+def build_multiple_service_service(rp_list, sequence=None):
+
+    mr = []
+    if sequence is not None:
+        mr.append(pack_uint(sequence))
+
+    mr.append(chr(TAG_SERVICES_REQUEST["Multiple Service Packet"]))  # the Request Service
+    mr.append(pack_sint(2))                 # the Request Path Size length in word
+    mr.append(CLASS_ID["8-bit"])
+    mr.append(CLASS_CODE["Message Router"])
+    mr.append(INSTANCE_ID["8-bit"])
+    mr.append(pack_sint(1))                 # Instance 1
+    mr.append(pack_uint(len(rp_list)))      # Number of service contained in the request
+
+    # Offset calculation
+    offset = (len(rp_list) * 2) + 2
+    for index, rp in enumerate(rp_list):
+        if index == 0:
+            mr.append(pack_uint(offset))   # Starting offset
+        else:
+            mr.append(pack_uint(offset))
+        offset += len(rp)
+
+    for rp in rp_list:
+        mr.append(rp)
+    return mr
 
 
 class Socket:
