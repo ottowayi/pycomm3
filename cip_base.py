@@ -341,6 +341,16 @@ def build_multiple_service(rp_list, sequence=None):
 
 
 def parse_multi_request(message, tags):
+    """ parse_multi_request
+    This function should be used to parse the message replayed to a multi request service rapped around the
+    send_unit_data message.
+
+
+    :param message: the full message returned from the PLC
+    :param tags: The list of tags to be read
+    :return: a list of tuple in the format [ (tag name, value, data type), ( tag name, value, data type) ]
+             in case of error reading the tag the tuple will contain (tag name, None, None)
+    """
     offset = 50
     position = 50
     number_of_service_replies = unpack_uint(message[offset:offset+2])
