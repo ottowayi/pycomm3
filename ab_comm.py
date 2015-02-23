@@ -202,11 +202,7 @@ class ClxDriver(object):
         ]
 
         if self.send_rr_data(
-                build_common_packet_format(
-                        DATA_ITEM['Unconnected'],
-                        ''.join(forward_open_msg),
-                        ADDRESS_ITEM['Null'],
-                )):
+                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_open_msg), ADDRESS_ITEM['Null'],)):
             self.target_cid = self._replay[44:48]
             self.target_is_connected = True
             self.logger.info("The target is connected end returned CID %s" % print_bytes_line(self.target_cid))
@@ -243,11 +239,7 @@ class ClxDriver(object):
             pack_sint(1)
         ]
         if self.send_rr_data(
-                build_common_packet_format(
-                        DATA_ITEM['Unconnected'],
-                        ''.join(forward_close_msg),
-                        ADDRESS_ITEM['Null'],
-                )):
+                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_close_msg), ADDRESS_ITEM['Null'])):
             self.target_is_connected = False
             self.logger.debug('forward_close >>>')
             return True
@@ -272,7 +264,6 @@ class ClxDriver(object):
             if not self.forward_open():
                 self.logger.warning("Target did not connected")
                 return None
-        rp = ''
 
         if multi_requests:
             rp_list = []
