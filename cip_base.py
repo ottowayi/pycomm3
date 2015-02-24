@@ -1,27 +1,6 @@
 import struct
 import socket
-from ab_cip_const import *
-
-import os
-import json
-import logging.config
-
-
-def setup_logging(default_path='logging.json', default_level=logging.INFO, env_key='LOG_CFG'):
-    """Setup logging configuration
-
-    """
-    path = default_path
-    value = os.getenv(env_key, None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path, 'rt') as f:
-            config = json.load(f)
-        logging.config.dictConfig(config)
-    else:
-        logging.basicConfig(level=default_level)
-
+from cip_const import *
 
 class ProtocolError(Exception):
     pass
@@ -94,8 +73,11 @@ UNPACK_DATA_FUNCTION = {
     'INT': unpack_uint,     # Signed 16-bit integer
     'DINT': unpack_dint,    # Signed 32-bit integer
     'REAL': unpack_real,    # 32-bit floating point,
-    'DWORD': unpack_dint,    # byte string 32-bits
     'LINT': unpack_lint,
+    'BYTE': unpack_sint,     # byte string 8-bits
+    'WORD': unpack_uint,     # byte string 16-bits
+    'DWORD': unpack_dint,    # byte string 32-bits
+    'LWORD': unpack_lint    # byte string 64-bits
 }
 
 PACK_DATA_FUNCTION = {
@@ -103,11 +85,39 @@ PACK_DATA_FUNCTION = {
     'SINT': pack_sint,    # Signed 8-bit integer
     'INT': pack_uint,     # Signed 16-bit integer
     'DINT': pack_dint,    # Signed 32-bit integer
-    'REAL': pack_real,    # 32-bit floating point,
-    'DWORD': pack_dint,    # byte string 32-bits
+    'REAL': pack_real,    # 32-bit floating point
     'LINT': pack_lint,
+    'BYTE': pack_sint,     # byte string 8-bits
+    'WORD': pack_uint,     # byte string 16-bits
+    'DWORD': pack_dint,    # byte string 32-bits
+    'LWORD': pack_lint    # byte string 64-bits
+}
+UNPACK_DATA_FUNCTION = {
+    'BOOL': unpack_bool,
+    'SINT': unpack_sint,    # Signed 8-bit integer
+    'INT': unpack_uint,     # Signed 16-bit integer
+    'DINT': unpack_dint,    # Signed 32-bit integer
+    'REAL': unpack_real,    # 32-bit floating point,
+    'LINT': unpack_lint,
+    'BYTE': unpack_sint,     # byte string 8-bits
+    'WORD': unpack_uint,     # byte string 16-bits
+    'DWORD': unpack_dint,    # byte string 32-bits
+    'LWORD': unpack_lint    # byte string 64-bits
 }
 
+
+DATA_FUNCTION_SIZE = {
+    'BOOL': 1,
+    'SINT': 1,    # Signed 8-bit integer
+    'INT': 2,     # Signed 16-bit integer
+    'DINT': 4,    # Signed 32-bit integer
+    'REAL': 4,    # 32-bit floating point
+    'LINT': 8,
+    'BYTE': 1,     # byte string 8-bits
+    'WORD': 2,     # byte string 16-bits
+    'DWORD': 4,    # byte string 32-bits
+    'LWORD': 8    # byte string 64-bits
+}
 def print_info(msg):
     """
     nice formatted print for the encapsulated message
@@ -191,26 +201,189 @@ def print_bytes_msg(msg, info=''):
     return out
 
 
-def get_extended_status(msg):
-    pass
+def get_extended_status(msg, start):
+    status = unpack_sint(msg[start:start+1])
+    # send_rr_data
+    # 42 General Status
+    # 43 Size of additional status
+    # 44..n additional status
+
+    # send_unit_data
+    # 48 General Status
+    # 49 Size of additional status
+    # 50..n additional status
+    extended_status_size = unpack_sint(msg[start+1:start+2])
+    extended_status = 0
+    if extended_status_size != 0:
+        # There is an additional status
+        if extended_status_size == 1:
+            extended_status = unpack_sint(msg[start+2:start+3])
+        elif extended_status_size == 2:
+            extended_status = unpack_sint(msg[start+2:start+4])
+        elif extended_status_size == 4:
+            extended_status = unpack_dint(msg[start+2:start+6])
+        else:
+            return 'Extended Status Size Unknown'
+    try:
+        return 'Extended Status :{0}'.format(EXTEND_CODES[status][extended_status])
+    except LookupError:
+        return "Extended Status info not present"
+
+
+def create_tag_rp(tag, multi_requests=False):
+    """ Create tag Request Packet
+
+    It returns the request packed wrapped around the tag passed.
+    If any error it returns none
+    """
+    tags = tag.split('.')
+    rp = []
+    index = []
+    for tag in tags:
+        add_index = False
+        # Check if is an array tag
+        if tag.find('[') != -1:
+            # Remove the last square bracket
+            tag = tag[:len(tag)-1]
+            # Isolate the value inside bracket
+            inside_value = tag[tag.find('[')+1:]
+            # Now split the inside value in case part of multidimensional array
+            index = inside_value.split(',')
+            # Flag the existence of one o more index
+            add_index = True
+            # Get only the tag part
+            tag = tag[:tag.find('[')]
+        tag_length = len(tag)
+
+        # Create the request path
+        rp.append(EXTENDED_SYMBOL)  # ANSI Ext. symbolic segment
+        rp.append(chr(tag_length))  # Length of the tag
+
+        # Add the tag to the Request path
+        for char in tag:
+            rp.append(char)
+        # Add pad byte because total length of Request path must be word-aligned
+        if tag_length % 2:
+            rp.append(PADDING_BYTE)
+        # Add any index
+        if add_index:
+            for idx in index:
+                val = int(idx)
+                if val <= 0xff:
+                    rp.append(ELEMENT_ID["8-bit"])
+                    rp.append(pack_sint(val))
+                elif val <= 0xffff:
+                    rp.append(ELEMENT_ID["16-bit"]+PADDING_BYTE)
+                    rp.append(pack_uint(val))
+                elif val <= 0xfffffffff:
+                    rp.append(ELEMENT_ID["32-bit"]+PADDING_BYTE)
+                    rp.append(pack_dint(val))
+                else:
+                    # Cannot create a valid request packet
+                    return None
+
+    # At this point the Request Path is completed,
+    if multi_requests:
+        request_path = chr(len(rp)/2) + ''.join(rp)
+    else:
+        request_path = ''.join(rp)
+    return request_path
+
+
+
+def build_common_packet_format(message_type, message, addr_type, addr_data=None, timeout=10):
+    """ build_common_packet_format
+
+    It creates the common part for a CIP message. Check Volume 2 (page 2.22) of CIP specification  for reference
+    """
+    msg = pack_dint(0)   # Interface Handle: shall be 0 for CIP
+    msg += pack_uint(timeout)   # timeout
+    msg += pack_uint(2)  # Item count: should be at list 2 (Address and Data)
+    msg += addr_type  # Address Item Type ID
+
+    if addr_data is not None:
+        msg += pack_uint(len(addr_data))  # Address Item Length
+        msg += addr_data
+    else:
+        msg += pack_uint(0)  # Address Item Length
+    msg += message_type  # Data Type ID
+    msg += pack_uint(len(message))   # Data Item Length
+    msg += message
+    return msg
+
+
+def build_multiple_service(rp_list, sequence=None):
+
+    mr = []
+    if sequence is not None:
+        mr.append(pack_uint(sequence))
+
+    mr.append(chr(TAG_SERVICES_REQUEST["Multiple Service Packet"]))  # the Request Service
+    mr.append(pack_sint(2))                 # the Request Path Size length in word
+    mr.append(CLASS_ID["8-bit"])
+    mr.append(CLASS_CODE["Message Router"])
+    mr.append(INSTANCE_ID["8-bit"])
+    mr.append(pack_sint(1))                 # Instance 1
+    mr.append(pack_uint(len(rp_list)))      # Number of service contained in the request
+
+    # Offset calculation
+    offset = (len(rp_list) * 2) + 2
+    for index, rp in enumerate(rp_list):
+        if index == 0:
+            mr.append(pack_uint(offset))   # Starting offset
+        else:
+            mr.append(pack_uint(offset))
+        offset += len(rp)
+
+    for rp in rp_list:
+        mr.append(rp)
+    return mr
+
+
+def parse_multi_request(message, tags):
+    """ parse_multi_request
+    This function should be used to parse the message replayed to a multi request service rapped around the
+    send_unit_data message.
+
+
+    :param message: the full message returned from the PLC
+    :param tags: The list of tags to be read
+    :return: a list of tuple in the format [ (tag name, value, data type), ( tag name, value, data type) ]
+             in case of error reading the tag the tuple will contain (tag name, None, None)
+    """
+    offset = 50
+    position = 50
+    number_of_service_replies = unpack_uint(message[offset:offset+2])
+    tag_list = []
+    for index in range(number_of_service_replies):
+        position += 2
+        start = offset + unpack_uint(message[position:position+2])
+        general_status = unpack_sint(message[start+2:start+3])
+
+        if general_status == 0:
+            data_type = unpack_uint(message[start+4:start+6])
+            try:
+                value_begin = start + 6
+                value_end = value_begin + DATA_FUNCTION_SIZE[I_DATA_TYPE[data_type]]
+                value = message[value_begin:value_end]
+                tag_list.append((tags[index],
+                                UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](value),
+                                I_DATA_TYPE[data_type]))
+            except LookupError:
+                tag_list.append((tags[index], None, None))
+        else:
+            tag_list.append((tags[index], None, None))
+    return tag_list
+
 
 class Socket:
-    def __init__(self, timeout):
-        self.timeout = 5.0
+    def __init__(self, timeout=5.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if timeout is None:
-            self.sock.settimeout(self.timeout)
+            self.sock.settimeout(5.0)
         else:
             self.sock.settimeout(timeout)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-
-    @property
-    def timeout(self):
-        return self.timeout
-
-    @timeout.setter
-    def timeout(self, par):
-        self.timeout = par
 
     def connect(self, host, port):
         try:
@@ -257,4 +430,3 @@ class Socket:
 
     def close(self):
         self.sock.close()
-

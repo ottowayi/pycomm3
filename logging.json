@@ -38,12 +38,12 @@
 
     "loggers": {
         "cip": {
-            "level": "INFO",
+            "level": "DEBUG",
             "handlers": ["info_file_handler"],
             "propagate": "no"
         },
         "__main__": {
-            "level": "INFO",
+            "level": "DEBUG",
             "handlers": ["info_file_handler"],
             "propagate": "no"
         }
