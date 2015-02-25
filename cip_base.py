@@ -311,7 +311,6 @@ def build_common_packet_format(message_type, message, addr_type, addr_data=None,
     msg += message
     return msg
 
-
 def build_multiple_service(rp_list, sequence=None):
 
     mr = []
@@ -340,7 +339,7 @@ def build_multiple_service(rp_list, sequence=None):
     return mr
 
 
-def parse_multi_request(message, tags):
+def parse_multi_request(message, tags, typ):
     """ parse_multi_request
     This function should be used to parse the message replayed to a multi request service rapped around the
     send_unit_data message.
@@ -348,8 +347,9 @@ def parse_multi_request(message, tags):
 
     :param message: the full message returned from the PLC
     :param tags: The list of tags to be read
-    :return: a list of tuple in the format [ (tag name, value, data type), ( tag name, value, data type) ]
-             in case of error reading the tag the tuple will contain (tag name, None, None)
+    :param typ: to specify if multi request service READ or WRITE
+    :return: a list of tuple in the format [ (tag name, value, data type), ( tag name, value, data type) ].
+             In case of error the tuple will be (tag name, None, None)
     """
     offset = 50
     position = 50
@@ -361,18 +361,24 @@ def parse_multi_request(message, tags):
         general_status = unpack_sint(message[start+2:start+3])
 
         if general_status == 0:
-            data_type = unpack_uint(message[start+4:start+6])
-            try:
-                value_begin = start + 6
-                value_end = value_begin + DATA_FUNCTION_SIZE[I_DATA_TYPE[data_type]]
-                value = message[value_begin:value_end]
-                tag_list.append((tags[index],
-                                UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](value),
-                                I_DATA_TYPE[data_type]))
-            except LookupError:
-                tag_list.append((tags[index], None, None))
+            if typ == "READ":
+                data_type = unpack_uint(message[start+4:start+6])
+                try:
+                    value_begin = start + 6
+                    value_end = value_begin + DATA_FUNCTION_SIZE[I_DATA_TYPE[data_type]]
+                    value = message[value_begin:value_end]
+                    tag_list.append((tags[index],
+                                    UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](value),
+                                    I_DATA_TYPE[data_type]))
+                except LookupError:
+                    tag_list.append((tags[index], None, None))
+            else:
+                tag_list.append((tags[index] + ('GOOD',)))
         else:
-            tag_list.append((tags[index], None, None))
+            if typ == "READ":
+                tag_list.append((tags[index], None, None))
+            else:
+                tag_list.append((tags[index] + ('BAD',)))
     return tag_list
 
 

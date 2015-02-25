@@ -13,6 +13,7 @@ if __name__ == '__main__':
     print(c.read_tag(['parts', 'ControlWord', 'Counts']))
     print(c.read_tag(['parts']))
     print(c.read_tag('Counts'))
-    c.write_tag('Counts', 25, 'INT')
+    print(c.write_tag([('Counts', 26, 'INT'), ('ControlWords', 26, 'DINT'), ('parts', 26, 'DINT')]))
+    print(c.write_tag('Counts', 26, 'INT'))
     c.close()
     logging.shutdown()

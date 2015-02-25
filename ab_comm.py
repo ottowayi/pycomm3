@@ -300,7 +300,7 @@ class ClxDriver(object):
             ))
 
         if multi_requests:
-            return parse_multi_request(self._replay, tag)
+            return parse_multi_request(self._replay, tag, 'READ')
         else:
             # Get the data type
             data_type = unpack_uint(self._replay[50:52])
@@ -314,10 +314,14 @@ class ClxDriver(object):
                 self.logger.warning('read_tag data type unknown>>>')
                 return None
 
-    def write_tag(self, tag, value, typ):
+    def write_tag(self, tag, value=None, typ=None):
         """ write_tag
 
         """
+        multi_requests = False
+        if isinstance(tag, list):
+            multi_requests = True
+
         self.logger.debug('>>> write_tag')
         if self.session == 0:
             self.logger.warning("Session not registered yet.")
@@ -328,22 +332,41 @@ class ClxDriver(object):
                 self.logger.warning("Target did not connected")
                 return None
 
-        rp = create_tag_rp(tag)
+        if multi_requests:
+            rp_list = []
+            for t, value, typ in tag:
+                rp = create_tag_rp(t, multi_requests=True)
+                if rp is None:
+                    self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+                    return None
+                else:
+                    rp_list.append(
+                        chr(TAG_SERVICES_REQUEST['Write Tag'])
+                        + rp
+                        + pack_uint(S_DATA_TYPE[typ])
+                        + pack_uint(1)
+                        + PACK_DATA_FUNCTION[typ](value)
+                    )
+            message_request = build_multiple_service(rp_list, self._get_sequence())
 
-        if rp is None:
-            self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
-            return None
+        else:
+            rp = create_tag_rp(tag)
+            if rp is None:
+                self.logger.warning('Cannot create tag {0} request packet. Write not executed'.format(tag))
+                return None
+            else:
+                # Creating the Message Request Packet
+                message_request = [
+                    pack_uint(self._get_sequence()),
+                    chr(TAG_SERVICES_REQUEST["Write Tag"]),   # the Request Service
+                    chr(len(rp) / 2),               # the Request Path Size length in word
+                    rp,                             # the request path
+                    pack_uint(S_DATA_TYPE[typ]),    # data type
+                    pack_uint(1),                    # Add the number of tag to write
+                    PACK_DATA_FUNCTION[typ](value)
+                ]
 
-        # Creating the Message Request Packet
-        message_request = [
-            pack_uint(self._get_sequence()),
-            chr(TAG_SERVICES_REQUEST["Write Tag"]),   # the Request Service
-            chr(len(rp) / 2),               # the Request Path Size length in word
-            rp,                             # the request path
-            pack_uint(S_DATA_TYPE[typ]),    # data type
-            pack_uint(1),                    # Add the number of tag to write
-            PACK_DATA_FUNCTION[typ](value)
-        ]
+
         self.logger.debug('writing tag:{0} value:{1} type:{2}'.format(tag, value, typ))
         ret_val = self.send_unit_data(
             build_common_packet_format(
@@ -353,8 +376,12 @@ class ClxDriver(object):
                 addr_data=self.target_cid,
             )
         )
+
         self.logger.debug('write_tag >>>')
-        return ret_val
+        if multi_requests:
+            return parse_multi_request(self._replay, tag, 'WRITE')
+        else:
+            return ret_val
 
     def _get_symbol_object_instances(self, instance=0, time_out=10):
         """ _get_symbol_object_instances
