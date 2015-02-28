@@ -289,8 +289,6 @@ def create_tag_rp(tag, multi_requests=False):
         request_path = ''.join(rp)
     return request_path
 
-
-
 def build_common_packet_format(message_type, message, addr_type, addr_data=None, timeout=10):
     """ build_common_packet_format
 
