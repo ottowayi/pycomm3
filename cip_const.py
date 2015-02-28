@@ -78,6 +78,18 @@ TAG_SERVICES_REPLAY = {
     0xd5: "Get Instance Attribute List"
 }
 
+
+I_TAG_SERVICES_REPLAY = {
+    "Read Tag": 0xcc,
+    "Read Tag Fragmented": 0xd2,
+    "Write Tag": 0xcd,
+    "Write Tag Fragmented": 0xd3,
+    "Read Modify Write Tag": 0xce,
+    "Multiple Service Packet": 0x8a,
+    "Get Instance Attribute List":0xd5
+}
+
+
 """
 EtherNet/IP Encapsulation Error Codes
 
