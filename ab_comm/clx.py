@@ -3,11 +3,13 @@ __status__ = "testing"
 __version__ = "0.1"
 __date__ = "01 01 2015"
 
-from cip_base import *
 import logging
 
+from cip.cip_base import *
 
-class ClxDriver(object):
+
+class Driver(object):
+
     logger = logging.getLogger('ClxDriver')
 
     def __init__(self):
@@ -359,23 +361,39 @@ class ClxDriver(object):
 
         if multi_requests:
             rp_list = []
-            for t, value, typ in tag:
-                rp = create_tag_rp(t, multi_requests=True)
+            tag_to_remove = []
+            idx = 0
+            for name, value, typ in tag:
+                # Create the request path to wrap the tag name
+                rp = create_tag_rp(name, multi_requests=True)
                 if rp is None:
                     self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
                     return None
                 else:
-                    rp_list.append(
-                        chr(TAG_SERVICES_REQUEST['Write Tag'])
-                        + rp
-                        + pack_uint(S_DATA_TYPE[typ])
-                        + pack_uint(1)
-                        + PACK_DATA_FUNCTION[typ](value)
-                    )
+                    try:    # Trying to add the rp to the request path list
+                        val = PACK_DATA_FUNCTION[typ](value)
+                        rp_list.append(
+                            chr(TAG_SERVICES_REQUEST['Write Tag'])
+                            + rp
+                            + pack_uint(S_DATA_TYPE[typ])
+                            + pack_uint(1)
+                            + val
+                        )
+                        idx += 1
+                    except (LookupError, struct.error) as e:
+                        self.logger.warning('Tag:{0} type:{1} removed from write list. Error:{2}'.format(name, typ, e))
+                        # The tag in idx position need to be removed from the rp list because has some kind of error
+                        tag_to_remove.append(idx)
+
+            # Remove the tags that have not been inserted in the request path list
+            for position in tag_to_remove:
+                del tag[position]
+            # Create the message request
             message_request = build_multiple_service(rp_list, self._get_sequence())
 
         else:
-            rp = create_tag_rp(tag)
+            name, value, typ = tag
+            rp = create_tag_rp(name)
             if rp is None:
                 self.logger.warning('Cannot create tag {0} request packet. Write not executed'.format(tag))
                 return None
@@ -490,7 +508,7 @@ class ClxDriver(object):
                     return False
                 self.logger.debug('open >>>')
                 return True
-            except SocketError as e:
+            except Exception as e:
                 self.logger.error('Error {0} during {1}'.format(e, 'open'), exc_info=True)
                 self.logger.debug('open >>>')
         return False

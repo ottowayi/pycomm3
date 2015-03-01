@@ -1,6 +1,8 @@
 import struct
 import socket
-from cip_const import *
+
+from cip.cip_const import *
+
 
 class ProtocolError(Exception):
     pass
