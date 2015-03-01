@@ -230,7 +230,8 @@ DATA_ITEM = {
 
 ADDRESS_ITEM = {
     'Connection Based': '\xa1\x00',
-    'Null': '\x00\x00'
+    'Null': '\x00\x00',
+    'UCMM': '\x00\x00'
 }
 
 UCMM = {

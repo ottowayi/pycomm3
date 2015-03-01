@@ -114,10 +114,11 @@ class ClxDriver(object):
             self._sequence = 1
         return self._sequence
 
-    def _parse_tag_list(self):
-        tags_returned = self._replay[44:]
+    def _parse_tag_list(self, start_tag_ptr, status):
+        tags_returned = self._replay[start_tag_ptr:]
         tags_returned_length = len(tags_returned)
         idx = 0
+        instance = 0
         while idx < tags_returned_length:
             instance = unpack_dint(tags_returned[idx:idx+4])
             idx += 4
@@ -129,11 +130,12 @@ class ClxDriver(object):
             idx += 2
             self.tag_list.append((instance, tag_name, symbol_type))
 
-        if unpack_sint(self._replay[42:43]) == SUCCESS:
+        if status == SUCCESS:
             self._last_instance = -1
-        else:
+        elif status == 0x06:
             self._last_instance = instance + 1
-            print " Hhhhaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa h haaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        else:
+            self.logger.warning('unknown status during _parse_tag_list')
 
 
     def _check_replay(self):
@@ -158,15 +160,10 @@ class ClxDriver(object):
 
             # Command Specific Status check
             if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
-
-                if unpack_sint(self._replay[40:41]) == I_TAG_SERVICES_REPLAY["Get Instance Attribute List"]:
-                    return self._parse_tag_list()
-                #status = unpack_sint(self._replay[42:43])
-                #if status == INSUFFICIENT_PACKETS:
-                #    self._more_packets_available = True
-                #    return True
-
                 status = unpack_sint(self._replay[42:43])
+                if unpack_sint(self._replay[40:41]) == I_TAG_SERVICES_REPLAY["Get Instance Attribute List"]:
+                    self._parse_tag_list(44, status)
+                    return True
                 if status != SUCCESS:
                     self.logger.warning('send_rr_data reply status {0}: {1}'.format(
                         "{:0>2x} ".format(ord(self._replay[42:43])),
@@ -176,8 +173,8 @@ class ClxDriver(object):
 
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
                 status = unpack_sint(self._replay[48:49])
-                if status == INSUFFICIENT_PACKETS:
-                    self._more_packets_available = True
+                if unpack_sint(self._replay[46:47]) == I_TAG_SERVICES_REPLAY["Get Instance Attribute List"]:
+                    self._parse_tag_list(50, status)
                     return True
                 if status != SUCCESS:
                     self.logger.debug(print_bytes_msg(self._replay))
@@ -230,7 +227,7 @@ class ClxDriver(object):
         ]
 
         if self.send_rr_data(
-                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_open_msg), ADDRESS_ITEM['Null'],)):
+                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_open_msg), ADDRESS_ITEM['UCMM'],)):
             self.target_cid = self._replay[44:48]
             self.target_is_connected = True
             self.logger.info("The target is connected end returned CID %s" % print_bytes_line(self.target_cid))
@@ -267,7 +264,7 @@ class ClxDriver(object):
             pack_sint(1)
         ]
         if self.send_rr_data(
-                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_close_msg), ADDRESS_ITEM['Null'])):
+                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_close_msg), ADDRESS_ITEM['UCMM'])):
             self.target_is_connected = False
             self.logger.debug('forward_close >>>')
             return True
@@ -410,21 +407,29 @@ class ClxDriver(object):
         else:
             return ret_val
 
-    def get_tag_list(self, instance=0, time_out=10):
+    def get_tag_list(self):
         """ _get_symbol_object_instances
 
         """
+        self.logger.debug('>>> get_tag_list')
         if self.session == 0:
-            print("Session not registered yet.")
+            self.logger.warning("Session not registered yet.")
             return None
+
+        if not self.target_is_connected:
+            self.logger.debug('target not connected yet. Will execute a forward_open to connect')
+            if not self.forward_open():
+                self.logger.warning("Target did not connected")
+                return None
 
         self._last_instance = 0
 
         while self._last_instance != -1:
 
             # Creating the Message Request Packet
-            mr = [
-                # Request Service
+
+            message_request = [
+                pack_uint(self._get_sequence()),
                 chr(TAG_SERVICES_REQUEST['Get Instance Attribute List']),
                 # the Request Path Size length in word
                 chr(3),
@@ -432,7 +437,7 @@ class ClxDriver(object):
                 CLASS_ID["8-bit"],       # Class id = 20 from spec 0x20
                 CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
                 INSTANCE_ID["16-bit"],   # Instance Segment: 16 Bit instance 0x25
-                '\x00',                       # Add pad byte because total length of Request path must be word-aligned
+                '\x00',
                 pack_uint(self._last_instance),          # The instance
                 # Request Data
                 pack_uint(2),   # Number of attributes to retrieve
@@ -440,38 +445,16 @@ class ClxDriver(object):
                 pack_uint(2)    # Attribute 2: Symbol type
             ]
 
-            # join the the list
-            packet = ''.join(mr)
+            self.send_unit_data(
+                build_common_packet_format(
+                    DATA_ITEM['Connected'],
+                    ''.join(message_request),
+                    ADDRESS_ITEM['Connection Based'],
+                    addr_data=self.target_cid,
+                ))
 
-            # preparing the head of the Command Specific data
-            head = [
-                pack_dint(UCMM['Interface Handle']),    # The Interface Handle: should be 0
-                pack_uint(time_out),                    # Timeout
-                pack_uint(UCMM['Item Count']),          # Item Count: should be 2
-                pack_uint(UCMM['Address Type ID']),     # Address Type ID: should be 0
-                pack_uint(UCMM['Address Length']),      # Address Length: should be 0
-                pack_uint(UCMM['Data Type ID']),        # Data Type ID: should be 0x00b2 or 178
-                pack_uint(len(packet))                  # Length of the MR request packet
-            ]
-
-
-            # Command Specific Data is composed by head and packet
-            command_specific_data = ''.join(head) + packet
-
-            self.send_rr_data(build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(mr), ADDRESS_ITEM['Null']))
-
-
-            # Now put together Encapsulation Header and Command Specific Data
-            #self._message = self.build_header(ENCAPSULATION_COMMAND['send_rr_data'],
-            #                                  len(command_specific_data)) + command_specific_data
-            # Send the UCMM Request
-            # self.send()
-
-            # Get replay
-            #self.receive()
-
+        self.logger.debug('get_tag_list >>>')
         return self.tag_list
-
 
     def send(self):
         try:
