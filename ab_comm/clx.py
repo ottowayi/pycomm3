@@ -25,6 +25,8 @@ class Driver(object):
         self._sequence = 1
         self._last_instance = 0
         self._more_packets_available = False
+        self._last_tag_read = ()
+        self._last_tag_write = ()
         self.attribs = {'context': '_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
                         'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': '\x27\x04\x19\x71', 'csn': '\x27\x04',
                         'vid': '\x09\x10', 'vsn': '\x09\x10\x19\x71'}
@@ -139,11 +141,62 @@ class Driver(object):
         else:
             self.logger.warning('unknown status during _parse_tag_list')
 
+    def _parse_multiple_request_read(self, tags):
+        """ _parse_multiple_request_read
+
+        """
+        offset = 50
+        position = 50
+        number_of_service_replies = unpack_uint(self._replay[offset:offset+2])
+        tag_list = []
+        for index in range(number_of_service_replies):
+            position += 2
+            start = offset + unpack_uint(self._replay[position:position+2])
+            general_status = unpack_sint(self._replay[start+2:start+3])
+
+            if general_status == 0:
+                data_type = unpack_uint(self._replay[start+4:start+6])
+                try:
+                    value_begin = start + 6
+                    value_end = value_begin + DATA_FUNCTION_SIZE[I_DATA_TYPE[data_type]]
+                    value = self._replay[value_begin:value_end]
+                    self._last_tag_read = (tags[index], UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](value),
+                                           I_DATA_TYPE[data_type])
+                except LookupError:
+                    self._last_tag_read = (tags[index], None, None)
+            else:
+                self._last_tag_read = (tags[index], None, None)
+
+            tag_list.append(self._last_tag_read)
+
+        return tag_list
+
+    def _parse_multiple_request_write(self, tags):
+        """ _parse_multiple_request_write
+
+        """
+        offset = 50
+        position = 50
+        number_of_service_replies = unpack_uint(self._replay[offset:offset+2])
+        tag_list = []
+        for index in range(number_of_service_replies):
+            position += 2
+            start = offset + unpack_uint(self._replay[position:position+2])
+            general_status = unpack_sint(self._replay[start+2:start+3])
+
+            if general_status == 0:
+                self._last_tag_write = (tags[index] + ('GOOD',))
+            else:
+                self._last_tag_write = (tags[index] + ('BAD',))
+
+            tag_list.append(self._last_tag_write)
+        return tag_list
 
     def _check_replay(self):
         """ _check_replay
 
         """
+        self._more_packets_available = False
         try:
             if self._replay is None:
                 self.logger.warning('%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
@@ -166,25 +219,37 @@ class Driver(object):
                 if unpack_sint(self._replay[40:41]) == I_TAG_SERVICES_REPLAY["Get Instance Attribute List"]:
                     self._parse_tag_list(44, status)
                     return True
-                if status != SUCCESS:
+                if status == 0x06:
+                    self.logger.warning("Insufficient Packet Space")
+                    self._more_packets_available = True
+                    return True
+                elif status != SUCCESS:
                     self.logger.warning('send_rr_data reply status {0}: {1}'.format(
                         "{:0>2x} ".format(ord(self._replay[42:43])),
                         SERVICE_STATUS[status]))
                     self.logger.warning(get_extended_status(self._replay, 42))
                     return False
+                else:
+                    return True
 
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
                 status = unpack_sint(self._replay[48:49])
                 if unpack_sint(self._replay[46:47]) == I_TAG_SERVICES_REPLAY["Get Instance Attribute List"]:
                     self._parse_tag_list(50, status)
                     return True
-                if status != SUCCESS:
+                if status == 0x06:
+                    self.logger.warning("Insufficient Packet Space")
+                    self._more_packets_available = True
+                    return True
+                elif status != SUCCESS:
                     self.logger.debug(print_bytes_msg(self._replay))
                     self.logger.warning('send_unit_data reply status {0}: {1}'.format(
                         "{:0>2x} ".format(ord(self._replay[48:49])),
                         SERVICE_STATUS[status]))
                     self.logger.warning(get_extended_status(self._replay, 48))
                     return False
+                else:
+                    return True
 
         except LookupError:
             self.logger.warning('LookupError inside _check_replay')
@@ -327,7 +392,7 @@ class Driver(object):
             ))
 
         if multi_requests:
-            return parse_multi_request(self._replay, tag, 'READ')
+            return self._parse_multiple_request_read(tag)
         else:
             # Get the data type
             data_type = unpack_uint(self._replay[50:52])
@@ -421,7 +486,7 @@ class Driver(object):
 
         self.logger.debug('write_tag >>>')
         if multi_requests:
-            return parse_multi_request(self._replay, tag, 'WRITE')
+            return  self._parse_multiple_request_write(tag)
         else:
             return ret_val
 

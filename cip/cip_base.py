@@ -339,7 +339,7 @@ def build_multiple_service(rp_list, sequence=None):
     return mr
 
 
-def parse_multi_request(message, tags, typ):
+def parse_multiple_request(message, tags, typ):
     """ parse_multi_request
     This function should be used to parse the message replayed to a multi request service rapped around the
     send_unit_data message.
@@ -436,3 +436,15 @@ class Socket:
 
     def close(self):
         self.sock.close()
+
+
+def parse_symbol_type(symbol):
+    """ parse_symbol_type
+
+    It parse the symbol to Rockwell Spec
+    :param symbol: the symbol associated to a tag
+    :return: A tuple containing information about the tag
+    """
+    pass
+
+    return None
