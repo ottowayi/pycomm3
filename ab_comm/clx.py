@@ -3,16 +3,14 @@ __status__ = "testing"
 __version__ = "0.1"
 __date__ = "01 01 2015"
 
-import logging
 
 from cip.cip_base import *
+import logging
 
 
 class Driver(object):
-
-    logger = logging.getLogger('ClxDriver')
-
     def __init__(self):
+        self.logger = logging.getLogger('ab_comm.clx')
         self.__version__ = '0.1'
         self.__sock = Socket(None)
         self.session = 0
@@ -27,6 +25,7 @@ class Driver(object):
         self._more_packets_available = False
         self._last_tag_read = ()
         self._last_tag_write = ()
+        self._status = (0, "")
         self.attribs = {'context': '_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
                         'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': '\x27\x04\x19\x71', 'csn': '\x27\x04',
                         'vid': '\x09\x10', 'vsn': '\x09\x10\x19\x71'}
@@ -74,10 +73,21 @@ class Driver(object):
         self.send()
         self.receive()
 
+    def get_status(self):
+        return self._status
+
+    def get_last_tag_read(self):
+        return self._last_tag_read
+
+    def get_last_tag_write(self):
+        return self._last_tag_write
+
+    def clear(self):
+        self._status = (0, "")
+
     def register_session(self):
-        self.logger.debug('>>> register_session')
+        self.logger.debug('[-> register_session]')
         if self.session:
-            self.logger.warn('Session already registered')
             return self.session
 
         self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
@@ -87,9 +97,9 @@ class Driver(object):
         self.receive()
         if self._check_replay():
             self.session = unpack_dint(self._replay[4:8])
-            self.logger.debug('register_session (session =%s) >>>' % print_bytes_line(self._replay[4:8]))
+            self.logger.info("Session ={0} has been registered.".format(print_bytes_line(self._replay[4:8])))
             return self.session
-        self.logger.warn('Leaving register_session (session =None) >>>')
+        self.logger.warning('Session not registered.')
         return None
 
     def un_register_session(self):
@@ -206,11 +216,9 @@ class Driver(object):
 
             # Encapsulation status check
             if unpack_dint(self._replay[8:12]) != SUCCESS:
-                self.logger.warning('%s reply error' % REPLAY_INFO[typ])
-                self.logger.warning('{0} reply status:{1}'.format(
-                    REPLAY_INFO[typ],
-                    SERVICE_STATUS[unpack_dint(self._replay[8:12])]
-                ))
+                self._status = (1, "{0} reply status:{1}".format(REPLAY_INFO[typ],
+                                                                 SERVICE_STATUS[unpack_dint(self._replay[8:12])]))
+                self.logger.warning(self._status)
                 return False
 
             # Command Specific Status check
@@ -220,14 +228,15 @@ class Driver(object):
                     self._parse_tag_list(44, status)
                     return True
                 if status == 0x06:
-                    self.logger.warning("Insufficient Packet Space")
+                    self._status = (1, "Insufficient Packet Space")
+                    self.logger.warning(self._status)
                     self._more_packets_available = True
                     return True
                 elif status != SUCCESS:
-                    self.logger.warning('send_rr_data reply status {0}: {1}'.format(
-                        "{:0>2x} ".format(ord(self._replay[42:43])),
-                        SERVICE_STATUS[status]))
-                    self.logger.warning(get_extended_status(self._replay, 42))
+                    self._status = (1, "send_rr_data reply status {0}: {1}. Extend status {2}".format(
+                        "{:0>2x} ".format(ord(self._replay[42:43]), SERVICE_STATUS[status]),
+                        get_extended_status=(self._replay, 42)))
+                    self.logger.warning(self._status)
                     return False
                 else:
                     return True
@@ -238,29 +247,29 @@ class Driver(object):
                     self._parse_tag_list(50, status)
                     return True
                 if status == 0x06:
-                    self.logger.warning("Insufficient Packet Space")
+                    self._status = (1, "Insufficient Packet Space")
+                    self.logger.warning(self._status)
                     self._more_packets_available = True
-                    return True
                 elif status != SUCCESS:
-                    self.logger.debug(print_bytes_msg(self._replay))
-                    self.logger.warning('send_unit_data reply status {0}: {1}'.format(
-                        "{:0>2x} ".format(ord(self._replay[48:49])),
-                        SERVICE_STATUS[status]))
-                    self.logger.warning(get_extended_status(self._replay, 48))
+                    self._status = (1, "send_unit_data reply status {0}: {1}. Extend status {2}".format(
+                        "{:0>2x} ".format(ord(self._replay[48:49]), SERVICE_STATUS[status]),
+                        get_extended_status(self._replay, 48)))
+                    self.logger.warning(self._status)
                     return False
                 else:
                     return True
 
         except LookupError:
-            self.logger.warning('LookupError inside _check_replay')
+            self._status = (1, "LookupError inside _check_replay")
+            self.logger.warning(self._status)
             return False
 
         return True
 
     def forward_open(self):
-        self.logger.debug('>>> forward_open')
         if self.session == 0:
-            self.logger.warning("Session not registered yet.")
+            self._status = (3, "A session need to be registered before to call forward_open.")
+            self.logger.warning(self._status)
             return None
 
         forward_open_msg = [
@@ -298,15 +307,15 @@ class Driver(object):
             self.target_cid = self._replay[44:48]
             self.target_is_connected = True
             self.logger.info("The target is connected end returned CID %s" % print_bytes_line(self.target_cid))
-            self.logger.debug('forward_open >>>')
             return True
-        self.logger.warning('forward_open returning False>>>')
+        self._status = (3, "forward_open returned False")
+        self.logger.warning(self._status)
         return False
 
     def forward_close(self):
-        self.logger.debug('>>> forward_close')
         if self.session == 0:
-            self.logger.warning("Session not registered yet.")
+            self._status = (4, "A session need to be registered before to call forward_close.")
+            self.logger.warning(self._status)
             return None
 
         forward_close_msg = [
@@ -333,9 +342,9 @@ class Driver(object):
         if self.send_rr_data(
                 build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_close_msg), ADDRESS_ITEM['UCMM'])):
             self.target_is_connected = False
-            self.logger.debug('forward_close >>>')
             return True
-        self.logger.warning('forward_close returning False>>>')
+        self._status = (4, "forward_close returned False")
+        self.logger.warning(self._status)
         return False
 
     def read_tag(self, tag):
@@ -346,15 +355,15 @@ class Driver(object):
         if isinstance(tag, list):
             multi_requests = True
 
-        self.logger.debug('>>> read_tag')
         if self.session == 0:
-            self.logger.warning("Session not registered yet.")
+            self._status = (5, "A session need to be registered before to call read_tag.")
+            self.logger.warning(self._status)
             return None
 
         if not self.target_is_connected:
-            self.logger.debug('target not connected yet. Will execute a forward_open to connect')
             if not self.forward_open():
-                self.logger.warning("Target did not connected")
+                self._status = (5, "Target did not connected. read_tag will not be executed.")
+                self.logger.warning(self._status)
                 return None
 
         if multi_requests:
@@ -362,7 +371,8 @@ class Driver(object):
             for t in tag:
                 rp = create_tag_rp(t, multi_requests=True)
                 if rp is None:
-                    self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+                    self._status = (5, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
+                    self.logger.warning(self._status)
                     return None
                 else:
                     rp_list.append(chr(TAG_SERVICES_REQUEST['Read Tag']) + rp + pack_uint(1))
@@ -371,7 +381,8 @@ class Driver(object):
         else:
             rp = create_tag_rp(tag)
             if rp is None:
-                self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+                self._status = (5, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
+                self.logger.warning(self._status)
                 return None
             else:
                 # Creating the Message Request Packet
@@ -397,13 +408,10 @@ class Driver(object):
             # Get the data type
             data_type = unpack_uint(self._replay[50:52])
             try:
-                self.logger.debug('read_tag {0}={1} >>>'.format(
-                    tag,
-                    UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._replay[52:]))
-                )
                 return UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._replay[52:]), I_DATA_TYPE[data_type]
             except LookupError:
-                self.logger.warning('read_tag data type unknown>>>')
+                self._status = (5, "Unknown data type returned by read_tag")
+                self.logger.warning(self._status)
                 return None
 
     def write_tag(self, tag, value=None, typ=None):
@@ -414,14 +422,15 @@ class Driver(object):
         if isinstance(tag, list):
             multi_requests = True
 
-        self.logger.debug('>>> write_tag')
         if self.session == 0:
-            self.logger.warning("Session not registered yet.")
+            self._status = (6, "A session need to be registered before to call write_tag.")
+            self.logger.warning(self._status)
             return None
 
         if not self.target_is_connected:
             if not self.forward_open():
-                self.logger.warning("Target did not connected")
+                self._status = (6, "Target did not connected. write_tag will not be executed.")
+                self.logger.warning(self._status)
                 return None
 
         if multi_requests:
@@ -432,7 +441,8 @@ class Driver(object):
                 # Create the request path to wrap the tag name
                 rp = create_tag_rp(name, multi_requests=True)
                 if rp is None:
-                    self.logger.warning('Cannot create tag {0} request packet. Read not executed'.format(tag))
+                    self._status = (6, "Cannot create tag{0} req. packet. write_tag will not be executed".format(tag))
+                    self.logger.warning(self._status)
                     return None
                 else:
                     try:    # Trying to add the rp to the request path list
@@ -446,7 +456,9 @@ class Driver(object):
                         )
                         idx += 1
                     except (LookupError, struct.error) as e:
-                        self.logger.warning('Tag:{0} type:{1} removed from write list. Error:{2}'.format(name, typ, e))
+                        self._status = (6, "Tag:{0} type:{1} removed from write list. Error:{2}.".format(name, typ, e))
+                        self.logger.warning(self._status)
+
                         # The tag in idx position need to be removed from the rp list because has some kind of error
                         tag_to_remove.append(idx)
 
@@ -460,7 +472,8 @@ class Driver(object):
             name, value, typ = tag
             rp = create_tag_rp(name)
             if rp is None:
-                self.logger.warning('Cannot create tag {0} request packet. Write not executed'.format(tag))
+                self._status = (6, "Cannot create tag {0} request packet. write_tag will not be executed.".format(tag))
+                self.logger.warning(self._statustag)
                 return None
             else:
                 # Creating the Message Request Packet
@@ -474,7 +487,6 @@ class Driver(object):
                     PACK_DATA_FUNCTION[typ](value)
                 ]
 
-        self.logger.debug('writing tag:{0} value:{1} type:{2}'.format(tag, value, typ))
         ret_val = self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
@@ -484,9 +496,8 @@ class Driver(object):
             )
         )
 
-        self.logger.debug('write_tag >>>')
         if multi_requests:
-            return  self._parse_multiple_request_write(tag)
+            return self._parse_multiple_request_write(tag)
         else:
             return ret_val
 
@@ -494,15 +505,16 @@ class Driver(object):
         """ _get_symbol_object_instances
 
         """
-        self.logger.debug('>>> get_tag_list')
+
         if self.session == 0:
-            self.logger.warning("Session not registered yet.")
+            self._status = (6, "A session need to be registered before to call get_tag_list.")
+            self.logger.warning(self._status)
             return None
 
         if not self.target_is_connected:
-            self.logger.debug('target not connected yet. Will execute a forward_open to connect')
             if not self.forward_open():
-                self.logger.warning("Target did not connected")
+                self._status = (6, "Target did not connected. get_tag_list will not be executed.")
+                self.logger.warning(self._status)
                 return None
 
         self._last_instance = 0
@@ -536,15 +548,15 @@ class Driver(object):
                     addr_data=self.target_cid,
                 ))
 
-        self.logger.debug('get_tag_list >>>')
         return self.tag_list
 
     def send(self):
         try:
-            self.logger.debug(print_bytes_msg(self._message,  'SEND --------------'))
+            self.logger.debug(print_bytes_msg(self._message, '-------------- SEND --------------'))
             self.__sock.send(self._message)
         except SocketError as e:
-            self.logger.error('Error {0} during {1}'.format(e, 'send'), exc_info=True)
+            self._status = (2, "Error {0} during {1}".format(e, 'send'))
+            self.logger.critical(self._status)
             return False
 
         return True
@@ -552,34 +564,31 @@ class Driver(object):
     def receive(self):
         try:
             self._replay = self.__sock.receive()
-            self.logger.debug(print_bytes_msg(self._replay, 'RECEIVE -----------'))
+            self.logger.debug(print_bytes_msg(self._replay, '----------- RECEIVE -----------'))
         except SocketError as e:
-            self.logger.error('Error {0} during {1}'.format(e, 'receive'), exc_info=True)
-            self._replay = None
+            self._status = (2, "Error {0} during {1}".format(e, 'send'))
+            self.logger.critical(self._status)
             return False
 
         return True
 
     def open(self, ip_address):
-        self.logger.debug('>>> open %s' % ip_address)
         # handle the socket layer
         if not self.connection_opened:
             try:
                 self.__sock.connect(ip_address, self.attribs['port'])
                 self.connection_opened = True
                 if self.register_session() is None:
-                    self.logger.warning("Session not registered")
-                    self.logger.debug('open >>>')
+                    self._status = (2, "Session not registered")
+                    self.logger.error(self._status)
                     return False
-                self.logger.debug('open >>>')
                 return True
-            except Exception as e:
-                self.logger.error('Error {0} during {1}'.format(e, 'open'), exc_info=True)
-                self.logger.debug('open >>>')
+            except SocketError as e:
+                self._status = (2, "Error {0} during {1}".format(e, 'send'))
+                self.logger.critical(self._status)
         return False
 
     def close(self):
-        self.logger.debug('>>> close')
         if self.target_is_connected:
             self.forward_close()
         if self.session != 0:
@@ -588,4 +597,3 @@ class Driver(object):
         self.__sock = None
         self.session = 0
         self.connection_opened = False
-        self.logger.debug('close >>>')

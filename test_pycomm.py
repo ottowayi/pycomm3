@@ -1,5 +1,10 @@
 from ab_comm.clx import Driver as ClxDriver
-
+import logging
+logging.basicConfig(
+    #filename="pycomm.log",
+    level=logging.WARNING,
+    format="%(levelname)-10s %(asctime)s %(message)s"
+)
 
 if __name__ == '__main__':
 
