@@ -61,8 +61,10 @@ multiple atomic or structured tags. Other drivers will be added in the future.
 
 Thanks
 ------
-Couple of people and projects on the internet inspired _ab_comm.clx_ driver. Among this I would like to thank mr 
-_Lynn Lins_ for providing helpful suggestions and code snippets, and tuxeip project at https://code.google.com/p/tuxeip/.
+Couple of people and projects on the internet inspired _ab_comm.clx_ driver. Among this I would like to thank 
+*Lynn Lins* for providing helpful suggestions and code snippets, and the `tuxeip project`_ 
+.. _tuxeip project: https://code.google.com/p/tuxeip/
+
  
 License
 -------
