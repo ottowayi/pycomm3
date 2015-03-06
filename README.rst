@@ -15,6 +15,7 @@ Setup
 The package can be installed from GitHub:
 
 ::
+
     git clone https://github.com/ruscito/pycomm.git
     cd pycomm
     sudo python setup.py install
