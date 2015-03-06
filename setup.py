@@ -14,6 +14,6 @@ setup(
     long_description=description,
     license="MIT",
     url="https://github.com/ruscito/pycomm",
-    packages=["pycomm", "pycomm.ab_comm", "pycomm.cip"],
+    packages=["pycomm.ab_comm", "pycomm.cip", "pycomm", ],
     platforms="any",
 )
