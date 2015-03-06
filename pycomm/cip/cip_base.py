@@ -21,22 +21,22 @@ def pack_sint(n):
 
 
 def pack_uint(n):
-    """pack 16 bit into 2 bytes little indian"""
+    """pack 16 bit into 2 bytes little endian"""
     return struct.pack('<H', n)
 
 
 def pack_dint(n):
-    """pack 32 bit into 4 bytes little indian"""
+    """pack 32 bit into 4 bytes little endian"""
     return struct.pack('<I', n)
 
 
 def pack_real(r):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return struct.pack('<f', r)
 
 
 def pack_lint(l):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return struct.unpack('<q', l)
 
 
@@ -50,22 +50,22 @@ def unpack_sint(st):
 
 
 def unpack_uint(st):
-    """unpack 2 bytes little indian to int"""
+    """unpack 2 bytes little endian to int"""
     return int(struct.unpack('<H', st[0:2])[0])
 
 
 def unpack_dint(st):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return int(struct.unpack('<I', st[0:4])[0])
 
 
 def unpack_real(st):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return float(struct.unpack('<f', st[0:4])[0])
 
 
 def unpack_lint(st):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return int(struct.unpack('<q', st[0:8])[0])
 
 
