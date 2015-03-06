@@ -2,7 +2,7 @@
 from pycomm import common
 from distutils.core import setup
 
-with open('README.md') as f:
+with open('README.rst') as f:
     description = f.read()
 
 setup(
