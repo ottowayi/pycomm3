@@ -1,5 +1,7 @@
-from ab_comm.clx import Driver as ClxDriver
 import logging
+
+from pycomm.ab_comm.clx import Driver as ClxDriver
+
 logging.basicConfig(
     #filename="pycomm.log",
     level=logging.WARNING,
