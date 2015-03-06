@@ -26,8 +26,9 @@ ab_comm
 -------
 ab_comm is a module that contains a set of classes used to interface Rockwell PLCs using Ethernet/IP protocol.
 The module ClxDriver can be used to communicate with Compactlogix, Controllogix and Micrologix PLCs. I tried to follow 
-CIP specifications volume 1 and 2 as well as 'Rockwell Automation Publication 1756-PM020-EN-P - November 2012 
-<http://literature.rockwellautomation.com/idc/groups/literature/documents/pm/1756-pm020_-en-p.pdf>`_. 
+CIP specifications volume 1 and 2 as well as `Rockwell Automation Publication 1756-PM020-EN-P - November 2012`_ .
+
+.. _Rockwell Automation Publication 1756-PM020-EN-P - November 2012: http://literature.rockwellautomation.com/idc/groups/literature/documents/pm/1756-pm020_-en-p.pdf
 
 See the following snippet for usage information:
  
