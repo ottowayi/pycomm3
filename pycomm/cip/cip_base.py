@@ -375,7 +375,7 @@ class Socket:
 
                 chunks.append(chunk)
                 bytes_recd += len(chunk)
-            except socket.error, e:
+            except socket.error as e:
                 raise SocketError(e)
         return ''.join(chunks)
 

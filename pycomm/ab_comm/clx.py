@@ -81,7 +81,6 @@ class Driver(object):
         self._status = (0, "")
 
     def register_session(self):
-        self.logger.debug('[-> register_session]')
         if self.session:
             return self.session
 
