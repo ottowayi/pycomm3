@@ -7,7 +7,8 @@ Test
 ----
 The library is currently test on Python 2.6, 2.7, 3.2, 3.3 and 3.4.
 
-[![Build Status](https://travis-ci.org/ruscito/pycomm.svg?branch=master)](https://travis-ci.org/ruscito/pycomm)
+.. image:: https://travis-ci.org/ruscito/pycomm.svg?branch=master
+    :target: https://travis-ci.org/ruscito/pycomm
 
 Setup
 -------
