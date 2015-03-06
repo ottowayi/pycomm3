@@ -3,6 +3,21 @@ Description
 pycomm is a package that includes a collection of modules used to communicate with PLCs.
 At the moment the first module in the package is ab_comm. 
 
+Test
+----
+The library is currently test on Python 2.6, 2.7, 3.2, 3.3 and 3.4.
+
+[![Build Status](https://travis-ci.org/ruscito/pycomm.svg?branch=master)](https://travis-ci.org/ruscito/pycomm)
+
+Setup
+-------
+The package can be installed from github:
+
+    git clone https://github.com/ruscito/pycomm.git
+    sudo python setup.py install
+    
+    
+    
 ab_comm
 -------
 ab_comm is a module that contains a set of classes used to interface Rockwell PLCs using Ethernet/IP protocol.
@@ -12,22 +27,24 @@ CIP specifications volume 1 and 2 as well as [Rockwell Automation Publication 17
 
 See the following snippet for usage information:
  
-        from ab_comm.clx import Driver as ClxDriver
-
-        if __name__ == '__main__':
-            c = ClxDriver()
-            
-            c.open('192.168.1.10')
-            
+    
+    from pycomm.ab_comm.clx import Driver as ClxDriver
+       
+    if __name__ == '__main__':
+    
+        c = ClxDriver()
+        if c.open('192.168.1.10'):
+    
             print(c.read_tag('Counts'))
             print(c.read_tag(['ControlWord']))
             print(c.read_tag(['parts', 'ControlWord', 'Counts']))
-        
+    
             print(c.write_tag(('Counts', 26, 'INT')))
             print(c.write_tag([('Counts', 26, 'INT')]))
             print(c.write_tag([('Counts', 26, 'INT'), ('ControlWord', 30, 'DINT'), ('parts', 31, 'DINT')]))
-        
+    
             c.close()
+
 
 
 The Future
