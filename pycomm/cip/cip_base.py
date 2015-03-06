@@ -120,61 +120,6 @@ DATA_FUNCTION_SIZE = {
     'DWORD': 4,    # byte string 32-bits
     'LWORD': 8    # byte string 64-bits
 }
-def print_info(msg):
-    """
-    nice formatted print for the encapsulated message
-    :param msg: the encapsulated message to print
-    :return:
-    """
-    print
-    n = len(msg)
-    print "  Full length of EIP = %d (0x%04x)" % (n, n)
-
-    cmd = unpack_uint(msg[:2])
-    print "         EIP Command =",
-    if cmd == 0:
-        print "NOP"
-    elif cmd == 0x01:
-        print "List Targets"
-    elif cmd == 0x04:
-        print "List Services"
-    elif cmd == 0x63:
-        print "List Identity"
-    elif cmd == 0x64:
-        print "List Interfaces"
-    elif cmd == 0x65:
-        print "Register Session"
-    elif cmd == 0x66:
-        print "Unregister Session"
-    elif cmd == 0x6f:
-        print "SendRRData"
-    elif cmd == 0x70:
-        print "SendUnitData"
-    else:
-        print "Unknown command: 0x%02x" % cmd
-
-    # The Data Part
-    d = unpack_uint(msg[2:4])
-    print "Attached Data Length = %d" % d
-
-    n = unpack_dint(msg[4:8])
-    print "      Session Handle = %d (0x%08x)" % (n, n)
-
-    n = unpack_dint(msg[8:12])
-    print "      Session Status = %d (0x%08x)" % (n, n)
-
-    print "      Sender Context = %s" % msg[12:20]
-
-    n = unpack_dint(msg[20:24])
-    print "    Protocol Options = %d (0x%08x)" % (n, n)
-
-    if 0 < d < 500:
-        print "data =", list(msg[24:])
-    elif d > 500:
-        print "attached data is longer than 500 bytes"
-    print
-
-    return msg
 
 
 def print_bytes_line(msg):
