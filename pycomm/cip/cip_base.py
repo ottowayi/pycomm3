@@ -94,19 +94,6 @@ PACK_DATA_FUNCTION = {
     'DWORD': pack_dint,    # byte string 32-bits
     'LWORD': pack_lint    # byte string 64-bits
 }
-UNPACK_DATA_FUNCTION = {
-    'BOOL': unpack_bool,
-    'SINT': unpack_sint,    # Signed 8-bit integer
-    'INT': unpack_uint,     # Signed 16-bit integer
-    'DINT': unpack_dint,    # Signed 32-bit integer
-    'REAL': unpack_real,    # 32-bit floating point,
-    'LINT': unpack_lint,
-    'BYTE': unpack_sint,     # byte string 8-bits
-    'WORD': unpack_uint,     # byte string 16-bits
-    'DWORD': unpack_dint,    # byte string 32-bits
-    'LWORD': unpack_lint    # byte string 64-bits
-}
-
 
 DATA_FUNCTION_SIZE = {
     'BOOL': 1,
