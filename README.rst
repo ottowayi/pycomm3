@@ -1,5 +1,5 @@
-Description
------------
+pycomm
+======
 pycomm is a package that includes a collection of modules used to communicate with PLCs.
 At the moment the first module in the package is ab_comm. 
 
@@ -13,6 +13,7 @@ Setup
 -------
 The package can be installed from GitHub:
 
+::
     git clone https://github.com/ruscito/pycomm.git
     cd pycomm
     sudo python setup.py install
@@ -28,6 +29,7 @@ CIP specifications volume 1 and 2 as well as [Rockwell Automation Publication 17
 
 See the following snippet for usage information:
  
+::    
     
     from pycomm.ab_comm.clx import Driver as ClxDriver
        
