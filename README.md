@@ -11,7 +11,7 @@ The library is currently test on Python 2.6, 2.7, 3.2, 3.3 and 3.4.
 
 Setup
 -------
-The package can be installed from github:
+The package can be installed from GitHub:
 
     git clone https://github.com/ruscito/pycomm.git
     cd pycomm
