@@ -21,22 +21,22 @@ def pack_sint(n):
 
 
 def pack_uint(n):
-    """pack 16 bit into 2 bytes little indian"""
+    """pack 16 bit into 2 bytes little endian"""
     return struct.pack('<H', n)
 
 
 def pack_dint(n):
-    """pack 32 bit into 4 bytes little indian"""
+    """pack 32 bit into 4 bytes little endian"""
     return struct.pack('<I', n)
 
 
 def pack_real(r):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return struct.pack('<f', r)
 
 
 def pack_lint(l):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return struct.unpack('<q', l)
 
 
@@ -50,22 +50,22 @@ def unpack_sint(st):
 
 
 def unpack_uint(st):
-    """unpack 2 bytes little indian to int"""
+    """unpack 2 bytes little endian to int"""
     return int(struct.unpack('<H', st[0:2])[0])
 
 
 def unpack_dint(st):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return int(struct.unpack('<I', st[0:4])[0])
 
 
 def unpack_real(st):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return float(struct.unpack('<f', st[0:4])[0])
 
 
 def unpack_lint(st):
-    """unpack 4 bytes little indian to int"""
+    """unpack 4 bytes little endian to int"""
     return int(struct.unpack('<q', st[0:8])[0])
 
 
@@ -94,19 +94,6 @@ PACK_DATA_FUNCTION = {
     'DWORD': pack_dint,    # byte string 32-bits
     'LWORD': pack_lint    # byte string 64-bits
 }
-UNPACK_DATA_FUNCTION = {
-    'BOOL': unpack_bool,
-    'SINT': unpack_sint,    # Signed 8-bit integer
-    'INT': unpack_uint,     # Signed 16-bit integer
-    'DINT': unpack_dint,    # Signed 32-bit integer
-    'REAL': unpack_real,    # 32-bit floating point,
-    'LINT': unpack_lint,
-    'BYTE': unpack_sint,     # byte string 8-bits
-    'WORD': unpack_uint,     # byte string 16-bits
-    'DWORD': unpack_dint,    # byte string 32-bits
-    'LWORD': unpack_lint    # byte string 64-bits
-}
-
 
 DATA_FUNCTION_SIZE = {
     'BOOL': 1,
