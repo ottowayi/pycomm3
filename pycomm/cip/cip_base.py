@@ -69,6 +69,20 @@ def unpack_lint(st):
     return int(struct.unpack('<q', st[0:8])[0])
 
 
+PACK_DATA_FUNCTION = {
+    'BOOL': pack_sint,
+    'SINT': pack_sint,    # Signed 8-bit integer
+    'INT': pack_uint,     # Signed 16-bit integer
+    'DINT': pack_dint,    # Signed 32-bit integer
+    'REAL': pack_real,    # 32-bit floating point
+    'LINT': pack_lint,
+    'BYTE': pack_sint,     # byte string 8-bits
+    'WORD': pack_uint,     # byte string 16-bits
+    'DWORD': pack_dint,    # byte string 32-bits
+    'LWORD': pack_lint    # byte string 64-bits
+}
+
+
 UNPACK_DATA_FUNCTION = {
     'BOOL': unpack_bool,
     'SINT': unpack_sint,    # Signed 8-bit integer
@@ -82,18 +96,6 @@ UNPACK_DATA_FUNCTION = {
     'LWORD': unpack_lint    # byte string 64-bits
 }
 
-PACK_DATA_FUNCTION = {
-    'BOOL': pack_sint,
-    'SINT': pack_sint,    # Signed 8-bit integer
-    'INT': pack_uint,     # Signed 16-bit integer
-    'DINT': pack_dint,    # Signed 32-bit integer
-    'REAL': pack_real,    # 32-bit floating point
-    'LINT': pack_lint,
-    'BYTE': pack_sint,     # byte string 8-bits
-    'WORD': pack_uint,     # byte string 16-bits
-    'DWORD': pack_dint,    # byte string 32-bits
-    'LWORD': pack_lint    # byte string 64-bits
-}
 
 DATA_FUNCTION_SIZE = {
     'BOOL': 1,
@@ -223,6 +225,7 @@ def create_tag_rp(tag, multi_requests=False):
         request_path = ''.join(rp)
     return request_path
 
+
 def build_common_packet_format(message_type, message, addr_type, addr_data=None, timeout=10):
     """ build_common_packet_format
 
@@ -242,6 +245,7 @@ def build_common_packet_format(message_type, message, addr_type, addr_data=None,
     msg += pack_uint(len(message))   # Data Item Length
     msg += message
     return msg
+
 
 def build_multiple_service(rp_list, sequence=None):
 
