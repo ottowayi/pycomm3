@@ -114,11 +114,11 @@ Rockwell Automation Publication
 1756-RM003P-EN-P - December 2014
 """
 SERVICE_STATUS = {
-    0x01: "Connection failure (see extended codes)",
+    0x01: "Connection failure (see extended status)",
     0x02: "Insufficient resource",
     0x03: "Invalid value",
-    0x04: "IOI syntax error. A syntax error was detected decoding the Request Path (see extended codes)",
-    0x05: "Destination unknown, class unsupported, instance \nundefined or structure element undefined (see extended codes)",
+    0x04: "IOI syntax error. A syntax error was detected decoding the Request Path (see extended status)",
+    0x05: "Destination unknown, class unsupported, instance \nundefined or structure element undefined (see extended status)",
     0x06: "Insufficient Packet Space",
     0x07: "Connection lost",
     0x08: "Service not supported",
@@ -140,7 +140,7 @@ SERVICE_STATUS = {
     0x1C: "Attribute list shortage",
     0x1D: "Invalid attribute list",
     0x1E: "Request service error",
-    0x1F: "Connection related failure (see extended codes)",
+    0x1F: "Connection related failure (see extended status)",
     0x22: "Invalid reply received",
     0x25: "Key segment error",
     0x26: "Invalid IOI error",
@@ -152,7 +152,7 @@ SERVICE_STATUS = {
     0xFC: "Message unsupported data type",
     0xFD: "Message uninitialized",
     0xFE: "Message timeout",
-    0xff: "General Error (see extended codes)"
+    0xff: "General Error (see extended status)"
 }
 
 EXTEND_CODES = {

@@ -148,20 +148,20 @@ def get_extended_status(msg, start):
     # 48 General Status
     # 49 Size of additional status
     # 50..n additional status
-    extended_status_size = unpack_sint(msg[start+1:start+2])
+    extended_status_size = (unpack_sint(msg[start+1:start+2]))*2
     extended_status = 0
     if extended_status_size != 0:
         # There is an additional status
         if extended_status_size == 1:
             extended_status = unpack_sint(msg[start+2:start+3])
         elif extended_status_size == 2:
-            extended_status = unpack_sint(msg[start+2:start+4])
+            extended_status = unpack_uint(msg[start+2:start+4])
         elif extended_status_size == 4:
             extended_status = unpack_dint(msg[start+2:start+6])
         else:
             return 'Extended Status Size Unknown'
     try:
-        return 'Extended Status :{0}'.format(EXTEND_CODES[status][extended_status])
+        return '{0}'.format(EXTEND_CODES[status][extended_status])
     except LookupError:
         return "Extended Status info not present"
 
