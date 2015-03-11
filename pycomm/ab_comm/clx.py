@@ -1,4 +1,36 @@
-"""
+# -*- coding: utf-8 -*-
+#
+# clx.py - Ethernet/IP Client for Rockwell PLCs
+#
+#
+# Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+
+
+import logging
+from pycomm.cip.cip_base import *
+
+
+class Driver(object):
+    """
     This Ethernet/IP client is based on Rockwell specification. Please refer to the link below for details.
 
     http://literature.rockwellautomation.com/idc/groups/literature/documents/pm/1756-pm020_-en-p.pdf
@@ -16,12 +48,6 @@
         - ControlLogix 5572 and 1756-EN2T Module
 
 """
-import logging
-from pycomm.cip.cip_base import *
-
-
-class Driver(object):
-    """ Ethernet/IP client """
     def __init__(self):
         self.logger = logging.getLogger('ab_comm.clx')
         self.__version__ = '0.1'
@@ -88,7 +114,7 @@ class Driver(object):
         A NOP provides a way for either an originator or target to determine if the TCP connection is still open.
         """
         self._message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
-        self.send()
+        self._send()
 
     def list_identity(self):
         """ ListIdentity command to locate and identify potential target
@@ -96,12 +122,13 @@ class Driver(object):
         After sending the message the client wait for the replay
         """
         self._message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
-        self.send()
-        self.receive()
+        self._send()
+        self._receive()
 
     def get_status(self):
         """ Get the last status/error
 
+        This method can be used after any call to get any details in case of error
         :return: A tuple containing (error group, error message)
         """
         return self._status
@@ -121,7 +148,7 @@ class Driver(object):
         return self._last_tag_write
 
     def clear(self):
-        """ The clear the last status/error
+        """ Clear the last status/error
 
         :return: return am empty tuple
         """
@@ -138,8 +165,8 @@ class Driver(object):
         self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
         self._message += pack_uint(self.attribs['protocol version'])
         self._message += pack_uint(0)
-        self.send()
-        self.receive()
+        self._send()
+        self._receive()
         if self._check_replay():
             self._session = unpack_dint(self._replay[4:8])
             self.logger.info("Session ={0} has been registered.".format(print_bytes_line(self._replay[4:8])))
@@ -152,24 +179,38 @@ class Driver(object):
 
         """
         self._message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
-        self.send()
+        self._send()
         self._session = None
 
     def send_rr_data(self, msg):
+        """ SendRRData transfer an encapsulated request/reply packet between the originator and target
+
+        :param msg: The message to be send to the target
+        :return: the replay received from the target
+        """
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(msg))
         self._message += msg
-        self.send()
-        self.receive()
+        self._send()
+        self._receive()
         return self._check_replay()
 
     def send_unit_data(self, msg):
+        """ SendUnitData send encapsulated connected messages.
+
+        :param msg: The message to be send to the target
+        :return: the replay received from the target
+        """
         self._message = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(msg))
         self._message += msg
-        self.send()
-        self.receive()
+        self._send()
+        self._receive()
         return self._check_replay()
 
     def _get_sequence(self):
+        """ Increase and return the sequence used with connected messages
+
+        :return: The New sequence
+        """
         if self._sequence < 65535:
             self._sequence += 1
         else:
@@ -177,6 +218,11 @@ class Driver(object):
         return self._sequence
 
     def _parse_tag_list(self, start_tag_ptr, status):
+        """ extract the tags list from the message received
+
+        :param start_tag_ptr: The point in the message string where the tag list begin
+        :param status: The status of the message receives
+        """
         tags_returned = self._replay[start_tag_ptr:]
         tags_returned_length = len(tags_returned)
         idx = 0
@@ -208,11 +254,10 @@ class Driver(object):
             self._last_instance = -1
 
     def _parse_fragment(self, start_ptr, status):
-        """ This method parse the fragment returned by a fragment service.
+        """ parse the fragment returned by a fragment service.
 
         :param start_ptr: Where the fragment start within the replay
         :param status: status field used to decide if keep parsing or stop
-
         """
         data_type = unpack_uint(self._replay[start_ptr:start_ptr+2])
         fragment_returned = self._replay[start_ptr+2:]
@@ -239,8 +284,12 @@ class Driver(object):
             self._byte_offset = -1
 
     def _parse_multiple_request_read(self, tags):
-        """ _parse_multiple_request_read
+        """ parse the message received from a multi request read:
 
+        For each tag parsed, the information extracted includes the tag name, the value read and the data type.
+        Those information are appended to the tag list as tuple
+
+        :return: the tag list
         """
         offset = 50
         position = 50
@@ -269,8 +318,12 @@ class Driver(object):
         return tag_list
 
     def _parse_multiple_request_write(self, tags):
-        """ _parse_multiple_request_write
+        """ parse the message received from a multi request writ:
 
+        For each tag parsed, the information extracted includes the tag name and the status of the writing.
+        Those information are appended to the tag list as tuple
+
+        :return: the tag list
         """
         offset = 50
         position = 50
@@ -290,7 +343,7 @@ class Driver(object):
         return tag_list
 
     def _check_replay(self):
-        """ _check_replay
+        """ check the replayed message for error
 
         """
         self._more_packets_available = False
@@ -312,18 +365,7 @@ class Driver(object):
             # Command Specific Status check
             if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
                 status = unpack_sint(self._replay[42:43])
-                if unpack_sint(self._replay[40:41]) == I_TAG_SERVICES_REPLAY["Read Tag Fragmented"]:
-                    self._parse_fragment(44, status)
-                    return True
-                if unpack_sint(self._replay[40:41]) == I_TAG_SERVICES_REPLAY["Get Instance Attribute List"]:
-                    self._parse_tag_list(44, status)
-                    return True
-                if status == 0x06:
-                    self._status = (3, "Insufficient Packet Space")
-                    self.logger.warning(self._status)
-                    self._more_packets_available = True
-                    return True
-                elif status != SUCCESS:
+                if status != SUCCESS:
                     self._status = (3, "send_rr_data reply:{0} - Extend status:{1}".format(
                         SERVICE_STATUS[status], get_extended_status(self._replay, 42)))
                     self.logger.warning(self._status)
@@ -359,6 +401,12 @@ class Driver(object):
         return True
 
     def forward_open(self):
+        """ CIP implementation of the forward open message
+
+        Refer to ODVA documentation Volume 1 3-5.5.2
+
+        :return: False if any error in the replayed message
+        """
         if self._session == 0:
             self._status = (4, "A session need to be registered before to call forward_open.")
             self.logger.warning(self._status)
@@ -405,6 +453,13 @@ class Driver(object):
         return False
 
     def forward_close(self):
+        """ CIP implementation of the forward close message
+
+        Each connection opened with the froward open message need to be closed.
+        Refer to ODVA documentation Volume 1 3-5.5.3
+
+        :return: False if any error in the replayed message
+        """
         if self._session == 0:
             self._status = (5, "A session need to be registered before to call forward_close.")
             self.logger.warning(self._status)
@@ -440,8 +495,17 @@ class Driver(object):
         return False
 
     def read_tag(self, tag):
-        """ read_tag
+        """ read tag from a connected plc
 
+        Possible combination can be passed to this method:
+                - ('Counts') a single tag name
+                - (['ControlWord']) a list with one tag or many
+                - (['parts', 'ControlWord', 'Counts'])
+
+        At the moment there is not a strong validation for the argument passed. The user should verify
+        the correctness of the format passed.
+
+        :return: None is returned in case of error otherwise the tag list is returned
         """
         multi_requests = False
         if isinstance(tag, list):
@@ -507,8 +571,14 @@ class Driver(object):
                 return None
 
     def read_array(self, tag, counts):
-        """ read_array
+        """ read array of atomic data type from a connected plc
 
+        At the moment there is not a strong validation for the argument passed. The user should verify
+        the correctness of the format passed.
+
+        :param tag: the name of the tag to read
+        :param counts: the number of element to read
+        :return: None is returned in case of error otherwise the tag list is returned
         """
         if self._session == 0:
             self._status = (7, "A session need to be registered before to call read_array.")
@@ -552,8 +622,31 @@ class Driver(object):
         return self._tag_list
 
     def write_tag(self, tag, value=None, typ=None):
-        """ write_tag
+        """ write tag/tags from a connected plc
 
+        Possible combination can be passed to this method:
+                - ('tag name', Value, data type)  as single parameters or inside a tuple
+                - ([('tag name', Value, data type), ('tag name2', Value, data type)]) as array of tuples
+
+        At the moment there is not a strong validation for the argument passed. The user should verify
+        the correctness of the format passed.
+
+        The type accepted are:
+            - BOOL
+            - SINT
+            - INT'
+            - DINT
+            - REAL
+            - LINT
+            - BYTE
+            - WORD
+            - DWORD
+            - LWORD
+
+        :param tag: tag name, or an array of tuple containing (tag name, value, data type)
+        :param value: the value to write or none if tag is an array of tuple or a tuple
+        :param typ: the type of the tag to write or none if tag is an array of tuple or a tuple
+        :return: None is returned in case of error otherwise the tag list is returned
         """
         multi_requests = False
         if isinstance(tag, list):
@@ -643,8 +736,14 @@ class Driver(object):
             return ret_val
 
     def write_array(self, tag, data_type, values):
-        """ write_array
+        """ write array of atomic data type from a connected plc
 
+        At the moment there is not a strong validation for the argument passed. The user should verify
+        the correctness of the format passed.
+
+        :param tag: the name of the tag to read
+        :param data_type: the type of tag to write
+        :param values: the array of values to write
         """
         if not isinstance(values, list):
             self._status = (9, "A list of tags must be passed to write_array.")
@@ -703,7 +802,7 @@ class Driver(object):
                 byte_size = 0
 
     def get_tag_list(self):
-        """ _get_symbol_object_instances
+        """ get a list of the tags in the plc
 
         """
 
@@ -751,7 +850,11 @@ class Driver(object):
 
         return self._tag_list
 
-    def send(self):
+    def _send(self):
+        """ socket send
+
+        :return: true if no error otherwise false
+        """
         try:
             self.logger.debug(print_bytes_msg(self._message, '-------------- SEND --------------'))
             self.__sock.send(self._message)
@@ -762,7 +865,11 @@ class Driver(object):
 
         return True
 
-    def receive(self):
+    def _receive(self):
+        """ socket receive
+
+        :return: true if no error otherwise false
+        """
         try:
             self._replay = self.__sock.receive()
             self.logger.debug(print_bytes_msg(self._replay, '----------- RECEIVE -----------'))
@@ -774,6 +881,10 @@ class Driver(object):
         return True
 
     def open(self, ip_address):
+        """ socket open
+
+        :return: true if no error otherwise false
+        """
         # handle the socket layer
         if not self._connection_opened:
             try:
@@ -790,6 +901,10 @@ class Driver(object):
         return False
 
     def close(self):
+        """ socket close
+
+        :return: true if no error otherwise false
+        """
         if self._target_is_connected:
             self.forward_close()
         if self._session != 0:
