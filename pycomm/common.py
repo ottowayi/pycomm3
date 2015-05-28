@@ -9,7 +9,7 @@ logging.basicConfig(
     filemode='w',
     level=logging.INFO,
     format="%(name)-13s %(levelname)-10s %(asctime)s %(message)s",
-    propagate=0,
+    # propagate=0,
 )
 
 LOGGER = logging.getLogger('pycomm')
