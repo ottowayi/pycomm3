@@ -27,14 +27,14 @@
 import struct
 import socket
 
+from os import getpid
 from pycomm.cip.cip_const import *
+from pycomm.common import PycommError
+import linecache
+import sys
 
 
 class ProtocolError(Exception):
-    pass
-
-
-class SocketError(Exception):
     pass
 
 
@@ -357,7 +357,7 @@ class Socket:
         try:
             self.sock.connect((host, port))
         except socket.timeout:
-            raise SocketError("Socket timeout during connection.")
+            raise CipError("Socket timeout during connection.")
 
     def send(self, msg, timeout=0):
         if timeout != 0:
@@ -367,10 +367,10 @@ class Socket:
             try:
                 sent = self.sock.send(msg[total_sent:])
                 if sent == 0:
-                    raise SocketError("socket connection broken.")
+                    raise CipError("socket connection broken.")
                 total_sent += sent
             except socket.error:
-                raise SocketError("socket connection broken.")
+                raise CipError("socket connection broken.")
         return total_sent
 
     def receive(self, timeout=0):
@@ -384,7 +384,7 @@ class Socket:
             try:
                 chunk = self.sock.recv(min(msg_len - bytes_recd, 2048))
                 if chunk == '':
-                    raise SocketError("socket connection broken.")
+                    raise CipError("socket connection broken.")
                 if one_shot:
                     data_size = int(struct.unpack('<H', chunk[2:4])[0])  # Length
                     msg_len = HEADER_SIZE + data_size
@@ -393,7 +393,7 @@ class Socket:
                 chunks.append(chunk)
                 bytes_recd += len(chunk)
             except socket.error as e:
-                raise SocketError(e)
+                raise CipError(e)
         return ''.join(chunks)
 
     def close(self):
@@ -410,3 +410,344 @@ def parse_symbol_type(symbol):
     pass
 
     return None
+
+
+class Base(object):
+    _sequence = 0
+
+    def __init__(self, logging):
+        if Base._sequence == 0:
+            Base._sequence = getpid()
+        else:
+            Base._sequence = Base._get_sequence()
+
+        self.logger = logging
+        self.__version__ = '0.1'
+        self.__sock = Socket(None)
+        self._session = 0
+        self._connection_opened = False
+        self._reply = None
+        self._message = None
+        self._target_cid = None
+        self._target_is_connected = False
+        self._tag_list = []
+        self._buffer = {}
+        #self._tag_template = {}
+        self._last_instance = 0
+        self._byte_offset = 0
+        self._last_position = 0
+        self._more_packets_available = False
+        self._last_tag_read = ()
+        self._last_tag_write = ()
+        self._status = (0, "")
+
+        self.attribs = {'context': '_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
+                        'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': '\x27\x04\x19\x71', 'csn': '\x27\x04',
+                        'vid': '\x09\x10', 'vsn': '\x09\x10\x19\x71', 'name': 'Base'}
+
+    def __len__(self):
+        return len(self.attribs)
+
+    def __getitem__(self, key):
+        return self.attribs[key]
+
+    def __setitem__(self, key, value):
+        self.attribs[key] = value
+
+    def __delitem__(self, key):
+        try:
+            del self.attribs[key]
+        except LookupError:
+            pass
+
+    def __iter__(self):
+        return iter(self.attribs)
+
+    def __contains__(self, item):
+        return item in self.attribs
+
+    def _check_reply(self):
+        raise PycommError("The method has not been implemented")
+
+    @staticmethod
+    def _get_sequence():
+        """ Increase and return the sequence used with connected messages
+
+        :return: The New sequence
+        """
+        if Base._sequence < 65535:
+            Base._sequence += 1
+        else:
+            Base._sequence = getpid()
+        return Base._sequence
+
+    def nop(self):
+        """ No replay command
+
+        A NOP provides a way for either an originator or target to determine if the TCP connection is still open.
+        """
+        self._message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
+        self._send()
+
+    def list_identity(self):
+        """ ListIdentity command to locate and identify potential target
+
+        After sending the message the client wait for the replay
+        """
+        self._message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
+        self._send()
+        self._receive()
+
+    def send_rr_data(self, msg):
+        """ SendRRData transfer an encapsulated request/reply packet between the originator and target
+
+        :param msg: The message to be send to the target
+        :return: the replay received from the target
+        """
+        self._message = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(msg))
+        self._message += msg
+        self._send()
+        self._receive()
+        return self._check_reply()
+
+    def send_unit_data(self, msg):
+        """ SendUnitData send encapsulated connected messages.
+
+        :param msg: The message to be send to the target
+        :return: the replay received from the target
+        """
+        self._message = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(msg))
+        self._message += msg
+        self._send()
+        self._receive()
+        return self._check_reply()
+
+    def get_status(self):
+        """ Get the last status/error
+
+        This method can be used after any call to get any details in case of error
+        :return: A tuple containing (error group, error message)
+        """
+        return self._status
+
+    def clear(self):
+        """ Clear the last status/error
+
+        :return: return am empty tuple
+        """
+        self._status = (0, "")
+
+    def build_header(self, command, length):
+        """ Build the encapsulate message header
+
+        The header is 24 bytes fixed length, and includes the command and the length of the optional data portion.
+
+         :return: the headre
+        """
+        h = command                                 # Command UINT
+        h += pack_uint(length)                      # Length UINT
+        h += pack_dint(self._session)                # Session Handle UDINT
+        h += pack_dint(0)                           # Status UDINT
+        h += self.attribs['context']                # Sender Context 8 bytes
+        h += pack_dint(self.attribs['option'])      # Option UDINT
+        return h
+
+    def register_session(self):
+        """ Register a new session with the communication partner
+
+        :return: None if any error, otherwise return the session number
+        """
+        if self._session:
+            return self._session
+
+        self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
+        self._message += pack_uint(self.attribs['protocol version'])
+        self._message += pack_uint(0)
+        self._send()
+        self._receive()
+        if self._check_reply():
+            self._session = unpack_dint(self._reply[4:8])
+            self.logger.debug("Session ={0} has been registered.".format(print_bytes_line(self._reply[4:8])))
+            return self._session
+        self.logger.warning('Session not registered.')
+        return None
+
+    def forward_open(self):
+        """ CIP implementation of the forward open message
+
+        Refer to ODVA documentation Volume 1 3-5.5.2
+
+        :return: False if any error in the replayed message
+        """
+        if self._session == 0:
+            self._status = (4, "A session need to be registered before to call forward_open.")
+            return None
+
+        forward_open_msg = [
+            FORWARD_OPEN,
+            pack_sint(2),
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
+            INSTANCE_ID["8-bit"],
+            CONNECTION_MANAGER_INSTANCE['Open Request'],
+            PRIORITY,
+            TIMEOUT_TICKS,
+            pack_dint(0),
+            self.attribs['cid'],
+            self.attribs['csn'],
+            self.attribs['vid'],
+            self.attribs['vsn'],
+            TIMEOUT_MULTIPLIER,
+            '\x00\x00\x00',
+            pack_dint(self.attribs['rpi'] * 1000),
+            pack_uint(CONNECTION_PARAMETER['Default']),
+            pack_dint(self.attribs['rpi'] * 1000),
+            pack_uint(CONNECTION_PARAMETER['Default']),
+            TRANSPORT_CLASS,  # Transport Class
+            CONNECTION_SIZE['Backplane'],
+            pack_sint(self.attribs['backplane']),
+            pack_sint(self.attribs['cpu slot']),
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Message Router"],
+            INSTANCE_ID["8-bit"],
+            pack_sint(1)
+        ]
+
+        if self.send_rr_data(
+                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_open_msg), ADDRESS_ITEM['UCMM'],)):
+            self._target_cid = self._reply[44:48]
+            self._target_is_connected = True
+            return True
+        self._status = (4, "forward_open returned False")
+        return False
+
+    def forward_close(self):
+        """ CIP implementation of the forward close message
+
+        Each connection opened with the froward open message need to be closed.
+        Refer to ODVA documentation Volume 1 3-5.5.3
+
+        :return: False if any error in the replayed message
+        """
+        if self._session == 0:
+            self._status = (5, "A session need to be registered before to call forward_close.")
+            return None
+
+        forward_close_msg = [
+            FORWARD_CLOSE,
+            pack_sint(2),
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
+            INSTANCE_ID["8-bit"],
+            CONNECTION_MANAGER_INSTANCE['Open Request'],
+            PRIORITY,
+            TIMEOUT_TICKS,
+            self.attribs['csn'],
+            self.attribs['vid'],
+            self.attribs['vsn'],
+            CONNECTION_SIZE['Backplane'],
+            '\x00',     # Reserved
+            pack_sint(self.attribs['backplane']),
+            pack_sint(self.attribs['cpu slot']),
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Message Router"],
+            INSTANCE_ID["8-bit"],
+            pack_sint(1)
+        ]
+        if self.send_rr_data(
+                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_close_msg), ADDRESS_ITEM['UCMM'])):
+            self._target_is_connected = False
+            return True
+        self._status = (5, "forward_close returned False")
+        self.logger.warning(self._status)
+        return False
+
+    def un_register_session(self):
+        """ Un-register a connection
+
+        """
+        self._message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
+        self._send()
+        self._session = None
+
+    def _send(self):
+        """
+        socket send
+        :return: true if no error otherwise false
+        """
+        try:
+            self.logger.debug(print_bytes_msg(self._message, '-------------- SEND --------------'))
+            self.__sock.send(self._message)
+        except CipError as e:
+            self._status = (11, "Error {0} during send".format(e))
+            self.logger.warning(self._status)
+            return False
+
+        return True
+
+    def _receive(self):
+        """
+        socket receive
+        :return: true if no error otherwise false
+        """
+        try:
+            self._reply = self.__sock.receive()
+            self.logger.debug(print_bytes_msg(self._reply, '----------- RECEIVE -----------'))
+        except CipError as e:
+            self._status = (12, "Error {0}".format(e))
+            self.logger.warning(self._status)
+            return False
+
+        return True
+
+    def open(self, ip_address):
+        """
+        socket open
+        :return: true if no error otherwise false
+        """
+        # handle the socket layer
+
+        if not self._connection_opened:
+            try:
+                self.__sock.connect(ip_address, self.attribs['port'])
+                self._connection_opened = True
+                if self.register_session() is None:
+                    self._status = (13, "Session not registered")
+                    return False
+                self.clean_up()
+                return True
+            except CipError as e:
+                self._status = (13, "Error {0} IP address {1} ".format(e, ip_address))
+                self.logger.warning(self._status)
+        return False
+
+    def close(self):
+        """
+        socket close
+        :return: true if no error otherwise false
+        """
+        if self._target_is_connected:
+            self.forward_close()
+        if self._session != 0:
+            self.un_register_session()
+        if self.__sock:
+            self.__sock.close()
+            self.__sock = None
+        self._session = 0
+        self._connection_opened = False
+
+    def post_exception_and_exit(self, err):
+        exc_type, exc_obj, tb = sys.exc_info()
+        f = tb.tb_frame
+        lineno = tb.tb_lineno
+        filename = f.f_code.co_filename
+        linecache.checkcache(filename)
+        line = linecache.getline(filename, lineno, f.f_globals)
+        self._status = (99, 'EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
+        print(self._status)
+        self.logger.warning(self._status)
+        self.close()
+        exit()
+
+    def clean_up(self):
+        self.forward_close()

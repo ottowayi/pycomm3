@@ -1,20 +1,12 @@
-import logging
-
 from pycomm.ab_comm.clx import Driver as ClxDriver
 
-logging.basicConfig(
-    filename="pycomm.log",
-    level=logging.WARNING,
-    format="%(levelname)-10s %(asctime)s %(message)s"
-)
 
 if __name__ == '__main__':
 
-    c = ClxDriver()
+    c = ClxDriver(True, 'ClxDriver.log')
 
-    if c.open('192.168.1.10'):
+    if c.open('172.16.2.161'):
 
-        print(c.read_tag('Counts'))
         print(c.read_tag(['ControlWord']))
         print(c.read_tag(['parts', 'ControlWord', 'Counts']))
 

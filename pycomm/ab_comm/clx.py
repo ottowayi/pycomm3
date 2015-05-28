@@ -23,13 +23,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-
-
-import logging
 from pycomm.cip.cip_base import *
+from pycomm.common import setup_logger
+import sys
+import logging
 
 
-class Driver(object):
+class Driver(Base):
     """
     This Ethernet/IP client is based on Rockwell specification. Please refer to the link below for details.
 
@@ -48,90 +48,15 @@ class Driver(object):
         - ControlLogix 5572 and 1756-EN2T Module
 
 """
-    def __init__(self):
-        self.logger = logging.getLogger('ab_comm.clx')
-        self.__version__ = '0.1'
-        self.__sock = Socket(None)
-        self._session = 0
-        self._connection_opened = False
-        self._replay = None
-        self._message = None
-        self._target_cid = None
-        self._target_is_connected = False
-        self._tag_list = []
-        self._sequence = 1
-        self._last_instance = 0
-        self._byte_offset = 0
-        self._last_position = 0
-        self._more_packets_available = False
-        self._last_tag_read = ()
-        self._last_tag_write = ()
-        self._status = (0, "")
+    def __init__(self, debug=False, filename=None):
+        if debug:
+            super(Driver, self).__init__(setup_logger('ab_comm.clx', logging.DEBUG, filename))
+        else:
+            super(Driver, self).__init__(setup_logger('ab_comm.clx', logging.INFO, filename))
 
-        self.attribs = {'context': '_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
-                        'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': '\x27\x04\x19\x71', 'csn': '\x27\x04',
-                        'vid': '\x09\x10', 'vsn': '\x09\x10\x19\x71'}
-
-    def __len__(self):
-        return len(self.attribs)
-
-    def __getitem__(self, key):
-        return self.attribs[key]
-
-    def __setitem__(self, key, value):
-        self.attribs[key] = value
-
-    def __delitem__(self, key):
-        try:
-            del self.attribs[key]
-        except LookupError:
-            pass
-
-    def __iter__(self):
-        return iter(self.attribs)
-
-    def __contains__(self, item):
-        return item in self.attribs
-
-    def build_header(self, command, length):
-        """ Build the encapsulate message header
-
-        The header is 24 bytes fixed length, and includes the command and the length of the optional data portion.
-
-         :return: the headre
-        """
-        h = command                                 # Command UINT
-        h += pack_uint(length)                      # Length UINT
-        h += pack_dint(self._session)                # Session Handle UDINT
-        h += pack_dint(0)                           # Status UDINT
-        h += self.attribs['context']                # Sender Context 8 bytes
-        h += pack_dint(self.attribs['option'])      # Option UDINT
-        return h
-
-    def nop(self):
-        """ No replay command
-
-        A NOP provides a way for either an originator or target to determine if the TCP connection is still open.
-        """
-        self._message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
-        self._send()
-
-    def list_identity(self):
-        """ ListIdentity command to locate and identify potential target
-
-        After sending the message the client wait for the replay
-        """
-        self._message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
-        self._send()
-        self._receive()
-
-    def get_status(self):
-        """ Get the last status/error
-
-        This method can be used after any call to get any details in case of error
-        :return: A tuple containing (error group, error message)
-        """
-        return self._status
+        self._buffer = {}
+        self._get_template_in_progress = False
+        self.__version__ = '0.2'
 
     def get_last_tag_read(self):
         """ Return the last tag read by a multi request read
@@ -147,86 +72,17 @@ class Driver(object):
         """
         return self._last_tag_write
 
-    def clear(self):
-        """ Clear the last status/error
-
-        :return: return am empty tuple
-        """
-        self._status = (0, "")
-
-    def register_session(self):
-        """ Register a new session with the communication partner
-
-        :return: None if any error, otherwise return the session number
-        """
-        if self._session:
-            return self._session
-
-        self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
-        self._message += pack_uint(self.attribs['protocol version'])
-        self._message += pack_uint(0)
-        self._send()
-        self._receive()
-        if self._check_replay():
-            self._session = unpack_dint(self._replay[4:8])
-            self.logger.info("Session ={0} has been registered.".format(print_bytes_line(self._replay[4:8])))
-            return self._session
-        self.logger.warning('Session not registered.')
-        return None
-
-    def un_register_session(self):
-        """ Un-register a connection
-
-        """
-        self._message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
-        self._send()
-        self._session = None
-
-    def send_rr_data(self, msg):
-        """ SendRRData transfer an encapsulated request/reply packet between the originator and target
-
-        :param msg: The message to be send to the target
-        :return: the replay received from the target
-        """
-        self._message = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(msg))
-        self._message += msg
-        self._send()
-        self._receive()
-        return self._check_replay()
-
-    def send_unit_data(self, msg):
-        """ SendUnitData send encapsulated connected messages.
-
-        :param msg: The message to be send to the target
-        :return: the replay received from the target
-        """
-        self._message = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(msg))
-        self._message += msg
-        self._send()
-        self._receive()
-        return self._check_replay()
-
-    def _get_sequence(self):
-        """ Increase and return the sequence used with connected messages
-
-        :return: The New sequence
-        """
-        if self._sequence < 65535:
-            self._sequence += 1
-        else:
-            self._sequence = 1
-        return self._sequence
-
-    def _parse_tag_list(self, start_tag_ptr, status):
+    def _parse_instace_attribute_list(self, start_tag_ptr, status):
         """ extract the tags list from the message received
 
         :param start_tag_ptr: The point in the message string where the tag list begin
         :param status: The status of the message receives
         """
-        tags_returned = self._replay[start_tag_ptr:]
+        tags_returned = self._reply[start_tag_ptr:]
         tags_returned_length = len(tags_returned)
         idx = 0
         instance = 0
+        count = 0
         try:
             while idx < tags_returned_length:
                 instance = unpack_dint(tags_returned[idx:idx+4])
@@ -237,19 +93,101 @@ class Driver(object):
                 idx += tag_length
                 symbol_type = unpack_uint(tags_returned[idx:idx+2])
                 idx += 2
-                self._tag_list.append((instance, tag_name, symbol_type))
-
+                count += 1
+                self._tag_list.append({'instance_id': instance,
+                                       'tag_name': tag_name,
+                                       'symbol_type': symbol_type})
             if status == SUCCESS:
                 self._last_instance = -1
             elif status == 0x06:
                 self._last_instance = instance + 1
             else:
                 self._status = (1, 'unknown status during _parse_tag_list')
-                self.logger.warning(self._status)
                 self._last_instance = -1
 
         except Exception as e:
             self._status = (1, "Error :{0} inside _parse_tag_list".format(e))
+            self.logger.warning(self._status)
+            self._last_instance = -1
+
+    def _parse_structure_makeup_attributes(self, start_tag_ptr, status):
+        """ extract the tags list from the message received
+
+        :param start_tag_ptr: The point in the message string where the tag list begin
+        :param status: The status of the message receives
+        """
+        self._buffer = {}
+
+        if status != SUCCESS:
+            self._buffer['Error'] = status
+            return
+
+        attribute = self._reply[start_tag_ptr:]
+        idx = 4
+        try:
+            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+                idx += 2
+                self._buffer['object_definition_size'] = unpack_dint(attribute[idx:idx + 4])
+            else:
+                self._buffer['Error'] = 'object_definition Error'
+                return
+
+            idx += 6
+            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+                idx += 2
+                self._buffer['structure_size'] = unpack_dint(attribute[idx:idx + 4])
+            else:
+                self._buffer['Error'] = 'structure Error'
+                return
+
+            idx += 6
+            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+                idx += 2
+                self._buffer['member_count'] = unpack_uint(attribute[idx:idx + 2])
+            else:
+                self._buffer['Error'] = 'member_count Error'
+                return
+
+            idx += 4
+            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+                idx += 2
+                self._buffer['structure_handle'] = unpack_uint(attribute[idx:idx + 2])
+            else:
+                self._buffer['Error'] = 'structure_handle Error'
+                return
+
+            return self._buffer
+
+        except Exception as e:
+            self._status = (100, "Error :{0} ".format(sys.exc_info()))
+            self.logger.warning(self._status)
+            self._buffer['Error'] = self._status
+            return
+
+    def _parse_template(self, start_tag_ptr, status):
+        """ extract the tags list from the message received
+
+        :param start_tag_ptr: The point in the message string where the tag list begin
+        :param status: The status of the message receives
+        """
+        tags_returned = self._reply[start_tag_ptr:]
+        bytes_received = len(tags_returned)
+
+        try:
+            self._buffer += tags_returned
+
+            if status == SUCCESS:
+                self._get_template_in_progress = False
+
+            elif status == 0x06:
+                self._byte_offset += bytes_received
+            else:
+                self._status = (1, 'unknown status {0} during _parse_template'.format(status))
+                self.logger.warning(self._status)
+                self._last_instance = -1
+
+        except Exception as e:
+            self._status = (101, "Error :{0} inside _parse_template".format(sys.exc_info()))
             self.logger.warning(self._status)
             self._last_instance = -1
 
@@ -259,8 +197,8 @@ class Driver(object):
         :param start_ptr: Where the fragment start within the replay
         :param status: status field used to decide if keep parsing or stop
         """
-        data_type = unpack_uint(self._replay[start_ptr:start_ptr+2])
-        fragment_returned = self._replay[start_ptr+2:]
+        data_type = unpack_uint(self._reply[start_ptr:start_ptr+2])
+        fragment_returned = self._reply[start_ptr+2:]
 
         fragment_returned_length = len(fragment_returned)
         idx = 0
@@ -276,11 +214,10 @@ class Driver(object):
             elif status == 0x06:
                 self._byte_offset += fragment_returned_length
             else:
-                self.logger.warning(2, 'unknown status during _parse_fragment')
+                self._status = (2, 'unknown status during _parse_fragment')
                 self._byte_offset = -1
         except Exception as e:
             self._status = (2, "Error :{0} inside _parse_fragment".format(e))
-            self.logger.warning(self._status)
             self._byte_offset = -1
 
     def _parse_multiple_request_read(self, tags):
@@ -293,19 +230,19 @@ class Driver(object):
         """
         offset = 50
         position = 50
-        number_of_service_replies = unpack_uint(self._replay[offset:offset+2])
+        number_of_service_replies = unpack_uint(self._reply[offset:offset+2])
         tag_list = []
         for index in range(number_of_service_replies):
             position += 2
-            start = offset + unpack_uint(self._replay[position:position+2])
-            general_status = unpack_sint(self._replay[start+2:start+3])
+            start = offset + unpack_uint(self._reply[position:position+2])
+            general_status = unpack_sint(self._reply[start+2:start+3])
 
             if general_status == 0:
-                data_type = unpack_uint(self._replay[start+4:start+6])
+                data_type = unpack_uint(self._reply[start+4:start+6])
                 try:
                     value_begin = start + 6
                     value_end = value_begin + DATA_FUNCTION_SIZE[I_DATA_TYPE[data_type]]
-                    value = self._replay[value_begin:value_end]
+                    value = self._reply[value_begin:value_end]
                     self._last_tag_read = (tags[index], UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](value),
                                            I_DATA_TYPE[data_type])
                 except LookupError:
@@ -327,12 +264,12 @@ class Driver(object):
         """
         offset = 50
         position = 50
-        number_of_service_replies = unpack_uint(self._replay[offset:offset+2])
+        number_of_service_replies = unpack_uint(self._reply[offset:offset+2])
         tag_list = []
         for index in range(number_of_service_replies):
             position += 2
-            start = offset + unpack_uint(self._replay[position:position+2])
-            general_status = unpack_sint(self._replay[start+2:start+3])
+            start = offset + unpack_uint(self._reply[position:position+2])
+            general_status = unpack_sint(self._reply[start+2:start+3])
 
             if general_status == 0:
                 self._last_tag_write = (tags[index] + ('GOOD',))
@@ -342,157 +279,64 @@ class Driver(object):
             tag_list.append(self._last_tag_write)
         return tag_list
 
-    def _check_replay(self):
+    def _check_reply(self):
         """ check the replayed message for error
 
         """
         self._more_packets_available = False
         try:
-            if self._replay is None:
+            if self._reply is None:
                 self._status = (3, '%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
-                self.logger.warning(self._status)
                 return False
             # Get the type of command
-            typ = unpack_uint(self._replay[:2])
+            typ = unpack_uint(self._reply[:2])
 
             # Encapsulation status check
-            if unpack_dint(self._replay[8:12]) != SUCCESS:
+            if unpack_dint(self._reply[8:12]) != SUCCESS:
                 self._status = (3, "{0} reply status:{1}".format(REPLAY_INFO[typ],
-                                                                 SERVICE_STATUS[unpack_dint(self._replay[8:12])]))
-                self.logger.warning(self._status)
+                                                                 SERVICE_STATUS[unpack_dint(self._reply[8:12])]))
                 return False
 
             # Command Specific Status check
             if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
-                status = unpack_sint(self._replay[42:43])
+                status = unpack_sint(self._reply[42:43])
                 if status != SUCCESS:
                     self._status = (3, "send_rr_data reply:{0} - Extend status:{1}".format(
-                        SERVICE_STATUS[status], get_extended_status(self._replay, 42)))
-                    self.logger.warning(self._status)
+                        SERVICE_STATUS[status], get_extended_status(self._reply, 42)))
                     return False
                 else:
                     return True
 
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
-                status = unpack_sint(self._replay[48:49])
-                if unpack_sint(self._replay[46:47]) == I_TAG_SERVICES_REPLAY["Read Tag Fragmented"]:
+                status = unpack_sint(self._reply[48:49])
+                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Tag Fragmented"]:
                     self._parse_fragment(50, status)
                     return True
-                if unpack_sint(self._replay[46:47]) == I_TAG_SERVICES_REPLAY["Get Instance Attribute List"]:
-                    self._parse_tag_list(50, status)
+                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Instance Attributes List"]:
+                    self._parse_instace_attribute_list(50, status)
+                    return True
+                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Attributes"]:
+                    self._parse_structure_makeup_attributes(50, status)
+                    return True
+                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Template"] and \
+                        self._get_template_in_progress:
+                    self._parse_template(50, status)
                     return True
                 if status == 0x06:
                     self._status = (3, "Insufficient Packet Space")
-                    self.logger.warning(self._status)
                     self._more_packets_available = True
                 elif status != SUCCESS:
                     self._status = (3, "send_unit_data reply:{0} - Extend status:{1}".format(
-                        SERVICE_STATUS[status], get_extended_status(self._replay, 48)))
-                    self.logger.warning(self._status)
+                        SERVICE_STATUS[status], get_extended_status(self._reply, 48)))
                     return False
                 else:
                     return True
 
         except LookupError:
             self._status = (3, "LookupError inside _check_replay")
-            self.logger.warning(self._status)
             return False
 
         return True
-
-    def forward_open(self):
-        """ CIP implementation of the forward open message
-
-        Refer to ODVA documentation Volume 1 3-5.5.2
-
-        :return: False if any error in the replayed message
-        """
-        if self._session == 0:
-            self._status = (4, "A session need to be registered before to call forward_open.")
-            self.logger.warning(self._status)
-            return None
-
-        forward_open_msg = [
-            FORWARD_OPEN,
-            pack_sint(2),
-            CLASS_ID["8-bit"],
-            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
-            INSTANCE_ID["8-bit"],
-            CONNECTION_MANAGER_INSTANCE['Open Request'],
-            PRIORITY,
-            TIMEOUT_TICKS,
-            pack_dint(0),
-            self.attribs['cid'],
-            self.attribs['csn'],
-            self.attribs['vid'],
-            self.attribs['vsn'],
-            TIMEOUT_MULTIPLIER,
-            '\x00\x00\x00',
-            pack_dint(self.attribs['rpi'] * 1000),
-            pack_uint(CONNECTION_PARAMETER['Default']),
-            pack_dint(self.attribs['rpi'] * 1000),
-            pack_uint(CONNECTION_PARAMETER['Default']),
-            TRANSPORT_CLASS,  # Transport Class
-            CONNECTION_SIZE['Backplane'],
-            pack_sint(self.attribs['backplane']),
-            pack_sint(self.attribs['cpu slot']),
-            CLASS_ID["8-bit"],
-            CLASS_CODE["Message Router"],
-            INSTANCE_ID["8-bit"],
-            pack_sint(1)
-        ]
-
-        if self.send_rr_data(
-                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_open_msg), ADDRESS_ITEM['UCMM'],)):
-            self._target_cid = self._replay[44:48]
-            self._target_is_connected = True
-            self.logger.info("The target is connected end returned CID %s" % print_bytes_line(self._target_cid))
-            return True
-        self._status = (4, "forward_open returned False")
-        self.logger.warning(self._status)
-        return False
-
-    def forward_close(self):
-        """ CIP implementation of the forward close message
-
-        Each connection opened with the froward open message need to be closed.
-        Refer to ODVA documentation Volume 1 3-5.5.3
-
-        :return: False if any error in the replayed message
-        """
-        if self._session == 0:
-            self._status = (5, "A session need to be registered before to call forward_close.")
-            self.logger.warning(self._status)
-            return None
-
-        forward_close_msg = [
-            FORWARD_CLOSE,
-            pack_sint(2),
-            CLASS_ID["8-bit"],
-            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
-            INSTANCE_ID["8-bit"],
-            CONNECTION_MANAGER_INSTANCE['Open Request'],
-            PRIORITY,
-            TIMEOUT_TICKS,
-            self.attribs['csn'],
-            self.attribs['vid'],
-            self.attribs['vsn'],
-            CONNECTION_SIZE['Backplane'],
-            '\x00',     # Reserved
-            pack_sint(self.attribs['backplane']),
-            pack_sint(self.attribs['cpu slot']),
-            CLASS_ID["8-bit"],
-            CLASS_CODE["Message Router"],
-            INSTANCE_ID["8-bit"],
-            pack_sint(1)
-        ]
-        if self.send_rr_data(
-                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_close_msg), ADDRESS_ITEM['UCMM'])):
-            self._target_is_connected = False
-            return True
-        self._status = (5, "forward_close returned False")
-        self.logger.warning(self._status)
-        return False
 
     def read_tag(self, tag):
         """ read tag from a connected plc
@@ -513,13 +357,11 @@ class Driver(object):
 
         if self._session == 0:
             self._status = (6, "A session need to be registered before to call read_tag.")
-            self.logger.warning(self._status)
             return None
 
         if not self._target_is_connected:
             if not self.forward_open():
-                self._status = (5, "Target did not connected. read_tag will not be executed.")
-                self.logger.warning(self._status)
+                self._status = (6, "Target did not connected. read_tag will not be executed.")
                 return None
 
         if multi_requests:
@@ -528,22 +370,20 @@ class Driver(object):
                 rp = create_tag_rp(t, multi_requests=True)
                 if rp is None:
                     self._status = (6, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
-                    self.logger.warning(self._status)
                     return None
                 else:
                     rp_list.append(chr(TAG_SERVICES_REQUEST['Read Tag']) + rp + pack_uint(1))
-            message_request = build_multiple_service(rp_list, self._get_sequence())
+            message_request = build_multiple_service(rp_list, Base._get_sequence())
 
         else:
             rp = create_tag_rp(tag)
             if rp is None:
                 self._status = (6, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
-                self.logger.warning(self._status)
                 return None
             else:
                 # Creating the Message Request Packet
                 message_request = [
-                    pack_uint(self._get_sequence()),
+                    pack_uint(Base._get_sequence()),
                     chr(TAG_SERVICES_REQUEST['Read Tag']),  # the Request Service
                     chr(len(rp) / 2),                       # the Request Path Size length in word
                     rp,                                     # the request path
@@ -562,12 +402,11 @@ class Driver(object):
             return self._parse_multiple_request_read(tag)
         else:
             # Get the data type
-            data_type = unpack_uint(self._replay[50:52])
+            data_type = unpack_uint(self._reply[50:52])
             try:
-                return UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._replay[52:]), I_DATA_TYPE[data_type]
+                return UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._reply[52:]), I_DATA_TYPE[data_type]
             except LookupError:
                 self._status = (6, "Unknown data type returned by read_tag")
-                self.logger.warning(self._status)
                 return None
 
     def read_array(self, tag, counts):
@@ -582,13 +421,11 @@ class Driver(object):
         """
         if self._session == 0:
             self._status = (7, "A session need to be registered before to call read_array.")
-            self.logger.warning(self._status)
             return None
 
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (7, "Target did not connected. read_tag will not be executed.")
-                self.logger.warning(self._status)
                 return None
 
         self._byte_offset = 0
@@ -598,12 +435,11 @@ class Driver(object):
             rp = create_tag_rp(tag)
             if rp is None:
                 self._status = (7, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
-                self.logger.warning(self._status)
                 return None
             else:
                 # Creating the Message Request Packet
                 message_request = [
-                    pack_uint(self._get_sequence()),
+                    pack_uint(Base._get_sequence()),
                     chr(TAG_SERVICES_REQUEST["Read Tag Fragmented"]),  # the Request Service
                     chr(len(rp) / 2),                                  # the Request Path Size length in word
                     rp,                                                # the request path
@@ -654,13 +490,11 @@ class Driver(object):
 
         if self._session == 0:
             self._status = (8, "A session need to be registered before to call write_tag.")
-            self.logger.warning(self._status)
             return None
 
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (8, "Target did not connected. write_tag will not be executed.")
-                self.logger.warning(self._status)
                 return None
 
         if multi_requests:
@@ -672,7 +506,6 @@ class Driver(object):
                 rp = create_tag_rp(name, multi_requests=True)
                 if rp is None:
                     self._status = (8, "Cannot create tag{0} req. packet. write_tag will not be executed".format(tag))
-                    self.logger.warning(self._status)
                     return None
                 else:
                     try:    # Trying to add the rp to the request path list
@@ -687,7 +520,6 @@ class Driver(object):
                         idx += 1
                     except (LookupError, struct.error) as e:
                         self._status = (8, "Tag:{0} type:{1} removed from write list. Error:{2}.".format(name, typ, e))
-                        self.logger.warning(self._status)
 
                         # The tag in idx position need to be removed from the rp list because has some kind of error
                         tag_to_remove.append(idx)
@@ -696,7 +528,7 @@ class Driver(object):
             for position in tag_to_remove:
                 del tag[position]
             # Create the message request
-            message_request = build_multiple_service(rp_list, self._get_sequence())
+            message_request = build_multiple_service(rp_list, Base._get_sequence())
 
         else:
             if isinstance(tag, tuple):
@@ -707,12 +539,11 @@ class Driver(object):
             rp = create_tag_rp(name)
             if rp is None:
                 self._status = (8, "Cannot create tag {0} request packet. write_tag will not be executed.".format(tag))
-                self.logger.warning(self._statustag)
                 return None
             else:
                 # Creating the Message Request Packet
                 message_request = [
-                    pack_uint(self._get_sequence()),
+                    pack_uint(Base._get_sequence()),
                     chr(TAG_SERVICES_REQUEST["Write Tag"]),   # the Request Service
                     chr(len(rp) / 2),               # the Request Path Size length in word
                     rp,                             # the request path
@@ -747,18 +578,15 @@ class Driver(object):
         """
         if not isinstance(values, list):
             self._status = (9, "A list of tags must be passed to write_array.")
-            self.logger.warning(self._status)
             return None
 
         if self._session == 0:
             self._status = (9, "A session need to be registered before to call write_array.")
-            self.logger.warning(self._status)
             return None
 
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (9, "Target did not connected. write_array will not be executed.")
-                self.logger.warning(self._status)
                 return None
 
         array_of_values = ""
@@ -775,12 +603,11 @@ class Driver(object):
                 if rp is None:
                     self._status = (9, "Cannot create tag {0} request packet. \
                         write_array will not be executed.".format(tag))
-                    self.logger.warning(self._status)
                     return None
                 else:
                     # Creating the Message Request Packet
                     message_request = [
-                        pack_uint(self._get_sequence()),
+                        pack_uint(Base._get_sequence()),
                         chr(TAG_SERVICES_REQUEST["Write Tag Fragmented"]),  # the Request Service
                         chr(len(rp) / 2),                                   # the Request Path Size length in word
                         rp,                                                 # the request path
@@ -801,43 +628,88 @@ class Driver(object):
                 array_of_values = ""
                 byte_size = 0
 
-    def get_tag_list(self):
-        """ get a list of the tags in the plc
+    def _get_instance_attribute_list_service(self):
+        """ Step 1: Finding user-created controller scope tags in a Logix5000 controller
 
+        This service returns instance IDs for each created instance of the symbol class, along with a list
+        of the attribute data associated with the requested attribute
         """
+        try:
+            if self._session == 0:
+                self._status = (10, "A session need to be registered before to call get_tag_list.")
+                return None
 
-        if self._session == 0:
-            self._status = (10, "A session need to be registered before to call get_tag_list.")
-            self.logger.warning(self._status)
-            return None
+            if not self._target_is_connected:
+                if not self.forward_open():
+                    self._status = (10, "Target did not connected. get_tag_list will not be executed.")
+                    return None
 
-        if not self._target_is_connected:
-            if not self.forward_open():
-                self._status = (10, "Target did not connected. get_tag_list will not be executed.")
+            self._last_instance = 0
+
+            self._get_template_in_progress = True
+            while self._last_instance != -1:
+
+                # Creating the Message Request Packet
+
+                message_request = [
+                    pack_uint(Base._get_sequence()),
+                    chr(TAG_SERVICES_REQUEST['Get Instance Attributes List']),  # STEP 1
+                    # the Request Path Size length in word
+                    chr(3),
+                    # Request Path ( 20 6B 25 00 Instance )
+                    CLASS_ID["8-bit"],       # Class id = 20 from spec 0x20
+                    CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
+                    INSTANCE_ID["16-bit"],   # Instance Segment: 16 Bit instance 0x25
+                    '\x00',
+                    pack_uint(self._last_instance),          # The instance
+                    # Request Data
+                    pack_uint(2),   # Number of attributes to retrieve
+                    pack_uint(1),   # Attribute 1: Symbol name
+                    pack_uint(2)    # Attribute 2: Symbol type
+                ]
+
+                self.send_unit_data(
+                    build_common_packet_format(
+                        DATA_ITEM['Connected'],
+                        ''.join(message_request),
+                        ADDRESS_ITEM['Connection Based'],
+                        addr_data=self._target_cid,
+                    ))
+            self._get_template_in_progress = False
+
+        except Exception as err:
+            self.post_exception_and_exit(err)
+
+    def _get_structure_makeup(self, instance_id):
+        """
+        get the structure makeup for a specific structure
+        """
+        try:
+            if self._session == 0:
+                self._status = (10, "A session need to be registered before to call get_tag_list.")
                 self.logger.warning(self._status)
                 return None
 
-        self._last_instance = 0
-
-        while self._last_instance != -1:
-
-            # Creating the Message Request Packet
+            if not self._target_is_connected:
+                if not self.forward_open():
+                    self._status = (10, "Target did not connected. get_tag_list will not be executed.")
+                    self.logger.warning(self._status)
+                    return None
 
             message_request = [
                 pack_uint(self._get_sequence()),
-                chr(TAG_SERVICES_REQUEST['Get Instance Attribute List']),
-                # the Request Path Size length in word
-                chr(3),
-                # Request Path ( 20 6B 25 00 Instance )
-                CLASS_ID["8-bit"],       # Class id = 20 from spec 0x20
-                CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
-                INSTANCE_ID["16-bit"],   # Instance Segment: 16 Bit instance 0x25
+                chr(TAG_SERVICES_REQUEST['Get Attributes']),
+                chr(3),                         # Request Path ( 20 6B 25 00 Instance )
+                CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
+                CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
+                INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
                 '\x00',
-                pack_uint(self._last_instance),          # The instance
-                # Request Data
-                pack_uint(2),   # Number of attributes to retrieve
-                pack_uint(1),   # Attribute 1: Symbol name
-                pack_uint(2)    # Attribute 2: Symbol type
+                pack_uint(instance_id),
+                pack_uint(4),  # Number of attributes
+                pack_uint(4),  # Template Object Definition Size UDINT
+                pack_uint(5),  # Template Structure Size UDINT
+                pack_uint(2),  # Template Member Count UINT
+                pack_uint(1)   # Structure Handle We can use this to read and write UINT
             ]
 
             self.send_unit_data(
@@ -848,68 +720,161 @@ class Driver(object):
                     addr_data=self._target_cid,
                 ))
 
-        return self._tag_list
+            return self._buffer
 
-    def _send(self):
-        """ socket send
+        except Exception as err:
+            self.post_exception_and_exit(err)
 
-        :return: true if no error otherwise false
+    def _read_template(self, instance_id, object_definition_size):
+        """ get a list of the tags in the plc
+
         """
         try:
-            self.logger.debug(print_bytes_msg(self._message, '-------------- SEND --------------'))
-            self.__sock.send(self._message)
-        except SocketError as e:
-            self._status = (11, "Error {0} during {1}".format(e, 'send'))
-            self.logger.critical(self._status)
-            return False
+            if self._session == 0:
+                self._status = (10, "A session need to be registered before to call get_tag_list.")
+                return None
 
-        return True
+            if not self._target_is_connected:
+                if not self.forward_open():
+                    self._status = (10, "Target did not connected. get_tag_list will not be executed.")
+                    return None
 
-    def _receive(self):
-        """ socket receive
+            self._byte_offset = 0
+            self._buffer = ""
+            self._get_template_in_progress = True
+            # self._buffer = {'member_count': member_count, }
 
-        :return: true if no error otherwise false
-        """
+            while self._get_template_in_progress:
+
+                # Creating the Message Request Packet
+
+                message_request = [
+                    pack_uint(self._get_sequence()),
+                    chr(TAG_SERVICES_REQUEST['Read Template']),
+                    chr(3),                         # Request Path ( 20 6B 25 00 Instance )
+                    CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
+                    CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
+                    INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
+                    '\x00',
+                    pack_uint(instance_id),
+                    pack_dint(self._byte_offset),  # Offset
+                    pack_uint(((object_definition_size * 4)-23) - self._byte_offset)
+                ]
+
+                self.send_unit_data(
+                    build_common_packet_format(
+                        DATA_ITEM['Connected'],
+                        ''.join(message_request),
+                        ADDRESS_ITEM['Connection Based'],
+                        addr_data=self._target_cid,
+                    ))
+
+            self._get_template_in_progress = False
+            return self._buffer
+
+        except Exception as err:
+            self.post_exception_and_exit(err)
+
+    def _isolating_user_tag(self):
+        lst = self._tag_list
+        self._tag_list = []
+        for tag in lst:
+                if tag['tag_name'].find(':') != -1 or tag['tag_name'].find('__') != -1:
+                    continue
+                if tag['symbol_type'] & 0b0001000000000000:
+                    continue
+                dimension = tag['symbol_type'] & 0b0110000000000000 >> 13
+                template_instance_id = tag['symbol_type'] & 0b0000111111111111
+
+                if tag['symbol_type'] & 0b1000000000000000 :
+                    tag_type = 'struct'
+                    data_type = 'user-created'
+                    self._tag_list.append({'instance_id': tag['instance_id'],
+                                           'template_instance_id': template_instance_id,
+                                           'tag_name': tag['tag_name'],
+                                           'dim': dimension,
+                                           'tag_type': tag_type,
+                                           'data_type': data_type,
+                                           'template': {},
+                                           'udt': {}})
+                else:
+                    tag_type = 'atomic'
+                    data_type = I_DATA_TYPE[template_instance_id]
+                    self._tag_list.append({'instance_id': tag['instance_id'],
+                                           'tag_name':  tag['tag_name'],
+                                           'dim': dimension,
+                                           'tag_type': tag_type,
+                                           'data_type': data_type})
+
+    def _parse_udt_raw(self, tag):
+        buff = self._read_template(tag['template_instance_id'], tag['template']['object_definition_size'])
+        member_count = tag['template']['member_count']
+        names = buff.split('\00')
+        lst = []
+        # Attenzione
+        tag['udt']['name'] = 'Not an user defined structure'
+        for name in names:
+            if len(name) > 1:
+
+                if name.find(';') != -1:
+                    tag['udt']['name'] = name[:name.find(';')]
+                elif name.find('ZZZZZZZZZZ') != -1:
+                    continue
+                elif name.isalpha():
+                    lst.append(name)
+                else:
+                    continue
+        tag['udt']['internal_tags'] = lst
+
+        type_list = []
+
+        for i in xrange(member_count):
+            # skip member 1
+
+            if i != 0:
+                #print print_bytes_line(buff[:2])
+                #print print_bytes_line(buff[2:4])
+                #print print_bytes_line(buff[4:8])
+
+                array_size = unpack_uint(buff[:2])
+                try:
+                    data_type = I_DATA_TYPE[unpack_uint(buff[2:4])]
+                except Exception:
+                    data_type = "None"
+
+                offset = unpack_dint(buff[4:8])
+                type_list.append((array_size, data_type, offset))
+
+            buff = buff[8:]
+
+        tag['udt']['data_type'] = type_list
+
+    def get_tag_list(self):
         try:
-            self._replay = self.__sock.receive()
-            self.logger.debug(print_bytes_msg(self._replay, '----------- RECEIVE -----------'))
-        except SocketError as e:
-            self._status = (12, "Error {0} during {1}".format(e, 'receive'))
-            self.logger.critical(self._status)
-            return False
+            self._tag_list = []
+            # Step 1
+            self._get_instance_attribute_list_service()
 
-        return True
+            # Step 2
+            self._isolating_user_tag()
 
-    def open(self, ip_address):
-        """ socket open
+            # Step 3
+            for tag in self._tag_list:
+                if tag['tag_type'] == 'struct':
+                    tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
 
-        :return: true if no error otherwise false
-        """
-        # handle the socket layer
-        if not self._connection_opened:
-            try:
-                self.__sock.connect(ip_address, self.attribs['port'])
-                self._connection_opened = True
-                if self.register_session() is None:
-                    self._status = (13, "Session not registered")
-                    self.logger.error(self._status)
-                    return False
-                return True
-            except SocketError as e:
-                self._status = (13, "Error {0} during {1}".format(e, 'open'))
-                self.logger.critical(self._status)
-        return False
+            for idx, tag in enumerate(self._tag_list):
+                # print (tag)
+                if tag['tag_type'] == 'struct':
+                    self._parse_udt_raw(tag)
 
-    def close(self):
-        """ socket close
+            # Step 4
 
-        :return: true if no error otherwise false
-        """
-        if self._target_is_connected:
-            self.forward_close()
-        if self._session != 0:
-            self.un_register_session()
-        self.__sock.close()
-        self.__sock = None
-        self._session = 0
-        self._connection_opened = False
+            return self._tag_list
+
+        except Exception as err:
+            self.post_exception_and_exit(err)
+
+
+
+

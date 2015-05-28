@@ -45,6 +45,18 @@ ATTRIBUTE_ID = {
     "16-bit": '\x31'
 }
 
+# Path are combined as:
+# CLASS_ID + PATHS
+# For example PCCC path is CLASS_ID["8-bit"]+PATH["PCCC"] -> 0x20, 0x67, 0x24, 0x01.
+PATH = {
+    'Connection Manager': '\x06\x24\x01',
+    'Router': '\x02\x24\x01',
+    'Backplane Data Type': '\x66\x24\x01',
+    'PCCC': '\x67\x24\x01',
+    'DHCP Channel A': '\xa6\x24\x01\x01\x2c\x01',
+    'DHCP Channel B': '\xa6\x24\x01\x02\x2c\x01'
+}
+
 ENCAPSULATION_COMMAND = {  # Volume 2: 2-3.2 Command Field UINT 2 byte
     "nop": '\x00\x00',
     "list_targets": '\x01\x00',
@@ -89,28 +101,34 @@ TAG_SERVICES_REQUEST = {
     "Write Tag Fragmented": 0x53,
     "Read Modify Write Tag": 0x4e,
     "Multiple Service Packet": 0x0a,
-    "Get Instance Attribute List": 0x55
+    "Get Instance Attributes List": 0x55,
+    "Get Attributes": 0x03,
+    "Read Template": 0x4c,
 }
 
-TAG_SERVICES_REPLAY = {
+TAG_SERVICES_REPLY = {
     0xcc: "Read Tag",
     0xd2: "Read Tag Fragmented",
     0xcd: "Write Tag",
     0xd3: "Write Tag Fragmented",
     0xce: "Read Modify Write Tag",
     0x8a: "Multiple Service Packet",
-    0xd5: "Get Instance Attribute List"
+    0xd5: "Get Instance Attributes List",
+    0x83: "Get Attributes",
+    0xcc: "Read Template"
 }
 
 
-I_TAG_SERVICES_REPLAY = {
+I_TAG_SERVICES_REPLY = {
     "Read Tag": 0xcc,
     "Read Tag Fragmented": 0xd2,
     "Write Tag": 0xcd,
     "Write Tag Fragmented": 0xd3,
     "Read Modify Write Tag": 0xce,
     "Multiple Service Packet": 0x8a,
-    "Get Instance Attribute List":0xd5
+    "Get Instance Attributes List": 0xd5,
+    "Get Attributes": 0x83,
+    "Read Template": 0xcc
 }
 
 
