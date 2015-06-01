@@ -833,10 +833,6 @@ class Driver(Base):
             # skip member 1
 
             if i != 0:
-                #print print_bytes_line(buff[:2])
-                #print print_bytes_line(buff[2:4])
-                #print print_bytes_line(buff[4:8])
-
                 array_size = unpack_uint(buff[:2])
                 try:
                     data_type = I_DATA_TYPE[unpack_uint(buff[2:4])]
