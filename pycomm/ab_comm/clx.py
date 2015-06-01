@@ -431,6 +431,7 @@ class Driver(Base):
         self._byte_offset = 0
         self._last_position = 0
 
+        self._tag_list = []
         while self._byte_offset != -1:
             rp = create_tag_rp(tag)
             if rp is None:
