@@ -306,7 +306,6 @@ class Driver(Base):
                     return False
                 else:
                     return True
-
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
                 status = unpack_sint(self._reply[48:49])
                 if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Tag Fragmented"]:

@@ -432,7 +432,7 @@ class Base(object):
         self._target_is_connected = False
         self._tag_list = []
         self._buffer = {}
-        #self._tag_template = {}
+        self._device_description = "Device Unknown"
         self._last_instance = 0
         self._byte_offset = 0
         self._last_position = 0
@@ -489,14 +489,29 @@ class Base(object):
         self._message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
         self._send()
 
+    def __repr__(self):
+        return self._device_description
+
+    def description(self):
+        return self._device_description
+
     def list_identity(self):
         """ ListIdentity command to locate and identify potential target
 
-        After sending the message the client wait for the replay
+        return true if the replay contains the device description
         """
         self._message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
         self._send()
         self._receive()
+        try:
+            if self._check_reply():
+                self._device_description = self._reply[63:-1]
+                # Current State of device
+                # print(unpack_sint(self._reply[-1:]))
+                return True
+            return False
+        except Exception as err:
+            self.post_exception_and_exit(err)
 
     def send_rr_data(self, msg):
         """ SendRRData transfer an encapsulated request/reply packet between the originator and target
@@ -569,7 +584,9 @@ class Base(object):
             self._session = unpack_dint(self._reply[4:8])
             self.logger.debug("Session ={0} has been registered.".format(print_bytes_line(self._reply[4:8])))
             return self._session
-        self.logger.warning('Session not registered.')
+
+        self._status = 'Warning ! the session has not been registered.'
+        self.logger.warning(self._status)
         return None
 
     def forward_open(self):
@@ -716,9 +733,8 @@ class Base(object):
                     return False
                 self.clean_up()
                 return True
-            except CipError as e:
-                self._status = (13, "Error {0} IP address {1} ".format(e, ip_address))
-                self.logger.warning(self._status)
+            except Exception as e:
+                self.post_exception_and_exit(e)
         return False
 
     def close(self):
