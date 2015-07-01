@@ -25,7 +25,73 @@
 #
 from pycomm.cip.cip_base import *
 from pycomm.common import setup_logger
+import re
 import logging
+
+
+def parse_tag(tag):
+    t = re.search(r"(?P<file_type>[SBCTRNFAIO])(?P<file_number>\d{1,3})"
+                  r"(:)(?P<element_number>\d{1,3})"
+                  r"(/(?P<sub_element>\d{1,4}))?", tag, flags=re.IGNORECASE)
+    if t:
+        if t.group('sub_element') is not None:
+            address_field = 3
+        else:
+            address_field = 2
+        return True, t.group(0), {'file_type': t.group('file_type'),
+                                  'file_number': t.group('file_number'),
+                                  'element_number': t.group('element_number'),
+                                  'sub_element': t.group('sub_element'),
+                                  'address_field': address_field}
+
+    t = re.search(r"(?P<file_type>[BN])(?P<file_number>\d{1,3})"
+                  r"(/)(?P<sub_element>\d{1,4})",  tag, flags=re.IGNORECASE)
+    if t:
+        return True, t.group(0), {'file_type': t.group('file_type'),
+                                  'file_number': t.group('file_number'),
+                                  'sub_element': t.group('sub_element'),
+                                  'address_field': 2}
+
+    t = re.search(r"(?P<file_type>[CT])(?P<file_number>\d{1,3})"
+                  r"(:)(?P<element_number>\d{1,3})"
+                  r"(.)(?P<sub_element>)(ACC|PRE|EN|DN|TT|CU|CD|DN|OV|UN|UA)", tag, flags=re.IGNORECASE)
+    if t:
+        return True, t.group(0), {'file_type': t.group('file_type'),
+                                  'file_number': t.group('file_number'),
+                                  'element_number': t.group('element_number'),
+                                  'sub_element': t.group('sub_element'),
+                                  'address_field': 3}
+
+    t = re.search(r"(?P<file_type>[IOS])(:)(?P<element_number>\d{1,3})"
+                  r"(/)(?P<sub_element>\d{1,4})", tag, flags=re.IGNORECASE)
+    if t:
+        return True, t.group(0), {'file_type': t.group('file_type'),
+                                  'element_number': t.group('element_number'),
+                                  'sub_element': t.group('sub_element'),
+                                  'address_field': 2}
+
+    t = re.search(r"(?P<file_type>[IOS])(:)(?P<element_number>\d{1,3})"
+                  r"(.)(?P<sub_element>[0-7])", tag, flags=re.IGNORECASE)
+    if t:
+        return True, t.group(0), {'file_type': t.group('file_type'),
+                                  'element_number': t.group('element_number'),
+                                  'sub_element': t.group('sub_element'),
+                                  'address_field': 2}
+
+    t = re.search(r"(?P<file_type>[IOS])(:)(?P<element_number>\d{1,3})"
+                  r"(/)(?P<sub_element>\d{1,4})", tag, flags=re.IGNORECASE)
+    if t:
+        return True, t.group(0), {'file_type': t.group('file_type'),
+                                  'element_number': t.group('element_number'),
+                                  'sub_element': t.group('sub_element'),
+                                  'address_field': 2}
+
+    """
+    t = re.search(r"(?P<file_type>[IOS])(:)(?P<element_number>\d{1,3})", tag, flags=re.IGNORECASE)
+    if t:
+        return True, t.group(0), {'file_type': t.group('file_type'),'element_number': t.group('element_number')}
+    """
+    return False, tag
 
 
 class Driver(Base):
@@ -93,6 +159,12 @@ class Driver(Base):
         return True
 
     def read_tag(self, tag, n):
+        res = parse_tag(tag)
+        if res[0]:
+            print ('good')
+            print res[2]['file_type']
+        else:
+            print ('bad')
         if self._session == 0:
             self._status = (6, "A session need to be registered before to call read_tag.")
             self.logger.warning(self._status)
@@ -120,19 +192,28 @@ class Driver(Base):
             seq[1],
             seq[0],
             '\xa2',
-            pack_sint(n),  # \x02
-            '\x07',
-            '\x89',
-            '\x00\x00'
+            pack_sint(PCCC_DATA_SIZE[res[2]['file_type']]*n),
+            pack_sint(int(res[2]['file_number'])),
+            PCCC_DATA_TYPE[res[2]['file_type']],
+            pack_sint(int(res[2]['element_number'])),
         ]
+        subelement_number = '\x00'
+        if res[2]['bit_number'] is not None:
+            subelement_number = pack_sint(int(res[2]['bit_number']))
 
-        self.send_unit_data(
+        message_request.append(subelement_number)
+
+        if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
                 ''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
-                addr_data=self._target_cid,
-            ))
+                addr_data=self._target_cid,)):
+
+            return unpack_real(self._reply[61:])
+
+        else:
+            return None
 
     def write_tag(self, tag, value):
         if self._session == 0:

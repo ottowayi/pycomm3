@@ -418,3 +418,31 @@ REPLAY_INFO = {
     0x65: 'register_session',
     0x66: 'unregister_session',
 }
+
+PCCC_DATA_TYPE = {
+    'N': '\x89',
+    'B': '\x85',
+    'T': '\x86',
+    'C': '\x87',
+    'S': '\x84',
+    'F': '\x8a',
+    'ST': '\x8d',
+    'A': '\x8e',
+    'R': '\x88',
+    'O': '\x8b',
+    'I': '\x8c'
+}
+
+PCCC_DATA_SIZE = {
+    'N': 2,
+    'B': 2,
+    'T': 6,
+    'C': 6,
+    'S': 2,
+    'F': 4,
+    'ST': 84,
+    'A': 2,
+    'R': 6,
+    'O': 2,
+    'I': 2
+}
