@@ -136,6 +136,18 @@ DATA_FUNCTION_SIZE = {
     'LWORD': 8    # byte string 64-bits
 }
 
+UNPACK_PCCC_DATA_FUNCTION = {
+    'N': unpack_sint,
+    'B': unpack_sint,
+    'T': unpack_dint,
+    'C': unpack_dint,
+    'S': unpack_sint,
+    'F': unpack_real,
+    'A': unpack_sint,
+    'R': unpack_dint,
+    'O': unpack_sint,
+    'I': unpack_sint
+}
 
 def print_bytes_line(msg):
     out = ''

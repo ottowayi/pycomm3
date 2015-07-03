@@ -30,60 +30,67 @@ import logging
 
 
 def parse_tag(tag):
+    t = re.search(r"(?P<file_type>[CT])(?P<file_number>\d{1,3})"
+                  r"(:)(?P<element_number>\d{1,3})"
+                  r"(.)(?P<sub_element>ACC|PRE|EN|DN|TT|CU|CD|DN|OV|UN|UA)", tag, flags=re.IGNORECASE)
+    if t:
+        return True, t.group(0), {'file_type': t.group('file_type'),
+                                  'file_number': t.group('file_number'),
+                                  'element_number': t.group('element_number'),
+                                  'sub_element': PCCC_CT[t.group('sub_element')],
+                                  'read_func': '\xa2',
+                                  'write_func': '\xaa',
+                                  'address_field': 3}
+
     t = re.search(r"(?P<file_type>[SBCTRNFAIO])(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,3})"
                   r"(/(?P<sub_element>\d{1,4}))?", tag, flags=re.IGNORECASE)
     if t:
         if t.group('sub_element') is not None:
             address_field = 3
+            read_fnc = '\xa2'
+            write_fnc = '\xaa'
         else:
             address_field = 2
-        return True, t.group(0), {'file_type': t.group('file_type'),
+            read_fnc = '\xa1'
+            write_fnc = '\xa9'
+        return True, t.group(0), {'file_type': t.group('file_type').upper(),
                                   'file_number': t.group('file_number'),
                                   'element_number': t.group('element_number'),
                                   'sub_element': t.group('sub_element'),
+                                  'read_func': read_fnc,
+                                  'write_func': write_fnc,
                                   'address_field': address_field}
-
+    """
     t = re.search(r"(?P<file_type>[BN])(?P<file_number>\d{1,3})"
-                  r"(/)(?P<sub_element>\d{1,4})",  tag, flags=re.IGNORECASE)
+                  r"(/)(?P<element_number>\d{1,4})",  tag, flags=re.IGNORECASE)
     if t:
-        return True, t.group(0), {'file_type': t.group('file_type'),
-                                  'file_number': t.group('file_number'),
-                                  'sub_element': t.group('sub_element'),
-                                  'address_field': 2}
-
-    t = re.search(r"(?P<file_type>[CT])(?P<file_number>\d{1,3})"
-                  r"(:)(?P<element_number>\d{1,3})"
-                  r"(.)(?P<sub_element>)(ACC|PRE|EN|DN|TT|CU|CD|DN|OV|UN|UA)", tag, flags=re.IGNORECASE)
-    if t:
-        return True, t.group(0), {'file_type': t.group('file_type'),
+        return True, t.group(0), {'file_type': t.group('file_type').upper(),
                                   'file_number': t.group('file_number'),
                                   'element_number': t.group('element_number'),
-                                  'sub_element': t.group('sub_element'),
-                                  'address_field': 3}
-
-    t = re.search(r"(?P<file_type>[IOS])(:)(?P<element_number>\d{1,3})"
-                  r"(/)(?P<sub_element>\d{1,4})", tag, flags=re.IGNORECASE)
-    if t:
-        return True, t.group(0), {'file_type': t.group('file_type'),
-                                  'element_number': t.group('element_number'),
-                                  'sub_element': t.group('sub_element'),
-                                  'address_field': 2}
-
-    t = re.search(r"(?P<file_type>[IOS])(:)(?P<element_number>\d{1,3})"
-                  r"(.)(?P<sub_element>[0-7])", tag, flags=re.IGNORECASE)
-    if t:
-        return True, t.group(0), {'file_type': t.group('file_type'),
-                                  'element_number': t.group('element_number'),
-                                  'sub_element': t.group('sub_element'),
+                                  'read_func': '\xa1',
+                                  'write_func': '\xa9',
                                   'address_field': 2}
 
     t = re.search(r"(?P<file_type>[IOS])(:)(?P<element_number>\d{1,3})"
                   r"(/)(?P<sub_element>\d{1,4})", tag, flags=re.IGNORECASE)
     if t:
-        return True, t.group(0), {'file_type': t.group('file_type'),
+        return True, t.group(0), {'file_type': t.group('file_type').upper(),
                                   'element_number': t.group('element_number'),
                                   'sub_element': t.group('sub_element'),
+                                  'read_func': '\xa1',
+                                  'write_func': '\xa9',
+                                  'address_field': 2}
+    """
+
+    t = re.search(r"(?P<file_type>[IOS])(:)(?P<file_number>\d{1,3})"
+                  r"(.)(?P<element_number>[0-7])", tag, flags=re.IGNORECASE)
+    if t:
+        return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                  'file_number': t.group('file_number'),
+                                  'element_number': t.group('element_number'),
+                                  'read_func': '\xa1',
+                                  'write_func': '\xa9',
                                   'address_field': 2}
 
     """
@@ -160,11 +167,10 @@ class Driver(Base):
 
     def read_tag(self, tag, n):
         res = parse_tag(tag)
-        if res[0]:
-            print ('good')
-            print res[2]['file_type']
-        else:
+        if not res[0]:
             print ('bad')
+            return None
+
         if self._session == 0:
             self._status = (6, "A session need to be registered before to call read_tag.")
             self.logger.warning(self._status)
@@ -191,18 +197,16 @@ class Driver(Base):
             '\x00',
             seq[1],
             seq[0],
-            '\xa2',
+            res[2]['read_func'],
             pack_sint(PCCC_DATA_SIZE[res[2]['file_type']]*n),
             pack_sint(int(res[2]['file_number'])),
             PCCC_DATA_TYPE[res[2]['file_type']],
             pack_sint(int(res[2]['element_number'])),
         ]
-        subelement_number = '\x00'
-        if res[2]['bit_number'] is not None:
-            subelement_number = pack_sint(int(res[2]['bit_number']))
 
-        message_request.append(subelement_number)
-
+        if res[2]['address_field'] == 3:
+            message_request.append(pack_sint(int(res[2]['sub_element'])))
+        self.logger.debug("reading {0}".format(res[1]))
         if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
@@ -210,7 +214,10 @@ class Driver(Base):
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,)):
 
-            return unpack_real(self._reply[61:])
+            if unpack_sint(self._reply[58]) != 0:
+                print ("Errore")
+
+            return UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](self._reply[61:])
 
         else:
             return None
