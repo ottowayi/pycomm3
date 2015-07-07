@@ -165,10 +165,11 @@ class Driver(Base):
 
         return True
 
-    def read_tag(self, tag, n):
+    def read_tag(self, tag, n=1):
         res = parse_tag(tag)
         if not res[0]:
-            print ('bad')
+            self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, n))
+            self.logger.warning(self._status)
             return None
 
         if self._session == 0:
@@ -181,6 +182,8 @@ class Driver(Base):
                 self._status = (5, "Target did not connected. read_tag will not be executed.")
                 self.logger.warning(self._status)
                 return None
+
+        data_size = PCCC_DATA_SIZE[res[2]['file_type']]
 
         # Creating the Message Request Packet
         seq = pack_uint(Base._get_sequence())
@@ -198,7 +201,7 @@ class Driver(Base):
             seq[1],
             seq[0],
             res[2]['read_func'],
-            pack_sint(PCCC_DATA_SIZE[res[2]['file_type']]*n),
+            pack_sint(data_size * n),
             pack_sint(int(res[2]['file_number'])),
             PCCC_DATA_TYPE[res[2]['file_type']],
             pack_sint(int(res[2]['element_number'])),
@@ -206,23 +209,48 @@ class Driver(Base):
 
         if res[2]['address_field'] == 3:
             message_request.append(pack_sint(int(res[2]['sub_element'])))
-        self.logger.debug("reading {0}".format(res[1]))
+        self.logger.debug("SLC read_tag({0},{1})".format(tag, n))
         if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
                 ''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,)):
+            sts = int(unpack_sint(self._reply[58]))
+            try:
+                if sts != 0:
+                    sts_txt = PCCC_ERROR_CODE[sts]
+                    self._status = (1000, "Error({0}) returned from read_tag({1},{2})".format(sts_txt, tag, n))
+                    self.logger.warning(self._status)
+                    return None
 
-            if unpack_sint(self._reply[58]) != 0:
-                print ("Errore")
+                new_value = 61
+                values_list = []
+                while len(self._reply[new_value:]) >= data_size:
+                    values_list.append(
+                        UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](self._reply[new_value:new_value+data_size])
+                    )
+                    new_value = new_value+data_size
 
-            return UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](self._reply[61:])
-
+                return values_list
+            except Exception as err:
+                self._status = (1000, "Error({0}) parsing the data returned from read_tag({1},{2})".format(err, tag, n))
+                self.logger.warning(self._status)
+                return None
         else:
             return None
 
     def write_tag(self, tag, value):
+        res = parse_tag(tag)
+        if not res[0]:
+            self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, n))
+            self.logger.warning(self._status)
+            return None
+
+        multi_requests = False
+        if isinstance(value, list):
+            multi_requests = True
+
         if self._session == 0:
             self._status = (8, "A session need to be registered before to call write_tag.")
             self.logger.warning(self._status)
@@ -233,9 +261,28 @@ class Driver(Base):
                 self._status = (8, "Target did not connected. write_tag will not be executed.")
                 self.logger.warning(self._status)
                 return None
+        try:
+            values = ""
+            if multi_requests:
+                for v in value:
+                    values += PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](v)
+                    if res[2]['file_type'] == 'C' or res[2]['file_type'] == 'T':
+                        values += '\x00\x00'
+            else:
+                values += PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](value)
+                if res[2]['file_type'] == 'C' or res[2]['file_type'] == 'T':
+                    values += '\x00\x00'
 
+        except Exception as err:
+                self._status = (1000, "Error({0}) packing the values to write  to the"
+                                      "SLC write_tag({1},{2})".format(err, tag, value))
+                self.logger.warning(self._status)
+                return None
+
+        data_to_write = values
         # Creating the Message Request Packet
         seq = pack_uint(Base._get_sequence())
+
         message_request = [
             seq,
             '\x4b',
@@ -249,23 +296,33 @@ class Driver(Base):
             '\x00',
             seq[1],
             seq[0],
-            '\xaa',
-            '\x06',  # pack_sint(n),  # \x02
-            '\x07',
-            '\x89',
-            '\x00\x00',
-            pack_uint(3),
-            pack_uint(3),
-            pack_uint(3),
-            ]
+            res[2]['write_func'],
+            pack_sint(len(data_to_write)),
+            pack_sint(int(res[2]['file_number'])),
+            PCCC_DATA_TYPE[res[2]['file_type']],
+            pack_sint(int(res[2]['element_number'])),
+        ]
 
-        ret_val = self.send_unit_data(
+        self.logger.debug("SLC write_tag({0},{1})".format(tag, value))
+        if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
-                ''.join(message_request),
+                ''.join(message_request) + data_to_write,
                 ADDRESS_ITEM['Connection Based'],
-                addr_data=self._target_cid,
-            )
-        )
+                addr_data=self._target_cid,)):
+            sts = int(unpack_sint(self._reply[58]))
+            try:
+                if sts != 0:
+                    sts_txt = PCCC_ERROR_CODE[sts]
+                    self._status = (1000, "Error({0}) returned from SLC write_tag({1},{2})".format(sts_txt, tag, value))
+                    self.logger.warning(self._status)
+                    return None
 
-        return ret_val
+                return True
+            except Exception as err:
+                self._status = (1000, "Error({0}) parsing the data returned from "
+                                      "SLC write_tag({1},{2})".format(err, tag, value))
+                self.logger.warning(self._status)
+                return None
+        else:
+            return None

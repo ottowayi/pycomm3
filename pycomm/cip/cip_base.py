@@ -137,7 +137,7 @@ DATA_FUNCTION_SIZE = {
 }
 
 UNPACK_PCCC_DATA_FUNCTION = {
-    'N': unpack_sint,
+    'N': unpack_uint,
     'B': unpack_sint,
     'T': unpack_dint,
     'C': unpack_dint,
@@ -147,6 +147,19 @@ UNPACK_PCCC_DATA_FUNCTION = {
     'R': unpack_dint,
     'O': unpack_sint,
     'I': unpack_sint
+}
+
+PACK_PCCC_DATA_FUNCTION = {
+    'N': pack_uint,
+    'B': pack_sint,
+    'T': pack_dint,
+    'C': pack_dint,
+    'S': pack_sint,
+    'F': pack_real,
+    'A': pack_sint,
+    'R': pack_dint,
+    'O': pack_sint,
+    'I': pack_sint
 }
 
 def print_bytes_line(msg):

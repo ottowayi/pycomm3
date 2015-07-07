@@ -459,3 +459,24 @@ PCCC_CT = {
     'UN': 11,
     'UA': 10
 }
+
+PCCC_ERROR_CODE = {
+    -2: "Not Acknowledged (NAK)",
+    -3: "No Reponse, Check COM Settings",
+    -4: "Unknown Message from DataLink Layer",
+    -5: "Invalid Address",
+    -6: "Could Not Open Com Port",
+    -7: "No data specified to data link layer",
+    -8: "No data returned from PLC",
+    -20: "No Data Returned",
+    16: "Illegal Command or Format, Address may not exist or not enough elements in data file",
+    32: "PLC Has a Problem and Will Not Communicate",
+    48: "Remote Node Host is Missing, Disconnected, or Shut Down",
+    64: "Host Could Not Complete Function Due To Hardware Fault",
+    80: "Addressing problem or Memory Protect Rungs",
+    96: "Function not allows due to command protection selection",
+    112: "Processor is in Program mode",
+    128: "Compatibility mode file missing or communication zone problem",
+    144: "Remote node cannot buffer command",
+    240: "Error code in EXT STS Byte"
+}
