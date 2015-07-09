@@ -95,6 +95,9 @@ def unpack_lint(st):
     return int(struct.unpack('<q', st[0:8])[0])
 
 
+def get_bit(value, idx):
+    return (value & (1 << idx)) != 0
+
 PACK_DATA_FUNCTION = {
     'BOOL': pack_sint,
     'SINT': pack_sint,    # Signed 8-bit integer
@@ -138,10 +141,10 @@ DATA_FUNCTION_SIZE = {
 
 UNPACK_PCCC_DATA_FUNCTION = {
     'N': unpack_uint,
-    'B': unpack_sint,
-    'T': unpack_dint,
-    'C': unpack_dint,
-    'S': unpack_sint,
+    'B': unpack_uint,
+    'T': unpack_uint,
+    'C': unpack_uint,
+    'S': unpack_uint,
     'F': unpack_real,
     'A': unpack_sint,
     'R': unpack_dint,
@@ -151,10 +154,10 @@ UNPACK_PCCC_DATA_FUNCTION = {
 
 PACK_PCCC_DATA_FUNCTION = {
     'N': pack_uint,
-    'B': pack_sint,
-    'T': pack_dint,
-    'C': pack_dint,
-    'S': pack_sint,
+    'B': pack_uint,
+    'T': pack_uint,
+    'C': pack_uint,
+    'S': pack_uint,
     'F': pack_real,
     'A': pack_sint,
     'R': pack_dint,

@@ -34,70 +34,112 @@ def parse_tag(tag):
                   r"(:)(?P<element_number>\d{1,3})"
                   r"(.)(?P<sub_element>ACC|PRE|EN|DN|TT|CU|CD|DN|OV|UN|UA)", tag, flags=re.IGNORECASE)
     if t:
-        return True, t.group(0), {'file_type': t.group('file_type'),
-                                  'file_number': t.group('file_number'),
-                                  'element_number': t.group('element_number'),
-                                  'sub_element': PCCC_CT[t.group('sub_element')],
-                                  'read_func': '\xa2',
-                                  'write_func': '\xaa',
-                                  'address_field': 3}
+        if (1 <= int(t.group('file_number')) <= 255) \
+                and (0 <= int(t.group('element_number')) <= 255):
+            return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                      'file_number': t.group('file_number'),
+                                      'element_number': t.group('element_number'),
+                                      'sub_element': PCCC_CT[t.group('sub_element')],
+                                      'read_func': '\xa2',
+                                      'write_func': '\xab',
+                                      'address_field': 3}
 
-    t = re.search(r"(?P<file_type>[SBCTRNFAIO])(?P<file_number>\d{1,3})"
+    t = re.search(r"(?P<file_type>[FBN])(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,3})"
-                  r"(/(?P<sub_element>\d{1,4}))?", tag, flags=re.IGNORECASE)
+                  r"(/(?P<sub_element>\d{1,2}))?",
+                  tag, flags=re.IGNORECASE)
     if t:
         if t.group('sub_element') is not None:
-            address_field = 3
-            read_fnc = '\xa2'
-            write_fnc = '\xaa'
+            if (1 <= int(t.group('file_number')) <= 255) \
+                    and (0 <= int(t.group('element_number')) <= 255) \
+                    and (0 <= int(t.group('sub_element')) <= 15):
+
+                return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                          'file_number': t.group('file_number'),
+                                          'element_number': t.group('element_number'),
+                                          'sub_element': t.group('sub_element'),
+                                          'read_func': '\xa2',
+                                          'write_func': '\xab',
+                                          'address_field': 3}
         else:
-            address_field = 2
-            read_fnc = '\xa1'
-            write_fnc = '\xa9'
-        return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                  'file_number': t.group('file_number'),
-                                  'element_number': t.group('element_number'),
-                                  'sub_element': t.group('sub_element'),
-                                  'read_func': read_fnc,
-                                  'write_func': write_fnc,
-                                  'address_field': address_field}
-    """
-    t = re.search(r"(?P<file_type>[BN])(?P<file_number>\d{1,3})"
-                  r"(/)(?P<element_number>\d{1,4})",  tag, flags=re.IGNORECASE)
-    if t:
-        return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                  'file_number': t.group('file_number'),
-                                  'element_number': t.group('element_number'),
-                                  'read_func': '\xa1',
-                                  'write_func': '\xa9',
-                                  'address_field': 2}
+            if (1 <= int(t.group('file_number')) <= 255) \
+                    and (0 <= int(t.group('element_number')) <= 255):
 
-    t = re.search(r"(?P<file_type>[IOS])(:)(?P<element_number>\d{1,3})"
-                  r"(/)(?P<sub_element>\d{1,4})", tag, flags=re.IGNORECASE)
-    if t:
-        return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                  'element_number': t.group('element_number'),
-                                  'sub_element': t.group('sub_element'),
-                                  'read_func': '\xa1',
-                                  'write_func': '\xa9',
-                                  'address_field': 2}
-    """
+                return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                          'file_number': t.group('file_number'),
+                                          'element_number': t.group('element_number'),
+                                          'sub_element': t.group('sub_element'),
+                                          'read_func': '\xa2',
+                                          'write_func': '\xab',
+                                          'address_field': 2}
 
-    t = re.search(r"(?P<file_type>[IOS])(:)(?P<file_number>\d{1,3})"
-                  r"(.)(?P<element_number>[0-7])", tag, flags=re.IGNORECASE)
+    t = re.search(r"(?P<file_type>[IO])(:)(?P<file_number>\d{1,3})"
+                  r"(.)(?P<element_number>\d{1,3})"
+                  r"(/(?P<sub_element>\d{1,2}))?", tag, flags=re.IGNORECASE)
     if t:
-        return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                  'file_number': t.group('file_number'),
-                                  'element_number': t.group('element_number'),
-                                  'read_func': '\xa1',
-                                  'write_func': '\xa9',
-                                  'address_field': 2}
+        if t.group('sub_element') is not None:
+            if (0 <= int(t.group('file_number')) <= 255) \
+                    and (0 <= int(t.group('element_number')) <= 255) \
+                    and (0 <= int(t.group('sub_element')) <= 15):
 
-    """
-    t = re.search(r"(?P<file_type>[IOS])(:)(?P<element_number>\d{1,3})", tag, flags=re.IGNORECASE)
+                return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                          'file_number': t.group('file_number'),
+                                          'element_number': t.group('element_number'),
+                                          'sub_element': t.group('sub_element'),
+                                          'read_func': '\xa2',
+                                          'write_func': '\xab',
+                                          'address_field': 3}
+        else:
+            if (0 <= int(t.group('file_number')) <= 255) \
+                    and (0 <= int(t.group('element_number')) <= 255):
+
+                return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                          'file_number': t.group('file_number'),
+                                          'element_number': t.group('element_number'),
+                                          'read_func': '\xa2',
+                                          'write_func': '\xab',
+                                          'address_field': 2}
+
+    t = re.search(r"(?P<file_type>S)"
+                  r"(:)(?P<element_number>\d{1,3})"
+                  r"(/(?P<sub_element>\d{1,2}))?", tag, flags=re.IGNORECASE)
     if t:
-        return True, t.group(0), {'file_type': t.group('file_type'),'element_number': t.group('element_number')}
-    """
+        if t.group('sub_element') is not None:
+            if (0 <= int(t.group('element_number')) <= 255) \
+                    and (0 <= int(t.group('sub_element')) <= 15):
+                return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                          'file_number': '2',
+                                          'element_number': t.group('element_number'),
+                                          'sub_element': t.group('sub_element'),
+                                          'read_func': '\xa2',
+                                          'write_func': '\xab',
+                                          'address_field': 3}
+        else:
+            if 0 <= int(t.group('element_number')) <= 255:
+                return True, t.group(0), {'file_type':  t.group('file_type').upper(),
+                                          'file_number': '2',
+                                          'element_number': t.group('element_number'),
+                                          'read_func': '\xa2',
+                                          'write_func': '\xab',
+                                          'address_field': 2}
+
+    t = re.search(r"(?P<file_type>B)(?P<file_number>\d{1,3})"
+                  r"(/)(?P<element_number>\d{1,4})",
+                  tag, flags=re.IGNORECASE)
+    if t:
+        if (1 <= int(t.group('file_number')) <= 255) \
+                and (0 <= int(t.group('element_number')) <= 4095):
+            bit_position = int(t.group('element_number'))
+            element_number = bit_position / 16
+            sub_element = bit_position - (element_number * 16)
+            return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                      'file_number': t.group('file_number'),
+                                      'element_number': element_number,
+                                      'sub_element': sub_element,
+                                      'read_func': '\xa2',
+                                      'write_func': '\xab',
+                                      'address_field': 3}
+
     return False, tag
 
 
@@ -172,6 +214,13 @@ class Driver(Base):
             self.logger.warning(self._status)
             return None
 
+        bit_read = False
+        bit_position = 0
+        sub_element = 0
+        if int(res[2]['address_field'] == 3):
+            bit_read = True
+            bit_position = int(res[2]['sub_element'])
+
         if self._session == 0:
             self._status = (6, "A session need to be registered before to call read_tag.")
             self.logger.warning(self._status)
@@ -205,10 +254,9 @@ class Driver(Base):
             pack_sint(int(res[2]['file_number'])),
             PCCC_DATA_TYPE[res[2]['file_type']],
             pack_sint(int(res[2]['element_number'])),
+            pack_sint(sub_element)
         ]
 
-        if res[2]['address_field'] == 3:
-            message_request.append(pack_sint(int(res[2]['sub_element'])))
         self.logger.debug("SLC read_tag({0},{1})".format(tag, n))
         if self.send_unit_data(
             build_common_packet_format(
@@ -223,16 +271,29 @@ class Driver(Base):
                     self._status = (1000, "Error({0}) returned from read_tag({1},{2})".format(sts_txt, tag, n))
                     self.logger.warning(self._status)
                     return None
-
                 new_value = 61
-                values_list = []
-                while len(self._reply[new_value:]) >= data_size:
-                    values_list.append(
-                        UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](self._reply[new_value:new_value+data_size])
-                    )
-                    new_value = new_value+data_size
+                if bit_read:
+                    if res[2]['file_type'] == 'T' or res[2]['file_type'] == 'C':
+                        if bit_position == PCCC_CT['PRE']:
+                            return UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](
+                                self._reply[new_value+2:new_value+2+data_size])
+                        elif bit_position == PCCC_CT['ACC']:
+                            return UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](
+                                self._reply[new_value+4:new_value+4+data_size])
 
-                return values_list
+                    tag_value = UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](
+                        self._reply[new_value:new_value+data_size])
+                    return get_bit(tag_value, bit_position)
+
+                else:
+                    values_list = []
+                    while len(self._reply[new_value:]) >= data_size:
+                        values_list.append(
+                            UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](self._reply[new_value:new_value+data_size])
+                        )
+                        new_value = new_value+data_size
+
+                    return values_list
             except Exception as err:
                 self._status = (1000, "Error({0}) parsing the data returned from read_tag({1},{2})".format(err, tag, n))
                 self.logger.warning(self._status)
@@ -243,7 +304,7 @@ class Driver(Base):
     def write_tag(self, tag, value):
         res = parse_tag(tag)
         if not res[0]:
-            self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, n))
+            self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, value))
             self.logger.warning(self._status)
             return None
 
@@ -267,11 +328,11 @@ class Driver(Base):
                 for v in value:
                     values += PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](v)
                     if res[2]['file_type'] == 'C' or res[2]['file_type'] == 'T':
-                        values += '\x00\x00'
+                        values += '\x00\x01'
             else:
                 values += PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](value)
                 if res[2]['file_type'] == 'C' or res[2]['file_type'] == 'T':
-                    values += '\x00\x00'
+                    values += '\x00\x01'
 
         except Exception as err:
                 self._status = (1000, "Error({0}) packing the values to write  to the"
