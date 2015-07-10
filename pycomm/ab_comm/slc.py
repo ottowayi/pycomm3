@@ -209,6 +209,16 @@ class Driver(Base):
         return True
 
     def read_tag(self, tag, n=1):
+        """ read tag from a connected plc
+
+        Possible combination can be passed to this method:
+            print c.read_tag('F8:0', 3)    return a list of 3 registers starting from F8:0
+            print c.read_tag('F8:0')   return one value
+
+        It is possible to read status bit
+
+        :return: None is returned in case of error
+        """
         res = parse_tag(tag)
         if not res[0]:
             self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, n))
@@ -307,6 +317,17 @@ class Driver(Base):
             return None
 
     def write_tag(self, tag, value):
+        """ write tag from a connected plc
+
+        Possible combination can be passed to this method:
+            c.write_tag('N7:0', [-30, 32767, -32767])
+            c.write_tag('N7:0', 21)
+            c.read_tag('N7:0', 10)
+
+        It is not possible to write status bit
+
+        :return: None is returned in case of error
+        """
         res = parse_tag(tag)
         if not res[0]:
             self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, value))
