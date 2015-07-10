@@ -235,7 +235,7 @@ class Driver(Base):
         for index in range(number_of_service_replies):
             position += 2
             start = offset + unpack_uint(self._reply[position:position+2])
-            general_status = unpack_sint(self._reply[start+2:start+3])
+            general_status = unpack_usint(self._reply[start+2:start+3])
 
             if general_status == 0:
                 data_type = unpack_uint(self._reply[start+4:start+6])
@@ -269,7 +269,7 @@ class Driver(Base):
         for index in range(number_of_service_replies):
             position += 2
             start = offset + unpack_uint(self._reply[position:position+2])
-            general_status = unpack_sint(self._reply[start+2:start+3])
+            general_status = unpack_usint(self._reply[start+2:start+3])
 
             if general_status == 0:
                 self._last_tag_write = (tags[index] + ('GOOD',))
@@ -299,7 +299,7 @@ class Driver(Base):
 
             # Command Specific Status check
             if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
-                status = unpack_sint(self._reply[42:43])
+                status = unpack_usint(self._reply[42:43])
                 if status != SUCCESS:
                     self._status = (3, "send_rr_data reply:{0} - Extend status:{1}".format(
                         SERVICE_STATUS[status], get_extended_status(self._reply, 42)))
@@ -307,17 +307,17 @@ class Driver(Base):
                 else:
                     return True
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
-                status = unpack_sint(self._reply[48:49])
-                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Tag Fragmented"]:
+                status = unpack_usint(self._reply[48:49])
+                if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Tag Fragmented"]:
                     self._parse_fragment(50, status)
                     return True
-                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Instance Attributes List"]:
+                if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Instance Attributes List"]:
                     self._parse_instace_attribute_list(50, status)
                     return True
-                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Attributes"]:
+                if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Attributes"]:
                     self._parse_structure_makeup_attributes(50, status)
                     return True
-                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Template"] and \
+                if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Template"] and \
                         self._get_template_in_progress:
                     self._parse_template(50, status)
                     return True

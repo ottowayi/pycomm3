@@ -43,7 +43,16 @@ class CipError(Exception):
 
 
 def pack_sint(n):
+    return struct.pack('b', n)
+
+
+def pack_usint(n):
     return struct.pack('B', n)
+
+
+def pack_int(n):
+    """pack 16 bit into 2 bytes little endian"""
+    return struct.pack('<h', n)
 
 
 def pack_uint(n):
@@ -53,7 +62,7 @@ def pack_uint(n):
 
 def pack_dint(n):
     """pack 32 bit into 4 bytes little endian"""
-    return struct.pack('<I', n)
+    return struct.pack('<i', n)
 
 
 def pack_real(r):
@@ -71,8 +80,18 @@ def unpack_bool(st):
         return 1
     return 0
 
+
 def unpack_sint(st):
+    return int(struct.unpack('b', st[0])[0])
+
+
+def unpack_usint(st):
     return int(struct.unpack('B', st[0])[0])
+
+
+def unpack_int(st):
+    """unpack 2 bytes little endian to int"""
+    return int(struct.unpack('<h', st[0:2])[0])
 
 
 def unpack_uint(st):
@@ -82,7 +101,7 @@ def unpack_uint(st):
 
 def unpack_dint(st):
     """unpack 4 bytes little endian to int"""
-    return int(struct.unpack('<I', st[0:4])[0])
+    return int(struct.unpack('<i', st[0:4])[0])
 
 
 def unpack_real(st):
@@ -96,12 +115,15 @@ def unpack_lint(st):
 
 
 def get_bit(value, idx):
+    """:returns value of bit at position idx"""
     return (value & (1 << idx)) != 0
+
 
 PACK_DATA_FUNCTION = {
     'BOOL': pack_sint,
     'SINT': pack_sint,    # Signed 8-bit integer
-    'INT': pack_uint,     # Signed 16-bit integer
+    'INT': pack_int,     # Signed 16-bit integer
+    'UINT': pack_uint,    # Unsigned 16-bit integer
     'DINT': pack_dint,    # Signed 32-bit integer
     'REAL': pack_real,    # 32-bit floating point
     'LINT': pack_lint,
@@ -115,7 +137,8 @@ PACK_DATA_FUNCTION = {
 UNPACK_DATA_FUNCTION = {
     'BOOL': unpack_bool,
     'SINT': unpack_sint,    # Signed 8-bit integer
-    'INT': unpack_uint,     # Signed 16-bit integer
+    'INT': unpack_int,     # Signed 16-bit integer
+    'UINT': unpack_uint,    # Unsigned 16-bit integer
     'DINT': unpack_dint,    # Signed 32-bit integer
     'REAL': unpack_real,    # 32-bit floating point,
     'LINT': unpack_lint,
@@ -130,6 +153,7 @@ DATA_FUNCTION_SIZE = {
     'BOOL': 1,
     'SINT': 1,    # Signed 8-bit integer
     'INT': 2,     # Signed 16-bit integer
+    'UINT': 2,    # Unsigned 16-bit integer
     'DINT': 4,    # Signed 32-bit integer
     'REAL': 4,    # 32-bit floating point
     'LINT': 8,
@@ -140,29 +164,29 @@ DATA_FUNCTION_SIZE = {
 }
 
 UNPACK_PCCC_DATA_FUNCTION = {
-    'N': unpack_uint,
-    'B': unpack_uint,
-    'T': unpack_uint,
-    'C': unpack_uint,
-    'S': unpack_uint,
+    'N': unpack_int,
+    'B': unpack_int,
+    'T': unpack_int,
+    'C': unpack_int,
+    'S': unpack_int,
     'F': unpack_real,
     'A': unpack_sint,
     'R': unpack_dint,
-    'O': unpack_sint,
-    'I': unpack_sint
+    'O': unpack_int,
+    'I': unpack_int
 }
 
 PACK_PCCC_DATA_FUNCTION = {
-    'N': pack_uint,
-    'B': pack_uint,
-    'T': pack_uint,
-    'C': pack_uint,
-    'S': pack_uint,
+    'N': pack_int,
+    'B': pack_int,
+    'T': pack_int,
+    'C': pack_int,
+    'S': pack_int,
     'F': pack_real,
     'A': pack_sint,
     'R': pack_dint,
-    'O': pack_sint,
-    'I': pack_sint
+    'O': pack_int,
+    'I': pack_int
 }
 
 def print_bytes_line(msg):
@@ -192,7 +216,7 @@ def print_bytes_msg(msg, info=''):
 
 
 def get_extended_status(msg, start):
-    status = unpack_sint(msg[start:start+1])
+    status = unpack_usint(msg[start:start+1])
     # send_rr_data
     # 42 General Status
     # 43 Size of additional status
@@ -202,12 +226,12 @@ def get_extended_status(msg, start):
     # 48 General Status
     # 49 Size of additional status
     # 50..n additional status
-    extended_status_size = (unpack_sint(msg[start+1:start+2]))*2
+    extended_status_size = (unpack_usint(msg[start+1:start+2]))*2
     extended_status = 0
     if extended_status_size != 0:
         # There is an additional status
         if extended_status_size == 1:
-            extended_status = unpack_sint(msg[start+2:start+3])
+            extended_status = unpack_usint(msg[start+2:start+3])
         elif extended_status_size == 2:
             extended_status = unpack_uint(msg[start+2:start+4])
         elif extended_status_size == 4:
@@ -261,7 +285,7 @@ def create_tag_rp(tag, multi_requests=False):
                 val = int(idx)
                 if val <= 0xff:
                     rp.append(ELEMENT_ID["8-bit"])
-                    rp.append(pack_sint(val))
+                    rp.append(pack_usint(val))
                 elif val <= 0xffff:
                     rp.append(ELEMENT_ID["16-bit"]+PADDING_BYTE)
                     rp.append(pack_uint(val))
@@ -308,11 +332,11 @@ def build_multiple_service(rp_list, sequence=None):
         mr.append(pack_uint(sequence))
 
     mr.append(chr(TAG_SERVICES_REQUEST["Multiple Service Packet"]))  # the Request Service
-    mr.append(pack_sint(2))                 # the Request Path Size length in word
+    mr.append(pack_usint(2))                 # the Request Path Size length in word
     mr.append(CLASS_ID["8-bit"])
     mr.append(CLASS_CODE["Message Router"])
     mr.append(INSTANCE_ID["8-bit"])
-    mr.append(pack_sint(1))                 # Instance 1
+    mr.append(pack_usint(1))                 # Instance 1
     mr.append(pack_uint(len(rp_list)))      # Number of service contained in the request
 
     # Offset calculation
@@ -348,7 +372,7 @@ def parse_multiple_request(message, tags, typ):
     for index in range(number_of_service_replies):
         position += 2
         start = offset + unpack_uint(message[position:position+2])
-        general_status = unpack_sint(message[start+2:start+3])
+        general_status = unpack_usint(message[start+2:start+3])
 
         if general_status == 0:
             if typ == "READ":
@@ -535,7 +559,7 @@ class Base(object):
             if self._check_reply():
                 self._device_description = self._reply[63:-1]
                 # Current State of device
-                # print(unpack_sint(self._reply[-1:]))
+                # print(unpack_usint(self._reply[-1:]))
                 return True
             return False
         except Exception as err:
@@ -630,7 +654,7 @@ class Base(object):
 
         forward_open_msg = [
             FORWARD_OPEN,
-            pack_sint(2),
+            pack_usint(2),
             CLASS_ID["8-bit"],
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
             INSTANCE_ID["8-bit"],
@@ -650,12 +674,12 @@ class Base(object):
             pack_uint(CONNECTION_PARAMETER['Default']),
             TRANSPORT_CLASS,  # Transport Class
             CONNECTION_SIZE['Backplane'],
-            pack_sint(self.attribs['backplane']),
-            pack_sint(self.attribs['cpu slot']),
+            pack_usint(self.attribs['backplane']),
+            pack_usint(self.attribs['cpu slot']),
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
-            pack_sint(1)
+            pack_usint(1)
         ]
 
         if self.send_rr_data(
@@ -680,7 +704,7 @@ class Base(object):
 
         forward_close_msg = [
             FORWARD_CLOSE,
-            pack_sint(2),
+            pack_usint(2),
             CLASS_ID["8-bit"],
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
             INSTANCE_ID["8-bit"],
@@ -692,12 +716,12 @@ class Base(object):
             self.attribs['vsn'],
             CONNECTION_SIZE['Backplane'],
             '\x00',     # Reserved
-            pack_sint(self.attribs['backplane']),
-            pack_sint(self.attribs['cpu slot']),
+            pack_usint(self.attribs['backplane']),
+            pack_usint(self.attribs['cpu slot']),
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
-            pack_sint(1)
+            pack_usint(1)
         ]
         if self.send_rr_data(
                 build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_close_msg), ADDRESS_ITEM['UCMM'])):

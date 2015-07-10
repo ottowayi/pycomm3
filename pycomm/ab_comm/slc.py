@@ -27,6 +27,7 @@ from pycomm.cip.cip_base import *
 from pycomm.common import setup_logger
 import re
 import logging
+import math
 
 
 def parse_tag(tag):
@@ -39,7 +40,7 @@ def parse_tag(tag):
             return True, t.group(0), {'file_type': t.group('file_type').upper(),
                                       'file_number': t.group('file_number'),
                                       'element_number': t.group('element_number'),
-                                      'sub_element': PCCC_CT[t.group('sub_element')],
+                                      'sub_element': PCCC_CT[t.group('sub_element').upper()],
                                       'read_func': '\xa2',
                                       'write_func': '\xab',
                                       'address_field': 3}
@@ -175,7 +176,7 @@ class Driver(Base):
 
             # Command Specific Status check
             if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
-                status = unpack_sint(self._reply[42:43])
+                status = unpack_usint(self._reply[42:43])
                 if status != SUCCESS:
                     self._status = (3, "send_rr_data reply:{0} - Extend status:{1}".format(
                         SERVICE_STATUS[status], get_extended_status(self._reply, 42)))
@@ -184,11 +185,11 @@ class Driver(Base):
                     return True
 
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
-                status = unpack_sint(self._reply[48:49])
-                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Tag Fragmented"]:
+                status = unpack_usint(self._reply[48:49])
+                if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Tag Fragmented"]:
                     self._parse_fragment(50, status)
                     return True
-                if unpack_sint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Instance Attributes List"]:
+                if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Instance Attributes List"]:
                     self._parse_tag_list(50, status)
                     return True
                 if status == 0x06:
@@ -250,11 +251,11 @@ class Driver(Base):
             seq[1],
             seq[0],
             res[2]['read_func'],
-            pack_sint(data_size * n),
-            pack_sint(int(res[2]['file_number'])),
+            pack_usint(data_size * n),
+            pack_usint(int(res[2]['file_number'])),
             PCCC_DATA_TYPE[res[2]['file_type']],
-            pack_sint(int(res[2]['element_number'])),
-            pack_sint(sub_element)
+            pack_usint(int(res[2]['element_number'])),
+            pack_usint(sub_element)
         ]
 
         self.logger.debug("SLC read_tag({0},{1})".format(tag, n))
@@ -264,7 +265,7 @@ class Driver(Base):
                 ''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,)):
-            sts = int(unpack_sint(self._reply[58]))
+            sts = int(unpack_usint(self._reply[58]))
             try:
                 if sts != 0:
                     sts_txt = PCCC_ERROR_CODE[sts]
@@ -293,7 +294,11 @@ class Driver(Base):
                         )
                         new_value = new_value+data_size
 
-                    return values_list
+                    if len(values_list) > 1:
+                        return values_list
+                    else:
+                        return values_list[0]
+
             except Exception as err:
                 self._status = (1000, "Error({0}) parsing the data returned from read_tag({1},{2})".format(err, tag, n))
                 self.logger.warning(self._status)
@@ -308,31 +313,66 @@ class Driver(Base):
             self.logger.warning(self._status)
             return None
 
+        if isinstance(value, list) and int(res[2]['address_field'] == 3):
+            self._status = (1000, "Function's parameters error.  read_tag({0},{1})".format(tag, value))
+            self.logger.warning(self._status)
+            return None
+
+        if isinstance(value, list) and int(res[2]['address_field'] == 3):
+            self._status = (1000, "Function's parameters error.  read_tag({0},{1})".format(tag, value))
+            self.logger.warning(self._status)
+            return None
+
+        bit_field = False
+        bit_position = 0
+        sub_element = 0
+        if int(res[2]['address_field'] == 3):
+            bit_field = True
+            bit_position = int(res[2]['sub_element'])
+            values_list = ''
+        else:
+            values_list = '\xff\xff'
+
         multi_requests = False
         if isinstance(value, list):
             multi_requests = True
 
         if self._session == 0:
-            self._status = (8, "A session need to be registered before to call write_tag.")
+            self._status = (1000, "A session need to be registered before to call write_tag.")
             self.logger.warning(self._status)
             return None
 
         if not self._target_is_connected:
             if not self.forward_open():
-                self._status = (8, "Target did not connected. write_tag will not be executed.")
+                self._status = (1000, "Target did not connected. write_tag will not be executed.")
                 self.logger.warning(self._status)
                 return None
         try:
-            values = ""
+            n = 0
             if multi_requests:
+                data_size = PCCC_DATA_SIZE[res[2]['file_type']]
                 for v in value:
-                    values += PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](v)
-                    if res[2]['file_type'] == 'C' or res[2]['file_type'] == 'T':
-                        values += '\x00\x01'
+                    values_list += PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](v)
+                    n += 1
             else:
-                values += PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](value)
-                if res[2]['file_type'] == 'C' or res[2]['file_type'] == 'T':
-                    values += '\x00\x01'
+                n = 1
+                if bit_field:
+                    data_size = 2
+
+                    if (res[2]['file_type'] == 'T' or res[2]['file_type'] == 'C') \
+                            and (bit_position == PCCC_CT['PRE'] or bit_position == PCCC_CT['ACC']):
+                        sub_element = bit_position
+                        values_list = '\xff\xff' + PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](value)
+                    else:
+                        sub_element = 0
+                        if value > 0:
+                            values_list = pack_uint(math.pow(2, bit_position)) + pack_uint(math.pow(2, bit_position))
+                        else:
+                            values_list = pack_uint(math.pow(2, bit_position)) + pack_uint(0)
+
+                else:
+                    values_list += PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](value)
+                    data_size = PCCC_DATA_SIZE[res[2]['file_type']]
 
         except Exception as err:
                 self._status = (1000, "Error({0}) packing the values to write  to the"
@@ -340,8 +380,10 @@ class Driver(Base):
                 self.logger.warning(self._status)
                 return None
 
-        data_to_write = values
+        data_to_write = values_list
+
         # Creating the Message Request Packet
+
         seq = pack_uint(Base._get_sequence())
 
         message_request = [
@@ -358,10 +400,11 @@ class Driver(Base):
             seq[1],
             seq[0],
             res[2]['write_func'],
-            pack_sint(len(data_to_write)),
-            pack_sint(int(res[2]['file_number'])),
+            pack_usint(data_size * n),
+            pack_usint(int(res[2]['file_number'])),
             PCCC_DATA_TYPE[res[2]['file_type']],
-            pack_sint(int(res[2]['element_number'])),
+            pack_usint(int(res[2]['element_number'])),
+            pack_usint(sub_element)
         ]
 
         self.logger.debug("SLC write_tag({0},{1})".format(tag, value))
@@ -371,7 +414,7 @@ class Driver(Base):
                 ''.join(message_request) + data_to_write,
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,)):
-            sts = int(unpack_sint(self._reply[58]))
+            sts = int(unpack_usint(self._reply[58]))
             try:
                 if sts != 0:
                     sts_txt = PCCC_ERROR_CODE[sts]
