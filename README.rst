@@ -32,7 +32,7 @@ I tried to followCIP specifications volume 1 and 2 as well as `Rockwell Automati
 
 .. _Rockwell Automation Publication 1756-PM020-EN-P - November 2012: http://literature.rockwellautomation.com/idc/groups/literature/documents/pm/1756-pm020_-en-p.pdf
 
-See the following snippet for communication wit Controllogix:
+See the following snippet for communication with a Controllogix PLC:
  
 ::    
     
@@ -66,9 +66,9 @@ See the following snippet for communication wit Controllogix:
 
             c.close()
 
-See the following snippet for communication wit Micrologix:
+See the following snippet for communication with a  Micrologix PLC:
 
-::
+
     from pycomm.ab_comm.slc import Driver as SlcDriver
 
 
