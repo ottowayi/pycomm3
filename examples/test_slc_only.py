@@ -2,6 +2,7 @@ __author__ = 'agostino'
 
 from pycomm.ab_comm.slc import Driver as SlcDriver
 
+
 if __name__ == '__main__':
     c = SlcDriver(True, 'delete_slc.log')
     if c.open('172.16.2.160'):
