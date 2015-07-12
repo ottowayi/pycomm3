@@ -66,6 +66,9 @@ See the following snippet for communication with a Controllogix PLC:
 
             c.close()
 
+
+
+
 See the following snippet for communication with a  Micrologix PLC:
 
 
@@ -139,17 +142,16 @@ See the following snippet for communication with a  Micrologix PLC:
 
 The Future
 ~~~~~~~~~~
-This package is under development. The module _ab_comm.clx_ is not completed yet, but stable enough to read and write
-multiple atomic or structured tags. Other drivers will be added in the future.
+This package is under development.
+The modules _ab_comm.clx_ and _ab_comm.slc_ are completed at  moment but other drivers will be added in the future.
 
+Feedback
+~~~~~~~~
+Please if let me know if you test the lib against any PLC so that I can update the list.
 
 Thanks
 ~~~~~~
-Couple of people and projects on the internet inspired _ab_comm.clx_ driver. Among this I would like to thank 
-*Lynn Lins* for providing helpful suggestions and code snippets, and the `tuxeip project`_ .
- 
-.. _tuxeip project: https://code.google.com/p/tuxeip/
-
+Thanks in advance for feedback or suggestions
  
 License
 ~~~~~~~
