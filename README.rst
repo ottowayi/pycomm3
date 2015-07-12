@@ -21,42 +21,119 @@ GitHub:
     cd pycomm
     sudo python setup.py install
 
-
-PyPI:
-::
-
-    pip install pycomm
-
     
 ab_comm
 ~~~~~~~
 ab_comm is a module that contains a set of classes used to interface Rockwell PLCs using Ethernet/IP protocol.
-The module ClxDriver can be used to communicate with Compactlogix, Controllogix and Micrologix PLCs. I tried to follow 
-CIP specifications volume 1 and 2 as well as `Rockwell Automation Publication 1756-PM020-EN-P - November 2012`_ .
+- module "clx" can be used to communicate with Compactlogix, Controllogix PLCs
+- module "slc" can be used to communicate with Micrologix or SLC PLCs
+
+I tried to followCIP specifications volume 1 and 2 as well as `Rockwell Automation Publication 1756-PM020-EN-P - November 2012`_ .
 
 .. _Rockwell Automation Publication 1756-PM020-EN-P - November 2012: http://literature.rockwellautomation.com/idc/groups/literature/documents/pm/1756-pm020_-en-p.pdf
 
-See the following snippet for usage information:
+See the following snippet for communication wit Controllogix:
  
 ::    
     
-    from pycomm.ab_comm.clx import Driver as ClxDriver
-       
-    if __name__ == '__main__':
-    
-        c = ClxDriver()
-        if c.open('192.168.1.10'):
-    
-            print(c.read_tag('Counts'))
-            print(c.read_tag(['ControlWord']))
-            print(c.read_tag(['parts', 'ControlWord', 'Counts']))
-    
-            print(c.write_tag(('Counts', 26, 'INT')))
-            print(c.write_tag([('Counts', 26, 'INT')]))
-            print(c.write_tag([('Counts', 26, 'INT'), ('ControlWord', 30, 'DINT'), ('parts', 31, 'DINT')]))
-    
-            c.close()
+from pycomm.ab_comm.clx import Driver as ClxDriver
 
+
+if __name__ == '__main__':
+
+    c = ClxDriver(True, 'ClxDriver.log')
+
+    if c.open('172.16.2.161'):
+
+        print(c.read_tag(['ControlWord']))
+        print(c.read_tag(['parts', 'ControlWord', 'Counts']))
+
+        print(c.write_tag('Counts', -26, 'INT'))
+        print(c.write_tag(('Counts', 26, 'INT')))
+        print(c.write_tag([('Counts', 26, 'INT')]))
+        print(c.write_tag([('Counts', -26, 'INT'), ('ControlWord', -30, 'DINT'), ('parts', 31, 'DINT')]))
+
+        # To read an array
+        r_array = c.read_array("TotalCount", 1750)
+        for tag in r_array:
+            print (tag)
+
+        # reset tha array to all 0
+        w_array = []
+        for i in xrange(1750):
+            w_array.append(0)
+        c.write_array("TotalCount", "SINT", w_array)
+
+        c.close()
+
+See the following snippet for communication wit Micrologix:
+
+::
+
+from pycomm.ab_comm.slc import Driver as SlcDriver
+
+
+    if __name__ == '__main__':
+        c = SlcDriver(True, 'delete_slc.log')
+        if c.open('172.16.2.160'):
+
+            print c.read_tag('S:1/5')
+            print c.read_tag('S:60', 2)
+
+            print c.write_tag('N7:0', [-30, 32767, -32767])
+            print c.write_tag('N7:0', 21)
+            print c.read_tag('N7:0', 10)
+
+            print c.write_tag('F8:0', [3.1, 4.95, -32.89])
+            print c.write_tag('F8:0', 21)
+            print c.read_tag('F8:0', 3)
+
+            print c.write_tag('B3:100', [23, -1, 4, 9])
+            print c.write_tag('B3:100', 21)
+            print c.read_tag('B3:100', 4)
+
+            print c.write_tag('T4:3.PRE', 431)
+            print c.read_tag('T4:3.PRE')
+            print c.write_tag('C5:0.PRE', 501)
+            print c.read_tag('C5:0.PRE')
+            print c.write_tag('T4:3.ACC', 432)
+            print c.read_tag('T4:3.ACC')
+            print c.write_tag('C5:0.ACC', 502)
+            print c.read_tag('C5:0.ACC')
+
+            c.write_tag('T4:2.EN', 0)
+            c.write_tag('T4:2.TT', 0)
+            c.write_tag('T4:2.DN', 0)
+            print c.read_tag('T4:2.EN', 1)
+            print c.read_tag('T4:2.TT', 1)
+            print c.read_tag('T4:2.DN',)
+
+            c.write_tag('C5:0.CU', 1)
+            c.write_tag('C5:0.CD', 0)
+            c.write_tag('C5:0.DN', 1)
+            c.write_tag('C5:0.OV', 0)
+            c.write_tag('C5:0.UN', 1)
+            c.write_tag('C5:0.UA', 0)
+            print c.read_tag('C5:0.CU')
+            print c.read_tag('C5:0.CD')
+            print c.read_tag('C5:0.DN')
+            print c.read_tag('C5:0.OV')
+            print c.read_tag('C5:0.UN')
+            print c.read_tag('C5:0.UA')
+
+            c.write_tag('B3:100', 1)
+            print c.read_tag('B3:100')
+
+            c.write_tag('B3/3955', 1)
+            print c.read_tag('B3/3955')
+
+            c.write_tag('N7:0/2', 1)
+            print c.read_tag('N7:0/2')
+
+            print c.write_tag('O:0.0/4', 1)
+            print c.read_tag('O:0.0/4')
+
+        c.close()
 
 
 The Future

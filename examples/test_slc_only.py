@@ -63,5 +63,4 @@ if __name__ == '__main__':
         print c.write_tag('O:0.0/4', 1)
         print c.read_tag('O:0.0/4')
 
-
     c.close()
