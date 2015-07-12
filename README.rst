@@ -36,10 +36,10 @@ See the following snippet for communication wit Controllogix:
  
 ::    
     
-from pycomm.ab_comm.clx import Driver as ClxDriver
+    from pycomm.ab_comm.clx import Driver as ClxDriver
 
 
-if __name__ == '__main__':
+    if __name__ == '__main__':
 
     c = ClxDriver(True, 'ClxDriver.log')
 
@@ -68,9 +68,7 @@ if __name__ == '__main__':
 
 See the following snippet for communication wit Micrologix:
 
-::
-
-from pycomm.ab_comm.slc import Driver as SlcDriver
+    from pycomm.ab_comm.slc import Driver as SlcDriver
 
 
     if __name__ == '__main__':
@@ -134,6 +132,7 @@ from pycomm.ab_comm.slc import Driver as SlcDriver
             print c.read_tag('O:0.0/4')
 
         c.close()
+
 
 
 The Future
