@@ -1,5 +1,5 @@
 __author__ = 'Agostino Ruscito'
-__version__ = "1.0"
+__version__ = "1.0.0"
 __date__ = "01 01 2015"
 import logging
 
