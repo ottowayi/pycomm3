@@ -1,0 +1,23 @@
+CHANGES
+=======
+
+1.0.6
+-----
+
+- Pypi posting
+
+1.0.0
+-----
+
+- Add support for SLC and PLC/05  plc
+
+0.2.0
+---
+
+- Add CIP support class
+- Add support for ControlLogix PLC
+
+0.1
+---
+
+- Initial release.

@@ -21,12 +21,17 @@ GitHub:
     cd pycomm
     sudo python setup.py install
 
-    
+
+
+https://pypi.python.org:
+::
+    pip install pycomm
+
 ab_comm
 ~~~~~~~
 ab_comm is a module that contains a set of classes used to interface Rockwell PLCs using Ethernet/IP protocol.
-- module "clx" can be used to communicate with Compactlogix, Controllogix PLCs
-- module "slc" can be used to communicate with Micrologix or SLC PLCs
+The "clx" class can be used to communicate with Compactlogix, Controllogix PLCs
+The "slc" can be used to communicate with Micrologix or SLC PLCs
 
 I tried to followCIP specifications volume 1 and 2 as well as `Rockwell Automation Publication 1756-PM020-EN-P - November 2012`_ .
 

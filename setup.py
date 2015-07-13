@@ -1,11 +1,10 @@
 from distutils.core import setup
 from pycomm import common
+import os
 
 
-def read(_paths):
-    """Build a file path from *paths* and return the contents."""
-    with open(_paths, 'r') as f:
-        return f.read()
+def read(file_name):
+    return open(os.path.join(os.path.dirname(__file__), file_name)).read()
 
 setup(
     name="pycomm",
@@ -13,7 +12,7 @@ setup(
     author_email="uscito@gmail.com",
     version=common.__version__,
     description="A PLC communication library for Python",
-    long_description=(read('README.rst')),
+    long_description=read('README.rst'),
     license="MIT",
     url="https://github.com/ruscito/pycomm",
     packages=[
@@ -35,10 +34,4 @@ setup(
         'Programming Language :: Python :: 3.3',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
-    package_data = {
-        # If any package contains *.txt or *.rst files, include them:
-        '': ['*.txt', '*.rst'],
-        # And include any *.msg files found in the 'hello' package, too:
-        'hello': ['*.msg'],
-    }
 )
