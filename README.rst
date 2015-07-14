@@ -1,7 +1,7 @@
 pycomm
 ======
 pycomm is a package that includes a collection of modules used to communicate with PLCs.
-At the moment the first module in the package is ab_comm. 
+At the moment the first module in the package is ab_comm.
 
 Test
 ~~~~
@@ -22,9 +22,7 @@ GitHub:
     sudo python setup.py install
 
 
-
-https://pypi.python.org:
-::
+PyPi:
     pip install pycomm
 
 ab_comm
@@ -38,9 +36,9 @@ I tried to followCIP specifications volume 1 and 2 as well as `Rockwell Automati
 .. _Rockwell Automation Publication 1756-PM020-EN-P - November 2012: http://literature.rockwellautomation.com/idc/groups/literature/documents/pm/1756-pm020_-en-p.pdf
 
 See the following snippet for communication with a Controllogix PLC:
- 
-::    
-    
+
+::
+
     from pycomm.ab_comm.clx import Driver as ClxDriver
 
 
@@ -157,8 +155,7 @@ Please if let me know if you test the lib against any PLC so that I can update t
 Thanks
 ~~~~~~
 Thanks in advance for feedback or suggestions
- 
+
 License
 ~~~~~~~
 pycomm is distributed under the MIT License
-  
