@@ -23,6 +23,7 @@ GitHub:
 
 
 PyPi:
+::
     pip install pycomm
 
 ab_comm
@@ -148,13 +149,9 @@ The Future
 This package is under development.
 The modules _ab_comm.clx_ and _ab_comm.slc_ are completed at  moment but other drivers will be added in the future.
 
-Feedback
-~~~~~~~~
-Please if let me know if you test the lib against any PLC so that I can update the list.
-
 Thanks
 ~~~~~~
-Thanks in advance for feedback or suggestions
+Thanks in advance for feedback and suggestions
 
 License
 ~~~~~~~
