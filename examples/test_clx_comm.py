@@ -20,10 +20,6 @@ if __name__ == '__main__':
         for tag in r_array:
             print (tag)
 
-        # reset tha array to all 0
-        w_array = []
-        for i in xrange(1750):
-            w_array.append(0)
-        c.write_array("TotalCount", "SINT", w_array)
+
 
         c.close()
