@@ -30,15 +30,13 @@ import socket
 from os import getpid
 from pycomm.cip.cip_const import *
 from pycomm.common import PycommError
-import linecache
-import sys
 
 
-class ProtocolError(Exception):
+class CommError(PycommError):
     pass
 
 
-class CipError(Exception):
+class DataError(PycommError):
     pass
 
 
@@ -188,6 +186,7 @@ PACK_PCCC_DATA_FUNCTION = {
     'O': pack_int,
     'I': pack_int
 }
+
 
 def print_bytes_line(msg):
     out = ''
@@ -397,19 +396,17 @@ def parse_multiple_request(message, tags, typ):
 
 
 class Socket:
+
     def __init__(self, timeout=5.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        if timeout is None:
-            self.sock.settimeout(5.0)
-        else:
-            self.sock.settimeout(timeout)
+        self.sock.settimeout(timeout)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
     def connect(self, host, port):
         try:
             self.sock.connect((host, port))
         except socket.timeout:
-            raise CipError("Socket timeout during connection.")
+            raise CommError("Socket timeout during connection.")
 
     def send(self, msg, timeout=0):
         if timeout != 0:
@@ -419,10 +416,10 @@ class Socket:
             try:
                 sent = self.sock.send(msg[total_sent:])
                 if sent == 0:
-                    raise CipError("socket connection broken.")
+                    raise CommError("socket connection broken.")
                 total_sent += sent
             except socket.error:
-                raise CipError("socket connection broken.")
+                raise CommError("socket connection broken.")
         return total_sent
 
     def receive(self, timeout=0):
@@ -436,7 +433,7 @@ class Socket:
             try:
                 chunk = self.sock.recv(min(msg_len - bytes_recd, 2048))
                 if chunk == '':
-                    raise CipError("socket connection broken.")
+                    raise CommError("socket connection broken.")
                 if one_shot:
                     data_size = int(struct.unpack('<H', chunk[2:4])[0])  # Length
                     msg_len = HEADER_SIZE + data_size
@@ -445,7 +442,7 @@ class Socket:
                 chunks.append(chunk)
                 bytes_recd += len(chunk)
             except socket.error as e:
-                raise CipError(e)
+                raise CommError(e)
         return ''.join(chunks)
 
     def close(self):
@@ -467,6 +464,7 @@ def parse_symbol_type(symbol):
 class Base(object):
     _sequence = 0
 
+
     def __init__(self, logging):
         if Base._sequence == 0:
             Base._sequence = getpid()
@@ -475,7 +473,7 @@ class Base(object):
 
         self.logger = logging
         self.__version__ = '0.1'
-        self.__sock = Socket(None)
+        self.__sock = None
         self._session = 0
         self._connection_opened = False
         self._reply = None
@@ -495,7 +493,7 @@ class Base(object):
 
         self.attribs = {'context': '_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
                         'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': '\x27\x04\x19\x71', 'csn': '\x27\x04',
-                        'vid': '\x09\x10', 'vsn': '\x09\x10\x19\x71', 'name': 'Base'}
+                        'vid': '\x09\x10', 'vsn': '\x09\x10\x19\x71', 'name': 'Base', 'ip address': None}
 
     def __len__(self):
         return len(self.attribs)
@@ -519,7 +517,7 @@ class Base(object):
         return item in self.attribs
 
     def _check_reply(self):
-        raise PycommError("The method has not been implemented")
+        raise Socket.ImplementationError("The method has not been implemented")
 
     @staticmethod
     def _get_sequence():
@@ -555,15 +553,13 @@ class Base(object):
         self._message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
         self._send()
         self._receive()
-        try:
-            if self._check_reply():
+        if self._check_reply():
+            try:
                 self._device_description = self._reply[63:-1]
-                # Current State of device
-                # print(unpack_usint(self._reply[-1:]))
                 return True
-            return False
-        except Exception as err:
-            self.post_exception_and_exit(err)
+            except Exception as e:
+                raise CommError(e)
+        return False
 
     def send_rr_data(self, msg):
         """ SendRRData transfer an encapsulated request/reply packet between the originator and target
@@ -611,13 +607,16 @@ class Base(object):
 
          :return: the headre
         """
-        h = command                                 # Command UINT
-        h += pack_uint(length)                      # Length UINT
-        h += pack_dint(self._session)                # Session Handle UDINT
-        h += pack_dint(0)                           # Status UDINT
-        h += self.attribs['context']                # Sender Context 8 bytes
-        h += pack_dint(self.attribs['option'])      # Option UDINT
-        return h
+        try:
+            h = command                                 # Command UINT
+            h += pack_uint(length)                      # Length UINT
+            h += pack_dint(self._session)                # Session Handle UDINT
+            h += pack_dint(0)                           # Status UDINT
+            h += self.attribs['context']                # Sender Context 8 bytes
+            h += pack_dint(self.attribs['option'])      # Option UDINT
+            return h
+        except Exception as e:
+            raise CommError(e)
 
     def register_session(self):
         """ Register a new session with the communication partner
@@ -627,6 +626,7 @@ class Base(object):
         if self._session:
             return self._session
 
+        self._session = 0
         self._message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
         self._message += pack_uint(self.attribs['protocol version'])
         self._message += pack_uint(0)
@@ -650,7 +650,7 @@ class Base(object):
         """
         if self._session == 0:
             self._status = (4, "A session need to be registered before to call forward_open.")
-            return None
+            raise CommError("A session need to be registered before to call forward open")
 
         forward_open_msg = [
             FORWARD_OPEN,
@@ -698,9 +698,10 @@ class Base(object):
 
         :return: False if any error in the replayed message
         """
+
         if self._session == 0:
             self._status = (5, "A session need to be registered before to call forward_close.")
-            return None
+            raise CommError("A session need to be registered before to call forward_close.")
 
         forward_close_msg = [
             FORWARD_CLOSE,
@@ -747,12 +748,9 @@ class Base(object):
         try:
             self.logger.debug(print_bytes_msg(self._message, '-------------- SEND --------------'))
             self.__sock.send(self._message)
-        except CipError as e:
-            self._status = (11, "Error {0} during send".format(e))
-            self.logger.warning(self._status)
-            return False
-
-        return True
+        except Exception as e:
+            #self.clean_up()
+            raise CommError(e)
 
     def _receive(self):
         """
@@ -762,12 +760,9 @@ class Base(object):
         try:
             self._reply = self.__sock.receive()
             self.logger.debug(print_bytes_msg(self._reply, '----------- RECEIVE -----------'))
-        except CipError as e:
-            self._status = (12, "Error {0}".format(e))
-            self.logger.warning(self._status)
-            return False
-
-        return True
+        except Exception as e:
+            #self.clean_up()
+            raise CommError(e)
 
     def open(self, ip_address):
         """
@@ -778,44 +773,42 @@ class Base(object):
 
         if not self._connection_opened:
             try:
+                if self.__sock is None:
+                    self.__sock = Socket()
                 self.__sock.connect(ip_address, self.attribs['port'])
                 self._connection_opened = True
+                self.attribs['ip address'] = ip_address
                 if self.register_session() is None:
                     self._status = (13, "Session not registered")
                     return False
-                self.clean_up()
+                self.forward_close()
                 return True
             except Exception as e:
-                self.post_exception_and_exit(e)
-        return False
+                #self.clean_up()
+                raise CommError(e)
 
     def close(self):
         """
         socket close
         :return: true if no error otherwise false
         """
-        if self._target_is_connected:
-            self.forward_close()
-        if self._session != 0:
-            self.un_register_session()
-        if self.__sock:
-            self.__sock.close()
-            self.__sock = None
+        try:
+            if self._target_is_connected:
+                self.forward_close()
+            if self._session != 0:
+                self.un_register_session()
+            if self.__sock:
+                self.__sock.close()
+        except Exception as e:
+            raise CommError(e)
+
+        self.clean_up()
+
+    def clean_up(self):
+        self.__sock = None
+        self._target_is_connected = False
         self._session = 0
         self._connection_opened = False
 
-    def post_exception_and_exit(self, err):
-        exc_type, exc_obj, tb = sys.exc_info()
-        f = tb.tb_frame
-        lineno = tb.tb_lineno
-        filename = f.f_code.co_filename
-        linecache.checkcache(filename)
-        line = linecache.getline(filename, lineno, f.f_globals)
-        self._status = (99, 'EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
-        print(self._status)
-        self.logger.warning(self._status)
-        self.close()
-        exit()
-
-    def clean_up(self):
-        self.forward_close()
+    def is_connected(self):
+        return self._connection_opened

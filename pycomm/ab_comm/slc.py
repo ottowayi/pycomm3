@@ -155,6 +155,7 @@ class Driver(Base):
             super(Driver, self).__init__(setup_logger('ab_comm.slc', logging.INFO, filename))
 
         self.__version__ = '0.1'
+        self._last_sequence = 0
 
     def _check_reply(self):
         """
@@ -202,11 +203,9 @@ class Driver(Base):
                 else:
                     return True
 
-        except LookupError:
-            self._status = (3, "LookupError inside _check_replay")
-            return False
-
-        return True
+            return True
+        except Exception as e:
+            raise DataError(e)
 
     def read_tag(self, tag, n=1):
         """ read tag from a connected plc
@@ -223,7 +222,7 @@ class Driver(Base):
         if not res[0]:
             self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, n))
             self.logger.warning(self._status)
-            return None
+            raise DataError("Error parsing the tag passed to read_tag({0},{1})".format(tag, n))
 
         bit_read = False
         bit_position = 0
@@ -232,23 +231,19 @@ class Driver(Base):
             bit_read = True
             bit_position = int(res[2]['sub_element'])
 
-        if self._session == 0:
-            self._status = (6, "A session need to be registered before to call read_tag.")
-            self.logger.warning(self._status)
-            return None
-
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (5, "Target did not connected. read_tag will not be executed.")
                 self.logger.warning(self._status)
-                return None
+                raise Error("Target did not connected. read_tag will not be executed.")
 
         data_size = PCCC_DATA_SIZE[res[2]['file_type']]
 
         # Creating the Message Request Packet
-        seq = pack_uint(Base._get_sequence())
+        self._last_sequence = pack_uint(Base._get_sequence())
+
         message_request = [
-            seq,
+            self._last_sequence,
             '\x4b',
             '\x02',
             CLASS_ID["8-bit"],
@@ -258,8 +253,8 @@ class Driver(Base):
             self.attribs['vsn'],
             '\x0f',
             '\x00',
-            seq[1],
-            seq[0],
+            self._last_sequence[1],
+            self._last_sequence[0],
             res[2]['read_func'],
             pack_usint(data_size * n),
             pack_usint(int(res[2]['file_number'])),
@@ -281,7 +276,8 @@ class Driver(Base):
                     sts_txt = PCCC_ERROR_CODE[sts]
                     self._status = (1000, "Error({0}) returned from read_tag({1},{2})".format(sts_txt, tag, n))
                     self.logger.warning(self._status)
-                    return None
+                    raise DataError("Error({0}) returned from read_tag({1},{2})".format(sts_txt, tag, n))
+
                 new_value = 61
                 if bit_read:
                     if res[2]['file_type'] == 'T' or res[2]['file_type'] == 'C':
@@ -309,12 +305,12 @@ class Driver(Base):
                     else:
                         return values_list[0]
 
-            except Exception as err:
-                self._status = (1000, "Error({0}) parsing the data returned from read_tag({1},{2})".format(err, tag, n))
+            except Exception as e:
+                self._status = (1000, "Error({0}) parsing the data returned from read_tag({1},{2})".format(e, tag, n))
                 self.logger.warning(self._status)
-                return None
+                raise DataError("Error({0}) parsing the data returned from read_tag({1},{2})".format(e, tag, n))
         else:
-            return None
+            raise DataError("send_unit_data returned not valid data")
 
     def write_tag(self, tag, value):
         """ write tag from a connected plc
@@ -332,17 +328,17 @@ class Driver(Base):
         if not res[0]:
             self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, value))
             self.logger.warning(self._status)
-            return None
+            raise DataError("Error parsing the tag passed to read_tag({0},{1})".format(tag, value))
 
         if isinstance(value, list) and int(res[2]['address_field'] == 3):
             self._status = (1000, "Function's parameters error.  read_tag({0},{1})".format(tag, value))
             self.logger.warning(self._status)
-            return None
+            raise DataError("Function's parameters error.  read_tag({0},{1})".format(tag, value))
 
         if isinstance(value, list) and int(res[2]['address_field'] == 3):
             self._status = (1000, "Function's parameters error.  read_tag({0},{1})".format(tag, value))
             self.logger.warning(self._status)
-            return None
+            raise DataError("Function's parameters error.  read_tag({0},{1})".format(tag, value))
 
         bit_field = False
         bit_position = 0
@@ -358,16 +354,12 @@ class Driver(Base):
         if isinstance(value, list):
             multi_requests = True
 
-        if self._session == 0:
-            self._status = (1000, "A session need to be registered before to call write_tag.")
-            self.logger.warning(self._status)
-            return None
-
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (1000, "Target did not connected. write_tag will not be executed.")
                 self.logger.warning(self._status)
-                return None
+                raise Error("Target did not connected. write_tag will not be executed.")
+
         try:
             n = 0
             if multi_requests:
@@ -395,20 +387,20 @@ class Driver(Base):
                     values_list += PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](value)
                     data_size = PCCC_DATA_SIZE[res[2]['file_type']]
 
-        except Exception as err:
+        except Exception as e:
                 self._status = (1000, "Error({0}) packing the values to write  to the"
-                                      "SLC write_tag({1},{2})".format(err, tag, value))
+                                      "SLC write_tag({1},{2})".format(e, tag, value))
                 self.logger.warning(self._status)
-                return None
+                raise DataError("Error({0}) packing the values to write  to the "
+                                "SLC write_tag({1},{2})".format(e, tag, value))
 
         data_to_write = values_list
 
         # Creating the Message Request Packet
-
-        seq = pack_uint(Base._get_sequence())
+        self._last_sequence = pack_uint(Base._get_sequence())
 
         message_request = [
-            seq,
+            self._last_sequence,
             '\x4b',
             '\x02',
             CLASS_ID["8-bit"],
@@ -418,8 +410,8 @@ class Driver(Base):
             self.attribs['vsn'],
             '\x0f',
             '\x00',
-            seq[1],
-            seq[0],
+            self._last_sequence[1],
+            self._last_sequence[0],
             res[2]['write_func'],
             pack_usint(data_size * n),
             pack_usint(int(res[2]['file_number'])),
@@ -441,13 +433,14 @@ class Driver(Base):
                     sts_txt = PCCC_ERROR_CODE[sts]
                     self._status = (1000, "Error({0}) returned from SLC write_tag({1},{2})".format(sts_txt, tag, value))
                     self.logger.warning(self._status)
-                    return None
+                    raise DataError("Error({0}) returned from SLC write_tag({1},{2})".format(sts_txt, tag, value))
 
                 return True
-            except Exception as err:
+            except Exception as e:
                 self._status = (1000, "Error({0}) parsing the data returned from "
-                                      "SLC write_tag({1},{2})".format(err, tag, value))
+                                      "SLC write_tag({1},{2})".format(e, tag, value))
                 self.logger.warning(self._status)
-                return None
+                raise DataError("Error({0}) parsing the data returned from "
+                            "SLC write_tag({1},{2})".format(e, tag, value))
         else:
-            return None
+            raise DataError("send_unit_data returned not valid data")

@@ -25,7 +25,6 @@
 #
 from pycomm.cip.cip_base import *
 from pycomm.common import setup_logger
-import sys
 import logging
 
 
@@ -72,7 +71,7 @@ class Driver(Base):
         """
         return self._last_tag_write
 
-    def _parse_instace_attribute_list(self, start_tag_ptr, status):
+    def _parse_instance_attribute_list(self, start_tag_ptr, status):
         """ extract the tags list from the message received
 
         :param start_tag_ptr: The point in the message string where the tag list begin
@@ -97,17 +96,15 @@ class Driver(Base):
                 self._tag_list.append({'instance_id': instance,
                                        'tag_name': tag_name,
                                        'symbol_type': symbol_type})
-            if status == SUCCESS:
-                self._last_instance = -1
-            elif status == 0x06:
-                self._last_instance = instance + 1
-            else:
-                self._status = (1, 'unknown status during _parse_tag_list')
-                self._last_instance = -1
-
         except Exception as e:
-            self._status = (1, "Error :{0} inside _parse_tag_list".format(e))
-            self.logger.warning(self._status)
+            raise DataError(e)
+
+        if status == SUCCESS:
+            self._last_instance = -1
+        elif status == 0x06:
+            self._last_instance = instance + 1
+        else:
+            self._status = (1, 'unknown status during _parse_tag_list')
             self._last_instance = -1
 
     def _parse_structure_makeup_attributes(self, start_tag_ptr, status):
@@ -159,10 +156,7 @@ class Driver(Base):
             return self._buffer
 
         except Exception as e:
-            self._status = (100, "Error :{0} ".format(sys.exc_info()))
-            self.logger.warning(self._status)
-            self._buffer['Error'] = self._status
-            return
+            raise DataError(e)
 
     def _parse_template(self, start_tag_ptr, status):
         """ extract the tags list from the message received
@@ -173,21 +167,15 @@ class Driver(Base):
         tags_returned = self._reply[start_tag_ptr:]
         bytes_received = len(tags_returned)
 
-        try:
-            self._buffer += tags_returned
+        self._buffer += tags_returned
 
-            if status == SUCCESS:
-                self._get_template_in_progress = False
+        if status == SUCCESS:
+            self._get_template_in_progress = False
 
-            elif status == 0x06:
-                self._byte_offset += bytes_received
-            else:
-                self._status = (1, 'unknown status {0} during _parse_template'.format(status))
-                self.logger.warning(self._status)
-                self._last_instance = -1
-
-        except Exception as e:
-            self._status = (101, "Error :{0} inside _parse_template".format(sys.exc_info()))
+        elif status == 0x06:
+            self._byte_offset += bytes_received
+        else:
+            self._status = (1, 'unknown status {0} during _parse_template'.format(status))
             self.logger.warning(self._status)
             self._last_instance = -1
 
@@ -197,27 +185,31 @@ class Driver(Base):
         :param start_ptr: Where the fragment start within the replay
         :param status: status field used to decide if keep parsing or stop
         """
-        data_type = unpack_uint(self._reply[start_ptr:start_ptr+2])
-        fragment_returned = self._reply[start_ptr+2:]
+        try:
+            data_type = unpack_uint(self._reply[start_ptr:start_ptr+2])
+            fragment_returned = self._reply[start_ptr+2:]
+        except Exception as e:
+            raise DataError(e)
 
         fragment_returned_length = len(fragment_returned)
         idx = 0
-        try:
-            while idx < fragment_returned_length:
+
+        while idx < fragment_returned_length:
+            try:
                 typ = I_DATA_TYPE[data_type]
                 value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx+DATA_FUNCTION_SIZE[typ]])
                 idx += DATA_FUNCTION_SIZE[typ]
-                self._tag_list.append((self._last_position, value))
-                self._last_position += 1
-            if status == SUCCESS:
-                self._byte_offset = -1
-            elif status == 0x06:
-                self._byte_offset += fragment_returned_length
-            else:
-                self._status = (2, 'unknown status during _parse_fragment')
-                self._byte_offset = -1
-        except Exception as e:
-            self._status = (2, "Error :{0} inside _parse_fragment".format(e))
+            except Exception as e:
+                raise DataError(e)
+            self._tag_list.append((self._last_position, value))
+            self._last_position += 1
+
+        if status == SUCCESS:
+            self._byte_offset = -1
+        elif status == 0x06:
+            self._byte_offset += fragment_returned_length
+        else:
+            self._status = (2, 'unknown status during _parse_fragment')
             self._byte_offset = -1
 
     def _parse_multiple_request_read(self, tags):
@@ -230,29 +222,29 @@ class Driver(Base):
         """
         offset = 50
         position = 50
-        number_of_service_replies = unpack_uint(self._reply[offset:offset+2])
-        tag_list = []
-        for index in range(number_of_service_replies):
-            position += 2
-            start = offset + unpack_uint(self._reply[position:position+2])
-            general_status = unpack_usint(self._reply[start+2:start+3])
+        try:
+            number_of_service_replies = unpack_uint(self._reply[offset:offset+2])
+            tag_list = []
+            for index in range(number_of_service_replies):
+                position += 2
+                start = offset + unpack_uint(self._reply[position:position+2])
+                general_status = unpack_usint(self._reply[start+2:start+3])
 
-            if general_status == 0:
-                data_type = unpack_uint(self._reply[start+4:start+6])
-                try:
+                if general_status == 0:
+                    data_type = unpack_uint(self._reply[start+4:start+6])
                     value_begin = start + 6
                     value_end = value_begin + DATA_FUNCTION_SIZE[I_DATA_TYPE[data_type]]
                     value = self._reply[value_begin:value_end]
                     self._last_tag_read = (tags[index], UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](value),
                                            I_DATA_TYPE[data_type])
-                except LookupError:
+                else:
                     self._last_tag_read = (tags[index], None, None)
-            else:
-                self._last_tag_read = (tags[index], None, None)
 
-            tag_list.append(self._last_tag_read)
+                tag_list.append(self._last_tag_read)
 
-        return tag_list
+            return tag_list
+        except Exception as e:
+            raise DataError(e)
 
     def _parse_multiple_request_write(self, tags):
         """ parse the message received from a multi request writ:
@@ -264,20 +256,23 @@ class Driver(Base):
         """
         offset = 50
         position = 50
-        number_of_service_replies = unpack_uint(self._reply[offset:offset+2])
-        tag_list = []
-        for index in range(number_of_service_replies):
-            position += 2
-            start = offset + unpack_uint(self._reply[position:position+2])
-            general_status = unpack_usint(self._reply[start+2:start+3])
+        try:
+            number_of_service_replies = unpack_uint(self._reply[offset:offset+2])
+            tag_list = []
+            for index in range(number_of_service_replies):
+                position += 2
+                start = offset + unpack_uint(self._reply[position:position+2])
+                general_status = unpack_usint(self._reply[start+2:start+3])
 
-            if general_status == 0:
-                self._last_tag_write = (tags[index] + ('GOOD',))
-            else:
-                self._last_tag_write = (tags[index] + ('BAD',))
+                if general_status == 0:
+                    self._last_tag_write = (tags[index] + ('GOOD',))
+                else:
+                    self._last_tag_write = (tags[index] + ('BAD',))
 
-            tag_list.append(self._last_tag_write)
-        return tag_list
+                tag_list.append(self._last_tag_write)
+            return tag_list
+        except Exception as e:
+            raise DataError(e)
 
     def _check_reply(self):
         """ check the replayed message for error
@@ -312,7 +307,7 @@ class Driver(Base):
                     self._parse_fragment(50, status)
                     return True
                 if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Instance Attributes List"]:
-                    self._parse_instace_attribute_list(50, status)
+                    self._parse_instance_attribute_list(50, status)
                     return True
                 if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Attributes"]:
                     self._parse_structure_makeup_attributes(50, status)
@@ -331,11 +326,9 @@ class Driver(Base):
                 else:
                     return True
 
-        except LookupError:
-            self._status = (3, "LookupError inside _check_replay")
-            return False
-
-        return True
+            return True
+        except Exception as e:
+            raise DataError(e)
 
     def read_tag(self, tag):
         """ read tag from a connected plc
@@ -354,14 +347,11 @@ class Driver(Base):
         if isinstance(tag, list):
             multi_requests = True
 
-        if self._session == 0:
-            self._status = (6, "A session need to be registered before to call read_tag.")
-            return None
-
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (6, "Target did not connected. read_tag will not be executed.")
-                return None
+                self.logger.warning(self._status)
+                raise Error("Target did not connected. read_tag will not be executed.")
 
         if multi_requests:
             rp_list = []
@@ -369,7 +359,7 @@ class Driver(Base):
                 rp = create_tag_rp(t, multi_requests=True)
                 if rp is None:
                     self._status = (6, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
-                    return None
+                    raise DataError("Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
                 else:
                     rp_list.append(chr(TAG_SERVICES_REQUEST['Read Tag']) + rp + pack_uint(1))
             message_request = build_multiple_service(rp_list, Base._get_sequence())
@@ -389,13 +379,14 @@ class Driver(Base):
                     pack_uint(1)
                 ]
 
-        self.send_unit_data(
-            build_common_packet_format(
-                DATA_ITEM['Connected'],
-                ''.join(message_request),
-                ADDRESS_ITEM['Connection Based'],
-                addr_data=self._target_cid,
-            ))
+        if self.send_unit_data(
+                build_common_packet_format(
+                    DATA_ITEM['Connected'],
+                    ''.join(message_request),
+                    ADDRESS_ITEM['Connection Based'],
+                    addr_data=self._target_cid,
+                )) is None:
+            raise DataError("send_unit_data returned not valid data")
 
         if multi_requests:
             return self._parse_multiple_request_read(tag)
@@ -404,9 +395,8 @@ class Driver(Base):
             data_type = unpack_uint(self._reply[50:52])
             try:
                 return UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._reply[52:]), I_DATA_TYPE[data_type]
-            except LookupError:
-                self._status = (6, "Unknown data type returned by read_tag")
-                return None
+            except Exception as e:
+                raise DataError(e)
 
     def read_array(self, tag, counts):
         """ read array of atomic data type from a connected plc
@@ -418,14 +408,11 @@ class Driver(Base):
         :param counts: the number of element to read
         :return: None is returned in case of error otherwise the tag list is returned
         """
-        if self._session == 0:
-            self._status = (7, "A session need to be registered before to call read_array.")
-            return None
-
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (7, "Target did not connected. read_tag will not be executed.")
-                return None
+                self.logger.warning(self._status)
+                raise Error("Target did not connected. read_tag will not be executed.")
 
         self._byte_offset = 0
         self._last_position = 0
@@ -447,13 +434,14 @@ class Driver(Base):
                     pack_dint(self._byte_offset)
                 ]
 
-            self.send_unit_data(
-                build_common_packet_format(
-                    DATA_ITEM['Connected'],
-                    ''.join(message_request),
-                    ADDRESS_ITEM['Connection Based'],
-                    addr_data=self._target_cid,
-                ))
+            if self.send_unit_data(
+                    build_common_packet_format(
+                        DATA_ITEM['Connected'],
+                        ''.join(message_request),
+                        ADDRESS_ITEM['Connection Based'],
+                        addr_data=self._target_cid,
+                    )) is None:
+                raise DataError("send_unit_data returned not valid data")
 
         return self._tag_list
 
@@ -488,14 +476,11 @@ class Driver(Base):
         if isinstance(tag, list):
             multi_requests = True
 
-        if self._session == 0:
-            self._status = (8, "A session need to be registered before to call write_tag.")
-            return None
-
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (8, "Target did not connected. write_tag will not be executed.")
-                return None
+                self.logger.warning(self._status)
+                raise Error("Target did not connected. write_tag will not be executed.")
 
         if multi_requests:
             rp_list = []
@@ -539,6 +524,7 @@ class Driver(Base):
             rp = create_tag_rp(name)
             if rp is None:
                 self._status = (8, "Cannot create tag {0} request packet. write_tag will not be executed.".format(tag))
+                self.logger.warning(self._status)
                 return None
             else:
                 # Creating the Message Request Packet
@@ -564,6 +550,8 @@ class Driver(Base):
         if multi_requests:
             return self._parse_multiple_request_write(tag)
         else:
+            if ret_val is None:
+                raise DataError("send_unit_data returned not valid data")
             return ret_val
 
     def write_array(self, tag, data_type, values):
@@ -578,16 +566,14 @@ class Driver(Base):
         """
         if not isinstance(values, list):
             self._status = (9, "A list of tags must be passed to write_array.")
-            return None
-
-        if self._session == 0:
-            self._status = (9, "A session need to be registered before to call write_array.")
-            return None
+            self.logger.warning(self._status)
+            raise DataError("A list of tags must be passed to write_array.")
 
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (9, "Target did not connected. write_array will not be executed.")
-                return None
+                self.logger.warning(self._status)
+                raise Error("Target did not connected. write_array will not be executed.")
 
         array_of_values = ""
         byte_size = 0
@@ -618,13 +604,14 @@ class Driver(Base):
                     ]
                     byte_offset += byte_size
 
-                self.send_unit_data(
-                    build_common_packet_format(
-                        DATA_ITEM['Connected'],
-                        ''.join(message_request),
-                        ADDRESS_ITEM['Connection Based'],
-                        addr_data=self._target_cid,
-                    ))
+                if self.send_unit_data(
+                        build_common_packet_format(
+                            DATA_ITEM['Connected'],
+                            ''.join(message_request),
+                            ADDRESS_ITEM['Connection Based'],
+                            addr_data=self._target_cid,
+                        )) is None:
+                    raise DataError("send_unit_data returned not valid data")
                 array_of_values = ""
                 byte_size = 0
 
@@ -635,14 +622,11 @@ class Driver(Base):
         of the attribute data associated with the requested attribute
         """
         try:
-            if self._session == 0:
-                self._status = (10, "A session need to be registered before to call get_tag_list.")
-                return None
-
             if not self._target_is_connected:
                 if not self.forward_open():
                     self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                    return None
+                    self.logger.warning(self._status)
+                    raise Error("Target did not connected. get_tag_list will not be executed.")
 
             self._last_instance = 0
 
@@ -668,82 +652,69 @@ class Driver(Base):
                     pack_uint(2)    # Attribute 2: Symbol type
                 ]
 
-                self.send_unit_data(
-                    build_common_packet_format(
-                        DATA_ITEM['Connected'],
-                        ''.join(message_request),
-                        ADDRESS_ITEM['Connection Based'],
-                        addr_data=self._target_cid,
-                    ))
+                if self.send_unit_data(
+                        build_common_packet_format(
+                            DATA_ITEM['Connected'],
+                            ''.join(message_request),
+                            ADDRESS_ITEM['Connection Based'],
+                            addr_data=self._target_cid,
+                        )) is None:
+                    raise DataError("send_unit_data returned not valid data")
+
             self._get_template_in_progress = False
 
-        except Exception as err:
-            self.post_exception_and_exit(err)
+        except Exception as e:
+            raise DataError(e)
 
     def _get_structure_makeup(self, instance_id):
         """
         get the structure makeup for a specific structure
         """
-        try:
-            if self._session == 0:
-                self._status = (10, "A session need to be registered before to call get_tag_list.")
+        if not self._target_is_connected:
+            if not self.forward_open():
+                self._status = (10, "Target did not connected. get_tag_list will not be executed.")
                 self.logger.warning(self._status)
-                return None
+                raise Error("Target did not connected. get_tag_list will not be executed.")
 
-            if not self._target_is_connected:
-                if not self.forward_open():
-                    self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                    self.logger.warning(self._status)
-                    return None
+        message_request = [
+            pack_uint(self._get_sequence()),
+            chr(TAG_SERVICES_REQUEST['Get Attributes']),
+            chr(3),                         # Request Path ( 20 6B 25 00 Instance )
+            CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
+            CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
+            INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
+            '\x00',
+            pack_uint(instance_id),
+            pack_uint(4),  # Number of attributes
+            pack_uint(4),  # Template Object Definition Size UDINT
+            pack_uint(5),  # Template Structure Size UDINT
+            pack_uint(2),  # Template Member Count UINT
+            pack_uint(1)   # Structure Handle We can use this to read and write UINT
+        ]
 
-            message_request = [
-                pack_uint(self._get_sequence()),
-                chr(TAG_SERVICES_REQUEST['Get Attributes']),
-                chr(3),                         # Request Path ( 20 6B 25 00 Instance )
-                CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
-                CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
-                '\x00',
-                pack_uint(instance_id),
-                pack_uint(4),  # Number of attributes
-                pack_uint(4),  # Template Object Definition Size UDINT
-                pack_uint(5),  # Template Structure Size UDINT
-                pack_uint(2),  # Template Member Count UINT
-                pack_uint(1)   # Structure Handle We can use this to read and write UINT
-            ]
+        if self.send_unit_data(
+                build_common_packet_format(DATA_ITEM['Connected'],
+                                           ''.join(message_request), ADDRESS_ITEM['Connection Based'],
+                                           addr_data=self._target_cid,)) is None:
+            raise DataError("send_unit_data returned not valid data")
 
-            self.send_unit_data(
-                build_common_packet_format(
-                    DATA_ITEM['Connected'],
-                    ''.join(message_request),
-                    ADDRESS_ITEM['Connection Based'],
-                    addr_data=self._target_cid,
-                ))
-
-            return self._buffer
-
-        except Exception as err:
-            self.post_exception_and_exit(err)
+        return self._buffer
 
     def _read_template(self, instance_id, object_definition_size):
         """ get a list of the tags in the plc
 
         """
+        if not self._target_is_connected:
+            if not self.forward_open():
+                self._status = (10, "Target did not connected. get_tag_list will not be executed.")
+                self.logger.warning(self._status)
+                raise Error("Target did not connected. get_tag_list will not be executed.")
+
+        self._byte_offset = 0
+        self._buffer = ""
+        self._get_template_in_progress = True
+
         try:
-            if self._session == 0:
-                self._status = (10, "A session need to be registered before to call get_tag_list.")
-                return None
-
-            if not self._target_is_connected:
-                if not self.forward_open():
-                    self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                    return None
-
-            self._byte_offset = 0
-            self._buffer = ""
-            self._get_template_in_progress = True
-            # self._buffer = {'member_count': member_count, }
-
             while self._get_template_in_progress:
 
                 # Creating the Message Request Packet
@@ -761,115 +732,114 @@ class Driver(Base):
                     pack_uint(((object_definition_size * 4)-23) - self._byte_offset)
                 ]
 
-                self.send_unit_data(
-                    build_common_packet_format(
-                        DATA_ITEM['Connected'],
-                        ''.join(message_request),
-                        ADDRESS_ITEM['Connection Based'],
-                        addr_data=self._target_cid,
-                    ))
+                if not self.send_unit_data(
+                        build_common_packet_format(DATA_ITEM['Connected'], ''.join(message_request),
+                                                   ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid,)):
+                    raise DataError("send_unit_data returned not valid data")
 
             self._get_template_in_progress = False
             return self._buffer
 
-        except Exception as err:
-            self.post_exception_and_exit(err)
+        except Exception as e:
+            raise DataError(e)
 
     def _isolating_user_tag(self):
-        lst = self._tag_list
-        self._tag_list = []
-        for tag in lst:
-                if tag['tag_name'].find(':') != -1 or tag['tag_name'].find('__') != -1:
-                    continue
-                if tag['symbol_type'] & 0b0001000000000000:
-                    continue
-                dimension = tag['symbol_type'] & 0b0110000000000000 >> 13
-                template_instance_id = tag['symbol_type'] & 0b0000111111111111
+        try:
+            lst = self._tag_list
+            self._tag_list = []
+            for tag in lst:
+                    if tag['tag_name'].find(':') != -1 or tag['tag_name'].find('__') != -1:
+                        continue
+                    if tag['symbol_type'] & 0b0001000000000000:
+                        continue
+                    dimension = tag['symbol_type'] & 0b0110000000000000 >> 13
+                    template_instance_id = tag['symbol_type'] & 0b0000111111111111
 
-                if tag['symbol_type'] & 0b1000000000000000 :
-                    tag_type = 'struct'
-                    data_type = 'user-created'
-                    self._tag_list.append({'instance_id': tag['instance_id'],
-                                           'template_instance_id': template_instance_id,
-                                           'tag_name': tag['tag_name'],
-                                           'dim': dimension,
-                                           'tag_type': tag_type,
-                                           'data_type': data_type,
-                                           'template': {},
-                                           'udt': {}})
-                else:
-                    tag_type = 'atomic'
-                    data_type = I_DATA_TYPE[template_instance_id]
-                    self._tag_list.append({'instance_id': tag['instance_id'],
-                                           'tag_name':  tag['tag_name'],
-                                           'dim': dimension,
-                                           'tag_type': tag_type,
-                                           'data_type': data_type})
+                    if tag['symbol_type'] & 0b1000000000000000 :
+                        tag_type = 'struct'
+                        data_type = 'user-created'
+                        self._tag_list.append({'instance_id': tag['instance_id'],
+                                               'template_instance_id': template_instance_id,
+                                               'tag_name': tag['tag_name'],
+                                               'dim': dimension,
+                                               'tag_type': tag_type,
+                                               'data_type': data_type,
+                                               'template': {},
+                                               'udt': {}})
+                    else:
+                        tag_type = 'atomic'
+                        data_type = I_DATA_TYPE[template_instance_id]
+                        self._tag_list.append({'instance_id': tag['instance_id'],
+                                               'tag_name':  tag['tag_name'],
+                                               'dim': dimension,
+                                               'tag_type': tag_type,
+                                               'data_type': data_type})
+        except Exception as e:
+            raise DataError(e)
 
     def _parse_udt_raw(self, tag):
-        buff = self._read_template(tag['template_instance_id'], tag['template']['object_definition_size'])
-        member_count = tag['template']['member_count']
-        names = buff.split('\00')
-        lst = []
-        # Attenzione
-        tag['udt']['name'] = 'Not an user defined structure'
-        for name in names:
-            if len(name) > 1:
+        try:
+            buff = self._read_template(tag['template_instance_id'], tag['template']['object_definition_size'])
+            member_count = tag['template']['member_count']
+            names = buff.split('\00')
+            lst = []
 
-                if name.find(';') != -1:
-                    tag['udt']['name'] = name[:name.find(';')]
-                elif name.find('ZZZZZZZZZZ') != -1:
-                    continue
-                elif name.isalpha():
-                    lst.append(name)
-                else:
-                    continue
-        tag['udt']['internal_tags'] = lst
+            tag['udt']['name'] = 'Not an user defined structure'
+            for name in names:
+                if len(name) > 1:
 
-        type_list = []
+                    if name.find(';') != -1:
+                        tag['udt']['name'] = name[:name.find(';')]
+                    elif name.find('ZZZZZZZZZZ') != -1:
+                        continue
+                    elif name.isalpha():
+                        lst.append(name)
+                    else:
+                        continue
+            tag['udt']['internal_tags'] = lst
 
-        for i in xrange(member_count):
-            # skip member 1
+            type_list = []
 
-            if i != 0:
-                array_size = unpack_uint(buff[:2])
-                try:
-                    data_type = I_DATA_TYPE[unpack_uint(buff[2:4])]
-                except Exception:
-                    data_type = "None"
+            for i in xrange(member_count):
+                # skip member 1
 
-                offset = unpack_dint(buff[4:8])
-                type_list.append((array_size, data_type, offset))
+                if i != 0:
+                    array_size = unpack_uint(buff[:2])
+                    try:
+                        data_type = I_DATA_TYPE[unpack_uint(buff[2:4])]
+                    except Exception:
+                        data_type = "None"
 
-            buff = buff[8:]
+                    offset = unpack_dint(buff[4:8])
+                    type_list.append((array_size, data_type, offset))
 
-        tag['udt']['data_type'] = type_list
+                buff = buff[8:]
+
+            tag['udt']['data_type'] = type_list
+        except Exception as e:
+            raise DataError(e)
 
     def get_tag_list(self):
-        try:
-            self._tag_list = []
-            # Step 1
-            self._get_instance_attribute_list_service()
+        self._tag_list = []
+        # Step 1
+        self._get_instance_attribute_list_service()
 
-            # Step 2
-            self._isolating_user_tag()
+        # Step 2
+        self._isolating_user_tag()
 
-            # Step 3
-            for tag in self._tag_list:
-                if tag['tag_type'] == 'struct':
-                    tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
+        # Step 3
+        for tag in self._tag_list:
+            if tag['tag_type'] == 'struct':
+                tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
 
-            for idx, tag in enumerate(self._tag_list):
-                # print (tag)
-                if tag['tag_type'] == 'struct':
-                    self._parse_udt_raw(tag)
+        for idx, tag in enumerate(self._tag_list):
+            # print (tag)
+            if tag['tag_type'] == 'struct':
+                self._parse_udt_raw(tag)
 
-            # Step 4
+        # Step 4
 
-            return self._tag_list
-
-        except Exception as err:
-            self.post_exception_and_exit(err)
+        return self._tag_list
 
 
 
