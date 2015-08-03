@@ -13,12 +13,6 @@ if __name__ == '__main__':
     if c.open('172.16.2.161'):
         while 1:
             try:
-                #if not c.is_connected():
-                #    print "retry to open"
-                #    #c.close()
-                #    print "closed"
-                #    c.open('172.16.2.161')
-
                 print(c.read_tag(['ControlWord']))
                 print(c.read_tag(['parts', 'ControlWord', 'Counts']))
 
