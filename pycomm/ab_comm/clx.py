@@ -351,7 +351,7 @@ class Driver(Base):
             if not self.forward_open():
                 self._status = (6, "Target did not connected. read_tag will not be executed.")
                 self.logger.warning(self._status)
-                raise Error("Target did not connected. read_tag will not be executed.")
+                raise DataError("Target did not connected. read_tag will not be executed.")
 
         if multi_requests:
             rp_list = []
@@ -412,7 +412,7 @@ class Driver(Base):
             if not self.forward_open():
                 self._status = (7, "Target did not connected. read_tag will not be executed.")
                 self.logger.warning(self._status)
-                raise Error("Target did not connected. read_tag will not be executed.")
+                raise DataError("Target did not connected. read_tag will not be executed.")
 
         self._byte_offset = 0
         self._last_position = 0
@@ -480,7 +480,7 @@ class Driver(Base):
             if not self.forward_open():
                 self._status = (8, "Target did not connected. write_tag will not be executed.")
                 self.logger.warning(self._status)
-                raise Error("Target did not connected. write_tag will not be executed.")
+                raise DataError("Target did not connected. write_tag will not be executed.")
 
         if multi_requests:
             rp_list = []
@@ -573,7 +573,7 @@ class Driver(Base):
             if not self.forward_open():
                 self._status = (9, "Target did not connected. write_array will not be executed.")
                 self.logger.warning(self._status)
-                raise Error("Target did not connected. write_array will not be executed.")
+                raise DataError("Target did not connected. write_array will not be executed.")
 
         array_of_values = ""
         byte_size = 0
@@ -626,7 +626,7 @@ class Driver(Base):
                 if not self.forward_open():
                     self._status = (10, "Target did not connected. get_tag_list will not be executed.")
                     self.logger.warning(self._status)
-                    raise Error("Target did not connected. get_tag_list will not be executed.")
+                    raise DataError("Target did not connected. get_tag_list will not be executed.")
 
             self._last_instance = 0
 
@@ -674,7 +674,7 @@ class Driver(Base):
             if not self.forward_open():
                 self._status = (10, "Target did not connected. get_tag_list will not be executed.")
                 self.logger.warning(self._status)
-                raise Error("Target did not connected. get_tag_list will not be executed.")
+                raise DataError("Target did not connected. get_tag_list will not be executed.")
 
         message_request = [
             pack_uint(self._get_sequence()),
@@ -708,7 +708,7 @@ class Driver(Base):
             if not self.forward_open():
                 self._status = (10, "Target did not connected. get_tag_list will not be executed.")
                 self.logger.warning(self._status)
-                raise Error("Target did not connected. get_tag_list will not be executed.")
+                raise DataError("Target did not connected. get_tag_list will not be executed.")
 
         self._byte_offset = 0
         self._buffer = ""

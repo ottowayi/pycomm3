@@ -235,7 +235,7 @@ class Driver(Base):
             if not self.forward_open():
                 self._status = (5, "Target did not connected. read_tag will not be executed.")
                 self.logger.warning(self._status)
-                raise Error("Target did not connected. read_tag will not be executed.")
+                raise DataError("Target did not connected. read_tag will not be executed.")
 
         data_size = PCCC_DATA_SIZE[res[2]['file_type']]
 
@@ -358,7 +358,7 @@ class Driver(Base):
             if not self.forward_open():
                 self._status = (1000, "Target did not connected. write_tag will not be executed.")
                 self.logger.warning(self._status)
-                raise Error("Target did not connected. write_tag will not be executed.")
+                raise DataError("Target did not connected. write_tag will not be executed.")
 
         try:
             n = 0
