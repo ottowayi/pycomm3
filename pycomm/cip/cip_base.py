@@ -32,6 +32,11 @@ from pycomm.cip.cip_const import *
 from pycomm.common import PycommError
 
 
+import logging
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
+
 class CommError(PycommError):
     pass
 
@@ -465,13 +470,12 @@ class Base(object):
     _sequence = 0
 
 
-    def __init__(self, logging):
+    def __init__(self):
         if Base._sequence == 0:
             Base._sequence = getpid()
         else:
             Base._sequence = Base._get_sequence()
 
-        self.logger = logging
         self.__version__ = '0.1'
         self.__sock = None
         self._session = 0
@@ -490,6 +494,7 @@ class Base(object):
         self._last_tag_read = ()
         self._last_tag_write = ()
         self._status = (0, "")
+        self._output_raw = False    #indicating value should be output as raw (hex)
 
         self.attribs = {'context': '_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
                         'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': '\x27\x04\x19\x71', 'csn': '\x27\x04',
@@ -634,11 +639,11 @@ class Base(object):
         self._receive()
         if self._check_reply():
             self._session = unpack_dint(self._reply[4:8])
-            self.logger.debug("Session ={0} has been registered.".format(print_bytes_line(self._reply[4:8])))
+            logger.debug("Session ={0} has been registered.".format(print_bytes_line(self._reply[4:8])))
             return self._session
 
         self._status = 'Warning ! the session has not been registered.'
-        self.logger.warning(self._status)
+        logger.warning(self._status)
         return None
 
     def forward_open(self):
@@ -729,7 +734,7 @@ class Base(object):
             self._target_is_connected = False
             return True
         self._status = (5, "forward_close returned False")
-        self.logger.warning(self._status)
+        logger.warning(self._status)
         return False
 
     def un_register_session(self):
@@ -746,7 +751,7 @@ class Base(object):
         :return: true if no error otherwise false
         """
         try:
-            self.logger.debug(print_bytes_msg(self._message, '-------------- SEND --------------'))
+            logger.debug(print_bytes_msg(self._message, '-------------- SEND --------------'))
             self.__sock.send(self._message)
         except Exception as e:
             #self.clean_up()
@@ -759,7 +764,7 @@ class Base(object):
         """
         try:
             self._reply = self.__sock.receive()
-            self.logger.debug(print_bytes_msg(self._reply, '----------- RECEIVE -----------'))
+            logger.debug(print_bytes_msg(self._reply, '----------- RECEIVE -----------'))
         except Exception as e:
             #self.clean_up()
             raise CommError(e)

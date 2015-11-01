@@ -1,14 +1,21 @@
 from pycomm.ab_comm.clx import Driver as ClxDriver
+import logging
 
 from time import sleep
 
 
 if __name__ == '__main__':
 
-    c = ClxDriver(True, 'ClxDriver.log')
+    logging.basicConfig(
+        filename="ClxDriver.log",
+        format="%(levelname)-10s %(asctime)s %(message)s",
+        level=logging.DEBUG
+    )
+    c = ClxDriver()
 
     print c['port']
     print c.__version__
+
 
     if c.open('172.16.2.161'):
         while 1:

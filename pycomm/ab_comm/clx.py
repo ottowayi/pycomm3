@@ -24,8 +24,10 @@
 # SOFTWARE.
 #
 from pycomm.cip.cip_base import *
-from pycomm.common import setup_logger
 import logging
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class Driver(Base):
@@ -46,12 +48,10 @@ class Driver(Base):
         - CompactLogix 5370
         - ControlLogix 5572 and 1756-EN2T Module
 
-"""
-    def __init__(self, debug=False, filename=None):
-        if debug:
-            super(Driver, self).__init__(setup_logger('ab_comm.clx', logging.DEBUG, filename))
-        else:
-            super(Driver, self).__init__(setup_logger('ab_comm.clx', logging.INFO, filename))
+"""    
+
+    def __init__(self):
+        super(Driver, self).__init__()
 
         self._buffer = {}
         self._get_template_in_progress = False
@@ -197,12 +197,18 @@ class Driver(Base):
         while idx < fragment_returned_length:
             try:
                 typ = I_DATA_TYPE[data_type]
-                value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx+DATA_FUNCTION_SIZE[typ]])
+                if self._output_raw:
+                    value = fragment_returned[idx:idx+DATA_FUNCTION_SIZE[typ]]
+                else:
+                    value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx+DATA_FUNCTION_SIZE[typ]])
                 idx += DATA_FUNCTION_SIZE[typ]
             except Exception as e:
                 raise DataError(e)
-            self._tag_list.append((self._last_position, value))
-            self._last_position += 1
+            if self._output_raw:
+                self._tag_list += value
+            else:
+                self._tag_list.append((self._last_position, value))
+                self._last_position += 1
 
         if status == SUCCESS:
             self._byte_offset = -1
@@ -398,7 +404,7 @@ class Driver(Base):
             except Exception as e:
                 raise DataError(e)
 
-    def read_array(self, tag, counts):
+    def read_array(self, tag, counts, raw=False):
         """ read array of atomic data type from a connected plc
 
         At the moment there is not a strong validation for the argument passed. The user should verify
@@ -406,6 +412,7 @@ class Driver(Base):
 
         :param tag: the name of the tag to read
         :param counts: the number of element to read
+        :param raw: the value should output as raw-value (hex)
         :return: None is returned in case of error otherwise the tag list is returned
         """
         if not self._target_is_connected:
@@ -416,8 +423,12 @@ class Driver(Base):
 
         self._byte_offset = 0
         self._last_position = 0
+        self._output_raw = raw
 
-        self._tag_list = []
+        if self._output_raw:
+            self._tag_list = ''
+        else:
+            self._tag_list = []
         while self._byte_offset != -1:
             rp = create_tag_rp(tag)
             if rp is None:
@@ -524,7 +535,7 @@ class Driver(Base):
             rp = create_tag_rp(name)
             if rp is None:
                 self._status = (8, "Cannot create tag {0} request packet. write_tag will not be executed.".format(tag))
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 return None
             else:
                 # Creating the Message Request Packet
@@ -554,7 +565,7 @@ class Driver(Base):
                 raise DataError("send_unit_data returned not valid data")
             return ret_val
 
-    def write_array(self, tag, data_type, values):
+    def write_array(self, tag, data_type, values, raw=False):
         """ write array of atomic data type from a connected plc
 
         At the moment there is not a strong validation for the argument passed. The user should verify
@@ -562,17 +573,18 @@ class Driver(Base):
 
         :param tag: the name of the tag to read
         :param data_type: the type of tag to write
-        :param values: the array of values to write
+        :param values: the array of values to write, if raw: the frame with bytes
+        :param raw: indicates that the values are given as raw values (hex)
         """
         if not isinstance(values, list):
             self._status = (9, "A list of tags must be passed to write_array.")
-            self.logger.warning(self._status)
+            logger.warning(self._status)
             raise DataError("A list of tags must be passed to write_array.")
 
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (9, "Target did not connected. write_array will not be executed.")
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Target did not connected. write_array will not be executed.")
 
         array_of_values = ""
@@ -580,7 +592,10 @@ class Driver(Base):
         byte_offset = 0
 
         for i, value in enumerate(values):
-            array_of_values += PACK_DATA_FUNCTION[data_type](value)
+            if raw:
+                array_of_values += value
+            else:
+                array_of_values += PACK_DATA_FUNCTION[data_type](value)
             byte_size += DATA_FUNCTION_SIZE[data_type]
 
             if byte_size >= 450 or i == len(values)-1:
@@ -625,7 +640,7 @@ class Driver(Base):
             if not self._target_is_connected:
                 if not self.forward_open():
                     self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                    self.logger.warning(self._status)
+                    logger.warning(self._status)
                     raise DataError("Target did not connected. get_tag_list will not be executed.")
 
             self._last_instance = 0
@@ -673,7 +688,7 @@ class Driver(Base):
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Target did not connected. get_tag_list will not be executed.")
 
         message_request = [
@@ -707,7 +722,7 @@ class Driver(Base):
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Target did not connected. get_tag_list will not be executed.")
 
         self._byte_offset = 0
@@ -752,10 +767,10 @@ class Driver(Base):
                         continue
                     if tag['symbol_type'] & 0b0001000000000000:
                         continue
-                    dimension = tag['symbol_type'] & 0b0110000000000000 >> 13
-                    template_instance_id = tag['symbol_type'] & 0b0000111111111111
+                    dimension = (tag['symbol_type'] & 0b0110000000000000) >> 13
 
                     if tag['symbol_type'] & 0b1000000000000000 :
+                        template_instance_id = tag['symbol_type'] & 0b0000111111111111
                         tag_type = 'struct'
                         data_type = 'user-created'
                         self._tag_list.append({'instance_id': tag['instance_id'],
@@ -768,12 +783,22 @@ class Driver(Base):
                                                'udt': {}})
                     else:
                         tag_type = 'atomic'
-                        data_type = I_DATA_TYPE[template_instance_id]
-                        self._tag_list.append({'instance_id': tag['instance_id'],
-                                               'tag_name':  tag['tag_name'],
-                                               'dim': dimension,
-                                               'tag_type': tag_type,
-                                               'data_type': data_type})
+                        datatype = tag['symbol_type'] & 0b0000000011111111
+                        data_type = I_DATA_TYPE[datatype]
+                        if datatype == 0xc1:
+                            bit_position = (tag['symbol_type'] & 0b0000011100000000) >> 8
+                            self._tag_list.append({'instance_id': tag['instance_id'],
+                                                   'tag_name':  tag['tag_name'],
+                                                   'dim': dimension,
+                                                   'tag_type': tag_type,
+                                                   'data_type': data_type,
+                                                   'bit_position' : bit_position})
+                        else:
+                            self._tag_list.append({'instance_id': tag['instance_id'],
+                                                   'tag_name':  tag['tag_name'],
+                                                   'dim': dimension,
+                                                   'tag_type': tag_type,
+                                                   'data_type': data_type})
         except Exception as e:
             raise DataError(e)
 

@@ -24,10 +24,12 @@
 # SOFTWARE.
 #
 from pycomm.cip.cip_base import *
-from pycomm.common import setup_logger
 import re
 import logging
 import math
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 def parse_tag(tag):
@@ -148,11 +150,8 @@ class Driver(Base):
     """
     SLC/PLC_5 Implementation
     """
-    def __init__(self, debug=False, filename=None):
-        if debug:
-            super(Driver, self).__init__(setup_logger('ab_comm.slc', logging.DEBUG, filename))
-        else:
-            super(Driver, self).__init__(setup_logger('ab_comm.slc', logging.INFO, filename))
+    def __init__(self):
+        super(Driver, self).__init__()
 
         self.__version__ = '0.1'
         self._last_sequence = 0
@@ -221,7 +220,7 @@ class Driver(Base):
         res = parse_tag(tag)
         if not res[0]:
             self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, n))
-            self.logger.warning(self._status)
+            logger.warning(self._status)
             raise DataError("Error parsing the tag passed to read_tag({0},{1})".format(tag, n))
 
         bit_read = False
@@ -234,7 +233,7 @@ class Driver(Base):
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (5, "Target did not connected. read_tag will not be executed.")
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Target did not connected. read_tag will not be executed.")
 
         data_size = PCCC_DATA_SIZE[res[2]['file_type']]
@@ -263,7 +262,7 @@ class Driver(Base):
             pack_usint(sub_element)
         ]
 
-        self.logger.debug("SLC read_tag({0},{1})".format(tag, n))
+        logger.debug("SLC read_tag({0},{1})".format(tag, n))
         if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
@@ -275,7 +274,7 @@ class Driver(Base):
                 if sts != 0:
                     sts_txt = PCCC_ERROR_CODE[sts]
                     self._status = (1000, "Error({0}) returned from read_tag({1},{2})".format(sts_txt, tag, n))
-                    self.logger.warning(self._status)
+                    logger.warning(self._status)
                     raise DataError("Error({0}) returned from read_tag({1},{2})".format(sts_txt, tag, n))
 
                 new_value = 61
@@ -307,7 +306,7 @@ class Driver(Base):
 
             except Exception as e:
                 self._status = (1000, "Error({0}) parsing the data returned from read_tag({1},{2})".format(e, tag, n))
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Error({0}) parsing the data returned from read_tag({1},{2})".format(e, tag, n))
         else:
             raise DataError("send_unit_data returned not valid data")
@@ -327,17 +326,17 @@ class Driver(Base):
         res = parse_tag(tag)
         if not res[0]:
             self._status = (1000, "Error parsing the tag passed to read_tag({0},{1})".format(tag, value))
-            self.logger.warning(self._status)
+            logger.warning(self._status)
             raise DataError("Error parsing the tag passed to read_tag({0},{1})".format(tag, value))
 
         if isinstance(value, list) and int(res[2]['address_field'] == 3):
             self._status = (1000, "Function's parameters error.  read_tag({0},{1})".format(tag, value))
-            self.logger.warning(self._status)
+            logger.warning(self._status)
             raise DataError("Function's parameters error.  read_tag({0},{1})".format(tag, value))
 
         if isinstance(value, list) and int(res[2]['address_field'] == 3):
             self._status = (1000, "Function's parameters error.  read_tag({0},{1})".format(tag, value))
-            self.logger.warning(self._status)
+            logger.warning(self._status)
             raise DataError("Function's parameters error.  read_tag({0},{1})".format(tag, value))
 
         bit_field = False
@@ -357,7 +356,7 @@ class Driver(Base):
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (1000, "Target did not connected. write_tag will not be executed.")
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Target did not connected. write_tag will not be executed.")
 
         try:
@@ -390,7 +389,7 @@ class Driver(Base):
         except Exception as e:
                 self._status = (1000, "Error({0}) packing the values to write  to the"
                                       "SLC write_tag({1},{2})".format(e, tag, value))
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Error({0}) packing the values to write  to the "
                                 "SLC write_tag({1},{2})".format(e, tag, value))
 
@@ -420,7 +419,7 @@ class Driver(Base):
             pack_usint(sub_element)
         ]
 
-        self.logger.debug("SLC write_tag({0},{1})".format(tag, value))
+        logger.debug("SLC write_tag({0},{1})".format(tag, value))
         if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
@@ -432,14 +431,14 @@ class Driver(Base):
                 if sts != 0:
                     sts_txt = PCCC_ERROR_CODE[sts]
                     self._status = (1000, "Error({0}) returned from SLC write_tag({1},{2})".format(sts_txt, tag, value))
-                    self.logger.warning(self._status)
+                    logger.warning(self._status)
                     raise DataError("Error({0}) returned from SLC write_tag({1},{2})".format(sts_txt, tag, value))
 
                 return True
             except Exception as e:
                 self._status = (1000, "Error({0}) parsing the data returned from "
                                       "SLC write_tag({1},{2})".format(e, tag, value))
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Error({0}) parsing the data returned from "
                             "SLC write_tag({1},{2})".format(e, tag, value))
         else:
