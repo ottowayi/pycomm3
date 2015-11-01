@@ -41,11 +41,16 @@ See the following snippet for communication with a Controllogix PLC:
 ::
 
     from pycomm.ab_comm.clx import Driver as ClxDriver
+    import logging
 
 
     if __name__ == '__main__':
-
-        c = ClxDriver(True, 'ClxDriver.log')
+        logging.basicConfig(
+            filename="ClxDriver.log",
+            format="%(levelname)-10s %(asctime)s %(message)s",
+            level=logging.DEBUG
+        )
+        c = ClxDriver()
 
         if c.open('172.16.2.161'):
 
@@ -79,10 +84,16 @@ See the following snippet for communication with a  Micrologix PLC:
 ::
 
     from pycomm.ab_comm.slc import Driver as SlcDriver
+    import logging
 
 
     if __name__ == '__main__':
-        c = SlcDriver(True, 'delete_slc.log')
+        logging.basicConfig(
+            filename="SlcDriver.log",
+            format="%(levelname)-10s %(asctime)s %(message)s",
+            level=logging.DEBUG
+        )
+        c = SlcDriver()
         if c.open('172.16.2.160'):
 
             print c.read_tag('S:1/5')
