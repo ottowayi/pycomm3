@@ -192,7 +192,6 @@ PACK_PCCC_DATA_FUNCTION = {
     'I': pack_int
 }
 
-
 def print_bytes_line(msg):
     out = ''
     for ch in msg:
@@ -476,8 +475,9 @@ class Base(object):
         else:
             Base._sequence = Base._get_sequence()
 
-        self.__version__ = '0.1'
+        self.__version__ = '0.2'
         self.__sock = None
+        self.__direct_connections = False
         self._session = 0
         self._connection_opened = False
         self._reply = None
@@ -678,14 +678,25 @@ class Base(object):
             pack_dint(self.attribs['rpi'] * 1000),
             pack_uint(CONNECTION_PARAMETER['Default']),
             TRANSPORT_CLASS,  # Transport Class
-            CONNECTION_SIZE['Backplane'],
-            pack_usint(self.attribs['backplane']),
-            pack_usint(self.attribs['cpu slot']),
+            #CONNECTION_SIZE['Backplane'],
+            #pack_usint(self.attribs['backplane']),
+            #pack_usint(self.attribs['cpu slot']),
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
             pack_usint(1)
         ]
+
+        if self.__direct_connections:
+            forward_open_msg[20:1] = [
+                CONNECTION_SIZE['Direct Network'],
+            ]
+        else:
+            forward_open_msg[20:3] = [
+                CONNECTION_SIZE['Backplane'],
+                pack_usint(self.attribs['backplane']),
+                pack_usint(self.attribs['cpu slot'])
+            ]
 
         if self.send_rr_data(
                 build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_open_msg), ADDRESS_ITEM['UCMM'],)):
@@ -720,15 +731,29 @@ class Base(object):
             self.attribs['csn'],
             self.attribs['vid'],
             self.attribs['vsn'],
-            CONNECTION_SIZE['Backplane'],
-            '\x00',     # Reserved
-            pack_usint(self.attribs['backplane']),
-            pack_usint(self.attribs['cpu slot']),
+            #CONNECTION_SIZE['Backplane'],
+            #'\x00',     # Reserved
+            #pack_usint(self.attribs['backplane']),
+            #pack_usint(self.attribs['cpu slot']),
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
             pack_usint(1)
         ]
+
+        if self.__direct_connections:
+            forward_close_msg[11:2] = [
+                CONNECTION_SIZE['Direct Network'],
+                '\x00'
+            ]
+        else:
+            forward_close_msg[11:4] = [
+                CONNECTION_SIZE['Backplane'],
+                '\x00',
+                pack_usint(self.attribs['backplane']),
+                pack_usint(self.attribs['cpu slot'])
+            ]
+
         if self.send_rr_data(
                 build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_close_msg), ADDRESS_ITEM['UCMM'])):
             self._target_is_connected = False
@@ -769,13 +794,16 @@ class Base(object):
             #self.clean_up()
             raise CommError(e)
 
-    def open(self, ip_address):
+    def open(self, ip_address, direct_connection=False):
         """
         socket open
+        :param: ip address to connect to and type of connection. By default direct connection is disabled
         :return: true if no error otherwise false
         """
-        # handle the socket layer
+        # set type of connection needed
+        self.__direct_connections = direct_connection
 
+        # handle the socket layer
         if not self._connection_opened:
             try:
                 if self.__sock is None:
