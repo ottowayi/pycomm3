@@ -162,7 +162,7 @@ The modules _ab_comm.clx_ and _ab_comm.slc_ are completed at  moment but other d
 
 Thanks
 ~~~~~~
-Thanks to patrickjmcd_. for the help with the Direct Connections and thanks in advance to anyone for feedback and suggestions.
+Thanks to patrickjmcd_ for the help with the Direct Connections and thanks in advance to anyone for feedback and suggestions.
 
 .. _patrickjmcd: https://github.com/patrickjmcd
 
