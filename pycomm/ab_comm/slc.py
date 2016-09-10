@@ -27,6 +27,7 @@ from pycomm.cip.cip_base import *
 import re
 import logging
 import math
+#import binascii
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -47,7 +48,7 @@ def parse_tag(tag):
                                       'write_func': '\xab',
                                       'address_field': 3}
 
-    t = re.search(r"(?P<file_type>[FBN])(?P<file_number>\d{1,3})"
+    t = re.search(r"(?P<file_type>[LFBN])(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,3})"
                   r"(/(?P<sub_element>\d{1,2}))?",
                   tag, flags=re.IGNORECASE)
@@ -205,6 +206,127 @@ class Driver(Base):
             return True
         except Exception as e:
             raise DataError(e)
+
+    def __queue_data_available(self, queue_number):
+        """ read the queue
+
+        Possible combination can be passed to this method:
+            print c.read_tag('F8:0', 3)    return a list of 3 registers starting from F8:0
+            print c.read_tag('F8:0')   return one value
+
+        It is possible to read status bit
+
+        :return: None is returned in case of error
+        """
+
+        # Creating the Message Request Packet
+        self._last_sequence = pack_uint(Base._get_sequence())
+
+        #  PCCC_Cmd_Rd_w3_Q2 = [0x0f, 0x00, 0x30, 0x00, 0xa2, 0x6d, 0x00, 0xa5, 0x02, 0x00]
+        message_request = [
+            self._last_sequence,
+            '\x4b',
+            '\x02',
+            CLASS_ID["8-bit"],
+            PATH["PCCC"],
+            '\x07',
+            self.attribs['vid'],
+            self.attribs['vsn'],
+            '\x0f',
+            '\x00',
+            self._last_sequence[1],
+            self._last_sequence[0],
+            '\xa2',  # protected typed logical read with three address fields FNC
+            '\x6d',  # Byte size to read = 109
+            '\x00',  # File Number
+            '\xa5',  # File Type
+            pack_uint(queue_number)
+        ]
+
+        if self.send_unit_data(
+            build_common_packet_format(
+                DATA_ITEM['Connected'],
+                ''.join(message_request),
+                ADDRESS_ITEM['Connection Based'],
+                addr_data=self._target_cid,)):
+
+            sts = int(unpack_uint(self._reply[2:4]))
+            if sts == 146:
+                return True
+            else:
+                return False
+        else:
+            raise DataError("read_queue [send_unit_data] returned not valid data")
+
+    def __save_record(self, filename):
+        with open(filename, "a") as csv_file:
+            logger.debug("SLC __save_record read:{0}".format(self._reply[61:]))
+            csv_file.write(self._reply[61:]+'\n')
+            csv_file.close()
+
+    def __get_queue_size(self, queue_number):
+        """ get queue size
+        """
+        # Creating the Message Request Packet
+        self._last_sequence = pack_uint(Base._get_sequence())
+
+        message_request = [
+            self._last_sequence,
+            '\x4b',
+            '\x02',
+            CLASS_ID["8-bit"],
+            PATH["PCCC"],
+            '\x07',
+            self.attribs['vid'],
+            self.attribs['vsn'],
+            '\x0f',
+            '\x00',
+            self._last_sequence[1],
+            self._last_sequence[0],
+            # '\x30',
+            # '\x00',
+            '\xa1',  # FNC to get the queue size
+            '\x06',  # Byte size to read = 06
+            '\x00',  # File Number
+            '\xea',  # File Type ????
+            '\xff',  # File Type ????
+            pack_uint(queue_number)
+        ]
+
+        if self.send_unit_data(
+            build_common_packet_format(
+                DATA_ITEM['Connected'],
+                ''.join(message_request),
+                ADDRESS_ITEM['Connection Based'],
+                addr_data=self._target_cid,)):
+            sts = int(unpack_uint(self._reply[65:67]))
+            logger.debug("SLC __get_queue_size({0}) returned {1}".format(queue_number, sts))
+            return sts
+        else:
+            raise DataError("read_queue [send_unit_data] returned not valid data")
+
+    def read_queue(self, queue_number, file_name):
+        """ read the queue
+
+        """
+        if not self._target_is_connected:
+            if not self.forward_open():
+                self._status = (5, "Target did not connected. is_queue_available will not be executed.")
+                logger.warning(self._status)
+                raise DataError("Target did not connected. is_queue_available will not be executed.")
+
+        if self.__queue_data_available(queue_number):
+            logger.debug("SLC read_queue: Queue {0} has data".format(queue_number))
+            self.__save_record(file_name + str(queue_number) + ".csv")
+            size = self.__get_queue_size(queue_number)
+            if size > 0:
+                for i in range(0, size):
+                    if self.__queue_data_available(queue_number):
+                        self.__save_record(file_name + str(queue_number) + ".csv")
+
+                logger.debug("SLC read_queue: {0} record extract from queue {1}".format(size, queue_number))
+        else:
+            logger.debug("SLC read_queue: Queue {0} has no data".format(queue_number))
 
     def read_tag(self, tag, n=1):
         """ read tag from a connected plc

@@ -26,6 +26,7 @@
 
 import struct
 import socket
+import random
 
 from os import getpid
 from pycomm.cip.cip_const import *
@@ -475,7 +476,7 @@ class Base(object):
         else:
             Base._sequence = Base._get_sequence()
 
-        self.__version__ = '0.2'
+        self.__version__ = '0.3'
         self.__sock = None
         self.__direct_connections = False
         self._session = 0
@@ -546,6 +547,10 @@ class Base(object):
 
     def __repr__(self):
         return self._device_description
+
+    def generate_cid(self):
+        self.attribs['cid'] = '{0}{1}{2}{3}'.format(chr(random.randint(0, 255)), chr(random.randint(0, 255))
+                                                    , chr(random.randint(0, 255)), chr(random.randint(0, 255)))
 
     def description(self):
         return self._device_description
@@ -811,9 +816,12 @@ class Base(object):
                 self.__sock.connect(ip_address, self.attribs['port'])
                 self._connection_opened = True
                 self.attribs['ip address'] = ip_address
+                self.generate_cid()
                 if self.register_session() is None:
                     self._status = (13, "Session not registered")
                     return False
+
+                # not sure but maybe I can remove this because is used to clean up any previous unclosed connection
                 self.forward_close()
                 return True
             except Exception as e:

@@ -435,6 +435,7 @@ PCCC_DATA_TYPE = {
 
 PCCC_DATA_SIZE = {
     'N': 2,
+    # 'L': 4,
     'B': 2,
     'T': 6,
     'C': 6,
