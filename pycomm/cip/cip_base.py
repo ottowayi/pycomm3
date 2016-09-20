@@ -34,8 +34,14 @@ from pycomm.common import PycommError
 
 
 import logging
+try:  # Python 2.7+
+    from logging import NullHandler
+except ImportError:
+    class NullHandler(logging.Handler):
+        def emit(self, record):
+            pass
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
+logger.addHandler(NullHandler())
 
 
 class CommError(PycommError):
@@ -80,7 +86,7 @@ def pack_lint(l):
 
 
 def unpack_bool(st):
-    if int(struct.unpack('B', st[0])[0]) == 255:
+    if not (int(struct.unpack('B', st[0])[0]) == 0):
         return 1
     return 0
 
@@ -128,6 +134,7 @@ PACK_DATA_FUNCTION = {
     'SINT': pack_sint,    # Signed 8-bit integer
     'INT': pack_int,     # Signed 16-bit integer
     'UINT': pack_uint,    # Unsigned 16-bit integer
+    'USINT': pack_usint,  # Unsigned Byte Integer
     'DINT': pack_dint,    # Signed 32-bit integer
     'REAL': pack_real,    # 32-bit floating point
     'LINT': pack_lint,
@@ -143,6 +150,7 @@ UNPACK_DATA_FUNCTION = {
     'SINT': unpack_sint,    # Signed 8-bit integer
     'INT': unpack_int,     # Signed 16-bit integer
     'UINT': unpack_uint,    # Unsigned 16-bit integer
+    'USINT': unpack_usint,  # Unsigned Byte Integer
     'DINT': unpack_dint,    # Signed 32-bit integer
     'REAL': unpack_real,    # 32-bit floating point,
     'LINT': unpack_lint,
@@ -156,6 +164,7 @@ UNPACK_DATA_FUNCTION = {
 DATA_FUNCTION_SIZE = {
     'BOOL': 1,
     'SINT': 1,    # Signed 8-bit integer
+    'USINT': 1,  # Unisgned 8-bit integer
     'INT': 2,     # Signed 16-bit integer
     'UINT': 2,    # Unsigned 16-bit integer
     'DINT': 4,    # Signed 32-bit integer
@@ -495,7 +504,7 @@ class Base(object):
         self._last_tag_read = ()
         self._last_tag_write = ()
         self._status = (0, "")
-        self._output_raw = False    #indicating value should be output as raw (hex)
+        self._output_raw = False    # indicating value should be output as raw (hex)
 
         self.attribs = {'context': '_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
                         'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': '\x27\x04\x19\x71', 'csn': '\x27\x04',
@@ -683,9 +692,9 @@ class Base(object):
             pack_dint(self.attribs['rpi'] * 1000),
             pack_uint(CONNECTION_PARAMETER['Default']),
             TRANSPORT_CLASS,  # Transport Class
-            #CONNECTION_SIZE['Backplane'],
-            #pack_usint(self.attribs['backplane']),
-            #pack_usint(self.attribs['cpu slot']),
+            # CONNECTION_SIZE['Backplane'],
+            # pack_usint(self.attribs['backplane']),
+            # pack_usint(self.attribs['cpu slot']),
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
@@ -736,10 +745,10 @@ class Base(object):
             self.attribs['csn'],
             self.attribs['vid'],
             self.attribs['vsn'],
-            #CONNECTION_SIZE['Backplane'],
-            #'\x00',     # Reserved
-            #pack_usint(self.attribs['backplane']),
-            #pack_usint(self.attribs['cpu slot']),
+            # CONNECTION_SIZE['Backplane'],
+            # '\x00',     # Reserved
+            # pack_usint(self.attribs['backplane']),
+            # pack_usint(self.attribs['cpu slot']),
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
@@ -784,7 +793,7 @@ class Base(object):
             logger.debug(print_bytes_msg(self._message, '-------------- SEND --------------'))
             self.__sock.send(self._message)
         except Exception as e:
-            #self.clean_up()
+            # self.clean_up()
             raise CommError(e)
 
     def _receive(self):
@@ -796,7 +805,7 @@ class Base(object):
             self._reply = self.__sock.receive()
             logger.debug(print_bytes_msg(self._reply, '----------- RECEIVE -----------'))
         except Exception as e:
-            #self.clean_up()
+            # self.clean_up()
             raise CommError(e)
 
     def open(self, ip_address, direct_connection=False):
@@ -825,7 +834,7 @@ class Base(object):
                 self.forward_close()
                 return True
             except Exception as e:
-                #self.clean_up()
+                # self.clean_up()
                 raise CommError(e)
 
     def close(self):

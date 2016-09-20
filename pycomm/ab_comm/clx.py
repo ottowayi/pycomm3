@@ -25,9 +25,15 @@
 #
 from pycomm.cip.cip_base import *
 import logging
+try:  # Python 2.7+
+    from logging import NullHandler
+except ImportError:
+    class NullHandler(logging.Handler):
+        def emit(self, record):
+            pass
 
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
+logger.addHandler(NullHandler())
 
 
 class Driver(Base):
@@ -48,7 +54,7 @@ class Driver(Base):
         - CompactLogix 5370
         - ControlLogix 5572 and 1756-EN2T Module
 
-"""    
+"""
 
     def __init__(self):
         super(Driver, self).__init__()
@@ -176,7 +182,7 @@ class Driver(Base):
             self._byte_offset += bytes_received
         else:
             self._status = (1, 'unknown status {0} during _parse_template'.format(status))
-            self.logger.warning(self._status)
+            logger.warning(self._status)
             self._last_instance = -1
 
     def _parse_fragment(self, start_ptr, status):
@@ -356,7 +362,7 @@ class Driver(Base):
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (6, "Target did not connected. read_tag will not be executed.")
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Target did not connected. read_tag will not be executed.")
 
         if multi_requests:
@@ -418,7 +424,7 @@ class Driver(Base):
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (7, "Target did not connected. read_tag will not be executed.")
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Target did not connected. read_tag will not be executed.")
 
         self._byte_offset = 0
@@ -490,7 +496,7 @@ class Driver(Base):
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (8, "Target did not connected. write_tag will not be executed.")
-                self.logger.warning(self._status)
+                logger.warning(self._status)
                 raise DataError("Target did not connected. write_tag will not be executed.")
 
         if multi_requests:
@@ -865,7 +871,3 @@ class Driver(Base):
         # Step 4
 
         return self._tag_list
-
-
-
-
