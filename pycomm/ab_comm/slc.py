@@ -324,12 +324,12 @@ class Driver(Base):
 
         if self.__queue_data_available(queue_number):
             logger.debug("SLC read_queue: Queue {0} has data".format(queue_number))
-            self.__save_record(file_name + str(queue_number) + ".csv")
+            self.__save_record(file_name)
             size = self.__get_queue_size(queue_number)
             if size > 0:
                 for i in range(0, size):
                     if self.__queue_data_available(queue_number):
-                        self.__save_record(file_name + str(queue_number) + ".csv")
+                        self.__save_record(file_name)
 
                 logger.debug("SLC read_queue: {0} record extract from queue {1}".format(size, queue_number))
         else:

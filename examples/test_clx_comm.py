@@ -29,9 +29,8 @@ if __name__ == '__main__':
                 print(c.write_tag([('Counts', -26, 'INT'), ('ControlWord', -30, 'DINT'), ('parts', 31, 'DINT')]))
                 sleep(1)
             except Exception as e:
-                err = c.get_status()
                 c.close()
-                print err
+                print e
                 pass
 
         # To read an array

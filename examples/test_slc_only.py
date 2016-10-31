@@ -1,11 +1,16 @@
 __author__ = 'agostino'
 
 from pycomm.ab_comm.slc import Driver as SlcDriver
-
+import logging
 
 if __name__ == '__main__':
-    c = SlcDriver(True, 'delete_slc.log')
-    if c.open('172.16.2.160'):
+    logging.basicConfig(
+        filename="SlcDriver.log",
+        format="%(levelname)-10s %(asctime)s %(message)s",
+        level=logging.DEBUG
+    )
+    c = SlcDriver()
+    if c.open('192.168.1.15'):
 
         while 1:
             try:
@@ -65,8 +70,6 @@ if __name__ == '__main__':
                 print c.write_tag('O:0.0/4', 1)
                 print c.read_tag('O:0.0/4')
             except Exception as e:
-                err = c.get_status()
-                #c.close()
-                print err
+                print e
                 pass
     c.close()
