@@ -571,7 +571,7 @@ class Driver(Base):
                 raise DataError("send_unit_data returned not valid data")
             return ret_val
 
-    def write_array(self, tag, data_type, values, raw=False):
+    def write_array(self, tag, values, data_type, raw=False):
         """ write array of atomic data type from a connected plc
 
         At the moment there is not a strong validation for the argument passed. The user should verify
