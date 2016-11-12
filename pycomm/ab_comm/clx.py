@@ -573,10 +573,8 @@ class Driver(Base):
 
     def write_array(self, tag, values, data_type, raw=False):
         """ write array of atomic data type from a connected plc
-
         At the moment there is not a strong validation for the argument passed. The user should verify
         the correctness of the format passed.
-
         :param tag: the name of the tag to read
         :param data_type: the type of tag to write
         :param values: the array of values to write, if raw: the frame with bytes
