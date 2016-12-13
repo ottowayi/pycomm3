@@ -82,7 +82,7 @@ def pack_real(r):
 
 def pack_lint(l):
     """unpack 4 bytes little endian to int"""
-    return struct.unpack('<q', l)
+    return struct.pack('<q', l)
 
 
 def unpack_bool(st):
