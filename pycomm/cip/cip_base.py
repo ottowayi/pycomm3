@@ -543,7 +543,7 @@ class Base(object):
         if Base._sequence < 65535:
             Base._sequence += 1
         else:
-            Base._sequence = getpid()
+            Base._sequence = getpid() % 65535
         return Base._sequence
 
     def nop(self):
