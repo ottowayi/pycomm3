@@ -561,6 +561,10 @@ class Base(object):
         self.attribs['cid'] = '{0}{1}{2}{3}'.format(chr(random.randint(0, 255)), chr(random.randint(0, 255))
                                                     , chr(random.randint(0, 255)), chr(random.randint(0, 255)))
 
+    def generate_vsn(self):
+        self.attribs['vsn'] = '{0}{1}{2}{3}'.format(chr(random.randint(0, 255)), chr(random.randint(0, 255))
+                                                    , chr(random.randint(0, 255)), chr(random.randint(0, 255)))
+
     def description(self):
         return self._device_description
 
@@ -826,6 +830,7 @@ class Base(object):
                 self._connection_opened = True
                 self.attribs['ip address'] = ip_address
                 self.generate_cid()
+                self.generate_vsn()
                 if self.register_session() is None:
                     self._status = (13, "Session not registered")
                     return False
