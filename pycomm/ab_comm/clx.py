@@ -191,6 +191,7 @@ class Driver(Base):
         :param start_ptr: Where the fragment start within the replay
         :param status: status field used to decide if keep parsing or stop
         """
+
         try:
             data_type = unpack_uint(self._reply[start_ptr:start_ptr+2])
             fragment_returned = self._reply[start_ptr+2:]
@@ -221,7 +222,8 @@ class Driver(Base):
         elif status == 0x06:
             self._byte_offset += fragment_returned_length
         else:
-            self._status = (2, 'unknown status during _parse_fragment')
+            self._status = (2, '{0}: {1}'.format(SERVICE_STATUS[status], get_extended_status(self._reply, 48)))
+            logger.warning(self._status)
             self._byte_offset = -1
 
     def _parse_multiple_request_read(self, tags):

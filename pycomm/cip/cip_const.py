@@ -248,7 +248,7 @@ EXTEND_CODES = {
         0x2102: "Password invalid",
         0x2103: "No password issued",
         0x2104: "Address out of range",
-        0x2105: "Address and how many out of range",
+        0x2105: "Access beyond end of the object",
         0x2106: "Data in use",
         0x2107: "Type is invalid or not supported",
         0x2108: "Controller in upload or download mode",
