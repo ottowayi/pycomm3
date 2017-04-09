@@ -847,17 +847,44 @@ class Base(object):
         socket close
         :return: true if no error otherwise false
         """
+        error_string = ''
         try:
             if self._target_is_connected:
                 self.forward_close()
             if self._session != 0:
                 self.un_register_session()
+        except Exception as e:
+            error_string += "Error on close() -> session Err: %s" % e.message
+            logger.warning(error_string)
+
+        # %GLA must do a cleanup __sock.close()
+        try:
             if self.__sock:
                 self.__sock.close()
         except Exception as e:
-            raise CommError(e)
+            error_string += "; close() -> __sock.close Err: %s" % e.message
+            logger.warning(error_string)
 
         self.clean_up()
+
+        if error_string:
+            raise CommError(error_string)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def clean_up(self):
         self.__sock = None

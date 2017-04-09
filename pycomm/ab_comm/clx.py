@@ -336,6 +336,7 @@ class Driver(Base):
                 elif status != SUCCESS:
                     self._status = (3, "send_unit_data reply:{0} - Extend status:{1}".format(
                         SERVICE_STATUS[status], get_extended_status(self._reply, 48)))
+                    logger.warning(self._status)
                     return False
                 else:
                     return True
