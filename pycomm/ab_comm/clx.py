@@ -358,6 +358,7 @@ class Driver(Base):
 
         :return: None is returned in case of error otherwise the tag list is returned
         """
+        self.clear()
         multi_requests = False
         if isinstance(tag, list):
             multi_requests = True
@@ -407,11 +408,14 @@ class Driver(Base):
             return self._parse_multiple_request_read(tag)
         else:
             # Get the data type
-            data_type = unpack_uint(self._reply[50:52])
-            try:
-                return UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._reply[52:]), I_DATA_TYPE[data_type]
-            except Exception as e:
-                raise DataError(e)
+            if self._status[0] == SUCCESS:
+                data_type = unpack_uint(self._reply[50:52])
+                try:
+                    return UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._reply[52:]), I_DATA_TYPE[data_type]
+                except Exception as e:
+                    raise DataError(e)
+            else:
+                return None
 
     def read_array(self, tag, counts, raw=False):
         """ read array of atomic data type from a connected plc
@@ -424,6 +428,7 @@ class Driver(Base):
         :param raw: the value should output as raw-value (hex)
         :return: None is returned in case of error otherwise the tag list is returned
         """
+        self.clear()
         if not self._target_is_connected:
             if not self.forward_open():
                 self._status = (7, "Target did not connected. read_tag will not be executed.")
@@ -492,6 +497,7 @@ class Driver(Base):
         :param typ: the type of the tag to write or none if tag is an array of tuple or a tuple
         :return: None is returned in case of error otherwise the tag list is returned
         """
+        self.clear()  # cleanup error string
         multi_requests = False
         if isinstance(tag, list):
             multi_requests = True
@@ -583,6 +589,7 @@ class Driver(Base):
         :param values: the array of values to write, if raw: the frame with bytes
         :param raw: indicates that the values are given as raw values (hex)
         """
+        self.clear()
         if not isinstance(values, list):
             self._status = (9, "A list of tags must be passed to write_array.")
             logger.warning(self._status)
