@@ -68,11 +68,16 @@ See the following snippet for communication with a Controllogix PLC:
             for tag in r_array:
                 print (tag)
 
+
+            # To read string
+            c.write_string('TEMP_STRING', 'my_value')
+            c.read_string('TEMP_STRING')
+
             # reset tha array to all 0
             w_array = []
             for i in xrange(1750):
                 w_array.append(0)
-            c.write_array("TotalCount", "SINT", w_array)
+            c.write_array("TotalCount", w_array, "SINT")
 
             c.close()
 
