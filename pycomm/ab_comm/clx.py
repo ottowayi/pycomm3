@@ -35,6 +35,8 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logger.addHandler(NullHandler())
 
+string_sizes = [82, 12, 16, 20, 40, 8]
+
 
 class Driver(Base):
     """
@@ -879,3 +881,32 @@ class Driver(Base):
         # Step 4
 
         return self._tag_list
+
+    def write_string(self, tag, value, size=82):
+        """
+            Rockwell define different string size:
+                STRING  STRING_12   STRING_16   STRING_20   STRING_40   STRING_8
+            by default we assume size 82 (STRING)
+        """
+        if size not in string_sizes:
+            raise DataError("String size is incorrect")
+
+        data_tag = ".".join((tag, "DATA"))
+        len_tag = ".".join((tag, "LEN"))
+
+        # create an empty array
+        data_to_send = [0] * size
+        for idx, val in enumerate(value):
+            data_to_send[idx] = ord(val)
+
+        self.write_tag(len_tag, len(value), 'DINT')
+        self.write_array(data_tag, data_to_send, 'SINT')
+
+    def read_string(self, tag):
+        data_tag = ".".join((tag, "DATA"))
+        len_tag = ".".join((tag, "LEN"))
+        length = self.read_tag(len_tag)
+        values = self.read_array(data_tag, length[0])
+        values = zip(*values)[1]
+        char_array = [chr(ch) for ch in values]
+        return ''.join(char_array)
