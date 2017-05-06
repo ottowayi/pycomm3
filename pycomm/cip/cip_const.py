@@ -25,19 +25,19 @@
 #
 
 ELEMENT_ID = {
-    "8-bit": '\x28',
-    "16-bit": '\x29',
-    "32-bit": '\x2a'
+    "8-bit":  b'\x28',
+    "16-bit": b'\x29',
+    "32-bit": b'\x2a'
 }
 
 CLASS_ID = {
-    "8-bit": '\x20',
-    "16-bit": '\x21',
+    "8-bit":  b'\x20',
+    "16-bit": b'\x21',
 }
 
 INSTANCE_ID = {
-    "8-bit": '\x24',
-    "16-bit": '\x25'
+    "8-bit":  b'\x24',
+    "16-bit": b'\x25'
 }
 
 ATTRIBUTE_ID = {
@@ -58,15 +58,15 @@ PATH = {
 }
 
 ENCAPSULATION_COMMAND = {  # Volume 2: 2-3.2 Command Field UINT 2 byte
-    "nop": '\x00\x00',
-    "list_targets": '\x01\x00',
-    "list_services": '\x04\x00',
-    "list_identity": '\x63\x00',
-    "list_interfaces": '\x64\x00',
-    "register_session": '\x65\x00',
-    "unregister_session": '\x66\x00',
-    "send_rr_data": '\x6F\x00',
-    "send_unit_data": '\x70\x00'
+    "nop":                b'\x00\x00',
+    "list_targets":       b'\x01\x00',
+    "list_services":      b'\x04\x00',
+    "list_identity":      b'\x63\x00',
+    "list_interfaces":    b'\x64\x00',
+    "register_session":   b'\x65\x00',
+    "unregister_session": b'\x66\x00',
+    "send_rr_data":       b'\x6F\x00',
+    "send_unit_data":     b'\x70\x00'
 }
 
 """
@@ -77,33 +77,33 @@ When a UDT is created, an instance of the Template object (Class ID 0x6C) is
 created to hold information about the structure makeup.
 """
 CLASS_CODE = {
-    "Message Router": '\x02',  # Volume 1: 5-1
-    "Symbol Object": '\x6b',
-    "Template Object": '\x6c',
-    "Connection Manager": '\x06'  # Volume 1: 3-5
+    "Message Router":     b'\x02',  # Volume 1: 5-1
+    "Symbol Object":      b'\x6b',
+    "Template Object":    b'\x6c',
+    "Connection Manager": b'\x06'  # Volume 1: 3-5
 }
 
 CONNECTION_MANAGER_INSTANCE = {
-    'Open Request': '\x01',
-    'Open Format Rejected': '\x02',
-    'Open Resource  Rejected': '\x03',
-    'Open Other Rejected': '\x04',
-    'Close Request': '\x05',
-    'Close Format Request': '\x06',
-    'Close Other Request': '\x07',
-    'Connection Timeout': '\x08'
+    'Open Request':            b'\x01',
+    'Open Format Rejected':    b'\x02',
+    'Open Resource  Rejected': b'\x03',
+    'Open Other Rejected':     b'\x04',
+    'Close Request':           b'\x05',
+    'Close Format Request':    b'\x06',
+    'Close Other Request':     b'\x07',
+    'Connection Timeout':      b'\x08'
 }
 
 TAG_SERVICES_REQUEST = {
-    "Read Tag": 0x4c,
-    "Read Tag Fragmented": 0x52,
-    "Write Tag": 0x4d,
-    "Write Tag Fragmented": 0x53,
-    "Read Modify Write Tag": 0x4e,
-    "Multiple Service Packet": 0x0a,
+    "Read Tag":                     0x4c,
+    "Read Tag Fragmented":          0x52,
+    "Write Tag":                    0x4d,
+    "Write Tag Fragmented":         0x53,
+    "Read Modify Write Tag":        0x4e,
+    "Multiple Service Packet":      0x0a,
     "Get Instance Attributes List": 0x55,
-    "Get Attributes": 0x03,
-    "Read Template": 0x4c,
+    "Get Attributes":               0x03,
+    "Read Template":                0x4c,
 }
 
 TAG_SERVICES_REPLY = {
@@ -266,14 +266,14 @@ EXTEND_CODES = {
     }
 }
 DATA_ITEM = {
-    'Connected': '\xb1\x00',
-    'Unconnected': '\xb2\x00'
+    'Connected':   b'\xb1\x00',
+    'Unconnected': b'\xb2\x00'
 }
 
 ADDRESS_ITEM = {
-    'Connection Based': '\xa1\x00',
-    'Null': '\x00\x00',
-    'UCMM': '\x00\x00'
+    'Connection Based': b'\xa1\x00',
+    'Null':             b'\x00\x00',
+    'UCMM':             b'\x00\x00'
 }
 
 UCMM = {
@@ -285,12 +285,12 @@ UCMM = {
 }
 
 CONNECTION_SIZE = {
-    'Backplane': '\x03',     # CLX
-    'Direct Network': '\x02'
+    'Backplane':      b'\x03',     # CLX
+    'Direct Network': b'\x02'
 }
 
 HEADER_SIZE = 24
-EXTENDED_SYMBOL = '\x91'
+EXTENDED_SYMBOL = b'\x91'
 BOOL_ONE = 0xff
 REQUEST_SERVICE = 0
 REQUEST_PATH_SIZE = 1
@@ -300,20 +300,20 @@ INSUFFICIENT_PACKETS = 6
 OFFSET_MESSAGE_REQUEST = 40
 
 
-FORWARD_CLOSE = '\x4e'
-UNCONNECTED_SEND = '\x52'
-FORWARD_OPEN = '\x54'
-LARGE_FORWARD_OPEN = '\x5b'
-GET_CONNECTION_DATA = '\x56'
-SEARCH_CONNECTION_DATA = '\x57'
-GET_CONNECTION_OWNER = '\x5a'
-MR_SERVICE_SIZE = 2
+FORWARD_CLOSE          = b'\x4e'
+UNCONNECTED_SEND       = b'\x52'
+FORWARD_OPEN           = b'\x54'
+LARGE_FORWARD_OPEN     = b'\x5b'
+GET_CONNECTION_DATA    = b'\x56'
+SEARCH_CONNECTION_DATA = b'\x57'
+GET_CONNECTION_OWNER   = b'\x5a'
+MR_SERVICE_SIZE        = 2
 
-PADDING_BYTE = '\x00'
-PRIORITY = '\x0a'
-TIMEOUT_TICKS = '\x05'
-TIMEOUT_MULTIPLIER = '\x01'
-TRANSPORT_CLASS = '\xa3'
+PADDING_BYTE =       b'\x00'
+PRIORITY =           b'\x0a'
+TIMEOUT_TICKS =      b'\x05'
+TIMEOUT_MULTIPLIER = b'\x01'
+TRANSPORT_CLASS =    b'\xa3'
 
 CONNECTION_PARAMETER = {
     'PLC5': 0x4302,

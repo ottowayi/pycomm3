@@ -379,7 +379,10 @@ class Driver(Base):
                     self._status = (6, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
                     raise DataError("Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
                 else:
-                    rp_list.append(chr(TAG_SERVICES_REQUEST['Read Tag']) + rp + pack_uint(1))
+                    rp_list.append(
+                            bytes([TAG_SERVICES_REQUEST['Read Tag']]) +
+                            rp +
+                            pack_uint(1))
             message_request = build_multiple_service(rp_list, Base._get_sequence())
 
         else:
@@ -391,8 +394,8 @@ class Driver(Base):
                 # Creating the Message Request Packet
                 message_request = [
                     pack_uint(Base._get_sequence()),
-                    chr(TAG_SERVICES_REQUEST['Read Tag']),  # the Request Service
-                    chr(len(rp) / 2),                       # the Request Path Size length in word
+                    bytes([TAG_SERVICES_REQUEST['Read Tag']]),  # the Request Service
+                    bytes([len(rp) // 2]),                       # the Request Path Size length in word
                     rp,                                     # the request path
                     pack_uint(1)
                 ]
@@ -400,7 +403,7 @@ class Driver(Base):
         if self.send_unit_data(
                 build_common_packet_format(
                     DATA_ITEM['Connected'],
-                    ''.join(message_request),
+                    b''.join(message_request),
                     ADDRESS_ITEM['Connection Based'],
                     addr_data=self._target_cid,
                 )) is None:
@@ -558,8 +561,8 @@ class Driver(Base):
                 # Creating the Message Request Packet
                 message_request = [
                     pack_uint(Base._get_sequence()),
-                    chr(TAG_SERVICES_REQUEST["Write Tag"]),   # the Request Service
-                    chr(len(rp) / 2),               # the Request Path Size length in word
+                    bytes([TAG_SERVICES_REQUEST["Write Tag"]]),   # the Request Service
+                    bytes([len(rp) // 2]),               # the Request Path Size length in word
                     rp,                             # the request path
                     pack_uint(S_DATA_TYPE[typ]),    # data type
                     pack_uint(1),                    # Add the number of tag to write
@@ -569,7 +572,7 @@ class Driver(Base):
         ret_val = self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
-                ''.join(message_request),
+                b''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,
             )
@@ -668,14 +671,14 @@ class Driver(Base):
 
                 message_request = [
                     pack_uint(Base._get_sequence()),
-                    chr(TAG_SERVICES_REQUEST['Get Instance Attributes List']),  # STEP 1
+                    bytes([TAG_SERVICES_REQUEST['Get Instance Attributes List']]),  # STEP 1
                     # the Request Path Size length in word
-                    chr(3),
+                    bytes([3]),
                     # Request Path ( 20 6B 25 00 Instance )
                     CLASS_ID["8-bit"],       # Class id = 20 from spec 0x20
                     CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
                     INSTANCE_ID["16-bit"],   # Instance Segment: 16 Bit instance 0x25
-                    '\x00',
+                    b'\x00',
                     pack_uint(self._last_instance),          # The instance
                     # Request Data
                     pack_uint(2),   # Number of attributes to retrieve
@@ -686,7 +689,7 @@ class Driver(Base):
                 if self.send_unit_data(
                         build_common_packet_format(
                             DATA_ITEM['Connected'],
-                            ''.join(message_request),
+                            b''.join(message_request),
                             ADDRESS_ITEM['Connection Based'],
                             addr_data=self._target_cid,
                         )) is None:
@@ -709,12 +712,12 @@ class Driver(Base):
 
         message_request = [
             pack_uint(self._get_sequence()),
-            chr(TAG_SERVICES_REQUEST['Get Attributes']),
-            chr(3),                         # Request Path ( 20 6B 25 00 Instance )
+            bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
+            bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
             CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
             CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
             INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
-            '\x00',
+            b'\x00',
             pack_uint(instance_id),
             pack_uint(4),  # Number of attributes
             pack_uint(4),  # Template Object Definition Size UDINT
@@ -725,7 +728,7 @@ class Driver(Base):
 
         if self.send_unit_data(
                 build_common_packet_format(DATA_ITEM['Connected'],
-                                           ''.join(message_request), ADDRESS_ITEM['Connection Based'],
+                                           b''.join(message_request), ADDRESS_ITEM['Connection Based'],
                                            addr_data=self._target_cid,)) is None:
             raise DataError("send_unit_data returned not valid data")
 
@@ -742,7 +745,7 @@ class Driver(Base):
                 raise DataError("Target did not connected. get_tag_list will not be executed.")
 
         self._byte_offset = 0
-        self._buffer = ""
+        self._buffer = b''
         self._get_template_in_progress = True
 
         try:
@@ -752,20 +755,23 @@ class Driver(Base):
 
                 message_request = [
                     pack_uint(self._get_sequence()),
-                    chr(TAG_SERVICES_REQUEST['Read Template']),
-                    chr(3),                         # Request Path ( 20 6B 25 00 Instance )
+                    bytes([TAG_SERVICES_REQUEST['Read Template']]),
+                    bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
                     CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
                     CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
                     INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
-                    '\x00',
+                    b'\x00',
                     pack_uint(instance_id),
                     pack_dint(self._byte_offset),  # Offset
                     pack_uint(((object_definition_size * 4)-23) - self._byte_offset)
                 ]
 
                 if not self.send_unit_data(
-                        build_common_packet_format(DATA_ITEM['Connected'], ''.join(message_request),
-                                                   ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid,)):
+                        build_common_packet_format(
+                            DATA_ITEM['Connected'],
+                            b''.join(message_request),
+                            ADDRESS_ITEM['Connection Based'],
+                            addr_data=self._target_cid,)):
                     raise DataError("send_unit_data returned not valid data")
 
             self._get_template_in_progress = False
@@ -779,7 +785,8 @@ class Driver(Base):
             lst = self._tag_list
             self._tag_list = []
             for tag in lst:
-                    if tag['tag_name'].find(':') != -1 or tag['tag_name'].find('__') != -1:
+                    #if tag['tag_name'].find(':') != -1 or tag['tag_name'].find('__') != -1:
+                    if b':' in tag['tag_name'] or b'__' in tag['tag_name']:
                         continue
                     if tag['symbol_type'] & 0b0001000000000000:
                         continue
@@ -822,16 +829,18 @@ class Driver(Base):
         try:
             buff = self._read_template(tag['template_instance_id'], tag['template']['object_definition_size'])
             member_count = tag['template']['member_count']
-            names = buff.split('\00')
+            names = buff.split(b'\00')
             lst = []
 
             tag['udt']['name'] = 'Not an user defined structure'
             for name in names:
                 if len(name) > 1:
 
-                    if name.find(';') != -1:
-                        tag['udt']['name'] = name[:name.find(';')]
-                    elif name.find('ZZZZZZZZZZ') != -1:
+                    #if name.find(';') != -1:
+                    if b':' in name:
+                        tag['udt']['name'] = name[:name.find(b';')]
+                    #elif name.find('ZZZZZZZZZZ') != -1:
+                    elif b'ZZZZZZZZZZ' in name:
                         continue
                     elif name.isalpha():
                         lst.append(name)
@@ -841,7 +850,7 @@ class Driver(Base):
 
             type_list = []
 
-            for i in xrange(member_count):
+            for i in range(member_count):
                 # skip member 1
 
                 if i != 0:
