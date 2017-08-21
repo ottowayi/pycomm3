@@ -51,8 +51,8 @@ def parse_tag(tag):
                                       'file_number': t.group('file_number'),
                                       'element_number': t.group('element_number'),
                                       'sub_element': PCCC_CT[t.group('sub_element').upper()],
-                                      'read_func': '\xa2',
-                                      'write_func': '\xab',
+                                      'read_func': b'\xa2',
+                                      'write_func': b'\xab',
                                       'address_field': 3}
 
     t = re.search(r"(?P<file_type>[LFBN])(?P<file_number>\d{1,3})"
@@ -69,8 +69,8 @@ def parse_tag(tag):
                                           'file_number': t.group('file_number'),
                                           'element_number': t.group('element_number'),
                                           'sub_element': t.group('sub_element'),
-                                          'read_func': '\xa2',
-                                          'write_func': '\xab',
+                                          'read_func': b'\xa2',
+                                          'write_func': b'\xab',
                                           'address_field': 3}
         else:
             if (1 <= int(t.group('file_number')) <= 255) \
@@ -80,8 +80,8 @@ def parse_tag(tag):
                                           'file_number': t.group('file_number'),
                                           'element_number': t.group('element_number'),
                                           'sub_element': t.group('sub_element'),
-                                          'read_func': '\xa2',
-                                          'write_func': '\xab',
+                                          'read_func': b'\xa2',
+                                          'write_func': b'\xab',
                                           'address_field': 2}
 
     t = re.search(r"(?P<file_type>[IO])(:)(?P<file_number>\d{1,3})"
@@ -97,8 +97,8 @@ def parse_tag(tag):
                                           'file_number': t.group('file_number'),
                                           'element_number': t.group('element_number'),
                                           'sub_element': t.group('sub_element'),
-                                          'read_func': '\xa2',
-                                          'write_func': '\xab',
+                                          'read_func': b'\xa2',
+                                          'write_func': b'\xab',
                                           'address_field': 3}
         else:
             if (0 <= int(t.group('file_number')) <= 255) \
@@ -107,8 +107,8 @@ def parse_tag(tag):
                 return True, t.group(0), {'file_type': t.group('file_type').upper(),
                                           'file_number': t.group('file_number'),
                                           'element_number': t.group('element_number'),
-                                          'read_func': '\xa2',
-                                          'write_func': '\xab',
+                                          'read_func': b'\xa2',
+                                          'write_func': b'\xab',
                                           'address_field': 2}
 
     t = re.search(r"(?P<file_type>S)"
@@ -122,16 +122,16 @@ def parse_tag(tag):
                                           'file_number': '2',
                                           'element_number': t.group('element_number'),
                                           'sub_element': t.group('sub_element'),
-                                          'read_func': '\xa2',
-                                          'write_func': '\xab',
+                                          'read_func': b'\xa2',
+                                          'write_func': b'\xab',
                                           'address_field': 3}
         else:
             if 0 <= int(t.group('element_number')) <= 255:
                 return True, t.group(0), {'file_type':  t.group('file_type').upper(),
                                           'file_number': '2',
                                           'element_number': t.group('element_number'),
-                                          'read_func': '\xa2',
-                                          'write_func': '\xab',
+                                          'read_func': b'\xa2',
+                                          'write_func': b'\xab',
                                           'address_field': 2}
 
     t = re.search(r"(?P<file_type>B)(?P<file_number>\d{1,3})"
@@ -147,8 +147,8 @@ def parse_tag(tag):
                                       'file_number': t.group('file_number'),
                                       'element_number': element_number,
                                       'sub_element': sub_element,
-                                      'read_func': '\xa2',
-                                      'write_func': '\xab',
+                                      'read_func': b'\xa2',
+                                      'write_func': b'\xab',
                                       'address_field': 3}
 
     return False, tag
@@ -253,7 +253,7 @@ class Driver(Base):
         if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
-                ''.join(message_request),
+                b''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,)):
 
@@ -303,7 +303,7 @@ class Driver(Base):
         if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
-                ''.join(message_request),
+                b''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,)):
             sts = int(unpack_uint(self._reply[65:67]))
@@ -372,17 +372,17 @@ class Driver(Base):
 
         message_request = [
             self._last_sequence,
-            '\x4b',
-            '\x02',
+            b'\x4b',
+            b'\x02',
             CLASS_ID["8-bit"],
             PATH["PCCC"],
-            '\x07',
+            b'\x07',
             self.attribs['vid'],
             self.attribs['vsn'],
-            '\x0f',
-            '\x00',
-            self._last_sequence[1],
-            self._last_sequence[0],
+            b'\x0f',
+            b'\x00',
+            pack_usint(self._last_sequence[1]),
+            pack_usint(self._last_sequence[0]),
             res[2]['read_func'],
             pack_usint(data_size * n),
             pack_usint(int(res[2]['file_number'])),
@@ -395,10 +395,10 @@ class Driver(Base):
         if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
-                ''.join(message_request),
+                b''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,)):
-            sts = int(unpack_usint(self._reply[58]))
+            sts = int(self._reply[58])
             try:
                 if sts != 0:
                     sts_txt = PCCC_ERROR_CODE[sts]
@@ -552,7 +552,7 @@ class Driver(Base):
         if self.send_unit_data(
             build_common_packet_format(
                 DATA_ITEM['Connected'],
-                ''.join(message_request) + data_to_write,
+                b''.join(message_request) + data_to_write,
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,)):
             sts = int(unpack_usint(self._reply[58]))
