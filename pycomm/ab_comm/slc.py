@@ -84,8 +84,8 @@ def parse_tag(tag):
                                           'write_func': b'\xab',
                                           'address_field': 2}
 
-    t = re.search(r"(?P<file_type>[IO])(:)(?P<file_number>\d{1,3})"
-                  r"(.)(?P<element_number>\d{1,3})"
+    t = re.search(r"(?P<file_type>[IO])(:)(?P<element_number>\d{1,3})"
+                  r"(.)(?P<position_number>\d{1,3})"
                   r"(/(?P<sub_element>\d{1,2}))?", tag, flags=re.IGNORECASE)
     if t:
         if t.group('sub_element') is not None:
@@ -94,19 +94,20 @@ def parse_tag(tag):
                     and (0 <= int(t.group('sub_element')) <= 15):
 
                 return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                          'file_number': t.group('file_number'),
+                                          'file_number': '0',
                                           'element_number': t.group('element_number'),
+                                          'pos_number': t.group('position_number'),
                                           'sub_element': t.group('sub_element'),
                                           'read_func': b'\xa2',
                                           'write_func': b'\xab',
                                           'address_field': 3}
         else:
-            if (0 <= int(t.group('file_number')) <= 255) \
-                    and (0 <= int(t.group('element_number')) <= 255):
+            if (0 <= int(t.group('element_number')) <= 255):
 
                 return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                          'file_number': t.group('file_number'),
+                                          'file_number': '0',
                                           'element_number': t.group('element_number'),
+                                          'pos_number': t.group('position_number'),
                                           'read_func': b'\xa2',
                                           'write_func': b'\xab',
                                           'address_field': 2}
@@ -354,7 +355,6 @@ class Driver(Base):
 
         bit_read = False
         bit_position = 0
-        sub_element = 0
         if int(res[2]['address_field'] == 3):
             bit_read = True
             bit_position = int(res[2]['sub_element'])
@@ -369,7 +369,7 @@ class Driver(Base):
 
         # Creating the Message Request Packet
         self._last_sequence = pack_uint(Base._get_sequence())
-
+        
         message_request = [
             self._last_sequence,
             b'\x4b',
@@ -388,7 +388,7 @@ class Driver(Base):
             pack_usint(int(res[2]['file_number'])),
             PCCC_DATA_TYPE[res[2]['file_type']],
             pack_usint(int(res[2]['element_number'])),
-            pack_usint(sub_element)
+            b'\x00' if 'pos_number' not in res[2] else pack_usint(int(res[2]['pos_number']))
         ]
 
         logger.debug("SLC read_tag({0},{1})".format(tag, n))
@@ -529,23 +529,23 @@ class Driver(Base):
 
         message_request = [
             self._last_sequence,
-            '\x4b',
-            '\x02',
+            b'\x4b',
+            b'\x02',
             CLASS_ID["8-bit"],
             PATH["PCCC"],
-            '\x07',
+            b'\x07',
             self.attribs['vid'],
             self.attribs['vsn'],
-            '\x0f',
-            '\x00',
-            self._last_sequence[1],
-            self._last_sequence[0],
+            b'\x0f',
+            b'\x00',
+            pack_usint(self._last_sequence[1]),
+            pack_usint(self._last_sequence[0]),
             res[2]['write_func'],
             pack_usint(data_size * n),
             pack_usint(int(res[2]['file_number'])),
             PCCC_DATA_TYPE[res[2]['file_type']],
             pack_usint(int(res[2]['element_number'])),
-            pack_usint(sub_element)
+            b'\x00' if 'pos_number' not in res[2] else pack_usint(int(res[2]['pos_number']))
         ]
 
         logger.debug("SLC write_tag({0},{1})".format(tag, value))
