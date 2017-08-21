@@ -57,3 +57,8 @@ target/
 
 # pycharm editor
 .idea/
+
+#Eclipse
+.project
+.settings/
+.pydevproject
