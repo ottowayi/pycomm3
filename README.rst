@@ -7,6 +7,12 @@ Test
 ~~~~
 The library is currently test on Python 2.6, 2.7.
 
+Library is basically tested on python3.5 for SLC parts:
+	- Open a connection
+	- Read Tag 
+	- Close the connection
+(write_tag is updated to python3 but it's not tested)
+
 .. image:: https://travis-ci.org/ruscito/pycomm.svg?branch=master
     :target: https://travis-ci.org/ruscito/pycomm
 
