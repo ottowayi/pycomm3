@@ -49,12 +49,12 @@ ATTRIBUTE_ID = {
 # CLASS_ID + PATHS
 # For example PCCC path is CLASS_ID["8-bit"]+PATH["PCCC"] -> 0x20, 0x67, 0x24, 0x01.
 PATH = {
-    'Connection Manager': '\x06\x24\x01',
-    'Router': '\x02\x24\x01',
-    'Backplane Data Type': '\x66\x24\x01',
-    'PCCC': '\x67\x24\x01',
-    'DHCP Channel A': '\xa6\x24\x01\x01\x2c\x01',
-    'DHCP Channel B': '\xa6\x24\x01\x02\x2c\x01'
+    'Connection Manager': b'\x06\x24\x01',
+    'Router': b'\x02\x24\x01',
+    'Backplane Data Type': b'\x66\x24\x01',
+    'PCCC': b'\x67\x24\x01',
+    'DHCP Channel A': b'\xa6\x24\x01\x01\x2c\x01',
+    'DHCP Channel B': b'\xa6\x24\x01\x02\x2c\x01'
 }
 
 ENCAPSULATION_COMMAND = {  # Volume 2: 2-3.2 Command Field UINT 2 byte
@@ -420,17 +420,17 @@ REPLAY_INFO = {
 }
 
 PCCC_DATA_TYPE = {
-    'N': '\x89',
-    'B': '\x85',
-    'T': '\x86',
-    'C': '\x87',
-    'S': '\x84',
-    'F': '\x8a',
-    'ST': '\x8d',
-    'A': '\x8e',
-    'R': '\x88',
-    'O': '\x8b',
-    'I': '\x8c'
+    'N': b'\x89',
+    'B': b'\x85',
+    'T': b'\x86',
+    'C': b'\x87',
+    'S': b'\x84',
+    'F': b'\x8a',
+    'ST': b'\x8d',
+    'A': b'\x8e',
+    'R': b'\x88',
+    'O': b'\x8b',
+    'I': b'\x8c'
 }
 
 PCCC_DATA_SIZE = {
