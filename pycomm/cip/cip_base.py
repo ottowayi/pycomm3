@@ -86,10 +86,7 @@ def pack_lint(l):
 
 
 def unpack_bool(st):
-    if not (int(struct.unpack('B', st[0])[0]) == 0):
-        return 1
-    return 0
-
+    return 1 if not st[0] == 0 else 0
 
 def unpack_sint(st):
     return int(struct.unpack('b', st[0])[0])
