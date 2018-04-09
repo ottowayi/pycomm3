@@ -177,6 +177,7 @@ SERVICE_STATUS = {
     0x13: "Insufficient command data",
     0x14: "Attribute not supported",
     0x15: "Too much data",
+    0x16: "Object does not exist",
     0x1A: "Bridge request too large",
     0x1B: "Bridge response too large",
     0x1C: "Attribute list shortage",
