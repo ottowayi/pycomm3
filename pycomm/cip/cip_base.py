@@ -847,9 +847,6 @@ class Base(object):
                 if self.register_session() is None:
                     self._status = (13, "Session not registered")
                     return False
-
-                # not sure but maybe I can remove this because is used to clean up any previous unclosed connection
-                self.forward_close()
                 return True
             except Exception as e:
                 # self.clean_up()
@@ -882,22 +879,6 @@ class Base(object):
 
         if error_string:
             raise CommError(error_string)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     def clean_up(self):
         self.__sock = None
