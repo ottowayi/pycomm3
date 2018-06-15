@@ -527,7 +527,7 @@ class Driver(Base):
                     try:    # Trying to add the rp to the request path list
                         val = PACK_DATA_FUNCTION[typ](value)
                         rp_list.append(
-                            chr(TAG_SERVICES_REQUEST['Write Tag'])
+                            bytes([TAG_SERVICES_REQUEST['Write Tag']])
                             + rp
                             + pack_uint(S_DATA_TYPE[typ])
                             + pack_uint(1)
