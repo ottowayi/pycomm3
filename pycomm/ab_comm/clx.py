@@ -458,7 +458,7 @@ class Driver(Base):
                 message_request = [
                     pack_uint(Base._get_sequence()),
                     byte([TAG_SERVICES_REQUEST["Read Tag Fragmented"]]),  # the Request Service
-                    byte([len(rp) // 2)],                                  # the Request Path Size length in word
+                    byte([len(rp) // 2]),                                  # the Request Path Size length in word
                     rp,                                                # the request path
                     pack_uint(counts),
                     pack_dint(self._byte_offset)
