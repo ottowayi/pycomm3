@@ -20,18 +20,10 @@ Setup
 ~~~~~
 The package can be installed from
 
-GitHub:
+PIP:
 ::
 
-    git clone https://github.com/ruscito/pycomm.git
-    cd pycomm
-    sudo python setup.py install
-
-
-PyPi:
-::
-
-    pip install pycomm
+    pip install git+https://github.com/bpaterni/pycomm.git@pycomm3
 
 ab_comm
 ~~~~~~~
