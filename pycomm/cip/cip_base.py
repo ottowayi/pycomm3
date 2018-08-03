@@ -864,7 +864,7 @@ class Base(object):
             if self._session != 0:
                 self.un_register_session()
         except Exception as e:
-            error_string += "Error on close() -> session Err: %s" % e.message
+            error_string += "Error on close() -> session Err: %s" % e
             logger.warning(error_string)
 
         # %GLA must do a cleanup __sock.close()
@@ -872,7 +872,7 @@ class Base(object):
             if self.__sock:
                 self.__sock.close()
         except Exception as e:
-            error_string += "; close() -> __sock.close Err: %s" % e.message
+            error_string += "; close() -> __sock.close Err: %s" % e
             logger.warning(error_string)
 
         self.clean_up()
