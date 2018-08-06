@@ -457,8 +457,8 @@ class Driver(Base):
                 # Creating the Message Request Packet
                 message_request = [
                     pack_uint(Base._get_sequence()),
-                    byte([TAG_SERVICES_REQUEST["Read Tag Fragmented"]]),  # the Request Service
-                    byte([len(rp) // 2]),                                  # the Request Path Size length in word
+                    bytes([TAG_SERVICES_REQUEST["Read Tag Fragmented"]]),  # the Request Service
+                    bytes([len(rp) // 2]),                                  # the Request Path Size length in word
                     rp,                                                # the request path
                     pack_uint(counts),
                     pack_dint(self._byte_offset)
@@ -606,15 +606,12 @@ class Driver(Base):
                 logger.warning(self._status)
                 raise DataError("Target did not connected. write_array will not be executed.")
 
-        array_of_values = ""
+        array_of_values = b''
         byte_size = 0
         byte_offset = 0
 
         for i, value in enumerate(values):
-            if raw:
-                array_of_values += value
-            else:
-                array_of_values += PACK_DATA_FUNCTION[data_type](value)
+            array_of_values += value if raw else PACK_DATA_FUNCTION[data_type](value)
             byte_size += DATA_FUNCTION_SIZE[data_type]
 
             if byte_size >= 450 or i == len(values)-1:
@@ -628,8 +625,8 @@ class Driver(Base):
                     # Creating the Message Request Packet
                     message_request = [
                         pack_uint(Base._get_sequence()),
-                        chr(TAG_SERVICES_REQUEST["Write Tag Fragmented"]),  # the Request Service
-                        chr(len(rp) / 2),                                   # the Request Path Size length in word
+                        bytes([TAG_SERVICES_REQUEST["Write Tag Fragmented"]]),  # the Request Service
+                        bytes([len(rp) // 2]),                                   # the Request Path Size length in word
                         rp,                                                 # the request path
                         pack_uint(S_DATA_TYPE[data_type]),                  # Data type to write
                         pack_uint(len(values)),                             # Number of elements to write
@@ -641,12 +638,12 @@ class Driver(Base):
                 if self.send_unit_data(
                         build_common_packet_format(
                             DATA_ITEM['Connected'],
-                            ''.join(message_request),
+                            b''.join(message_request),
                             ADDRESS_ITEM['Connection Based'],
                             addr_data=self._target_cid,
                         )) is None:
                     raise DataError("send_unit_data returned not valid data")
-                array_of_values = ""
+                array_of_values = b''
                 byte_size = 0
 
     def _get_instance_attribute_list_service(self):
