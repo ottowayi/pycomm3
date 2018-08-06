@@ -911,8 +911,11 @@ class Driver(Base):
     def read_string(self, tag):
         data_tag = ".".join((tag, "DATA"))
         len_tag = ".".join((tag, "LEN"))
-        length = self.read_tag(len_tag)
-        values = self.read_array(data_tag, length[0])
-        values = zip(*values)[1]
-        char_array = [chr(ch) for ch in values]
-        return ''.join(char_array)
+        length, _ = self.read_tag(len_tag)
+        if length:
+            values = self.read_array(data_tag, length)
+            _, values = zip(*values)
+            char_array = [chr(ch) for ch in values]
+            return ''.join(char_array)
+        else:
+            return ''
