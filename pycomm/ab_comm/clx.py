@@ -826,17 +826,14 @@ class Driver(Base):
         try:
             buff = self._read_template(tag['template_instance_id'], tag['template']['object_definition_size'])
             member_count = tag['template']['member_count']
-            names = buff.split(b'\00')
+            names = buff.split(b'\x00')
             lst = []
 
             tag['udt']['name'] = 'Not an user defined structure'
             for name in names:
                 if len(name) > 1:
-
-                    #if name.find(';') != -1:
-                    if b':' in name:
+                    if b';' in name:
                         tag['udt']['name'] = name[:name.find(b';')]
-                    #elif name.find('ZZZZZZZZZZ') != -1:
                     elif b'ZZZZZZZZZZ' in name:
                         continue
                     elif name.isalpha():
