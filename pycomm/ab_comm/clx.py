@@ -25,6 +25,7 @@
 #
 from pycomm.cip.cip_base import *
 import logging
+
 try:  # Python 2.7+
     from logging import NullHandler
 except ImportError:
@@ -64,6 +65,10 @@ class Driver(Base):
         self._buffer = {}
         self._get_template_in_progress = False
         self.__version__ = '0.2'
+
+        self._struct_cache = {}
+        self._template_cache = {}
+        self._udt_cache = {}
 
     def get_last_tag_read(self):
         """ Return the last tag read by a multi request read
@@ -701,35 +706,37 @@ class Driver(Base):
         """
         get the structure makeup for a specific structure
         """
-        if not self._target_is_connected:
-            if not self.forward_open():
-                self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                logger.warning(self._status)
-                raise DataError("Target did not connected. get_tag_list will not be executed.")
+        if instance_id not in self._struct_cache:
+            if not self._target_is_connected:
+                if not self.forward_open():
+                    self._status = (10, "Target did not connected. get_tag_list will not be executed.")
+                    logger.warning(self._status)
+                    raise DataError("Target did not connected. get_tag_list will not be executed.")
 
-        message_request = [
-            pack_uint(self._get_sequence()),
-            bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-            bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
-            CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
-            CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-            INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
-            b'\x00',
-            pack_uint(instance_id),
-            pack_uint(4),  # Number of attributes
-            pack_uint(4),  # Template Object Definition Size UDINT
-            pack_uint(5),  # Template Structure Size UDINT
-            pack_uint(2),  # Template Member Count UINT
-            pack_uint(1)   # Structure Handle We can use this to read and write UINT
-        ]
+            message_request = [
+                pack_uint(self._get_sequence()),
+                bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
+                bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
+                CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
+                CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
+                INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
+                b'\x00',
+                pack_uint(instance_id),
+                pack_uint(4),  # Number of attributes
+                pack_uint(4),  # Template Object Definition Size UDINT
+                pack_uint(5),  # Template Structure Size UDINT
+                pack_uint(2),  # Template Member Count UINT
+                pack_uint(1)   # Structure Handle We can use this to read and write UINT
+            ]
 
-        if self.send_unit_data(
-                build_common_packet_format(DATA_ITEM['Connected'],
-                                           b''.join(message_request), ADDRESS_ITEM['Connection Based'],
-                                           addr_data=self._target_cid,)) is None:
-            raise DataError("send_unit_data returned not valid data")
+            if self.send_unit_data(
+                    build_common_packet_format(DATA_ITEM['Connected'],
+                                               b''.join(message_request), ADDRESS_ITEM['Connection Based'],
+                                               addr_data=self._target_cid,)) is None:
+                raise DataError("send_unit_data returned not valid data")
+            self._struct_cache[instance_id] = self._buffer
 
-        return self._buffer
+        return self._struct_cache[instance_id]
 
     def _read_template(self, instance_id, object_definition_size):
         """ get a list of the tags in the plc
@@ -741,127 +748,138 @@ class Driver(Base):
                 logger.warning(self._status)
                 raise DataError("Target did not connected. get_tag_list will not be executed.")
 
-        self._byte_offset = 0
-        self._buffer = b''
-        self._get_template_in_progress = True
+        if instance_id not in self._template_cache:
+            self._byte_offset = 0
+            self._buffer = b''
+            self._get_template_in_progress = True
 
-        try:
-            while self._get_template_in_progress:
+            try:
+                while self._get_template_in_progress:
 
-                # Creating the Message Request Packet
+                    # Creating the Message Request Packet
 
-                message_request = [
-                    pack_uint(self._get_sequence()),
-                    bytes([TAG_SERVICES_REQUEST['Read Template']]),
-                    bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
-                    CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
-                    CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                    INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
-                    b'\x00',
-                    pack_uint(instance_id),
-                    pack_dint(self._byte_offset),  # Offset
-                    pack_uint(((object_definition_size * 4)-23) - self._byte_offset)
-                ]
+                    message_request = [
+                        pack_uint(self._get_sequence()),
+                        bytes([TAG_SERVICES_REQUEST['Read Template']]),
+                        bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
+                        CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
+                        CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
+                        INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
+                        b'\x00',
+                        pack_uint(instance_id),
+                        pack_dint(self._byte_offset),  # Offset
+                        pack_uint(((object_definition_size * 4)-21) - self._byte_offset)
+                    ]
 
-                if not self.send_unit_data(
-                        build_common_packet_format(
-                            DATA_ITEM['Connected'],
-                            b''.join(message_request),
-                            ADDRESS_ITEM['Connection Based'],
-                            addr_data=self._target_cid,)):
-                    raise DataError("send_unit_data returned not valid data")
+                    if not self.send_unit_data(
+                            build_common_packet_format(
+                                DATA_ITEM['Connected'],
+                                b''.join(message_request),
+                                ADDRESS_ITEM['Connection Based'],
+                                addr_data=self._target_cid,)):
+                        raise DataError("send_unit_data returned not valid data")
 
-            self._get_template_in_progress = False
-            return self._buffer
+                self._get_template_in_progress = False
+                self._template_cache[instance_id] = self._buffer
 
-        except Exception as e:
-            raise DataError(e)
+            except Exception as e:
+                raise DataError(e)
+        return self._template_cache[instance_id]
 
     def _isolating_user_tag(self):
         try:
-            lst = self._tag_list
-            self._tag_list = []
+            lst, self._tag_list = self._tag_list, []
             for tag in lst:
-                    #if tag['tag_name'].find(':') != -1 or tag['tag_name'].find('__') != -1:
-                    if b':' in tag['tag_name'] or b'__' in tag['tag_name']:
-                        continue
-                    if tag['symbol_type'] & 0b0001000000000000:
-                        continue
-                    dimension = (tag['symbol_type'] & 0b0110000000000000) >> 13
+                tag['tag_name'] = tag['tag_name'].decode()
+                if ':' in tag['tag_name'] or '__' in tag['tag_name']:
+                    continue
+                if tag['symbol_type'] & 0b0001000000000000:
+                    continue
+                dimension = (tag['symbol_type'] & 0b0110000000000000) >> 13
 
-                    if tag['symbol_type'] & 0b1000000000000000 :
-                        template_instance_id = tag['symbol_type'] & 0b0000111111111111
-                        tag_type = 'struct'
-                        data_type = 'user-created'
+                if tag['symbol_type'] & 0b1000000000000000:
+                    template_instance_id = tag['symbol_type'] & 0b0000111111111111
+                    tag_type = 'struct'
+                    data_type = 'user-created'
+                    self._tag_list.append({'instance_id': tag['instance_id'],
+                                           'template_instance_id': template_instance_id,
+                                           'tag_name': tag['tag_name'],
+                                           'dim': dimension,
+                                           'tag_type': tag_type,
+                                           'data_type': data_type,
+                                           'template': {},
+                                           'udt': {}})
+                else:
+                    tag_type = 'atomic'
+                    datatype = tag['symbol_type'] & 0b0000000011111111
+                    data_type = I_DATA_TYPE[datatype]
+                    if datatype == S_DATA_TYPE['BOOL']:
+                        bit_position = (tag['symbol_type'] & 0b0000011100000000) >> 8
                         self._tag_list.append({'instance_id': tag['instance_id'],
-                                               'template_instance_id': template_instance_id,
                                                'tag_name': tag['tag_name'],
                                                'dim': dimension,
                                                'tag_type': tag_type,
                                                'data_type': data_type,
-                                               'template': {},
-                                               'udt': {}})
+                                               'bit_position': bit_position})
                     else:
-                        tag_type = 'atomic'
-                        datatype = tag['symbol_type'] & 0b0000000011111111
-                        data_type = I_DATA_TYPE[datatype]
-                        if datatype == 0xc1:
-                            bit_position = (tag['symbol_type'] & 0b0000011100000000) >> 8
-                            self._tag_list.append({'instance_id': tag['instance_id'],
-                                                   'tag_name':  tag['tag_name'],
-                                                   'dim': dimension,
-                                                   'tag_type': tag_type,
-                                                   'data_type': data_type,
-                                                   'bit_position' : bit_position})
-                        else:
-                            self._tag_list.append({'instance_id': tag['instance_id'],
-                                                   'tag_name':  tag['tag_name'],
-                                                   'dim': dimension,
-                                                   'tag_type': tag_type,
-                                                   'data_type': data_type})
+                        self._tag_list.append({'instance_id': tag['instance_id'],
+                                               'tag_name': tag['tag_name'],
+                                               'dim': dimension,
+                                               'tag_type': tag_type,
+                                               'data_type': data_type})
         except Exception as e:
             raise DataError(e)
+
+    def _build_udt(self, data, member_count):
+        udt = {'name': 'Not a user defined structure',
+               'internal_tags': [], 'data_type': []}
+        names = (x.decode(errors='replace') for x in data.split(b'\x00') if len(x) > 1)
+        for name in names:
+            if ';' in name:
+                udt['name'] = name[:name.find(';')]
+            elif 'ZZZZZZZZZZ' in name:
+                continue
+            elif name.isalnum():
+                udt['internal_tags'].append(name)
+            else:
+                continue
+
+        for _ in range(member_count):
+            array_size = unpack_uint(data[:2])
+            try:
+                data_type = I_DATA_TYPE[unpack_uint(data[2:4])]
+            except Exception:
+                dtval = unpack_uint(data[2:4])
+                instance_id = dtval & 0b0000111111111111
+                if instance_id in I_DATA_TYPE:
+                    data_type = I_DATA_TYPE[instance_id]
+                else:
+                    try:
+                        template = self._get_structure_makeup(instance_id)
+                        if not template.get('Error'):
+                            _data = self._read_template(instance_id, template['object_definition_size'])
+                            data_type = self._build_udt(_data, template['member_count'])
+                        else:
+                            data_type = 'None'
+                    except Exception:
+                        data_type = 'None'
+
+            offset = unpack_dint(data[4:8])
+            udt['data_type'].append((array_size, data_type, offset))
+
+            data = data[8:]
+        return udt
 
     def _parse_udt_raw(self, tag):
-        try:
-            buff = self._read_template(tag['template_instance_id'], tag['template']['object_definition_size'])
-            member_count = tag['template']['member_count']
-            names = buff.split(b'\x00')
-            lst = []
+        if tag['template_instance_id'] not in self._udt_cache:
+            try:
+                buff = self._read_template(tag['template_instance_id'], tag['template']['object_definition_size'])
+                member_count = tag['template']['member_count']
+                self._udt_cache[tag['template_instance_id']] = self._build_udt(buff, member_count)
+            except Exception as e:
+                raise DataError(e)
 
-            tag['udt']['name'] = 'Not an user defined structure'
-            for name in names:
-                if len(name) > 1:
-                    if b';' in name:
-                        tag['udt']['name'] = name[:name.find(b';')]
-                    elif b'ZZZZZZZZZZ' in name:
-                        continue
-                    elif name.isalpha():
-                        lst.append(name)
-                    else:
-                        continue
-            tag['udt']['internal_tags'] = lst
-
-            type_list = []
-
-            for i in range(member_count):
-                # skip member 1
-
-                if i != 0:
-                    array_size = unpack_uint(buff[:2])
-                    try:
-                        data_type = I_DATA_TYPE[unpack_uint(buff[2:4])]
-                    except Exception:
-                        data_type = "None"
-
-                    offset = unpack_dint(buff[4:8])
-                    type_list.append((array_size, data_type, offset))
-
-                buff = buff[8:]
-
-            tag['udt']['data_type'] = type_list
-        except Exception as e:
-            raise DataError(e)
+        return self._udt_cache[tag['template_instance_id']]
 
     def get_tag_list(self):
         self._tag_list = []
@@ -875,13 +893,7 @@ class Driver(Base):
         for tag in self._tag_list:
             if tag['tag_type'] == 'struct':
                 tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
-
-        for idx, tag in enumerate(self._tag_list):
-            # print (tag)
-            if tag['tag_type'] == 'struct':
-                self._parse_udt_raw(tag)
-
-        # Step 4
+                tag['udt'] = self._parse_udt_raw(tag)
 
         return self._tag_list
 
