@@ -903,28 +903,38 @@ class Driver(Base):
                 STRING  STRING_12   STRING_16   STRING_20   STRING_40   STRING_8
             by default we assume size 82 (STRING)
         """
-        if size not in string_sizes:
-            raise DataError("String size is incorrect")
-
         data_tag = ".".join((tag, "DATA"))
         len_tag = ".".join((tag, "LEN"))
 
         # create an empty array
         data_to_send = [0] * size
         for idx, val in enumerate(value):
-            data_to_send[idx] = ord(val)
+            try:
+                unsigned = ord(val)
+                data_to_send[idx] = unsigned - 256 if unsigned > 127 else unsigned
+            except IndexError:
+                break
 
-        self.write_tag(len_tag, len(value), 'DINT')
+        str_len = len(value)
+        if str_len > size:
+            str_len = size
+
+        self.write_tag(len_tag, str_len, 'DINT')
         self.write_array(data_tag, data_to_send, 'SINT')
 
-    def read_string(self, tag):
-        data_tag = ".".join((tag, "DATA"))
-        len_tag = ".".join((tag, "LEN"))
-        length, _ = self.read_tag(len_tag)
+    def read_string(self, tag, str_len=None):
+        data_tag = f'{tag}.DATA'
+        if str_len is None:
+            len_tag = f'{tag}.LEN'
+            tmp = self.read_tag(len_tag)
+            length, _ = tmp or (None, None)
+        else:
+            length = str_len
+
         if length:
             values = self.read_array(data_tag, length)
-            _, values = zip(*values)
-            char_array = [chr(ch) for ch in values]
-            return ''.join(char_array)
-        else:
-            return ''
+            if values:
+                _, values = zip(*values)
+                chars = [chr(v+256) if v < 0 else chr(v) for v in values]
+                return ''.join(ch for ch in chars if ch != '\x00')
+        return None
