@@ -26,7 +26,6 @@
 
 import struct
 import socket
-import random
 
 from os import getpid, urandom
 from pycomm.cip.cip_const import *
@@ -73,6 +72,11 @@ def pack_uint(n):
 def pack_dint(n):
     """pack 32 bit into 4 bytes little endian"""
     return struct.pack('<i', n)
+
+
+def pack_udint(n):
+    """pack 32 bit into 4 bytes little endian"""
+    return struct.pack('<I', n)
 
 
 def pack_real(r):
@@ -200,6 +204,7 @@ PACK_PCCC_DATA_FUNCTION = {
     'I': pack_int
 }
 
+
 def print_bytes_line(msg):
     out = ''
     for ch in msg:
@@ -267,7 +272,6 @@ def create_tag_rp(tag, multi_requests=False):
     for tag in tags:
         add_index = False
         # Check if is an array tag
-        #if tag.find(b'[') != -1:
         if b'[' in tag:
             # Remove the last square bracket
             tag = tag[:len(tag)-1]
@@ -477,7 +481,6 @@ def parse_symbol_type(symbol):
 class Base(object):
     _sequence = 0
 
-
     def __init__(self):
         if Base._sequence == 0:
             Base._sequence = getpid()
@@ -519,7 +522,8 @@ class Base(object):
                 'vid':              b'\x09\x10',
                 'vsn':              b'\x09\x10\x19\x71',
                 'name':             'Base',
-                'ip address':       None}
+                'ip address':       None,
+                'large forward open': False}
 
     def __len__(self):
         return len(self.attribs)
@@ -689,10 +693,25 @@ class Base(object):
             self._status = (4, "A session need to be registered before to call forward_open.")
             raise CommError("A session need to be registered before to call forward open")
 
+        init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
+        if self.attribs['large forward open']:
+            connection_size = 4002
+            net_params = pack_udint((connection_size & 0xFFFF) | init_net_params << 16)
+        else:
+            connection_size = 500
+            net_params = pack_uint((connection_size & 0x01FF) | init_net_params)
+
+        if self.__direct_connections:
+            connection_params = [CONNECTION_SIZE['Direct Network'], CLASS_ID["8-bit"], CLASS_CODE["Message Router"]]
+        else:
+            connection_params = [
+                CONNECTION_SIZE['Backplane'],
+            ]
+
         forward_open_msg = [
-            FORWARD_OPEN,
-            pack_usint(2),
-            CLASS_ID["8-bit"],
+            FORWARD_OPEN if not self.attribs['large forward open'] else LARGE_FORWARD_OPEN,  # '\x54'
+            pack_usint(2),  # CIP Path size
+            CLASS_ID["8-bit"],  # class type
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
             INSTANCE_ID["8-bit"],
             CONNECTION_MANAGER_INSTANCE['Open Request'],
@@ -705,30 +724,18 @@ class Base(object):
             self.attribs['vsn'],
             TIMEOUT_MULTIPLIER,
             b'\x00\x00\x00',
-            pack_dint(self.attribs['rpi'] * 1000),
-            pack_uint(CONNECTION_PARAMETER['Default']),
-            pack_dint(self.attribs['rpi'] * 1000),
-            pack_uint(CONNECTION_PARAMETER['Default']),
-            TRANSPORT_CLASS,  # Transport Class
-            # CONNECTION_SIZE['Backplane'],
-            # pack_usint(self.attribs['backplane']),
-            # pack_usint(self.attribs['cpu slot']),
-            CLASS_ID["8-bit"],
-            CLASS_CODE["Message Router"],
+            b'\x01\x40\x20\x00',
+            net_params,
+            b'\x01\x40\x20\x00',
+            net_params,
+            TRANSPORT_CLASS,
+            *connection_params,
+            pack_usint(self.attribs['backplane']),
+            pack_usint(self.attribs['cpu slot']),
+            b'\x20\x02',
             INSTANCE_ID["8-bit"],
             pack_usint(1)
         ]
-
-        if self.__direct_connections:
-            forward_open_msg[20:1] = [
-                CONNECTION_SIZE['Direct Network'],
-            ]
-        else:
-            forward_open_msg[20:3] = [
-                CONNECTION_SIZE['Backplane'],
-                pack_usint(self.attribs['backplane']),
-                pack_usint(self.attribs['cpu slot'])
-            ]
 
         if self.send_rr_data(
                 build_common_packet_format(DATA_ITEM['Unconnected'], b''.join(forward_open_msg), ADDRESS_ITEM['UCMM'],)):
@@ -865,7 +872,7 @@ class Base(object):
             if self._session != 0:
                 self.un_register_session()
         except Exception as e:
-            error_string += "Error on close() -> session Err: %s" % e
+            error_string += "Error on close() -> session Err: %s" % e.message
             logger.warning(error_string)
 
         # %GLA must do a cleanup __sock.close()
@@ -873,7 +880,7 @@ class Base(object):
             if self.__sock:
                 self.__sock.close()
         except Exception as e:
-            error_string += "; close() -> __sock.close Err: %s" % e
+            error_string += "; close() -> __sock.close Err: %s" % e.message
             logger.warning(error_string)
 
         self.clean_up()
