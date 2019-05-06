@@ -290,8 +290,7 @@ def create_tag_rp(tag, multi_requests=False):
         rp.append(bytes([tag_length]))  # Length of the tag
 
         # Add the tag to the Request path
-        for char in tag:
-            rp.append(bytes([char]))
+        rp += [bytes([char]) for char in tag]
         # Add pad byte because total length of Request path must be word-aligned
         if tag_length % 2:
             rp.append(PADDING_BYTE)

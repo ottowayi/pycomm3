@@ -97,13 +97,13 @@ class Driver(Base):
         count = 0
         try:
             while idx < tags_returned_length:
-                instance = unpack_dint(tags_returned[idx:idx+4])
+                instance = unpack_dint(tags_returned[idx:idx + 4])
                 idx += 4
-                tag_length = unpack_uint(tags_returned[idx:idx+2])
+                tag_length = unpack_uint(tags_returned[idx:idx + 2])
                 idx += 2
-                tag_name = tags_returned[idx:idx+tag_length]
+                tag_name = tags_returned[idx:idx + tag_length]
                 idx += tag_length
-                symbol_type = unpack_uint(tags_returned[idx:idx+2])
+                symbol_type = unpack_uint(tags_returned[idx:idx + 2])
                 idx += 2
                 count += 1
                 self._tag_list.append({'instance_id': instance,
@@ -200,8 +200,8 @@ class Driver(Base):
         """
 
         try:
-            data_type = unpack_uint(self._reply[start_ptr:start_ptr+2])
-            fragment_returned = self._reply[start_ptr+2:]
+            data_type = unpack_uint(self._reply[start_ptr:start_ptr + 2])
+            fragment_returned = self._reply[start_ptr + 2:]
         except Exception as e:
             raise DataError(e)
 
@@ -212,9 +212,9 @@ class Driver(Base):
             try:
                 typ = I_DATA_TYPE[data_type]
                 if self._output_raw:
-                    value = fragment_returned[idx:idx+DATA_FUNCTION_SIZE[typ]]
+                    value = fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]]
                 else:
-                    value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx+DATA_FUNCTION_SIZE[typ]])
+                    value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]])
                 idx += DATA_FUNCTION_SIZE[typ]
             except Exception as e:
                 raise DataError(e)
@@ -277,13 +277,14 @@ class Driver(Base):
         """
         offset = 50
         position = 50
+
         try:
-            number_of_service_replies = unpack_uint(self._reply[offset:offset+2])
+            number_of_service_replies = unpack_uint(self._reply[offset:offset + 2])
             tag_list = []
             for index in range(number_of_service_replies):
                 position += 2
-                start = offset + unpack_uint(self._reply[position:position+2])
-                general_status = unpack_usint(self._reply[start+2:start+3])
+                start = offset + unpack_uint(self._reply[position:position + 2])
+                general_status = unpack_usint(self._reply[start + 2:start + 3])
 
                 if general_status == 0:
                     self._last_tag_write = (tags[index] + ('GOOD',))
@@ -463,8 +464,8 @@ class Driver(Base):
                 message_request = [
                     pack_uint(Base._get_sequence()),
                     bytes([TAG_SERVICES_REQUEST["Read Tag Fragmented"]]),  # the Request Service
-                    bytes([len(rp) // 2]),                                  # the Request Path Size length in word
-                    rp,                                                # the request path
+                    bytes([len(rp) // 2]),  # the Request Path Size length in word
+                    rp,  # the request path
                     pack_uint(counts),
                     pack_dint(self._byte_offset)
                 ]
@@ -582,7 +583,6 @@ class Driver(Base):
                 addr_data=self._target_cid,
             )
         )
-
         if multi_requests:
             return self._parse_multiple_request_write(tag)
         else:
@@ -619,7 +619,7 @@ class Driver(Base):
             array_of_values += value if raw else PACK_DATA_FUNCTION[data_type](value)
             byte_size += DATA_FUNCTION_SIZE[data_type]
 
-            if byte_size >= 450 or i == len(values)-1:
+            if byte_size >= 450 or i == len(values) - 1:
                 # create the message and send the fragment
                 rp = create_tag_rp(tag)
                 if rp is None:
@@ -631,12 +631,12 @@ class Driver(Base):
                     message_request = [
                         pack_uint(Base._get_sequence()),
                         bytes([TAG_SERVICES_REQUEST["Write Tag Fragmented"]]),  # the Request Service
-                        bytes([len(rp) // 2]),                                   # the Request Path Size length in word
-                        rp,                                                 # the request path
-                        pack_uint(S_DATA_TYPE[data_type]),                  # Data type to write
-                        pack_uint(len(values)),                             # Number of elements to write
+                        bytes([len(rp) // 2]),  # the Request Path Size length in word
+                        rp,  # the request path
+                        pack_uint(S_DATA_TYPE[data_type]),  # Data type to write
+                        pack_uint(len(values)),  # Number of elements to write
                         pack_dint(byte_offset),
-                        array_of_values                                     # Fragment of elements to write
+                        array_of_values  # Fragment of elements to write
                     ]
                     byte_offset += byte_size
 
@@ -677,15 +677,15 @@ class Driver(Base):
                     # the Request Path Size length in word
                     bytes([3]),
                     # Request Path ( 20 6B 25 00 Instance )
-                    CLASS_ID["8-bit"],       # Class id = 20 from spec 0x20
+                    CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                     CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
-                    INSTANCE_ID["16-bit"],   # Instance Segment: 16 Bit instance 0x25
+                    INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     b'\x00',
-                    pack_uint(self._last_instance),          # The instance
+                    pack_uint(self._last_instance),  # The instance
                     # Request Data
-                    pack_uint(2),   # Number of attributes to retrieve
-                    pack_uint(1),   # Attribute 1: Symbol name
-                    pack_uint(2)    # Attribute 2: Symbol type
+                    pack_uint(2),  # Number of attributes to retrieve
+                    pack_uint(1),  # Attribute 1: Symbol name
+                    pack_uint(2)  # Attribute 2: Symbol type
                 ]
 
                 if self.send_unit_data(
@@ -716,23 +716,23 @@ class Driver(Base):
             message_request = [
                 pack_uint(self._get_sequence()),
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
-                CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
+                bytes([3]),  # Request Path ( 20 6B 25 00 Instance )
+                CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                 CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
+                INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                 b'\x00',
                 pack_uint(instance_id),
                 pack_uint(4),  # Number of attributes
                 pack_uint(4),  # Template Object Definition Size UDINT
                 pack_uint(5),  # Template Structure Size UDINT
                 pack_uint(2),  # Template Member Count UINT
-                pack_uint(1)   # Structure Handle We can use this to read and write UINT
+                pack_uint(1)  # Structure Handle We can use this to read and write UINT
             ]
 
             if self.send_unit_data(
                     build_common_packet_format(DATA_ITEM['Connected'],
                                                b''.join(message_request), ADDRESS_ITEM['Connection Based'],
-                                               addr_data=self._target_cid,)) is None:
+                                               addr_data=self._target_cid, )) is None:
                 raise DataError("send_unit_data returned not valid data")
             self._struct_cache[instance_id] = self._buffer
 
@@ -761,14 +761,14 @@ class Driver(Base):
                     message_request = [
                         pack_uint(self._get_sequence()),
                         bytes([TAG_SERVICES_REQUEST['Read Template']]),
-                        bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
-                        CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
+                        bytes([3]),  # Request Path ( 20 6B 25 00 Instance )
+                        CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                         CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                        INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
+                        INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                         b'\x00',
                         pack_uint(instance_id),
                         pack_dint(self._byte_offset),  # Offset
-                        pack_uint(((object_definition_size * 4)-21) - self._byte_offset)
+                        pack_uint(((object_definition_size * 4) - 21) - self._byte_offset)
                     ]
 
                     if not self.send_unit_data(
@@ -776,7 +776,7 @@ class Driver(Base):
                                 DATA_ITEM['Connected'],
                                 b''.join(message_request),
                                 ADDRESS_ITEM['Connection Based'],
-                                addr_data=self._target_cid,)):
+                                addr_data=self._target_cid, )):
                         raise DataError("send_unit_data returned not valid data")
 
                 self._get_template_in_progress = False
@@ -935,6 +935,6 @@ class Driver(Base):
             values = self.read_array(data_tag, length)
             if values:
                 _, values = zip(*values)
-                chars = [chr(v+256) if v < 0 else chr(v) for v in values]
+                chars = [chr(v + 256) if v < 0 else chr(v) for v in values]
                 return ''.join(ch for ch in chars if ch != '\x00')
         return None
