@@ -259,10 +259,11 @@ class Driver(Base):
                     value = UNPACK_DATA_FUNCTION[typ](self._reply[value_begin:value_end])
                     if tag in tag_bits:
                         for bit in tag_bits[tag]:
-                            value = bool(value & 1 << bit) if bit < BITS_PER_INT_TYPE[typ] else None
-                            tag_list.append((f'{tag}.{bit}', value, 'BOOL'))
+                            name = f'{tag}.{bit}'
+                            value = bool(val & (1 << bit)) if bit < BITS_PER_TYPE[typ] else None
+                            tag_list.append((name, value, 'BOOL'))
                     else:
-                        self._last_tag_read = (tag, value, typ)
+                        self._last_tag_read = (tag, val, typ)
                         tag_list.append(self._last_tag_read)
                 else:
                     self._last_tag_read = (tag, None, None)
@@ -385,7 +386,7 @@ class Driver(Base):
         if multi_requests:
             rp_list = []
             for t in tag:
-                t, bit = self._bool_is_bit(t, 'BOOL')
+                t, bit = self._parse_bits(t, 'BOOL')
                 read = bit is None or t not in tag_bits
                 if bit is not None:
                     tag_bits[t].append(bit)
@@ -404,7 +405,7 @@ class Driver(Base):
             message_request = build_multiple_service(rp_list, Base._get_sequence())
 
         else:
-            tag, bit = self._bool_is_bit(tag, 'BOOL')
+            tag, bit = self._parse_bits(tag, 'BOOL')
             rp = create_tag_rp(tag)
             if rp is None:
                 self._status = (6, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
@@ -438,10 +439,7 @@ class Driver(Base):
                     typ = I_DATA_TYPE[data_type]
                     value = UNPACK_DATA_FUNCTION[typ](self._reply[52:])
                     if bit is not None:
-                        if bit < BITS_PER_INT_TYPE[typ]:
-                            value = bool(value & (1 << bit))
-                        else:
-                            raise DataError(f'Invalid bit value {bit} for data type {typ}')
+                        value = bool(value & (1 << bit)) if bit < BITS_PER_TYPE[typ] else None
                     return value
                 except Exception as e:
                     raise DataError(e)
@@ -502,7 +500,7 @@ class Driver(Base):
         return self._tag_list
 
     @staticmethod
-    def _bool_is_bit(tag, typ):
+    def _parse_bits(tag, typ):
         """
         if tag is a bool and a bit of an integer, returns the base tag and the bit value,
         else returns the tag name and None
@@ -511,7 +509,7 @@ class Driver(Base):
         if typ != 'BOOL':
             return tag, None
         try:
-            base, bit = tag.rsplit('.')
+            base, bit = tag.rsplit('.', maxsplit=1)
             bit = int(bit)
             return base, bit
         except Exception:
@@ -521,7 +519,7 @@ class Driver(Base):
         rp_list = []
         tags_added = []
         for name, value, typ in tags:
-            name, bit = self._bool_is_bit(name, typ)  # check if we're writing a bit of a integer rather than a BOOL
+            name, bit = self._parse_bits(name, typ)  # check if we're writing a bit of a integer rather than a BOOL
             # Create the request path to wrap the tag name
             rp = create_tag_rp(name, multi_requests=True)
             if rp is None:
@@ -554,7 +552,7 @@ class Driver(Base):
         return message_request, tags_added
 
     def _write_tag_single_write(self, tag, value, typ):
-        name, bit = self._bool_is_bit(tag, typ)  # check if we're writing a bit of a integer rather than a BOOL
+        name, bit = self._parse_bits(tag, typ)  # check if we're writing a bit of a integer rather than a BOOL
 
         rp = create_tag_rp(name)
         if rp is None:
@@ -586,8 +584,8 @@ class Driver(Base):
 
     @staticmethod
     def _make_write_bit_data(bit, value):
-        mask_size = 1 if bit < 8 else 2 if bit < 16 else 4
         or_mask, and_mask = 0b0000_0000_0000_0000, 0b1111_1111_1111_1111
+        mask_size = 1 if bit < 8 else 2 if bit < 16 else 4
 
         if value:
             or_mask |= (1 << bit)
