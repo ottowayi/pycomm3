@@ -386,7 +386,7 @@ class Driver(Base):
         if multi_requests:
             rp_list = []
             for t in tag:
-                t, bit = self._parse_bits(t, 'BOOL')
+                t, bit = self._prep_bools(t, 'BOOL', bits_only=True)
                 read = bit is None or t not in tag_bits
                 if bit is not None:
                     tag_bits[t].append(bit)
@@ -405,7 +405,7 @@ class Driver(Base):
             message_request = build_multiple_service(rp_list, Base._get_sequence())
 
         else:
-            tag, bit = self._parse_bits(tag, 'BOOL')
+            tag, bit = self._prep_bools(tag, 'BOOL', bits_only=True)
             rp = create_tag_rp(tag)
             if rp is None:
                 self._status = (6, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
@@ -500,7 +500,7 @@ class Driver(Base):
         return self._tag_list
 
     @staticmethod
-    def _parse_bits(tag, typ):
+    def _prep_bools(tag, typ, bits_only=True):
         """
         if tag is a bool and a bit of an integer, returns the base tag and the bit value,
         else returns the tag name and None
@@ -508,18 +508,27 @@ class Driver(Base):
         """
         if typ != 'BOOL':
             return tag, None
-        try:
-            base, bit = tag.rsplit('.', maxsplit=1)
-            bit = int(bit)
-            return base, bit
-        except Exception:
-            return tag, None
+        if not bits_only and tag.endswith(']'):
+            try:
+                base, idx = tag[:-1].rsplit(sep='[', maxsplit=1)
+                idx = int(idx)
+                base = f'{base}[{idx//32}]'
+                return base, idx
+            except Exception:
+                return tag, None
+        else:
+            try:
+                base, bit = tag.rsplit('.', maxsplit=1)
+                bit = int(bit)
+                return base, bit
+            except Exception:
+                return tag, None
 
     def _write_tag_multi_write(self, tags):
         rp_list = []
         tags_added = []
         for name, value, typ in tags:
-            name, bit = self._parse_bits(name, typ)  # check if we're writing a bit of a integer rather than a BOOL
+            name, bit = self._prep_bools(name, typ, bits_only=False)  # check if we're writing a bit of a integer rather than a BOOL
             # Create the request path to wrap the tag name
             rp = create_tag_rp(name, multi_requests=True)
             if rp is None:
@@ -530,7 +539,7 @@ class Driver(Base):
                     if bit is not None:
                         rp = create_tag_rp(name, multi_requests=True)
                         request = bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]]) + rp
-                        request += b''.join(self._make_write_bit_data(bit, value))
+                        request += b''.join(self._make_write_bit_data(bit, value, bool_ary='[' in name))
                         name = f'{name}.{bit}'
                     else:
                         request = (bytes([TAG_SERVICES_REQUEST["Write Tag"]]) +
@@ -552,7 +561,7 @@ class Driver(Base):
         return message_request, tags_added
 
     def _write_tag_single_write(self, tag, value, typ):
-        name, bit = self._parse_bits(tag, typ)  # check if we're writing a bit of a integer rather than a BOOL
+        name, bit = self._prep_bools(tag, typ, bits_only=False)  # check if we're writing a bit of a integer rather than a BOOL
 
         rp = create_tag_rp(name)
         if rp is None:
@@ -570,7 +579,7 @@ class Driver(Base):
             ]
             if bit is not None:
                 try:
-                    message_request += self._make_write_bit_data(bit, value)
+                    message_request += self._make_write_bit_data(bit, value, bool_ary='[' in name)
                 except Exception as err:
                     raise DataError('Unable to write bit, invalid bit number' + repr(err))
             else:
@@ -583,9 +592,14 @@ class Driver(Base):
             return message_request
 
     @staticmethod
-    def _make_write_bit_data(bit, value):
+    def _make_write_bit_data(bit, value, bool_ary=False):
         or_mask, and_mask = 0b0000_0000_0000_0000, 0b1111_1111_1111_1111
-        mask_size = 1 if bit < 8 else 2 if bit < 16 else 4
+
+        if bool_ary:
+            mask_size = 4
+            bit = bit % 32
+        else:
+            mask_size = 1 if bit < 8 else 2 if bit < 16 else 4
 
         if value:
             or_mask |= (1 << bit)
@@ -607,7 +621,7 @@ class Driver(Base):
         The type accepted are:
             - BOOL
             - SINT
-            - INT'
+            - INT
             - DINT
             - REAL
             - LINT
@@ -622,9 +636,7 @@ class Driver(Base):
         :return: None is returned in case of error otherwise the tag list is returned
         """
         self.clear()  # cleanup error string
-        multi_requests = False
-        if isinstance(tag, list):
-            multi_requests = True
+        multi_requests = isinstance(tag, (list, tuple))
 
         if not self._target_is_connected:
             if not self.forward_open():
