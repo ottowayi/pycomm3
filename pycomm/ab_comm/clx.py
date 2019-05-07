@@ -435,12 +435,12 @@ class Driver(Base):
             # Get the data type
             if self._status[0] == SUCCESS:
                 data_type = unpack_uint(self._reply[50:52])
+                typ = DATA_TYPE[data_type]
                 try:
-                    typ = I_DATA_TYPE[data_type]
                     value = UNPACK_DATA_FUNCTION[typ](self._reply[52:])
                     if bit is not None:
                         value = bool(value & (1 << bit)) if bit < BITS_PER_TYPE[typ] else None
-                    return value
+                    return value, typ
                 except Exception as e:
                     raise DataError(e)
             else:
