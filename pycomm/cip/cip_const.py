@@ -339,6 +339,16 @@ From Rockwell Automation Publication 1756-PM020C-EN-P November 2012:
 When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xff, respectively.
 """
 
+BITS_PER_INT_TYPE = {
+    'SINT': 8,    # Signed 8-bit integer
+    'INT': 16,     # Signed 16-bit integer
+    'DINT': 32,    # Signed 32-bit integer
+    'LINT': 64,    # Signed 64-bit integer
+    'USINT': 8,   # Unsigned 8-bit integer
+    'UINT': 16,    # Unsigned 16-bit integer
+    'UDINT': 32,   # Unsigned 32-bit integer
+    'ULINT': 64,   # Unsigned 64-bit integer
+}
 S_DATA_TYPE = {
     'BOOL': 0xc1,
     'SINT': 0xc2,    # Signed 8-bit integer

@@ -97,13 +97,13 @@ class Driver(Base):
         count = 0
         try:
             while idx < tags_returned_length:
-                instance = unpack_dint(tags_returned[idx:idx+4])
+                instance = unpack_dint(tags_returned[idx:idx + 4])
                 idx += 4
-                tag_length = unpack_uint(tags_returned[idx:idx+2])
+                tag_length = unpack_uint(tags_returned[idx:idx + 2])
                 idx += 2
-                tag_name = tags_returned[idx:idx+tag_length]
+                tag_name = tags_returned[idx:idx + tag_length]
                 idx += tag_length
-                symbol_type = unpack_uint(tags_returned[idx:idx+2])
+                symbol_type = unpack_uint(tags_returned[idx:idx + 2])
                 idx += 2
                 count += 1
                 self._tag_list.append({'instance_id': instance,
@@ -200,8 +200,8 @@ class Driver(Base):
         """
 
         try:
-            data_type = unpack_uint(self._reply[start_ptr:start_ptr+2])
-            fragment_returned = self._reply[start_ptr+2:]
+            data_type = unpack_uint(self._reply[start_ptr:start_ptr + 2])
+            fragment_returned = self._reply[start_ptr + 2:]
         except Exception as e:
             raise DataError(e)
 
@@ -212,9 +212,9 @@ class Driver(Base):
             try:
                 typ = I_DATA_TYPE[data_type]
                 if self._output_raw:
-                    value = fragment_returned[idx:idx+DATA_FUNCTION_SIZE[typ]]
+                    value = fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]]
                 else:
-                    value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx+DATA_FUNCTION_SIZE[typ]])
+                    value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]])
                 idx += DATA_FUNCTION_SIZE[typ]
             except Exception as e:
                 raise DataError(e)
@@ -233,7 +233,7 @@ class Driver(Base):
             logger.warning(self._status)
             self._byte_offset = -1
 
-    def _parse_multiple_request_read(self, tags):
+    def _parse_multiple_request_read(self, tags, tag_bits=None):
         """ parse the message received from a multi request read:
 
         For each tag parsed, the information extracted includes the tag name, the value read and the data type.
@@ -243,25 +243,31 @@ class Driver(Base):
         """
         offset = 50
         position = 50
+        tag_bits = tag_bits or {}
         try:
-            number_of_service_replies = unpack_uint(self._reply[offset:offset+2])
+            number_of_service_replies = unpack_uint(self._reply[offset:offset + 2])
             tag_list = []
             for index in range(number_of_service_replies):
                 position += 2
-                start = offset + unpack_uint(self._reply[position:position+2])
-                general_status = unpack_usint(self._reply[start+2:start+3])
-
+                start = offset + unpack_uint(self._reply[position:position + 2])
+                general_status = unpack_usint(self._reply[start + 2:start + 3])
+                tag = tags[index]
                 if general_status == 0:
-                    data_type = unpack_uint(self._reply[start+4:start+6])
+                    typ = I_DATA_TYPE[unpack_uint(self._reply[start + 4:start + 6])]
                     value_begin = start + 6
-                    value_end = value_begin + DATA_FUNCTION_SIZE[I_DATA_TYPE[data_type]]
-                    value = self._reply[value_begin:value_end]
-                    self._last_tag_read = (tags[index], UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](value),
-                                           I_DATA_TYPE[data_type])
+                    value_end = value_begin + DATA_FUNCTION_SIZE[typ]
+                    value = UNPACK_DATA_FUNCTION[typ](self._reply[value_begin:value_end])
+                    if tag in tag_bits:
+                        for bit in tag_bits[tag]:
+                            name = f'{tag}.{bit}'
+                            value = bool(val & (1 << bit)) if bit < BITS_PER_TYPE[typ] else None
+                            tag_list.append((name, value, 'BOOL'))
+                    else:
+                        self._last_tag_read = (tag, val, typ)
+                        tag_list.append(self._last_tag_read)
                 else:
-                    self._last_tag_read = (tags[index], None, None)
-
-                tag_list.append(self._last_tag_read)
+                    self._last_tag_read = (tag, None, None)
+                    tag_list.append(self._last_tag_read)
 
             return tag_list
         except Exception as e:
@@ -277,13 +283,14 @@ class Driver(Base):
         """
         offset = 50
         position = 50
+
         try:
-            number_of_service_replies = unpack_uint(self._reply[offset:offset+2])
+            number_of_service_replies = unpack_uint(self._reply[offset:offset + 2])
             tag_list = []
             for index in range(number_of_service_replies):
                 position += 2
-                start = offset + unpack_uint(self._reply[position:position+2])
-                general_status = unpack_usint(self._reply[start+2:start+3])
+                start = offset + unpack_uint(self._reply[position:position + 2])
+                general_status = unpack_usint(self._reply[start + 2:start + 3])
 
                 if general_status == 0:
                     self._last_tag_write = (tags[index] + ('GOOD',))
@@ -366,9 +373,9 @@ class Driver(Base):
         :return: None is returned in case of error otherwise the tag list is returned
         """
         self.clear()
-        multi_requests = False
-        if isinstance(tag, list):
-            multi_requests = True
+        multi_requests = isinstance(tag, (list, tuple))
+        tag_bits = defaultdict(list)
+        tags_read = []
 
         if not self._target_is_connected:
             if not self.forward_open():
@@ -379,18 +386,26 @@ class Driver(Base):
         if multi_requests:
             rp_list = []
             for t in tag:
-                rp = create_tag_rp(t, multi_requests=True)
-                if rp is None:
-                    self._status = (6, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
-                    raise DataError("Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
-                else:
-                    rp_list.append(
+                t, bit = self._prep_bools(t, 'BOOL', bits_only=True)
+                read = bit is None or t not in tag_bits
+                if bit is not None:
+                    tag_bits[t].append(bit)
+                if read:
+                    tags_read.append(t)
+                    rp = create_tag_rp(t, multi_requests=True)
+                    if rp is None:
+                        self._status = (6, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
+                        raise DataError("Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
+                    else:
+                        rp_list.append(
                             bytes([TAG_SERVICES_REQUEST['Read Tag']]) +
                             rp +
                             pack_uint(1))
+
             message_request = build_multiple_service(rp_list, Base._get_sequence())
 
         else:
+            tag, bit = self._prep_bools(tag, 'BOOL', bits_only=True)
             rp = create_tag_rp(tag)
             if rp is None:
                 self._status = (6, "Cannot create tag {0} request packet. read_tag will not be executed.".format(tag))
@@ -400,8 +415,8 @@ class Driver(Base):
                 message_request = [
                     pack_uint(Base._get_sequence()),
                     bytes([TAG_SERVICES_REQUEST['Read Tag']]),  # the Request Service
-                    bytes([len(rp) // 2]),                       # the Request Path Size length in word
-                    rp,                                     # the request path
+                    bytes([len(rp) // 2]),  # the Request Path Size length in word
+                    rp,  # the request path
                     pack_uint(1)
                 ]
 
@@ -415,13 +430,17 @@ class Driver(Base):
             raise DataError("send_unit_data returned not valid data")
 
         if multi_requests:
-            return self._parse_multiple_request_read(tag)
+            return self._parse_multiple_request_read(tags_read, tag_bits)
         else:
             # Get the data type
             if self._status[0] == SUCCESS:
                 data_type = unpack_uint(self._reply[50:52])
+                typ = DATA_TYPE[data_type]
                 try:
-                    return UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](self._reply[52:]), I_DATA_TYPE[data_type]
+                    value = UNPACK_DATA_FUNCTION[typ](self._reply[52:])
+                    if bit is not None:
+                        value = bool(value & (1 << bit)) if bit < BITS_PER_TYPE[typ] else None
+                    return value, typ
                 except Exception as e:
                     raise DataError(e)
             else:
@@ -463,8 +482,8 @@ class Driver(Base):
                 message_request = [
                     pack_uint(Base._get_sequence()),
                     bytes([TAG_SERVICES_REQUEST["Read Tag Fragmented"]]),  # the Request Service
-                    bytes([len(rp) // 2]),                                  # the Request Path Size length in word
-                    rp,                                                # the request path
+                    bytes([len(rp) // 2]),  # the Request Path Size length in word
+                    rp,  # the request path
                     pack_uint(counts),
                     pack_dint(self._byte_offset)
                 ]
@@ -480,6 +499,115 @@ class Driver(Base):
 
         return self._tag_list
 
+    @staticmethod
+    def _prep_bools(tag, typ, bits_only=True):
+        """
+        if tag is a bool and a bit of an integer, returns the base tag and the bit value,
+        else returns the tag name and None
+
+        """
+        if typ != 'BOOL':
+            return tag, None
+        if not bits_only and tag.endswith(']'):
+            try:
+                base, idx = tag[:-1].rsplit(sep='[', maxsplit=1)
+                idx = int(idx)
+                base = f'{base}[{idx//32}]'
+                return base, idx
+            except Exception:
+                return tag, None
+        else:
+            try:
+                base, bit = tag.rsplit('.', maxsplit=1)
+                bit = int(bit)
+                return base, bit
+            except Exception:
+                return tag, None
+
+    def _write_tag_multi_write(self, tags):
+        rp_list = []
+        tags_added = []
+        for name, value, typ in tags:
+            name, bit = self._prep_bools(name, typ, bits_only=False)  # check if we're writing a bit of a integer rather than a BOOL
+            # Create the request path to wrap the tag name
+            rp = create_tag_rp(name, multi_requests=True)
+            if rp is None:
+                self._status = (8, "Cannot create tag{0} req. packet. write_tag will not be executed".format(tags))
+                return None
+            else:
+                try:
+                    if bit is not None:
+                        rp = create_tag_rp(name, multi_requests=True)
+                        request = bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]]) + rp
+                        request += b''.join(self._make_write_bit_data(bit, value, bool_ary='[' in name))
+                        name = f'{name}.{bit}'
+                    else:
+                        request = (bytes([TAG_SERVICES_REQUEST["Write Tag"]]) +
+                                   rp +
+                                   pack_uint(S_DATA_TYPE[typ]) +
+                                   b'\x01\x00' +
+                                   PACK_DATA_FUNCTION[typ](value))
+
+                    rp_list.append(request)
+                except (LookupError, struct.error) as e:
+                    self._status = (8, "Tag:{0} type:{1} removed from write list. Error:{2}.".format(name, typ, e))
+
+                    # The tag in idx position need to be removed from the rp list because has some kind of error
+                else:
+                    tags_added.append((name, value, typ))
+
+        # Create the message request
+        message_request = build_multiple_service(rp_list, Base._get_sequence())
+        return message_request, tags_added
+
+    def _write_tag_single_write(self, tag, value, typ):
+        name, bit = self._prep_bools(tag, typ, bits_only=False)  # check if we're writing a bit of a integer rather than a BOOL
+
+        rp = create_tag_rp(name)
+        if rp is None:
+            self._status = (8, "Cannot create tag {0} request packet. write_tag will not be executed.".format(tag))
+            logger.warning(self._status)
+            return None
+        else:
+            # Creating the Message Request Packet
+            message_request = [
+                pack_uint(Base._get_sequence()),
+                bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]
+                       if bit is not None else TAG_SERVICES_REQUEST["Write Tag"]]),
+                bytes([len(rp) // 2]),  # the Request Path Size length in word
+                rp,  # the request path
+            ]
+            if bit is not None:
+                try:
+                    message_request += self._make_write_bit_data(bit, value, bool_ary='[' in name)
+                except Exception as err:
+                    raise DataError('Unable to write bit, invalid bit number' + repr(err))
+            else:
+                message_request += [
+                    pack_uint(S_DATA_TYPE[typ]),  # data type
+                    pack_uint(1),  # Add the number of tag to write
+                    PACK_DATA_FUNCTION[typ](value)
+                ]
+
+            return message_request
+
+    @staticmethod
+    def _make_write_bit_data(bit, value, bool_ary=False):
+        or_mask, and_mask = 0b0000_0000_0000_0000, 0b1111_1111_1111_1111
+
+        if bool_ary:
+            mask_size = 4
+            bit = bit % 32
+        else:
+            mask_size = 1 if bit < 8 else 2 if bit < 16 else 4
+
+        if value:
+            or_mask |= (1 << bit)
+        else:
+            and_mask &= ~(1 << bit)
+
+        return [pack_uint(mask_size), pack_udint(or_mask)[:mask_size], pack_udint(and_mask)[:mask_size]]
+
     def write_tag(self, tag, value=None, typ=None):
         """ write tag/tags from a connected plc
 
@@ -493,7 +621,7 @@ class Driver(Base):
         The type accepted are:
             - BOOL
             - SINT
-            - INT'
+            - INT
             - DINT
             - REAL
             - LINT
@@ -508,9 +636,7 @@ class Driver(Base):
         :return: None is returned in case of error otherwise the tag list is returned
         """
         self.clear()  # cleanup error string
-        multi_requests = False
-        if isinstance(tag, list):
-            multi_requests = True
+        multi_requests = isinstance(tag, (list, tuple))
 
         if not self._target_is_connected:
             if not self.forward_open():
@@ -519,60 +645,13 @@ class Driver(Base):
                 raise DataError("Target did not connected. write_tag will not be executed.")
 
         if multi_requests:
-            rp_list = []
-            tag_to_remove = []
-            idx = 0
-            for name, value, typ in tag:
-                # Create the request path to wrap the tag name
-                rp = create_tag_rp(name, multi_requests=True)
-                if rp is None:
-                    self._status = (8, "Cannot create tag{0} req. packet. write_tag will not be executed".format(tag))
-                    return None
-                else:
-                    try:    # Trying to add the rp to the request path list
-                        val = PACK_DATA_FUNCTION[typ](value)
-                        rp_list.append(
-                            bytes([TAG_SERVICES_REQUEST['Write Tag']])
-                            + rp
-                            + pack_uint(S_DATA_TYPE[typ])
-                            + pack_uint(1)
-                            + val
-                        )
-                        idx += 1
-                    except (LookupError, struct.error) as e:
-                        self._status = (8, "Tag:{0} type:{1} removed from write list. Error:{2}.".format(name, typ, e))
-
-                        # The tag in idx position need to be removed from the rp list because has some kind of error
-                        tag_to_remove.append(idx)
-
-            # Remove the tags that have not been inserted in the request path list
-            for position in tag_to_remove:
-                del tag[position]
-            # Create the message request
-            message_request = build_multiple_service(rp_list, Base._get_sequence())
-
+            message_request, tag = self._write_tag_multi_write(tag)
         else:
             if isinstance(tag, tuple):
                 name, value, typ = tag
             else:
                 name = tag
-
-            rp = create_tag_rp(name)
-            if rp is None:
-                self._status = (8, "Cannot create tag {0} request packet. write_tag will not be executed.".format(tag))
-                logger.warning(self._status)
-                return None
-            else:
-                # Creating the Message Request Packet
-                message_request = [
-                    pack_uint(Base._get_sequence()),
-                    bytes([TAG_SERVICES_REQUEST["Write Tag"]]),   # the Request Service
-                    bytes([len(rp) // 2]),               # the Request Path Size length in word
-                    rp,                             # the request path
-                    pack_uint(S_DATA_TYPE[typ]),    # data type
-                    pack_uint(1),                    # Add the number of tag to write
-                    PACK_DATA_FUNCTION[typ](value)
-                ]
+            message_request = self._write_tag_single_write(name, value, typ)
 
         ret_val = self.send_unit_data(
             build_common_packet_format(
@@ -582,7 +661,6 @@ class Driver(Base):
                 addr_data=self._target_cid,
             )
         )
-
         if multi_requests:
             return self._parse_multiple_request_write(tag)
         else:
@@ -619,7 +697,7 @@ class Driver(Base):
             array_of_values += value if raw else PACK_DATA_FUNCTION[data_type](value)
             byte_size += DATA_FUNCTION_SIZE[data_type]
 
-            if byte_size >= 450 or i == len(values)-1:
+            if byte_size >= 450 or i == len(values) - 1:
                 # create the message and send the fragment
                 rp = create_tag_rp(tag)
                 if rp is None:
@@ -631,12 +709,12 @@ class Driver(Base):
                     message_request = [
                         pack_uint(Base._get_sequence()),
                         bytes([TAG_SERVICES_REQUEST["Write Tag Fragmented"]]),  # the Request Service
-                        bytes([len(rp) // 2]),                                   # the Request Path Size length in word
-                        rp,                                                 # the request path
-                        pack_uint(S_DATA_TYPE[data_type]),                  # Data type to write
-                        pack_uint(len(values)),                             # Number of elements to write
+                        bytes([len(rp) // 2]),  # the Request Path Size length in word
+                        rp,  # the request path
+                        pack_uint(S_DATA_TYPE[data_type]),  # Data type to write
+                        pack_uint(len(values)),  # Number of elements to write
                         pack_dint(byte_offset),
-                        array_of_values                                     # Fragment of elements to write
+                        array_of_values  # Fragment of elements to write
                     ]
                     byte_offset += byte_size
 
@@ -677,15 +755,15 @@ class Driver(Base):
                     # the Request Path Size length in word
                     bytes([3]),
                     # Request Path ( 20 6B 25 00 Instance )
-                    CLASS_ID["8-bit"],       # Class id = 20 from spec 0x20
+                    CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                     CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
-                    INSTANCE_ID["16-bit"],   # Instance Segment: 16 Bit instance 0x25
+                    INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     b'\x00',
-                    pack_uint(self._last_instance),          # The instance
+                    pack_uint(self._last_instance),  # The instance
                     # Request Data
-                    pack_uint(2),   # Number of attributes to retrieve
-                    pack_uint(1),   # Attribute 1: Symbol name
-                    pack_uint(2)    # Attribute 2: Symbol type
+                    pack_uint(2),  # Number of attributes to retrieve
+                    pack_uint(1),  # Attribute 1: Symbol name
+                    pack_uint(2)  # Attribute 2: Symbol type
                 ]
 
                 if self.send_unit_data(
@@ -716,23 +794,23 @@ class Driver(Base):
             message_request = [
                 pack_uint(self._get_sequence()),
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
-                CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
+                bytes([3]),  # Request Path ( 20 6B 25 00 Instance )
+                CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                 CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
+                INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                 b'\x00',
                 pack_uint(instance_id),
                 pack_uint(4),  # Number of attributes
                 pack_uint(4),  # Template Object Definition Size UDINT
                 pack_uint(5),  # Template Structure Size UDINT
                 pack_uint(2),  # Template Member Count UINT
-                pack_uint(1)   # Structure Handle We can use this to read and write UINT
+                pack_uint(1)  # Structure Handle We can use this to read and write UINT
             ]
 
             if self.send_unit_data(
                     build_common_packet_format(DATA_ITEM['Connected'],
                                                b''.join(message_request), ADDRESS_ITEM['Connection Based'],
-                                               addr_data=self._target_cid,)) is None:
+                                               addr_data=self._target_cid, )) is None:
                 raise DataError("send_unit_data returned not valid data")
             self._struct_cache[instance_id] = self._buffer
 
@@ -761,14 +839,14 @@ class Driver(Base):
                     message_request = [
                         pack_uint(self._get_sequence()),
                         bytes([TAG_SERVICES_REQUEST['Read Template']]),
-                        bytes([3]),                         # Request Path ( 20 6B 25 00 Instance )
-                        CLASS_ID["8-bit"],              # Class id = 20 from spec 0x20
+                        bytes([3]),  # Request Path ( 20 6B 25 00 Instance )
+                        CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                         CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                        INSTANCE_ID["16-bit"],          # Instance Segment: 16 Bit instance 0x25
+                        INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                         b'\x00',
                         pack_uint(instance_id),
                         pack_dint(self._byte_offset),  # Offset
-                        pack_uint(((object_definition_size * 4)-21) - self._byte_offset)
+                        pack_uint(((object_definition_size * 4) - 21) - self._byte_offset)
                     ]
 
                     if not self.send_unit_data(
@@ -776,7 +854,7 @@ class Driver(Base):
                                 DATA_ITEM['Connected'],
                                 b''.join(message_request),
                                 ADDRESS_ITEM['Connection Based'],
-                                addr_data=self._target_cid,)):
+                                addr_data=self._target_cid, )):
                         raise DataError("send_unit_data returned not valid data")
 
                 self._get_template_in_progress = False
@@ -935,6 +1013,6 @@ class Driver(Base):
             values = self.read_array(data_tag, length)
             if values:
                 _, values = zip(*values)
-                chars = [chr(v+256) if v < 0 else chr(v) for v in values]
+                chars = [chr(v + 256) if v < 0 else chr(v) for v in values]
                 return ''.join(ch for ch in chars if ch != '\x00')
         return None
