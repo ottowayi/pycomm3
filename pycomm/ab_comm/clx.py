@@ -910,11 +910,11 @@ class Driver(Base):
             raise DataError(e)
 
     def _build_udt(self, data, member_count):
-        udt = {'name': 'Not a user defined structure',
+        udt = {'name': None,
                'internal_tags': [], 'data_type': []}
         names = (x.decode(errors='replace') for x in data.split(b'\x00') if len(x) > 1)
         for name in names:
-            if ';' in name:
+            if ';' in name and udt['name'] is None:
                 udt['name'] = name[:name.find(';')]
             elif 'ZZZZZZZZZZ' in name:
                 continue
@@ -922,6 +922,8 @@ class Driver(Base):
                 udt['internal_tags'].append(name)
             else:
                 continue
+        if udt['name'] is None:
+            udt['name'] = 'Not a user define structure'
 
         for _ in range(member_count):
             array_size = unpack_uint(data[:2])
