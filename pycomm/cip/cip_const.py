@@ -348,6 +348,9 @@ BITS_PER_INT_TYPE = {
     'UINT': 16,    # Unsigned 16-bit integer
     'UDINT': 32,   # Unsigned 32-bit integer
     'ULINT': 64,   # Unsigned 64-bit integer
+    'WORD':  16,     # byte string 16-bits
+    'DWORD': 32,    # byte string 32-bits
+    'LWORD': 64,    # byte string 64-bits
 }
 S_DATA_TYPE = {
     'BOOL': 0xc1,
