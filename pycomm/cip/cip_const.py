@@ -198,6 +198,7 @@ SERVICE_STATUS = {
     0xff: "General Error (see extended status)"
 }
 
+
 EXTEND_CODES = {
     0x01: {
         0x0100: "Connection in use",
@@ -266,6 +267,8 @@ EXTEND_CODES = {
 
     }
 }
+
+
 DATA_ITEM = {
     'Connected':   b'\xb1\x00',
     'Unconnected': b'\xb2\x00'

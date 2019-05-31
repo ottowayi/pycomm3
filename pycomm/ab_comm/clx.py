@@ -70,6 +70,7 @@ class Driver(Base):
         self._struct_cache = {}
         self._template_cache = {}
         self._udt_cache = {}
+        self._program_names = []
 
     def get_last_tag_read(self):
         """ Return the last tag read by a multi request read
@@ -730,7 +731,7 @@ class Driver(Base):
                 array_of_values = b''
                 byte_size = 0
 
-    def _get_instance_attribute_list_service(self):
+    def _get_instance_attribute_list_service(self, program=None):
         """ Step 1: Finding user-created controller scope tags in a Logix5000 controller
 
         This service returns instance IDs for each created instance of the symbol class, along with a list
@@ -747,24 +748,33 @@ class Driver(Base):
 
             self._get_template_in_progress = True
             while self._last_instance != -1:
-
                 # Creating the Message Request Packet
-
-                message_request = [
-                    pack_uint(Base._get_sequence()),
-                    bytes([TAG_SERVICES_REQUEST['Get Instance Attributes List']]),  # STEP 1
-                    # the Request Path Size length in word
-                    bytes([3]),
+                path = []
+                program = f'Program:{program}'.encode('utf-8')
+                if program:
+                    path = [EXTENDED_SYMBOL, pack_usint(len(program)), program]
+                    if len(program) % 2:
+                        path.append(b'\x00')
+                path += [
                     # Request Path ( 20 6B 25 00 Instance )
                     CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                     CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
                     INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     b'\x00',
                     pack_uint(self._last_instance),  # The instance
+                ]
+                path = b''.join(path)
+                path_size = pack_usint(len(path) // 2)
+
+                message_request = [
+                    pack_uint(Base._get_sequence()),
+                    bytes([TAG_SERVICES_REQUEST['Get Instance Attributes List']]),
+                    path_size,
+                    path,
                     # Request Data
                     pack_uint(2),  # Number of attributes to retrieve
                     pack_uint(1),  # Attribute 1: Symbol name
-                    pack_uint(2)  # Attribute 2: Symbol type
+                    pack_uint(2),
                 ]
 
                 if self.send_unit_data(
@@ -868,6 +878,7 @@ class Driver(Base):
     def _isolating_user_tag(self):
         try:
             lst, self._tag_list = self._tag_list, []
+            # self._program_names = [x['tag_name'] for x in lst if 'Program:' in x['tag_name']]
             for tag in lst:
                 tag['tag_name'] = tag['tag_name'].decode()
                 if ':' in tag['tag_name'] or '__' in tag['tag_name']:
@@ -962,10 +973,10 @@ class Driver(Base):
 
         return self._udt_cache[tag['template_instance_id']]
 
-    def get_tag_list(self):
+    def get_tag_list(self, program=None):
         self._tag_list = []
         # Step 1
-        self._get_instance_attribute_list_service()
+        self._get_instance_attribute_list_service(program)
 
         # Step 2
         self._isolating_user_tag()
