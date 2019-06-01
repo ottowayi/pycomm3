@@ -24,6 +24,7 @@
 # SOFTWARE.
 #
 from pycomm.cip.cip_base import *
+from collections import defaultdict
 import logging
 
 try:  # Python 2.7+
@@ -260,10 +261,10 @@ class Driver(Base):
                     if tag in tag_bits:
                         for bit in tag_bits[tag]:
                             name = f'{tag}.{bit}'
-                            value = bool(val & (1 << bit)) if bit < BITS_PER_TYPE[typ] else None
+                            value = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
                             tag_list.append((name, value, 'BOOL'))
                     else:
-                        self._last_tag_read = (tag, val, typ)
+                        self._last_tag_read = (tag, value, typ)
                         tag_list.append(self._last_tag_read)
                 else:
                     self._last_tag_read = (tag, None, None)
@@ -435,11 +436,11 @@ class Driver(Base):
             # Get the data type
             if self._status[0] == SUCCESS:
                 data_type = unpack_uint(self._reply[50:52])
-                typ = DATA_TYPE[data_type]
+                typ = I_DATA_TYPE[data_type]
                 try:
                     value = UNPACK_DATA_FUNCTION[typ](self._reply[52:])
                     if bit is not None:
-                        value = bool(value & (1 << bit)) if bit < BITS_PER_TYPE[typ] else None
+                        value = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
                     return value, typ
                 except Exception as e:
                     raise DataError(e)
@@ -909,11 +910,11 @@ class Driver(Base):
             raise DataError(e)
 
     def _build_udt(self, data, member_count):
-        udt = {'name': 'Not a user defined structure',
+        udt = {'name': None,
                'internal_tags': [], 'data_type': []}
         names = (x.decode(errors='replace') for x in data.split(b'\x00') if len(x) > 1)
         for name in names:
-            if ';' in name:
+            if ';' in name and udt['name'] is None:
                 udt['name'] = name[:name.find(';')]
             elif 'ZZZZZZZZZZ' in name:
                 continue
@@ -921,6 +922,8 @@ class Driver(Base):
                 udt['internal_tags'].append(name)
             else:
                 continue
+        if udt['name'] is None:
+            udt['name'] = 'Not a user define structure'
 
         for _ in range(member_count):
             array_size = unpack_uint(data[:2])
