@@ -70,6 +70,7 @@ class Driver(Base):
         self._struct_cache = {}
         self._template_cache = {}
         self._udt_cache = {}
+        self._program_names = []
 
     def get_last_tag_read(self):
         """ Return the last tag read by a multi request read
@@ -730,7 +731,7 @@ class Driver(Base):
                 array_of_values = b''
                 byte_size = 0
 
-    def _get_instance_attribute_list_service(self):
+    def _get_instance_attribute_list_service(self, program=None):
         """ Step 1: Finding user-created controller scope tags in a Logix5000 controller
 
         This service returns instance IDs for each created instance of the symbol class, along with a list
@@ -747,25 +748,35 @@ class Driver(Base):
 
             self._get_template_in_progress = True
             while self._last_instance != -1:
-
                 # Creating the Message Request Packet
-
-                message_request = [
-                    pack_uint(Base._get_sequence()),
-                    bytes([TAG_SERVICES_REQUEST['Get Instance Attributes List']]),  # STEP 1
-                    # the Request Path Size length in word
-                    bytes([3]),
+                path = []
+                if program is not None and not program.startswith('Program:'):
+                    program = f'Program:{program}'
+                if program:
+                    path = [EXTENDED_SYMBOL, pack_usint(len(program)), program.encode('utf-8')]
+                    if len(program) % 2:
+                        path.append(b'\x00')
+                path += [
                     # Request Path ( 20 6B 25 00 Instance )
                     CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                     CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
                     INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     b'\x00',
                     pack_uint(self._last_instance),  # The instance
+                ]
+                path = b''.join(path)
+                path_size = pack_usint(len(path) // 2)
+
+                message_request = [
+                    pack_uint(Base._get_sequence()),
+                    bytes([TAG_SERVICES_REQUEST['Get Instance Attributes List']]),
+                    path_size,
+                    path,
                     # Request Data
                     pack_uint(2),  # Number of attributes to retrieve
                     pack_uint(1),  # Attribute 1: Symbol name
-                    pack_uint(2)  # Attribute 2: Symbol type
-                ]
+                    pack_uint(2),
+                  ]
 
                 if self.send_unit_data(
                         build_common_packet_format(
@@ -868,8 +879,12 @@ class Driver(Base):
     def _isolating_user_tag(self):
         try:
             lst, self._tag_list = self._tag_list, []
+
             for tag in lst:
                 tag['tag_name'] = tag['tag_name'].decode()
+                if 'Program:' in tag['tag_name']:
+                    self._program_names.append(tag['tag_name'])
+                    continue
                 if ':' in tag['tag_name'] or '__' in tag['tag_name']:
                     continue
                 if tag['symbol_type'] & 0b0001000000000000:
@@ -962,20 +977,34 @@ class Driver(Base):
 
         return self._udt_cache[tag['template_instance_id']]
 
-    def get_tag_list(self):
+    def get_tag_list(self, program=None):
+        """
+        Returns the list of tags from the controller. For only controller-scoped tags, get `program` to None.
+        Set `program` to a program name to only get the program scoped tags from the specified program.
+        To get all controller and all program scoped tags from all programs, set `program` to '*
+
+        Note, for program scoped tags the tag['tag_name'] will be 'Program:{program}.{tag_name}'. This is so the tag
+        list can be fed directly into the read function.
+        """
+        if program == '*':
+            tags = self._get_tag_list()
+            for prog in self._program_names:
+                prog_tags = self._get_tag_list(prog)
+                for t in prog_tags:
+                    t['tag_name'] = f"{prog}.{t['tag_name']}"
+                tags += prog_tags
+            return tags
+        else:
+            return self._get_tag_list(program)
+
+    def _get_tag_list(self, program=None):
         self._tag_list = []
-        # Step 1
-        self._get_instance_attribute_list_service()
-
-        # Step 2
+        self._get_instance_attribute_list_service(program)
         self._isolating_user_tag()
-
-        # Step 3
         for tag in self._tag_list:
             if tag['tag_type'] == 'struct':
                 tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
                 tag['udt'] = self._parse_udt_raw(tag)
-
         return self._tag_list
 
     def write_string(self, tag, value, size=82):
