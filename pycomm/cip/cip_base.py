@@ -204,6 +204,7 @@ PACK_PCCC_DATA_FUNCTION = {
     'I': pack_int
 }
 
+MAX_RCV_LOOPS = 100
 
 def print_bytes_line(msg):
     out = ''
@@ -439,27 +440,20 @@ class Socket:
         return total_sent
 
     def receive(self, timeout=0):
-        if timeout != 0:
-            self.sock.settimeout(timeout)
-        msg_len = 28
-        chunks = []
-        bytes_recd = 0
-        one_shot = True
-        while bytes_recd < msg_len:
-            try:
-                chunk = self.sock.recv(min(msg_len - bytes_recd, 2048))
-                if chunk == '':
-                    raise CommError("socket connection broken.")
-                if one_shot:
-                    data_size = int(struct.unpack('<H', chunk[2:4])[0])  # Length
-                    msg_len = HEADER_SIZE + data_size
-                    one_shot = False
-
-                chunks.append(chunk)
-                bytes_recd += len(chunk)
-            except socket.error as e:
-                raise CommError(e)
-        return b''.join(chunks)
+        try:
+            if timeout != 0:
+                self.sock.settimeout(timeout)
+            loop = 0
+            data = self.sock.recv(4096)
+            data_len = struct.unpack_from('<H', data, 2)[0]
+            while len(data) - HEADER_SIZE < data_len:
+                data += self.sock.recv(4096)
+                loop += 1
+                if loop > MAX_RCV_LOOPS:
+                    raise CommError('Error receiving from socket, infinite loop.')
+            return data
+        except socket.error as err:
+            raise CommError(e)
 
     def close(self):
         self.sock.close()
