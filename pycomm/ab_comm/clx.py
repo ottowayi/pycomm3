@@ -750,9 +750,10 @@ class Driver(Base):
             while self._last_instance != -1:
                 # Creating the Message Request Packet
                 path = []
-                program = f'Program:{program}'.encode('utf-8')
+                if program is not None and not program.startswith('Program:'):
+                    program = f'Program:{program}'
                 if program:
-                    path = [EXTENDED_SYMBOL, pack_usint(len(program)), program]
+                    path = [EXTENDED_SYMBOL, pack_usint(len(program)), program.encode('utf-8')]
                     if len(program) % 2:
                         path.append(b'\x00')
                 path += [
@@ -775,7 +776,7 @@ class Driver(Base):
                     pack_uint(2),  # Number of attributes to retrieve
                     pack_uint(1),  # Attribute 1: Symbol name
                     pack_uint(2),
-                ]
+                  ]
 
                 if self.send_unit_data(
                         build_common_packet_format(
@@ -878,9 +879,12 @@ class Driver(Base):
     def _isolating_user_tag(self):
         try:
             lst, self._tag_list = self._tag_list, []
-            # self._program_names = [x['tag_name'] for x in lst if 'Program:' in x['tag_name']]
+
             for tag in lst:
                 tag['tag_name'] = tag['tag_name'].decode()
+                if 'Program:' in tag['tag_name']:
+                    self._program_names.append(tag['tag_name'])
+                    continue
                 if ':' in tag['tag_name'] or '__' in tag['tag_name']:
                     continue
                 if tag['symbol_type'] & 0b0001000000000000:
@@ -974,19 +978,33 @@ class Driver(Base):
         return self._udt_cache[tag['template_instance_id']]
 
     def get_tag_list(self, program=None):
+        """
+        Returns the list of tags from the controller. For only controller-scoped tags, get `program` to None.
+        Set `program` to a program name to only get the program scoped tags from the specified program.
+        To get all controller and all program scoped tags from all programs, set `program` to '*
+
+        Note, for program scoped tags the tag['tag_name'] will be 'Program:{program}.{tag_name}'. This is so the tag
+        list can be fed directly into the read function.
+        """
+        if program == '*':
+            tags = self._get_tag_list()
+            for prog in self._program_names:
+                prog_tags = self._get_tag_list(prog)
+                for t in prog_tags:
+                    t['tag_name'] = f"{prog}.{t['tag_name']}"
+                tags += prog_tags
+            return tags
+        else:
+            return self._get_tag_list(program)
+
+    def _get_tag_list(self, program=None):
         self._tag_list = []
-        # Step 1
         self._get_instance_attribute_list_service(program)
-
-        # Step 2
         self._isolating_user_tag()
-
-        # Step 3
         for tag in self._tag_list:
             if tag['tag_type'] == 'struct':
                 tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
                 tag['udt'] = self._parse_udt_raw(tag)
-
         return self._tag_list
 
     def write_string(self, tag, value, size=82):
