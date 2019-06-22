@@ -330,8 +330,8 @@ CONNECTION_PARAMETER = {
 """
 Atomic Data Type:
 
-          Bit = Bool
-     Bit array = DWORD (32-bit boolean aray)
+          Bit = BOOL
+     Bit array = DWORD (32-bit boolean array)
  8-bit integer = SINT
 16-bit integer = UINT
 32-bit integer = DINT

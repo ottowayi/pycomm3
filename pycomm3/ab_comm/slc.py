@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from pycomm.cip.cip_base import *
+from pycomm3.cip.cip_base import *
 import re
 import math
 #import binascii

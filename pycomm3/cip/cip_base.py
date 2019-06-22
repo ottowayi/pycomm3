@@ -28,8 +28,8 @@ import struct
 import socket
 
 from os import getpid, urandom
-from pycomm.cip.cip_const import *
-from pycomm.common import PycommError
+from pycomm3.cip.cip_const import *
+from .. import PycommError
 
 
 import logging
@@ -205,6 +205,7 @@ PACK_PCCC_DATA_FUNCTION = {
 }
 
 MAX_RCV_LOOPS = 100
+
 
 def print_bytes_line(msg):
     out = ''
