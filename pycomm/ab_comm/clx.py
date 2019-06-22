@@ -262,8 +262,8 @@ class Driver(Base):
                     if tag in tag_bits:
                         for bit in tag_bits[tag]:
                             name = f'{tag}.{bit}'
-                            value = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
-                            tag_list.append((name, value, 'BOOL'))
+                            val = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
+                            tag_list.append((name, val, 'BOOL'))
                     else:
                         self._last_tag_read = (tag, value, typ)
                         tag_list.append(self._last_tag_read)
@@ -526,6 +526,11 @@ class Driver(Base):
             except Exception:
                 return tag, None
 
+    def _dword_to_boolarray(self, tag, bit):
+        base, tmp = tag.rsplit(sep='[', maxsplit=1)
+        i = int(tmp[:-1])
+        return f'{base}[{(i*32) + bit}]'
+
     def _write_tag_multi_write(self, tags):
         rp_list = []
         tags_added = []
@@ -542,7 +547,10 @@ class Driver(Base):
                         rp = create_tag_rp(name, multi_requests=True)
                         request = bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]]) + rp
                         request += b''.join(self._make_write_bit_data(bit, value, bool_ary='[' in name))
-                        name = f'{name}.{bit}'
+                        if typ == 'BOOL' and '[' in name:
+                            name = self._dword_to_boolarray(name, bit)
+                        else:
+                            name = f'{name}.{bit}'
                     else:
                         request = (bytes([TAG_SERVICES_REQUEST["Write Tag"]]) +
                                    rp +
@@ -595,7 +603,7 @@ class Driver(Base):
 
     @staticmethod
     def _make_write_bit_data(bit, value, bool_ary=False):
-        or_mask, and_mask = 0b0000_0000_0000_0000, 0b1111_1111_1111_1111
+        or_mask, and_mask = 0b0000_0000_0000_0000_0000_0000_0000_0000, 0b1111_1111_1111_1111_1111_1111_1111_1111
 
         if bool_ary:
             mask_size = 4
