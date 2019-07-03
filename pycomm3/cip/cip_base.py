@@ -28,7 +28,7 @@ import struct
 import socket
 
 from os import getpid, urandom
-from pycomm3.cip.cip_const import *
+from ..cip.cip_const import *
 from .. import PycommError
 
 
@@ -396,11 +396,11 @@ def parse_multiple_request(message, tags, typ):
                 data_type = unpack_uint(message[start+4:start+6])
                 try:
                     value_begin = start + 6
-                    value_end = value_begin + DATA_FUNCTION_SIZE[I_DATA_TYPE[data_type]]
+                    value_end = value_begin + DATA_FUNCTION_SIZE[DATA_TYPE[data_type]]
                     value = message[value_begin:value_end]
                     tag_list.append((tags[index],
-                                    UNPACK_DATA_FUNCTION[I_DATA_TYPE[data_type]](value),
-                                    I_DATA_TYPE[data_type]))
+                                    UNPACK_DATA_FUNCTION[DATA_TYPE[data_type]](value),
+                                    DATA_TYPE[data_type]))
                 except LookupError:
                     tag_list.append((tags[index], None, None))
             else:
@@ -454,7 +454,7 @@ class Socket:
                     raise CommError('Error receiving from socket, infinite loop.')
             return data
         except socket.error as err:
-            raise CommError(e)
+            raise CommError(err)
 
     def close(self):
         self.sock.close()
@@ -517,7 +517,7 @@ class Base(object):
                 'vsn':              b'\x09\x10\x19\x71',
                 'name':             'Base',
                 'ip address':       None,
-                'large forward open': False}
+                'extended forward open': False}
 
     def __len__(self):
         return len(self.attribs)
@@ -688,7 +688,7 @@ class Base(object):
             raise CommError("A session need to be registered before to call forward open")
 
         init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
-        if self.attribs['large forward open']:
+        if self.attribs['extended forward open']:
             connection_size = 4002
             net_params = pack_udint((connection_size & 0xFFFF) | init_net_params << 16)
         else:
@@ -703,7 +703,7 @@ class Base(object):
             ]
 
         forward_open_msg = [
-            FORWARD_OPEN if not self.attribs['large forward open'] else LARGE_FORWARD_OPEN,  # '\x54'
+            FORWARD_OPEN if not self.attribs['extended forward open'] else LARGE_FORWARD_OPEN,
             pack_usint(2),  # CIP Path size
             CLASS_ID["8-bit"],  # class type
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
