@@ -60,7 +60,7 @@ class Driver(Base):
 
 """
 
-    def __init__(self):
+    def __init__(self, ip_address, slot=0, large_packets=True):
         super(Driver, self).__init__()
 
         self._buffer = {}
@@ -71,6 +71,9 @@ class Driver(Base):
         self._template_cache = {}
         self._udt_cache = {}
         self._program_names = []
+        self.attribs['ip address'] = ip_address
+        self.attribs['cpu slot'] = slot
+        self.attribs['extended forward open'] = large_packets
 
     def get_last_tag_read(self):
         """ Return the last tag read by a multi request read
