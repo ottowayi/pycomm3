@@ -107,14 +107,10 @@ class CLXDriver(Base):
             raise DataError(e)
 
     def _parse_fragment(self, reply, last_idx, offset, tags, raw=False):
-        """ parse the fragment returned by a fragment service.
-
-        :param start_ptr: Where the fragment start within the replay
-        :param status: status field used to decide if keep parsing or stop
-        """
+        """ parse the fragment returned by a fragment service."""
 
         try:
-            status = self.parse_status(reply)
+            status = self.unit_data_status(reply)
             data_type = unpack_uint(reply[REPLY_START:REPLY_START + 2])
             fragment_returned = reply[REPLY_START + 2:]
         except Exception as e:
@@ -259,10 +255,7 @@ class CLXDriver(Base):
                     self._status = (6, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
                     raise DataError(self._status[1])
                 else:
-                    rp_list.append(
-                        bytes([TAG_SERVICES_REQUEST['Read Tag']]) +
-                        rp +
-                        pack_uint(1))
+                    rp_list.append(bytes([TAG_SERVICES_REQUEST['Read Tag']]) + rp + b'\x01\x00')
 
         message_request = self.build_multiple_service(rp_list, self._get_sequence())
         reply = self.send_unit_data(
@@ -737,13 +730,9 @@ class CLXDriver(Base):
             raise DataError(e)
 
     def _parse_instance_attribute_list(self, reply, last_instance, tag_list):
-        """ extract the tags list from the message received
+        """ extract the tags list from the message received"""
 
-        :param start_tag_ptr: The point in the message string where the tag list begin
-        :param status: The status of the message receives
-        """
-
-        status = self.parse_status(reply)
+        status = self.unit_data_status(reply)
         tags_returned = reply[REPLY_START:]
         tags_returned_length = len(tags_returned)
         idx = count = instance = 0
@@ -862,7 +851,7 @@ class CLXDriver(Base):
     def _parse_structure_makeup_attributes(self, reply):
         """ extract the tags list from the message received"""
         structure = {}
-        status = self.parse_status(reply)
+        status = self.unit_data_status(reply)
         if status != SUCCESS:
             structure['Error'] = status
             return
@@ -953,7 +942,7 @@ class CLXDriver(Base):
         """ extract the tags list from the message received"""
         tags_returned = reply[REPLY_START:]
         bytes_received = len(tags_returned)
-        status = self.parse_status(reply)
+        status = self.unit_data_status(reply)
 
         template += tags_returned
 
@@ -1038,5 +1027,5 @@ class CLXDriver(Base):
         return self._last_tag_write
 
     @staticmethod
-    def parse_status(reply):
+    def unit_data_status(reply):
         return unpack_usint(reply[48:49])

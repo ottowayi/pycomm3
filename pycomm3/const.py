@@ -143,6 +143,7 @@ The following error codes have been taken from:
 Rockwell Automation Publication
 1756-RM003P-EN-P - December 2014
 """
+
 SERVICE_STATUS = {
     0x01: "Connection failure (see extended status)",
     0x02: "Insufficient resource",
