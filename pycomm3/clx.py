@@ -723,13 +723,13 @@ class CLXDriver(Base):
                 if reply is None:
                     raise DataError("send_unit_data returned not valid data")
 
-                last_instance = self._parse_instance_attribute_list(reply, last_instance, tag_list)
+                last_instance = self._parse_instance_attribute_list(reply, tag_list)
             return tag_list
 
         except Exception as e:
             raise DataError(e)
 
-    def _parse_instance_attribute_list(self, reply, last_instance, tag_list):
+    def _parse_instance_attribute_list(self, reply, tag_list):
         """ extract the tags list from the message received"""
 
         status = self.unit_data_status(reply)
