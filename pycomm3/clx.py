@@ -96,24 +96,12 @@ class CLXDriver(Base):
                 else:
                     return True
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
-                status = self.parse_status(reply)
-                service = unpack_usint(reply[46:47])
-                if service in (TAG_SERVICES_REPLY["Read Tag Fragmented"],
-                               TAG_SERVICES_REPLY["Get Instance Attributes List"],
-                               TAG_SERVICES_REPLY["Get Attributes"],
-                               TAG_SERVICES_REPLY["Read Template"]):
-                    return True
-
-                if status == INSUFFICIENT_PACKETS:
-                    self._status = (3, "Insufficient Packet Space")
-                elif status != SUCCESS:
+                status = self.unit_data_status(reply)
+                if status not in (INSUFFICIENT_PACKETS, SUCCESS):
                     self._status = (3, f"send_unit_data reply:{SERVICE_STATUS[status]} - "
-                    f"Extend status:{self.get_extended_status(reply, 48)}")
+                                       f"Extend status:{self.get_extended_status(reply, 48)}")
                     self.__log.warning(self._status)
                     return False
-                else:
-                    return True
-
             return True
         except Exception as e:
             raise DataError(e)
