@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-# clx.py - Ethernet/IP Client for Rockwell PLCs
+# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
 #
-#
+# Copyright (c) 2019 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,6 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
+
 import struct
 from collections import defaultdict
 
@@ -34,7 +35,9 @@ from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, SERVICE_STATUS, BITS_PER_INT_TYPE,
                     REPLAY_INFO, TAG_SERVICES_REQUEST, TAG_SERVICES_REPLY, DATA_ITEM, ADDRESS_ITEM,
-                    CLASS_ID, CLASS_CODE, INSTANCE_ID)
+                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS)
+
+REPLY_START = 50
 
 
 @logged

@@ -19,7 +19,6 @@ setup(
     license="MIT",
     packages=[
         "pycomm3",
-        "pycomm3.ab_comm",
         "pycomm3.cip"
     ],
     python_requires='>=3.6',

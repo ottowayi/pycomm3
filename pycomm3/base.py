@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-# base.py - A set of classes methods and structures  used to implement Ethernet/IP
+# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
 #
-#
+# Copyright (c) 2019 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,8 +41,6 @@ from .socket_ import Socket
 def get_bit(value, idx):
     """:returns value of bit at position idx"""
     return (value & (1 << idx)) != 0
-
-
 
 
 @logged

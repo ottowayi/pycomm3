@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-# clx.py - Ethernet/IP Client for Rockwell PLCs
+# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
 #
-#
+# Copyright (c) 2019 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,6 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
+
 from pycomm3.base import *
 import re
 import math
