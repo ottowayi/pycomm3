@@ -62,11 +62,7 @@ class CLXDriver(Base):
 """
 
     def __init__(self, ip_address, slot=0, large_packets=True):
-        super(CLXDriver, self).__init__()
-
-        self._buffer = {}
-        self._get_template_in_progress = False
-        self.__version__ = '0.2'
+        super().__init__()
 
         self._struct_cache = {}
         self._template_cache = {}
@@ -76,132 +72,53 @@ class CLXDriver(Base):
         self.attribs['cpu slot'] = slot
         self.attribs['extended forward open'] = large_packets
 
-    def get_last_tag_read(self):
-        """ Return the last tag read by a multi request read
-
-        :return: A tuple (tag name, value, type)
-        """
-        return self._last_tag_read
-
-    def get_last_tag_write(self):
-        """ Return the last tag write by a multi request write
-
-        :return: A tuple (tag name, 'GOOD') if the write was successful otherwise (tag name, 'BAD')
-        """
-        return self._last_tag_write
-
-    def _parse_instance_attribute_list(self, start_tag_ptr, status):
-        """ extract the tags list from the message received
-
-        :param start_tag_ptr: The point in the message string where the tag list begin
-        :param status: The status of the message receives
-        """
-        tags_returned = self._reply[start_tag_ptr:]
-        tags_returned_length = len(tags_returned)
-        idx = 0
-        instance = 0
-        count = 0
+    def _check_reply(self, reply):
+        """ check the replayed message for error"""
         try:
-            while idx < tags_returned_length:
-                instance = unpack_dint(tags_returned[idx:idx + 4])
-                # print(tags_returned[idx:idx + 4])
-                idx += 4
-                tag_length = unpack_uint(tags_returned[idx:idx + 2])
-                idx += 2
-                tag_name = tags_returned[idx:idx + tag_length]
-                idx += tag_length
-                symbol_type = unpack_uint(tags_returned[idx:idx + 2])
-                idx += 2
-                count += 1
-                self._tag_list.append({'instance_id': instance,
-                                       'tag_name': tag_name,
-                                       'symbol_type': symbol_type})
-            from pprint import pprint
-            pprint(self._tag_list)
+            if reply is None:
+                self._status = (3, '%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
+                return False
+            # Get the type of command
+            typ = unpack_uint(reply[:2])
+
+            # Encapsulation status check
+            if unpack_dint(reply[8:12]) != SUCCESS:
+                self._status = (3, f"{REPLAY_INFO[typ]} reply status:{SERVICE_STATUS[unpack_dint(reply[8:12])]}")
+                return False
+
+            # Command Specific Status check
+            if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
+                status = unpack_usint(reply[42:43])
+                if status != SUCCESS:
+                    self._status = (3, f"send_rr_data reply:{SERVICE_STATUS[status]} - "
+                                       f"Extend status:{self.get_extended_status(reply, 42)}")
+                    return False
+                else:
+                    return True
+            elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
+                status = self.parse_status(reply)
+                service = unpack_usint(reply[46:47])
+                if service in (TAG_SERVICES_REPLY["Read Tag Fragmented"],
+                               TAG_SERVICES_REPLY["Get Instance Attributes List"],
+                               TAG_SERVICES_REPLY["Get Attributes"],
+                               TAG_SERVICES_REPLY["Read Template"]):
+                    return True
+
+                if status == INSUFFICIENT_PACKETS:
+                    self._status = (3, "Insufficient Packet Space")
+                elif status != SUCCESS:
+                    self._status = (3, f"send_unit_data reply:{SERVICE_STATUS[status]} - "
+                    f"Extend status:{self.get_extended_status(reply, 48)}")
+                    self.__log.warning(self._status)
+                    return False
+                else:
+                    return True
+
+            return True
         except Exception as e:
             raise DataError(e)
 
-        if status == SUCCESS:
-            self._last_instance = -1
-        elif status == 0x06:
-            self._last_instance = instance + 1
-        else:
-            self._status = (1, 'unknown status during _parse_tag_list')
-            self._last_instance = -1
-
-    def _parse_structure_makeup_attributes(self, start_tag_ptr, status):
-        """ extract the tags list from the message received
-
-        :param start_tag_ptr: The point in the message string where the tag list begin
-        :param status: The status of the message receives
-        """
-        self._buffer = {}
-
-        if status != SUCCESS:
-            self._buffer['Error'] = status
-            return
-
-        attribute = self._reply[start_tag_ptr:]
-        idx = 4
-        try:
-            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
-                idx += 2
-                self._buffer['object_definition_size'] = unpack_dint(attribute[idx:idx + 4])
-            else:
-                self._buffer['Error'] = 'object_definition Error'
-                return
-
-            idx += 6
-            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
-                idx += 2
-                self._buffer['structure_size'] = unpack_dint(attribute[idx:idx + 4])
-            else:
-                self._buffer['Error'] = 'structure Error'
-                return
-
-            idx += 6
-            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
-                idx += 2
-                self._buffer['member_count'] = unpack_uint(attribute[idx:idx + 2])
-            else:
-                self._buffer['Error'] = 'member_count Error'
-                return
-
-            idx += 4
-            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
-                idx += 2
-                self._buffer['structure_handle'] = unpack_uint(attribute[idx:idx + 2])
-            else:
-                self._buffer['Error'] = 'structure_handle Error'
-                return
-
-            return self._buffer
-
-        except Exception as e:
-            raise DataError(e)
-
-    def _parse_template(self, start_tag_ptr, status):
-        """ extract the tags list from the message received
-
-        :param start_tag_ptr: The point in the message string where the tag list begin
-        :param status: The status of the message receives
-        """
-        tags_returned = self._reply[start_tag_ptr:]
-        bytes_received = len(tags_returned)
-
-        self._buffer += tags_returned
-
-        if status == SUCCESS:
-            self._get_template_in_progress = False
-
-        elif status == 0x06:
-            self._byte_offset += bytes_received
-        else:
-            self._status = (1, 'unknown status {0} during _parse_template'.format(status))
-            self.__log.warning(self._status)
-            self._last_instance = -1
-
-    def _parse_fragment(self, start_ptr, status):
+    def _parse_fragment(self, reply, last_idx, offset, tags, raw=False):
         """ parse the fragment returned by a fragment service.
 
         :param start_ptr: Where the fragment start within the replay
@@ -209,40 +126,42 @@ class CLXDriver(Base):
         """
 
         try:
-            data_type = unpack_uint(self._reply[start_ptr:start_ptr + 2])
-            fragment_returned = self._reply[start_ptr + 2:]
+            status = self.parse_status(reply)
+            data_type = unpack_uint(reply[REPLY_START:REPLY_START + 2])
+            fragment_returned = reply[REPLY_START + 2:]
         except Exception as e:
             raise DataError(e)
 
         fragment_returned_length = len(fragment_returned)
         idx = 0
-
         while idx < fragment_returned_length:
             try:
                 typ = DATA_TYPE[data_type]
-                if self._output_raw:
+                if raw:
                     value = fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]]
                 else:
                     value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]])
                 idx += DATA_FUNCTION_SIZE[typ]
             except Exception as e:
                 raise DataError(e)
-            if self._output_raw:
-                self._tag_list += value
+            if raw:
+                tags += value
             else:
-                self._tag_list.append((self._last_position, value))
-                self._last_position += 1
+                tags.append((last_idx, value))
+                last_idx += 1
 
         if status == SUCCESS:
-            self._byte_offset = -1
+            offset = -1
         elif status == 0x06:
-            self._byte_offset += fragment_returned_length
+            offset += fragment_returned_length
         else:
-            self._status = (2, '{0}: {1}'.format(SERVICE_STATUS[status], self.get_extended_status(self._reply, 48)))
+            self._status = (2, '{0}: {1}'.format(SERVICE_STATUS[status], self.get_extended_status(reply, 48)))
             self.__log.warning(self._status)
-            self._byte_offset = -1
+            offset = -1
 
-    def _parse_multiple_request_read(self, tags, tag_bits=None):
+        return last_idx, offset
+
+    def _parse_multiple_request_read(self, reply, tags, tag_bits=None):
         """ parse the message received from a multi request read:
 
         For each tag parsed, the information extracted includes the tag name, the value read and the data type.
@@ -254,23 +173,22 @@ class CLXDriver(Base):
         position = 50
         tag_bits = tag_bits or {}
         try:
-            number_of_service_replies = unpack_uint(self._reply[offset:offset + 2])
+            number_of_service_replies = unpack_uint(reply[offset:offset + 2])
             tag_list = []
             for index in range(number_of_service_replies):
                 position += 2
-                start = offset + unpack_uint(self._reply[position:position + 2])
-                general_status = unpack_usint(self._reply[start + 2:start + 3])
+                start = offset + unpack_uint(reply[position:position + 2])
+                general_status = unpack_usint(reply[start + 2:start + 3])
                 tag = tags[index]
                 if general_status == 0:
-                    typ = DATA_TYPE[unpack_uint(self._reply[start + 4:start + 6])]
+                    typ = DATA_TYPE[unpack_uint(reply[start + 4:start + 6])]
                     value_begin = start + 6
                     value_end = value_begin + DATA_FUNCTION_SIZE[typ]
-                    value = UNPACK_DATA_FUNCTION[typ](self._reply[value_begin:value_end])
+                    value = UNPACK_DATA_FUNCTION[typ](reply[value_begin:value_end])
                     if tag in tag_bits:
                         for bit in tag_bits[tag]:
-                            name = f'{tag}.{bit}'
                             val = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
-                            tag_list.append((name, val, 'BOOL'))
+                            tag_list.append((f'{tag}.{bit}', val, 'BOOL'))
                     else:
                         self._last_tag_read = (tag, value, typ)
                         tag_list.append(self._last_tag_read)
@@ -282,7 +200,7 @@ class CLXDriver(Base):
         except Exception as e:
             raise DataError(e)
 
-    def _parse_multiple_request_write(self, tags):
+    def _parse_multiple_request_write(self, tags, reply):
         """ parse the message received from a multi request writ:
 
         For each tag parsed, the information extracted includes the tag name and the status of the writing.
@@ -294,12 +212,12 @@ class CLXDriver(Base):
         position = 50
 
         try:
-            number_of_service_replies = unpack_uint(self._reply[offset:offset + 2])
+            number_of_service_replies = unpack_uint(reply[offset:offset + 2])
             tag_list = []
             for index in range(number_of_service_replies):
                 position += 2
-                start = offset + unpack_uint(self._reply[position:position + 2])
-                general_status = unpack_usint(self._reply[start + 2:start + 3])
+                start = offset + unpack_uint(reply[position:position + 2])
+                general_status = unpack_usint(reply[start + 2:start + 3])
 
                 if general_status == 0:
                     self._last_tag_write = (tags[index] + ('GOOD',))
@@ -308,63 +226,6 @@ class CLXDriver(Base):
 
                 tag_list.append(self._last_tag_write)
             return tag_list
-        except Exception as e:
-            raise DataError(e)
-
-    def _check_reply(self):
-        """ check the replayed message for error
-
-        """
-        self._more_packets_available = False
-        try:
-            if self._reply is None:
-                self._status = (3, '%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
-                return False
-            # Get the type of command
-            typ = unpack_uint(self._reply[:2])
-
-            # Encapsulation status check
-            if unpack_dint(self._reply[8:12]) != SUCCESS:
-                self._status = (3, "{0} reply status:{1}".format(REPLAY_INFO[typ],
-                                                                 SERVICE_STATUS[unpack_dint(self._reply[8:12])]))
-                return False
-
-            # Command Specific Status check
-            if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
-                status = unpack_usint(self._reply[42:43])
-                if status != SUCCESS:
-                    self._status = (3, "send_rr_data reply:{0} - Extend status:{1}".format(
-                        SERVICE_STATUS[status], self.get_extended_status(self._reply, 42)))
-                    return False
-                else:
-                    return True
-            elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
-                status = unpack_usint(self._reply[48:49])
-                if unpack_usint(self._reply[46:47]) == TAG_SERVICES_REPLY["Read Tag Fragmented"]:
-                    self._parse_fragment(50, status)
-                    return True
-                if unpack_usint(self._reply[46:47]) == TAG_SERVICES_REPLY["Get Instance Attributes List"]:
-                    self._parse_instance_attribute_list(50, status)
-                    return True
-                if unpack_usint(self._reply[46:47]) == TAG_SERVICES_REPLY["Get Attributes"]:
-                    self._parse_structure_makeup_attributes(50, status)
-                    return True
-                if unpack_usint(self._reply[46:47]) == TAG_SERVICES_REPLY["Read Template"] and \
-                        self._get_template_in_progress:
-                    self._parse_template(50, status)
-                    return True
-                if status == 0x06:
-                    self._status = (3, "Insufficient Packet Space")
-                    self._more_packets_available = True
-                elif status != SUCCESS:
-                    self._status = (3, "send_unit_data reply:{0} - Extend status:{1}".format(
-                        SERVICE_STATUS[status], self.get_extended_status(self._reply, 48)))
-                    self.__log.warning(self._status)
-                    return False
-                else:
-                    return True
-
-            return True
         except Exception as e:
             raise DataError(e)
 
@@ -382,9 +243,6 @@ class CLXDriver(Base):
         :return: None is returned in case of error otherwise the tag list is returned
         """
         self.clear()
-        multi_requests = isinstance(tag, (list, tuple))
-        tag_bits = defaultdict(list)
-        tags_read = []
 
         if not self._target_is_connected:
             if not self.forward_open():
@@ -392,68 +250,84 @@ class CLXDriver(Base):
                 self.__log.warning(self._status)
                 raise DataError(self._status[1])
 
-        if multi_requests:
-            rp_list = []
-            for t in tag:
-                t, bit = self._prep_bools(t, 'BOOL', bits_only=True)
-                read = bit is None or t not in tag_bits
-                if bit is not None:
-                    tag_bits[t].append(bit)
-                if read:
-                    tags_read.append(t)
-                    rp = self.create_tag_rp(t, multi_requests=True)
-                    if rp is None:
-                        self._status = (6, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
-                        raise DataError(self._status[1])
-                    else:
-                        rp_list.append(
-                            bytes([TAG_SERVICES_REQUEST['Read Tag']]) +
-                            rp +
-                            pack_uint(1))
-
-            message_request = self.build_multiple_service(rp_list, self._get_sequence())
-
+        if isinstance(tag, (list, tuple)):
+            return self._read_tag_multi(tag)
         else:
-            tag, bit = self._prep_bools(tag, 'BOOL', bits_only=True)
-            rp = self.create_tag_rp(tag)
-            if rp is None:
-                self._status = (6, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
-                return None
-            else:
-                # Creating the Message Request Packet
-                message_request = [
-                    pack_uint(self._get_sequence()),
-                    bytes([TAG_SERVICES_REQUEST['Read Tag']]),  # the Request Service
-                    bytes([len(rp) // 2]),  # the Request Path Size length in word
-                    rp,  # the request path
-                    pack_uint(1)
-                ]
+            return self._read_tag_single(tag)
 
-        if self.send_unit_data(
-                self.build_common_packet_format(
-                    DATA_ITEM['Connected'],
-                    b''.join(message_request),
-                    ADDRESS_ITEM['Connection Based'],
-                    addr_data=self._target_cid,
-                )) is None:
+    def _read_tag_multi(self, tags):
+        tag_bits = defaultdict(list)
+        rp_list = []
+        tags_read = []
+        for tag in tags:
+            tag, bit = self._prep_bools(tag, 'BOOL', bits_only=True)
+            read = bit is None or tag not in tag_bits
+            if bit is not None:
+                tag_bits[tag].append(bit)
+            if read:
+                tags_read.append(tag)
+                rp = self.create_tag_rp(tag, multi_requests=True)
+                if rp is None:
+                    self._status = (6, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
+                    raise DataError(self._status[1])
+                else:
+                    rp_list.append(
+                        bytes([TAG_SERVICES_REQUEST['Read Tag']]) +
+                        rp +
+                        pack_uint(1))
+
+        message_request = self.build_multiple_service(rp_list, self._get_sequence())
+        reply = self.send_unit_data(
+            self.build_common_packet_format(
+                DATA_ITEM['Connected'],
+                b''.join(message_request),
+                ADDRESS_ITEM['Connection Based'],
+                addr_data=self._target_cid, )
+        )
+        if reply is None:
             raise DataError("send_unit_data returned not valid data")
 
-        if multi_requests:
-            return self._parse_multiple_request_read(tags_read, tag_bits)
+        return self._parse_multiple_request_read(reply, tags_read, tag_bits)
+
+    def _read_tag_single(self, tag):
+        tag, bit = self._prep_bools(tag, 'BOOL', bits_only=True)
+        rp = self.create_tag_rp(tag)
+        if rp is None:
+            self._status = (6, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
+            return None
         else:
+            # Creating the Message Request Packet
+            message_request = [
+                pack_uint(self._get_sequence()),
+                bytes([TAG_SERVICES_REQUEST['Read Tag']]),  # the Request Service
+                bytes([len(rp) // 2]),  # the Request Path Size length in word
+                rp,  # the request path
+                pack_uint(1)
+            ]
+
+        reply = self.send_unit_data(
+            self.build_common_packet_format(
+                DATA_ITEM['Connected'],
+                b''.join(message_request),
+                ADDRESS_ITEM['Connection Based'],
+                addr_data=self._target_cid, )
+        )
+        if reply is None:
+            raise DataError("send_unit_data returned not valid data")
+
             # Get the data type
-            if self._status[0] == SUCCESS:
-                data_type = unpack_uint(self._reply[50:52])
-                typ = DATA_TYPE[data_type]
-                try:
-                    value = UNPACK_DATA_FUNCTION[typ](self._reply[52:])
-                    if bit is not None:
-                        value = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
-                    return value, typ
-                except Exception as e:
-                    raise DataError(e)
-            else:
-                return None
+        if self._status[0] == SUCCESS:
+            data_type = unpack_uint(reply[50:52])
+            typ = DATA_TYPE[data_type]
+            try:
+                value = UNPACK_DATA_FUNCTION[typ](reply[52:])
+                if bit is not None:
+                    value = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
+                return value, typ
+            except Exception as e:
+                raise DataError(e)
+        else:
+            return None
 
     def read_array(self, tag, counts, raw=False):
         """ read array of atomic data type from a connected plc
@@ -473,15 +347,11 @@ class CLXDriver(Base):
                 self.__log.warning(self._status)
                 raise DataError(self._status[1])
 
-        self._byte_offset = 0
-        self._last_position = 0
-        self._output_raw = raw
+        offset = 0
+        last_idx = 0
+        tags = b'' if raw else []
 
-        if self._output_raw:
-            self._tag_list = ''
-        else:
-            self._tag_list = []
-        while self._byte_offset != -1:
+        while offset != -1:
             rp = self.create_tag_rp(tag)
             if rp is None:
                 self._status = (7, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
@@ -494,19 +364,18 @@ class CLXDriver(Base):
                     bytes([len(rp) // 2]),  # the Request Path Size length in word
                     rp,  # the request path
                     pack_uint(counts),
-                    pack_dint(self._byte_offset)
+                    pack_dint(offset)
                 ]
-
-            if self.send_unit_data(
-                    self.build_common_packet_format(
-                        DATA_ITEM['Connected'],
-                        b''.join(message_request),
-                        ADDRESS_ITEM['Connection Based'],
-                        addr_data=self._target_cid,
-                    )) is None:
+            reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                                        b''.join(message_request),
+                                                                        ADDRESS_ITEM['Connection Based'],
+                                                                        addr_data=self._target_cid, ))
+            if reply is None:
                 raise DataError("send_unit_data returned not valid data")
 
-        return self._tag_list
+            last_idx, offset = self._parse_fragment(reply, last_idx, offset, tags, raw)
+
+        return tags
 
     @staticmethod
     def _prep_bools(tag, typ, bits_only=True):
@@ -521,7 +390,7 @@ class CLXDriver(Base):
             try:
                 base, idx = tag[:-1].rsplit(sep='[', maxsplit=1)
                 idx = int(idx)
-                base = f'{base}[{idx//32}]'
+                base = f'{base}[{idx // 32}]'
                 return base, idx
             except Exception:
                 return tag, None
@@ -537,13 +406,14 @@ class CLXDriver(Base):
     def _dword_to_boolarray(tag, bit):
         base, tmp = tag.rsplit(sep='[', maxsplit=1)
         i = int(tmp[:-1])
-        return f'{base}[{(i*32) + bit}]'
+        return f'{base}[{(i * 32) + bit}]'
 
     def _write_tag_multi_write(self, tags):
         rp_list = []
         tags_added = []
         for name, value, typ in tags:
-            name, bit = self._prep_bools(name, typ, bits_only=False)  # check if we're writing a bit of a integer rather than a BOOL
+            name, bit = self._prep_bools(name, typ,
+                                         bits_only=False)  # check if we're writing a bit of a integer rather than a BOOL
             # Create the request path to wrap the tag name
             rp = self.create_tag_rp(name, multi_requests=True)
             if rp is None:
@@ -576,10 +446,18 @@ class CLXDriver(Base):
 
         # Create the message request
         message_request = self.build_multiple_service(rp_list, self._get_sequence())
-        return message_request, tags_added
+        reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                                    b''.join(message_request),
+                                                                    ADDRESS_ITEM['Connection Based'],
+                                                                    addr_data=self._target_cid, ))
+        if reply:
+            return self._parse_multiple_request_write(tags_added, reply)
+
+        raise DataError("send_unit_data returned not valid data")
 
     def _write_tag_single_write(self, tag, value, typ):
-        name, bit = self._prep_bools(tag, typ, bits_only=False)  # check if we're writing a bit of a integer rather than a BOOL
+        name, bit = self._prep_bools(tag, typ,
+                                     bits_only=False)  # check if we're writing a bit of a integer rather than a BOOL
 
         rp = self.create_tag_rp(name)
         if rp is None:
@@ -607,11 +485,18 @@ class CLXDriver(Base):
                     PACK_DATA_FUNCTION[typ](value)
                 ]
 
-            return message_request
+            reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                                        b''.join(message_request),
+                                                                        ADDRESS_ITEM['Connection Based'],
+                                                                        addr_data=self._target_cid))
+            if reply:
+                return True
+
+            raise DataError("send_unit_data returned not valid data")
 
     @staticmethod
     def _make_write_bit_data(bit, value, bool_ary=False):
-        or_mask, and_mask = 0b0000_0000_0000_0000_0000_0000_0000_0000, 0b1111_1111_1111_1111_1111_1111_1111_1111
+        or_mask, and_mask = 0x00000000, 0xFFFFFFFF
 
         if bool_ary:
             mask_size = 4
@@ -654,7 +539,6 @@ class CLXDriver(Base):
         :return: None is returned in case of error otherwise the tag list is returned
         """
         self.clear()  # cleanup error string
-        multi_requests = isinstance(tag, (list, tuple))
 
         if not self._target_is_connected:
             if not self.forward_open():
@@ -662,29 +546,14 @@ class CLXDriver(Base):
                 self.__log.warning(self._status)
                 raise DataError(self._status[1])
 
-        if multi_requests:
-            message_request, tag = self._write_tag_multi_write(tag)
+        if isinstance(tag, (list, tuple)):
+            return self._write_tag_multi_write(tag)
         else:
             if isinstance(tag, tuple):
                 name, value, typ = tag
             else:
                 name = tag
-            message_request = self._write_tag_single_write(name, value, typ)
-
-        ret_val = self.send_unit_data(
-            self.build_common_packet_format(
-                DATA_ITEM['Connected'],
-                b''.join(message_request),
-                ADDRESS_ITEM['Connection Based'],
-                addr_data=self._target_cid,
-            )
-        )
-        if multi_requests:
-            return self._parse_multiple_request_write(tag)
-        else:
-            if ret_val is None:
-                raise DataError("send_unit_data returned not valid data")
-            return ret_val
+            return self._write_tag_single_write(name, value, typ)
 
     def write_array(self, tag, values, data_type, raw=False):
         """ write array of atomic data type from a connected plc
@@ -746,6 +615,77 @@ class CLXDriver(Base):
                 array_of_values = b''
                 byte_size = 0
 
+    def write_string(self, tag, value, size=82):
+        """
+            Rockwell define different string size:
+                STRING  STRING_12   STRING_16   STRING_20   STRING_40   STRING_8
+            by default we assume size 82 (STRING)
+        """
+        data_tag = ".".join((tag, "DATA"))
+        len_tag = ".".join((tag, "LEN"))
+
+        # create an empty array
+        data_to_send = [0] * size
+        for idx, val in enumerate(value):
+            try:
+                unsigned = ord(val)
+                data_to_send[idx] = unsigned - 256 if unsigned > 127 else unsigned
+            except IndexError:
+                break
+
+        str_len = len(value)
+        if str_len > size:
+            str_len = size
+
+        self.write_tag(len_tag, str_len, 'DINT')
+        self.write_array(data_tag, data_to_send, 'SINT')
+
+    def read_string(self, tag, str_len=None):
+        data_tag = f'{tag}.DATA'
+        if str_len is None:
+            len_tag = f'{tag}.LEN'
+            tmp = self.read_tag(len_tag)
+            length, _ = tmp or (None, None)
+        else:
+            length = str_len
+
+        if length:
+            values = self.read_array(data_tag, length)
+            if values:
+                _, values = zip(*values)
+                chars = [chr(v + 256) if v < 0 else chr(v) for v in values]
+                return ''.join(ch for ch in chars if ch != '\x00')
+        return None
+
+    def get_tag_list(self, program=None):
+        """
+        Returns the list of tags from the controller. For only controller-scoped tags, get `program` to None.
+        Set `program` to a program name to only get the program scoped tags from the specified program.
+        To get all controller and all program scoped tags from all programs, set `program` to '*
+
+        Note, for program scoped tags the tag['tag_name'] will be 'Program:{program}.{tag_name}'. This is so the tag
+        list can be fed directly into the read function.
+        """
+        if program == '*':
+            tags = self._get_tag_list()
+            for prog in self._program_names:
+                prog_tags = self._get_tag_list(prog)
+                for t in prog_tags:
+                    t['tag_name'] = f"{prog}.{t['tag_name']}"
+                tags += prog_tags
+            return tags
+        else:
+            return self._get_tag_list(program)
+
+    def _get_tag_list(self, program=None):
+        all_tags = self._get_instance_attribute_list_service(program)
+        user_tags = self._isolating_user_tag(all_tags)
+        for tag in user_tags:
+            if tag['tag_type'] == 'struct':
+                tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
+                tag['udt'] = self._parse_udt_raw(tag)
+        return user_tags
+
     def _get_instance_attribute_list_service(self, program=None):
         """ Step 1: Finding user-created controller scope tags in a Logix5000 controller
 
@@ -759,10 +699,9 @@ class CLXDriver(Base):
                     self.__log.warning(self._status)
                     raise DataError(self._status[1])
 
-            self._last_instance = 0
-
-            self._get_template_in_progress = True
-            while self._last_instance != -1:
+            last_instance = 0
+            tag_list = []
+            while last_instance != -1:
                 # Creating the Message Request Packet
                 path = []
                 if program is not None and not program.startswith('Program:'):
@@ -777,7 +716,7 @@ class CLXDriver(Base):
                     CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
                     INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     b'\x00',
-                    pack_uint(self._last_instance),  # The instance
+                    pack_uint(last_instance),  # The instance
                 ]
                 path = b''.join(path)
                 path_size = pack_usint(len(path) // 2)
@@ -788,22 +727,109 @@ class CLXDriver(Base):
                     path_size,
                     path,
                     # Request Data
-                    pack_uint(2),  # Number of attributes to retrieve
-                    pack_uint(1),  # Attribute 1: Symbol name
-                    pack_uint(2),
-                  ]
+                    b'\x02\x00',  # Number of attributes to retrieve
+                    b'\x01\x00',  # Attribute 1: Symbol name
+                    b'\x02\x00',
+                ]
 
-                if self.send_unit_data(
-                        self.build_common_packet_format(
-                            DATA_ITEM['Connected'],
-                            b''.join(message_request),
-                            ADDRESS_ITEM['Connection Based'],
-                            addr_data=self._target_cid,
-                        )) is None:
+                reply = self.send_unit_data(
+                    self.build_common_packet_format(
+                        DATA_ITEM['Connected'],
+                        b''.join(message_request),
+                        ADDRESS_ITEM['Connection Based'],
+                        addr_data=self._target_cid,
+                    ))
+                if reply is None:
                     raise DataError("send_unit_data returned not valid data")
 
-            self._get_template_in_progress = False
+                last_instance = self._parse_instance_attribute_list(reply, last_instance, tag_list)
+            return tag_list
 
+        except Exception as e:
+            raise DataError(e)
+
+    def _parse_instance_attribute_list(self, reply, last_instance, tag_list):
+        """ extract the tags list from the message received
+
+        :param start_tag_ptr: The point in the message string where the tag list begin
+        :param status: The status of the message receives
+        """
+
+        status = self.parse_status(reply)
+        tags_returned = reply[REPLY_START:]
+        tags_returned_length = len(tags_returned)
+        idx = count = instance = 0
+        try:
+            while idx < tags_returned_length:
+                instance = unpack_dint(tags_returned[idx:idx + 4])
+                idx += 4
+                tag_length = unpack_uint(tags_returned[idx:idx + 2])
+                idx += 2
+                tag_name = tags_returned[idx:idx + tag_length]
+                idx += tag_length
+                symbol_type = unpack_uint(tags_returned[idx:idx + 2])
+                idx += 2
+                count += 1
+                tag_list.append({'instance_id': instance, 'tag_name': tag_name, 'symbol_type': symbol_type})
+        except Exception as e:
+            raise DataError(e)
+
+        if status == SUCCESS:
+            last_instance = -1
+        elif status == INSUFFICIENT_PACKETS:
+            last_instance = instance + 1
+        else:
+            self._status = (1, 'unknown status during _parse_instance_attribute_list')
+            last_instance = -1
+
+        return last_instance
+
+    def _isolating_user_tag(self, all_tags):
+        try:
+            user_tags = []
+            for tag in all_tags:
+                tag['tag_name'] = tag['tag_name'].decode()
+                if 'Program:' in tag['tag_name']:
+                    self._program_names.append(tag['tag_name'])
+                    continue
+                if ':' in tag['tag_name'] or '__' in tag['tag_name']:
+                    continue
+                if tag['symbol_type'] & 0b0001000000000000:
+                    continue
+                dimension = (tag['symbol_type'] & 0b0110000000000000) >> 13
+
+                if tag['symbol_type'] & 0b1000000000000000:
+                    template_instance_id = tag['symbol_type'] & 0b0000111111111111
+                    tag_type = 'struct'
+                    data_type = 'user-created'
+                    user_tags.append({'instance_id': tag['instance_id'],
+                                      'template_instance_id': template_instance_id,
+                                      'tag_name': tag['tag_name'],
+                                      'dim': dimension,
+                                      'tag_type': tag_type,
+                                      'data_type': data_type,
+                                      'template': {},
+                                      'udt': {}})
+                else:
+                    tag_type = 'atomic'
+                    datatype = tag['symbol_type'] & 0b0000000011111111
+                    data_type = DATA_TYPE[datatype]
+                    if datatype == DATA_TYPE['BOOL']:
+                        bit_position = (tag['symbol_type'] & 0b0000011100000000) >> 8
+                        user_tags.append({'instance_id': tag['instance_id'],
+                                          'tag_name': tag['tag_name'],
+                                          'dim': dimension,
+                                          'tag_type': tag_type,
+                                          'data_type': data_type,
+                                          'bit_position': bit_position})
+                    else:
+                        user_tags.append({'instance_id': tag['instance_id'],
+                                          'tag_name': tag['tag_name'],
+                                          'dim': dimension,
+                                          'tag_type': tag_type,
+                                          'data_type': data_type})
+
+            return user_tags
         except Exception as e:
             raise DataError(e)
 
@@ -821,27 +847,76 @@ class CLXDriver(Base):
             message_request = [
                 pack_uint(self._get_sequence()),
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                bytes([3]),  # Request Path ( 20 6B 25 00 Instance )
+                b'\x03',  # Request Path ( 20 6B 25 00 Instance )
                 CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                 CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
                 INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                 b'\x00',
                 pack_uint(instance_id),
-                pack_uint(4),  # Number of attributes
-                pack_uint(4),  # Template Object Definition Size UDINT
-                pack_uint(5),  # Template Structure Size UDINT
-                pack_uint(2),  # Template Member Count UINT
-                pack_uint(1)  # Structure Handle We can use this to read and write UINT
+                b'\x04\x00',  # Number of attributes
+                b'\x04\x00',  # Template Object Definition Size UDINT
+                b'\x05\x00',  # Template Structure Size UDINT
+                b'\x02\x00',  # Template Member Count UINT
+                b'\x01\x00'  # Structure Handle We can use this to read and write UINT
             ]
 
-            if self.send_unit_data(
-                    self.build_common_packet_format(DATA_ITEM['Connected'],
-                                                    b''.join(message_request), ADDRESS_ITEM['Connection Based'],
-                                                    addr_data=self._target_cid, )) is None:
+            reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                                        b''.join(message_request),
+                                                                        ADDRESS_ITEM['Connection Based'],
+                                                                        addr_data=self._target_cid, ))
+            if reply is None:
                 raise DataError("send_unit_data returned not valid data")
-            self._struct_cache[instance_id] = self._buffer
+
+            self._struct_cache[instance_id] = self._parse_structure_makeup_attributes(reply)
 
         return self._struct_cache[instance_id]
+
+    def _parse_structure_makeup_attributes(self, reply):
+        """ extract the tags list from the message received"""
+        structure = {}
+        status = self.parse_status(reply)
+        if status != SUCCESS:
+            structure['Error'] = status
+            return
+
+        attribute = reply[REPLY_START:]
+        idx = 4
+        try:
+            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+                idx += 2
+                structure['object_definition_size'] = unpack_dint(attribute[idx:idx + 4])
+            else:
+                structure['Error'] = 'object_definition Error'
+                return structure
+
+            idx += 6
+            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+                idx += 2
+                structure['structure_size'] = unpack_dint(attribute[idx:idx + 4])
+            else:
+                structure['Error'] = 'structure Error'
+                return structure
+
+            idx += 6
+            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+                idx += 2
+                structure['member_count'] = unpack_uint(attribute[idx:idx + 2])
+            else:
+                structure['Error'] = 'member_count Error'
+                return structure
+
+            idx += 4
+            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+                idx += 2
+                structure['structure_handle'] = unpack_uint(attribute[idx:idx + 2])
+            else:
+                structure['Error'] = 'structure_handle Error'
+                return structure
+
+            return structure
+
+        except Exception as e:
+            raise DataError(e)
 
     def _read_template(self, instance_id, object_definition_size):
         """ get a list of the tags in the plc
@@ -854,90 +929,56 @@ class CLXDriver(Base):
                 raise DataError(self._status[1])
 
         if instance_id not in self._template_cache:
-            self._byte_offset = 0
-            self._buffer = b''
-            self._get_template_in_progress = True
-
+            offset = 0
+            template = b''
             try:
-                while self._get_template_in_progress:
-
-                    # Creating the Message Request Packet
-
+                while offset is not None:
                     message_request = [
                         pack_uint(self._get_sequence()),
                         bytes([TAG_SERVICES_REQUEST['Read Template']]),
-                        bytes([3]),  # Request Path ( 20 6B 25 00 Instance )
+                        b'\x03',  # Request Path ( 20 6B 25 00 Instance )
                         CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
                         CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
                         INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                         b'\x00',
                         pack_uint(instance_id),
-                        pack_dint(self._byte_offset),  # Offset
-                        pack_uint(((object_definition_size * 4) - 21) - self._byte_offset)
+                        pack_dint(offset),  # Offset
+                        pack_uint(((object_definition_size * 4) - 21) - offset)
                     ]
 
-                    if not self.send_unit_data(
-                            self.build_common_packet_format(
-                                DATA_ITEM['Connected'],
-                                b''.join(message_request),
-                                ADDRESS_ITEM['Connection Based'],
-                                addr_data=self._target_cid, )):
+                    reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                                                b''.join(message_request),
+                                                                                ADDRESS_ITEM['Connection Based'],
+                                                                                addr_data=self._target_cid, ))
+                    if reply is None:
                         raise DataError("send_unit_data returned not valid data")
 
-                self._get_template_in_progress = False
-                self._template_cache[instance_id] = self._buffer
+                    offset, template = self._parse_template(reply, offset, template)
+
+                self._template_cache[instance_id] = template
 
             except Exception as e:
                 raise DataError(e)
         return self._template_cache[instance_id]
 
-    def _isolating_user_tag(self):
-        try:
-            lst, self._tag_list = self._tag_list, []
+    def _parse_template(self, reply, offset, template):
+        """ extract the tags list from the message received"""
+        tags_returned = reply[REPLY_START:]
+        bytes_received = len(tags_returned)
+        status = self.parse_status(reply)
 
-            for tag in lst:
-                tag['tag_name'] = tag['tag_name'].decode()
-                if 'Program:' in tag['tag_name']:
-                    self._program_names.append(tag['tag_name'])
-                    continue
-                if ':' in tag['tag_name'] or '__' in tag['tag_name']:
-                    continue
-                if tag['symbol_type'] & 0b0001000000000000:
-                    continue
-                dimension = (tag['symbol_type'] & 0b0110000000000000) >> 13
+        template += tags_returned
 
-                if tag['symbol_type'] & 0b1000000000000000:
-                    template_instance_id = tag['symbol_type'] & 0b0000111111111111
-                    tag_type = 'struct'
-                    data_type = 'user-created'
-                    self._tag_list.append({'instance_id': tag['instance_id'],
-                                           'template_instance_id': template_instance_id,
-                                           'tag_name': tag['tag_name'],
-                                           'dim': dimension,
-                                           'tag_type': tag_type,
-                                           'data_type': data_type,
-                                           'template': {},
-                                           'udt': {}})
-                else:
-                    tag_type = 'atomic'
-                    datatype = tag['symbol_type'] & 0b0000000011111111
-                    data_type = DATA_TYPE[datatype]
-                    if datatype == DATA_TYPE['BOOL']:
-                        bit_position = (tag['symbol_type'] & 0b0000011100000000) >> 8
-                        self._tag_list.append({'instance_id': tag['instance_id'],
-                                               'tag_name': tag['tag_name'],
-                                               'dim': dimension,
-                                               'tag_type': tag_type,
-                                               'data_type': data_type,
-                                               'bit_position': bit_position})
-                    else:
-                        self._tag_list.append({'instance_id': tag['instance_id'],
-                                               'tag_name': tag['tag_name'],
-                                               'dim': dimension,
-                                               'tag_type': tag_type,
-                                               'data_type': data_type})
-        except Exception as e:
-            raise DataError(e)
+        if status == SUCCESS:
+            offset = None
+        elif status == INSUFFICIENT_PACKETS:
+            offset += bytes_received
+        else:
+            self._status = (1, f'unknown status {status} during _parse_template')
+            self.__log.warning(self._status)
+            offset = None
+
+        return offset, template
 
     def _build_udt(self, data, member_count):
         udt = {'name': None,
@@ -992,74 +1033,22 @@ class CLXDriver(Base):
 
         return self._udt_cache[tag['template_instance_id']]
 
-    def get_tag_list(self, program=None):
+    @property
+    def last_tag_read(self):
+        """ Return the last tag read by a multi request read
+
+        :return: A tuple (tag name, value, type)
         """
-        Returns the list of tags from the controller. For only controller-scoped tags, get `program` to None.
-        Set `program` to a program name to only get the program scoped tags from the specified program.
-        To get all controller and all program scoped tags from all programs, set `program` to '*
+        return self._last_tag_read
 
-        Note, for program scoped tags the tag['tag_name'] will be 'Program:{program}.{tag_name}'. This is so the tag
-        list can be fed directly into the read function.
+    @property
+    def last_tag_write(self):
+        """ Return the last tag write by a multi request write
+
+        :return: A tuple (tag name, 'GOOD') if the write was successful otherwise (tag name, 'BAD')
         """
-        if program == '*':
-            tags = self._get_tag_list()
-            for prog in self._program_names:
-                prog_tags = self._get_tag_list(prog)
-                for t in prog_tags:
-                    t['tag_name'] = f"{prog}.{t['tag_name']}"
-                tags += prog_tags
-            return tags
-        else:
-            return self._get_tag_list(program)
+        return self._last_tag_write
 
-    def _get_tag_list(self, program=None):
-        self._tag_list = []
-        self._get_instance_attribute_list_service(program)
-        self._isolating_user_tag()
-        for tag in self._tag_list:
-            if tag['tag_type'] == 'struct':
-                tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
-                tag['udt'] = self._parse_udt_raw(tag)
-        return self._tag_list
-
-    def write_string(self, tag, value, size=82):
-        """
-            Rockwell define different string size:
-                STRING  STRING_12   STRING_16   STRING_20   STRING_40   STRING_8
-            by default we assume size 82 (STRING)
-        """
-        data_tag = ".".join((tag, "DATA"))
-        len_tag = ".".join((tag, "LEN"))
-
-        # create an empty array
-        data_to_send = [0] * size
-        for idx, val in enumerate(value):
-            try:
-                unsigned = ord(val)
-                data_to_send[idx] = unsigned - 256 if unsigned > 127 else unsigned
-            except IndexError:
-                break
-
-        str_len = len(value)
-        if str_len > size:
-            str_len = size
-
-        self.write_tag(len_tag, str_len, 'DINT')
-        self.write_array(data_tag, data_to_send, 'SINT')
-
-    def read_string(self, tag, str_len=None):
-        data_tag = f'{tag}.DATA'
-        if str_len is None:
-            len_tag = f'{tag}.LEN'
-            tmp = self.read_tag(len_tag)
-            length, _ = tmp or (None, None)
-        else:
-            length = str_len
-
-        if length:
-            values = self.read_array(data_tag, length)
-            if values:
-                _, values = zip(*values)
-                chars = [chr(v + 256) if v < 0 else chr(v) for v in values]
-                return ''.join(ch for ch in chars if ch != '\x00')
-        return None
+    @staticmethod
+    def parse_status(reply):
+        return unpack_usint(reply[48:49])
