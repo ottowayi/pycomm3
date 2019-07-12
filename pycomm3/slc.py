@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from pycomm3.cip.cip_base import *
+from pycomm3.base import *
 import re
 import math
 #import binascii
@@ -155,12 +155,12 @@ def parse_tag(tag):
     return False, tag
 
 
-class Driver(Base):
+class SLCDriver(Base):
     """
     SLC/PLC_5 Implementation
     """
     def __init__(self):
-        super(Driver, self).__init__()
+        super(SLCDriver, self).__init__()
 
         self.__version__ = '0.1'
         self._last_sequence = 0
