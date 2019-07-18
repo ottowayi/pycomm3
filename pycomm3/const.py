@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-# cip_const.py - A set of structures and constants used to implement the Ethernet/IP protocol
+# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
 #
-#
+# Copyright (c) 2019 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,18 +25,18 @@
 #
 
 ELEMENT_ID = {
-    "8-bit":  b'\x28',
+    "8-bit": b'\x28',
     "16-bit": b'\x29',
     "32-bit": b'\x2a'
 }
 
 CLASS_ID = {
-    "8-bit":  b'\x20',
+    "8-bit": b'\x20',
     "16-bit": b'\x21',
 }
 
 INSTANCE_ID = {
-    "8-bit":  b'\x24',
+    "8-bit": b'\x24',
     "16-bit": b'\x25'
 }
 
@@ -58,15 +58,15 @@ PATH = {
 }
 
 ENCAPSULATION_COMMAND = {  # Volume 2: 2-3.2 Command Field UINT 2 byte
-    "nop":                b'\x00\x00',
-    "list_targets":       b'\x01\x00',
-    "list_services":      b'\x04\x00',
-    "list_identity":      b'\x63\x00',
-    "list_interfaces":    b'\x64\x00',
-    "register_session":   b'\x65\x00',
+    "nop": b'\x00\x00',
+    "list_targets": b'\x01\x00',
+    "list_services": b'\x04\x00',
+    "list_identity": b'\x63\x00',
+    "list_interfaces": b'\x64\x00',
+    "register_session": b'\x65\x00',
     "unregister_session": b'\x66\x00',
-    "send_rr_data":       b'\x6F\x00',
-    "send_unit_data":     b'\x70\x00'
+    "send_rr_data": b'\x6F\x00',
+    "send_unit_data": b'\x70\x00'
 }
 
 """
@@ -77,36 +77,36 @@ When a UDT is created, an instance of the Template object (Class ID 0x6C) is
 created to hold information about the structure makeup.
 """
 CLASS_CODE = {
-    "Message Router":     b'\x02',  # Volume 1: 5-1
-    "Symbol Object":      b'\x6b',
-    "Template Object":    b'\x6c',
+    "Message Router": b'\x02',  # Volume 1: 5-1
+    "Symbol Object": b'\x6b',
+    "Template Object": b'\x6c',
     "Connection Manager": b'\x06'  # Volume 1: 3-5
 }
 
 CONNECTION_MANAGER_INSTANCE = {
-    'Open Request':            b'\x01',
-    'Open Format Rejected':    b'\x02',
+    'Open Request': b'\x01',
+    'Open Format Rejected': b'\x02',
     'Open Resource  Rejected': b'\x03',
-    'Open Other Rejected':     b'\x04',
-    'Close Request':           b'\x05',
-    'Close Format Request':    b'\x06',
-    'Close Other Request':     b'\x07',
-    'Connection Timeout':      b'\x08'
+    'Open Other Rejected': b'\x04',
+    'Close Request': b'\x05',
+    'Close Format Request': b'\x06',
+    'Close Other Request': b'\x07',
+    'Connection Timeout': b'\x08'
 }
 
 TAG_SERVICES_REQUEST = {
-    "Read Tag":                     0x4c,
-    "Read Tag Fragmented":          0x52,
-    "Write Tag":                    0x4d,
-    "Write Tag Fragmented":         0x53,
-    "Read Modify Write Tag":        0x4e,
-    "Multiple Service Packet":      0x0a,
+    "Read Tag": 0x4c,
+    "Read Tag Fragmented": 0x52,
+    "Write Tag": 0x4d,
+    "Write Tag Fragmented": 0x53,
+    "Read Modify Write Tag": 0x4e,
+    "Multiple Service Packet": 0x0a,
     "Get Instance Attributes List": 0x55,
-    "Get Attributes":               0x03,
-    "Read Template":                0x4c,
+    "Get Attributes": 0x03,
+    "Read Template": 0x4c,
 }
 
-TAG_SERVICES_REPLY = {
+_TAG_SERVICES_REPLY = {
     0xcc: "Read Tag",
     0xd2: "Read Tag Fragmented",
     0xcd: "Write Tag",
@@ -118,19 +118,7 @@ TAG_SERVICES_REPLY = {
     0xcc: "Read Template"
 }
 
-
-I_TAG_SERVICES_REPLY = {
-    "Read Tag": 0xcc,
-    "Read Tag Fragmented": 0xd2,
-    "Write Tag": 0xcd,
-    "Write Tag Fragmented": 0xd3,
-    "Read Modify Write Tag": 0xce,
-    "Multiple Service Packet": 0x8a,
-    "Get Instance Attributes List": 0xd5,
-    "Get Attributes": 0x83,
-    "Read Template": 0xcc
-}
-
+TAG_SERVICES_REPLY = {**_TAG_SERVICES_REPLY, **{v: k for k, v in _TAG_SERVICES_REPLY.items()}}
 
 """
 EtherNet/IP Encapsulation Error Codes
@@ -155,6 +143,7 @@ The following error codes have been taken from:
 Rockwell Automation Publication
 1756-RM003P-EN-P - December 2014
 """
+
 SERVICE_STATUS = {
     0x01: "Connection failure (see extended status)",
     0x02: "Insufficient resource",
@@ -197,7 +186,6 @@ SERVICE_STATUS = {
     0xFE: "Message timeout",
     0xff: "General Error (see extended status)"
 }
-
 
 EXTEND_CODES = {
     0x01: {
@@ -268,16 +256,15 @@ EXTEND_CODES = {
     }
 }
 
-
 DATA_ITEM = {
-    'Connected':   b'\xb1\x00',
+    'Connected': b'\xb1\x00',
     'Unconnected': b'\xb2\x00'
 }
 
 ADDRESS_ITEM = {
     'Connection Based': b'\xa1\x00',
-    'Null':             b'\x00\x00',
-    'UCMM':             b'\x00\x00'
+    'Null': b'\x00\x00',
+    'UCMM': b'\x00\x00'
 }
 
 UCMM = {
@@ -289,7 +276,7 @@ UCMM = {
 }
 
 CONNECTION_SIZE = {
-    'Backplane':      b'\x03',     # CLX
+    'Backplane': b'\x03',  # CLX
     'Direct Network': b'\x02'
 }
 
@@ -303,21 +290,20 @@ SUCCESS = 0
 INSUFFICIENT_PACKETS = 6
 OFFSET_MESSAGE_REQUEST = 40
 
-
-FORWARD_CLOSE          = b'\x4e'
-UNCONNECTED_SEND       = b'\x52'
-FORWARD_OPEN           = b'\x54'
-LARGE_FORWARD_OPEN     = b'\x5b'
-GET_CONNECTION_DATA    = b'\x56'
+FORWARD_CLOSE = b'\x4e'
+UNCONNECTED_SEND = b'\x52'
+FORWARD_OPEN = b'\x54'
+LARGE_FORWARD_OPEN = b'\x5b'
+GET_CONNECTION_DATA = b'\x56'
 SEARCH_CONNECTION_DATA = b'\x57'
-GET_CONNECTION_OWNER   = b'\x5a'
-MR_SERVICE_SIZE        = 2
+GET_CONNECTION_OWNER = b'\x5a'
+MR_SERVICE_SIZE = 2
 
-PADDING_BYTE =       b'\x00'
-PRIORITY =           b'\x0a'
-TIMEOUT_TICKS =      b'\x05'
+PADDING_BYTE = b'\x00'
+PRIORITY = b'\x0a'
+TIMEOUT_TICKS = b'\x05'
 TIMEOUT_MULTIPLIER = b'\x01'
-TRANSPORT_CLASS =    b'\xa3'
+TRANSPORT_CLASS = b'\xa3'
 
 CONNECTION_PARAMETER = {
     'PLC5': 0x4302,
@@ -343,52 +329,52 @@ When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xff, respect
 """
 
 BITS_PER_INT_TYPE = {
-    'SINT': 8,    # Signed 8-bit integer
-    'INT': 16,     # Signed 16-bit integer
-    'DINT': 32,    # Signed 32-bit integer
-    'LINT': 64,    # Signed 64-bit integer
-    'USINT': 8,   # Unsigned 8-bit integer
-    'UINT': 16,    # Unsigned 16-bit integer
-    'UDINT': 32,   # Unsigned 32-bit integer
-    'ULINT': 64,   # Unsigned 64-bit integer
-    'WORD':  16,     # byte string 16-bits
-    'DWORD': 32,    # byte string 32-bits
-    'LWORD': 64,    # byte string 64-bits
+    'SINT': 8,  # Signed 8-bit integer
+    'INT': 16,  # Signed 16-bit integer
+    'DINT': 32,  # Signed 32-bit integer
+    'LINT': 64,  # Signed 64-bit integer
+    'USINT': 8,  # Unsigned 8-bit integer
+    'UINT': 16,  # Unsigned 16-bit integer
+    'UDINT': 32,  # Unsigned 32-bit integer
+    'ULINT': 64,  # Unsigned 64-bit integer
+    'WORD': 16,  # byte string 16-bits
+    'DWORD': 32,  # byte string 32-bits
+    'LWORD': 64,  # byte string 64-bits
 }
-_data_types = {
+_DATA_TYPES = {
     'BOOL': 0xc1,
-    'SINT': 0xc2,    # Signed 8-bit integer
-    'INT': 0xc3,     # Signed 16-bit integer
-    'DINT': 0xc4,    # Signed 32-bit integer
-    'LINT': 0xc5,    # Signed 64-bit integer
-    'USINT': 0xc6,   # Unsigned 8-bit integer
-    'UINT': 0xc7,    # Unsigned 16-bit integer
-    'UDINT': 0xc8,   # Unsigned 32-bit integer
-    'ULINT': 0xc9,   # Unsigned 64-bit integer
-    'REAL': 0xca,    # 32-bit floating point
-    'LREAL': 0xcb,   # 64-bit floating point
-    'STIME': 0xcc,   # Synchronous time
+    'SINT': 0xc2,  # Signed 8-bit integer
+    'INT': 0xc3,  # Signed 16-bit integer
+    'DINT': 0xc4,  # Signed 32-bit integer
+    'LINT': 0xc5,  # Signed 64-bit integer
+    'USINT': 0xc6,  # Unsigned 8-bit integer
+    'UINT': 0xc7,  # Unsigned 16-bit integer
+    'UDINT': 0xc8,  # Unsigned 32-bit integer
+    'ULINT': 0xc9,  # Unsigned 64-bit integer
+    'REAL': 0xca,  # 32-bit floating point
+    'LREAL': 0xcb,  # 64-bit floating point
+    'STIME': 0xcc,  # Synchronous time
     'DATE': 0xcd,
     'TIME_OF_DAY': 0xce,
     'DATE_AND_TIME': 0xcf,
-    'STRING': 0xd0,   # character string (1 byte per character)
-    'BYTE': 0xd1,     # byte string 8-bits
-    'WORD': 0xd2,     # byte string 16-bits
-    'DWORD': 0xd3,    # byte string 32-bits
-    'LWORD': 0xd4,    # byte string 64-bits
+    'STRING': 0xd0,  # character string (1 byte per character)
+    'BYTE': 0xd1,  # byte string 8-bits
+    'WORD': 0xd2,  # byte string 16-bits
+    'DWORD': 0xd3,  # byte string 32-bits
+    'LWORD': 0xd4,  # byte string 64-bits
     'STRING2': 0xd5,  # character string (2 byte per character)
-    'FTIME': 0xd6,    # Duration high resolution
-    'LTIME': 0xd7,    # Duration long
-    'ITIME': 0xd8,    # Duration short
+    'FTIME': 0xd6,  # Duration high resolution
+    'LTIME': 0xd7,  # Duration long
+    'ITIME': 0xd8,  # Duration short
     'STRINGN': 0xd9,  # character string (n byte per character)
     'SHORT_STRING': 0xda,  # character string (1 byte per character, 1 byte length indicator)
-    'TIME': 0xdb,     # Duration in milliseconds
-    'EPATH': 0xdc,    # CIP Path segment
+    'TIME': 0xdb,  # Duration in milliseconds
+    'EPATH': 0xdc,  # CIP Path segment
     'ENGUNIT': 0xdd,  # Engineering Units
-    'STRINGI': 0xde   # International character string
+    'STRINGI': 0xde  # International character string
 }
 
-DATA_TYPE = {**_data_types, **{v: k for k, v in _data_types.items()}}
+DATA_TYPE = {**_DATA_TYPES, **{v: k for k, v in _DATA_TYPES.items()}}
 
 REPLAY_INFO = {
     0x4e: 'FORWARD_CLOSE (4E,00)',
