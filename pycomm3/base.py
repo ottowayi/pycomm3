@@ -47,14 +47,14 @@ def get_bit(value, idx):
 class Base:
     _sequence = 0
 
-    def __init__(self):
+    def __init__(self, direct_connection=False):
         if Base._sequence == 0:
             Base._sequence = getpid()
         else:
             Base._sequence = Base._get_sequence()
 
         self.__sock = None
-        self.__direct_connections = False
+        self.__direct_connections = direct_connection
         self._session = 0
         self._connection_opened = False
         self._target_cid = None
@@ -102,6 +102,23 @@ class Base:
 
     def __contains__(self, item):
         return item in self.attribs
+
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            self.close()
+        except CommError:
+            self.__log.exception('Error closing connection.')
+            return False
+        else:
+            if not exc_type:
+                return True
+            else:
+                self.__log.exception('Unhandled Client Error', exc_info=(exc_type, exc_val, exc_tb))
+                return False
 
     def _check_reply(self, reply):
         raise NotImplementedError("The method has not been implemented")
@@ -165,6 +182,7 @@ class Base:
         """
         msg = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(message))
         msg += message
+
         self._send(msg)
         reply = self._receive()
         return reply if self._check_reply(reply) else None
@@ -181,7 +199,7 @@ class Base:
 
         The header is 24 bytes fixed length, and includes the command and the length of the optional data portion.
 
-         :return: the headre
+         :return: the header
         """
         try:
             h = command
@@ -368,23 +386,19 @@ class Base:
             self.__log.debug(print_bytes_msg(reply, '----------- RECEIVE -----------'))
             return reply
 
-    def open(self, ip_address, direct_connection=False):
+    def open(self):
         """
         socket open
         :param: ip address to connect to and type of connection. By default direct connection is disabled
         :return: true if no error otherwise false
         """
-        # set type of connection needed
-        self.__direct_connections = direct_connection
-
         # handle the socket layer
         if not self._connection_opened:
             try:
                 if self.__sock is None:
                     self.__sock = Socket()
-                self.__sock.connect(ip_address, self.attribs['port'])
+                self.__sock.connect(self.attribs['ip address'], self.attribs['port'])
                 self._connection_opened = True
-                self.attribs['ip address'] = ip_address
                 self.attribs['cid'] = urandom(4)
                 self.attribs['vsn'] = urandom(4)
                 if self.register_session() is None:

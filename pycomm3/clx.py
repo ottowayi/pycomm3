@@ -61,9 +61,9 @@ class CLXDriver(Base):
 
 """
 
-    def __init__(self, ip_address, slot=0, large_packets=True):
-        super().__init__()
-
+    def __init__(self, ip_address, *args, slot=0, large_packets=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._instance_id_cache = {}
         self._struct_cache = {}
         self._template_cache = {}
         self._udt_cache = {}
