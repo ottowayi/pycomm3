@@ -562,21 +562,16 @@ class Base:
             INSTANCE_ID["8-bit"],
             pack_usint(1),  # Instance 1
             pack_uint(len(rp_list))  # Number of service contained in the request
-        ]  #
-
+        ]
         if sequence is not None:
             mr.insert(0, pack_uint(sequence))
         # Offset calculation
         offset = (len(rp_list) * 2) + 2
         for index, rp in enumerate(rp_list):
-            if index == 0:
-                mr.append(pack_uint(offset))  # Starting offset
-            else:
-                mr.append(pack_uint(offset))
+            mr.append(pack_uint(offset))  # Starting offset
             offset += len(rp)
 
-        for rp in rp_list:
-            mr.append(rp)
+        mr += rp_list
         return mr
 
     @staticmethod

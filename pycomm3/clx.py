@@ -34,8 +34,8 @@ from .base import Base
 from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint, unpack_uint, unpack_dint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, SERVICE_STATUS, BITS_PER_INT_TYPE,
-                    REPLAY_INFO, TAG_SERVICES_REQUEST, TAG_SERVICES_REPLY, DATA_ITEM, ADDRESS_ITEM,
-                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS)
+                    REPLAY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
+                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, MULTISERVICE_OVERHEAD_PER_TAG)
 
 REPLY_START = 50
 
@@ -53,6 +53,7 @@ class CLXDriver(Base):
         - Write Tag Service (0x4d)
         - Write Tag Fragment Service (0x53)
         - Multiple Service Packet (0x0a)
+        - Read Modify Write Tag (0xce)
 
     The client has been successfully tested with the following PLCs:
         - CompactLogix 5330ERM
@@ -71,12 +72,13 @@ class CLXDriver(Base):
         self.attribs['ip address'] = ip_address
         self.attribs['cpu slot'] = slot
         self.attribs['extended forward open'] = large_packets
+        self._connection_size = 4000 if large_packets else 500
 
     def _check_reply(self, reply):
         """ check the replayed message for error"""
         try:
             if reply is None:
-                self._status = (3, '%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
+                self._status = (3, f'{REPLAY_INFO[unpack_dint(reply[:2])]} without reply')
                 return False
             # Get the type of command
             typ = unpack_uint(reply[:2])
@@ -96,7 +98,7 @@ class CLXDriver(Base):
                 else:
                     return True
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
-                status = self.unit_data_status(reply)
+                status = _unit_data_status(reply)
                 if status not in (INSUFFICIENT_PACKETS, SUCCESS):
                     self._status = (3, f"send_unit_data reply:{SERVICE_STATUS[status]} - "
                                        f"Extend status:{self.get_extended_status(reply, 48)}")
@@ -106,114 +108,76 @@ class CLXDriver(Base):
         except Exception as e:
             raise DataError(e)
 
-    def _parse_fragment(self, reply, last_idx, offset, tags, raw=False):
-        """ parse the fragment returned by a fragment service."""
+    def create_tag_rp(self, tag, multi_requests=False):
+        """ Create tag Request Packet
 
-        try:
-            status = self.unit_data_status(reply)
-            data_type = unpack_uint(reply[REPLY_START:REPLY_START + 2])
-            fragment_returned = reply[REPLY_START + 2:]
-        except Exception as e:
-            raise DataError(e)
+        It returns the request packed wrapped around the tag passed.
+        If any error it returns none
+        """
+        tags = tag.split('.')
+        index = []
+        if tags:
+            base, *attrs = tags
 
-        fragment_returned_length = len(fragment_returned)
-        idx = 0
-        while idx < fragment_returned_length:
-            try:
-                typ = DATA_TYPE[data_type]
-                if raw:
-                    value = fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]]
-                else:
-                    value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]])
-                idx += DATA_FUNCTION_SIZE[typ]
-            except Exception as e:
-                raise DataError(e)
-            if raw:
-                tags += value
+            if base in self._instance_id_cache:
+                rp = [CLASS_ID['8-bit'],
+                      CLASS_CODE['Symbol Object'],
+                      INSTANCE_ID['16-bit'], b'\x00',
+                      pack_uint(self._instance_id_cache[base])]
             else:
-                tags.append((last_idx, value))
-                last_idx += 1
+                base_len = len(base)
+                rp = [EXTENDED_SYMBOL,
+                      pack_usint(base_len),
+                      base.encode()]
+                if base_len % 2:
+                    rp.append(PADDING_BYTE)
 
-        if status == SUCCESS:
-            offset = -1
-        elif status == 0x06:
-            offset += fragment_returned_length
-        else:
-            self._status = (2, '{0}: {1}'.format(SERVICE_STATUS[status], self.get_extended_status(reply, 48)))
-            self.__log.warning(self._status)
-            offset = -1
+            for attr in attrs:
+                # Check if is an array tag
+                if '[' in attr:
+                    # Remove the last square bracket
+                    attr = attr[:len(attr) - 1]
+                    # Isolate the value inside bracket
+                    inside_value = attr[attr.find('[') + 1:]
+                    # Now split the inside value in case part of multidimensional array
+                    index = inside_value.split(',')
+                    # Get only the tag part
+                    attr = attr[:attr.find('[')]
+                tag_length = len(attr)
 
-        return last_idx, offset
+                # Create the request path
+                attr_path = [EXTENDED_SYMBOL,
+                             pack_usint(tag_length),
+                             attr.encode()]
+                # Add pad byte because total length of Request path must be word-aligned
+                if tag_length % 2:
+                    attr_path.append(PADDING_BYTE)
+                # Add any index
 
-    def _parse_multiple_request_read(self, reply, tags, tag_bits=None):
-        """ parse the message received from a multi request read:
-
-        For each tag parsed, the information extracted includes the tag name, the value read and the data type.
-        Those information are appended to the tag list as tuple
-
-        :return: the tag list
-        """
-        offset = 50
-        position = 50
-        tag_bits = tag_bits or {}
-        try:
-            number_of_service_replies = unpack_uint(reply[offset:offset + 2])
-            tag_list = []
-            for index in range(number_of_service_replies):
-                position += 2
-                start = offset + unpack_uint(reply[position:position + 2])
-                general_status = unpack_usint(reply[start + 2:start + 3])
-                tag = tags[index]
-                if general_status == 0:
-                    typ = DATA_TYPE[unpack_uint(reply[start + 4:start + 6])]
-                    value_begin = start + 6
-                    value_end = value_begin + DATA_FUNCTION_SIZE[typ]
-                    value = UNPACK_DATA_FUNCTION[typ](reply[value_begin:value_end])
-                    if tag in tag_bits:
-                        for bit in tag_bits[tag]:
-                            val = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
-                            tag_list.append((f'{tag}.{bit}', val, 'BOOL'))
+                for idx in index:
+                    val = int(idx)
+                    if val <= 0xff:
+                        attr_path += [ELEMENT_ID["8-bit"], pack_usint(val)]
+                    elif val <= 0xffff:
+                        attr_path += [ELEMENT_ID["16-bit"], PADDING_BYTE, pack_uint(val)]
+                    elif val <= 0xfffffffff:
+                        attr_path += [ELEMENT_ID["32-bit"], PADDING_BYTE, pack_dint(val)]
                     else:
-                        self._last_tag_read = (tag, value, typ)
-                        tag_list.append(self._last_tag_read)
-                else:
-                    self._last_tag_read = (tag, None, None)
-                    tag_list.append(self._last_tag_read)
+                        # Cannot create a valid request packet
+                        return None
 
-            return tag_list
-        except Exception as e:
-            raise DataError(e)
+                rp += attr_path
 
-    def _parse_multiple_request_write(self, tags, reply):
-        """ parse the message received from a multi request writ:
+            # At this point the Request Path is completed,
+            request_path = b''.join(rp)
+            if multi_requests:
+                request_path = bytes([len(request_path) // 2]) + request_path
 
-        For each tag parsed, the information extracted includes the tag name and the status of the writing.
-        Those information are appended to the tag list as tuple
+            return request_path
 
-        :return: the tag list
-        """
-        offset = 50
-        position = 50
+        return None
 
-        try:
-            number_of_service_replies = unpack_uint(reply[offset:offset + 2])
-            tag_list = []
-            for index in range(number_of_service_replies):
-                position += 2
-                start = offset + unpack_uint(reply[position:position + 2])
-                general_status = unpack_usint(reply[start + 2:start + 3])
-
-                if general_status == 0:
-                    self._last_tag_write = (tags[index] + ('GOOD',))
-                else:
-                    self._last_tag_write = (tags[index] + ('BAD',))
-
-                tag_list.append(self._last_tag_write)
-            return tag_list
-        except Exception as e:
-            raise DataError(e)
-
-    def read_tag(self, tag):
+    def read_tag(self, *tags):
         """ read tag from a connected plc
 
         Possible combination can be passed to this method:
@@ -234,41 +198,53 @@ class CLXDriver(Base):
                 self.__log.warning(self._status)
                 raise DataError(self._status[1])
 
-        if isinstance(tag, (list, tuple)):
-            return self._read_tag_multi(tag)
+        if len(tags) == 1:
+            if isinstance(tags[0], (list, tuple)):
+                return self._read_tag_multi(tags[0])
+            else:
+                return self._read_tag_single(tags[0])
         else:
-            return self._read_tag_single(tag)
+            return self._read_tag_multi(tags)
 
     def _read_tag_multi(self, tags):
         tag_bits = defaultdict(list)
-        rp_list = []
-        tags_read = []
+        rp_list, tags_read = [[]], [[]]
+        request_len = 0
         for tag in tags:
             tag, bit = self._prep_bools(tag, 'BOOL', bits_only=True)
             read = bit is None or tag not in tag_bits
             if bit is not None:
                 tag_bits[tag].append(bit)
             if read:
-                tags_read.append(tag)
                 rp = self.create_tag_rp(tag, multi_requests=True)
                 if rp is None:
                     self._status = (6, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
                     raise DataError(self._status[1])
                 else:
-                    rp_list.append(bytes([TAG_SERVICES_REQUEST['Read Tag']]) + rp + b'\x01\x00')
+                    tag_req_len = len(rp) + MULTISERVICE_OVERHEAD_PER_TAG
+                    if tag_req_len + request_len >= self._connection_size:
+                        rp_list.append([])
+                        tags_read.append([])
+                        request_len = 0
+                    rp_list[-1].append(bytes([TAG_SERVICES_REQUEST['Read Tag']]) + rp + b'\x01\x00')
+                    tags_read[-1].append(tag)
+                    request_len += tag_req_len
 
-        message_request = self.build_multiple_service(rp_list, self._get_sequence())
-        reply = self.send_unit_data(
-            self.build_common_packet_format(
-                DATA_ITEM['Connected'],
-                b''.join(message_request),
-                ADDRESS_ITEM['Connection Based'],
-                addr_data=self._target_cid, )
-        )
-        if reply is None:
-            raise DataError("send_unit_data returned not valid data")
+        replies = []
+        for req_list, tags_ in zip(rp_list, tags_read):
+            message_request = self.build_multiple_service(req_list, self._get_sequence())
+            reply = self.send_unit_data(
+                self.build_common_packet_format(
+                    DATA_ITEM['Connected'],
+                    b''.join(message_request),
+                    ADDRESS_ITEM['Connection Based'],
+                    addr_data=self._target_cid, )
+            )
+            if reply is None:
+                raise DataError("send_unit_data returned not valid data")
 
-        return self._parse_multiple_request_read(reply, tags_read, tag_bits)
+            replies += self._parse_multiple_request_read(reply, tags_, tag_bits)
+        return replies
 
     def _read_tag_single(self, tag):
         tag, bit = self._prep_bools(tag, 'BOOL', bits_only=True)
@@ -283,7 +259,7 @@ class CLXDriver(Base):
                 bytes([TAG_SERVICES_REQUEST['Read Tag']]),  # the Request Service
                 bytes([len(rp) // 2]),  # the Request Path Size length in word
                 rp,  # the request path
-                pack_uint(1)
+                b'\x01\x00'
             ]
 
         reply = self.send_unit_data(
@@ -732,13 +708,13 @@ class CLXDriver(Base):
     def _parse_instance_attribute_list(self, reply, tag_list):
         """ extract the tags list from the message received"""
 
-        status = self.unit_data_status(reply)
+        status = _unit_data_status(reply)
         tags_returned = reply[REPLY_START:]
         tags_returned_length = len(tags_returned)
         idx = count = instance = 0
         try:
             while idx < tags_returned_length:
-                instance = unpack_dint(tags_returned[idx:idx + 4])
+                instance = unpack_dint(tags_returned[idx:idx+4])
                 idx += 4
                 tag_length = unpack_uint(tags_returned[idx:idx + 2])
                 idx += 2
@@ -747,7 +723,9 @@ class CLXDriver(Base):
                 symbol_type = unpack_uint(tags_returned[idx:idx + 2])
                 idx += 2
                 count += 1
-                tag_list.append({'instance_id': instance, 'tag_name': tag_name, 'symbol_type': symbol_type})
+                tag_list.append({'instance_id': instance,
+                                 'tag_name': tag_name,
+                                 'symbol_type': symbol_type})
         except Exception as e:
             raise DataError(e)
 
@@ -765,46 +743,38 @@ class CLXDriver(Base):
         try:
             user_tags = []
             for tag in all_tags:
-                tag['tag_name'] = tag['tag_name'].decode()
-                if 'Program:' in tag['tag_name']:
-                    self._program_names.append(tag['tag_name'])
+                name = tag['tag_name'].decode()
+                if 'Program:' in name:
+                    self._program_names.append(name)
                     continue
-                if ':' in tag['tag_name'] or '__' in tag['tag_name']:
+                if ':' in name or '__' in name:
                     continue
                 if tag['symbol_type'] & 0b0001000000000000:
                     continue
-                dimension = (tag['symbol_type'] & 0b0110000000000000) >> 13
+
+                self._instance_id_cache[name] = tag['instance_id']
+
+                new_tag = {
+                    'tag_name': name,
+                    'dim': (tag['symbol_type'] & 0b0110000000000000) >> 13,
+                    'instance_id': tag['instance_id']
+                }
 
                 if tag['symbol_type'] & 0b1000000000000000:
                     template_instance_id = tag['symbol_type'] & 0b0000111111111111
-                    tag_type = 'struct'
-                    data_type = 'user-created'
-                    user_tags.append({'instance_id': tag['instance_id'],
-                                      'template_instance_id': template_instance_id,
-                                      'tag_name': tag['tag_name'],
-                                      'dim': dimension,
-                                      'tag_type': tag_type,
-                                      'data_type': data_type,
-                                      'template': {},
-                                      'udt': {}})
+                    new_tag['tag_type'] = 'struct'
+                    new_tag['data_type'] = 'user-created'
+                    new_tag['template_instance_id'] = template_instance_id
+                    new_tag['template'] = {}
+                    new_tag['udt'] = {}
                 else:
-                    tag_type = 'atomic'
+                    new_tag['tag_type'] = 'atomic'
                     datatype = tag['symbol_type'] & 0b0000000011111111
-                    data_type = DATA_TYPE[datatype]
+                    new_tag['tag_type'] = DATA_TYPE[datatype]
                     if datatype == DATA_TYPE['BOOL']:
-                        bit_position = (tag['symbol_type'] & 0b0000011100000000) >> 8
-                        user_tags.append({'instance_id': tag['instance_id'],
-                                          'tag_name': tag['tag_name'],
-                                          'dim': dimension,
-                                          'tag_type': tag_type,
-                                          'data_type': data_type,
-                                          'bit_position': bit_position})
-                    else:
-                        user_tags.append({'instance_id': tag['instance_id'],
-                                          'tag_name': tag['tag_name'],
-                                          'dim': dimension,
-                                          'tag_type': tag_type,
-                                          'data_type': data_type})
+                        new_tag['bit_position'] = (tag['symbol_type'] & 0b0000011100000000) >> 8
+
+                user_tags.append(new_tag)
 
             return user_tags
         except Exception as e:
@@ -848,10 +818,11 @@ class CLXDriver(Base):
 
         return self._struct_cache[instance_id]
 
-    def _parse_structure_makeup_attributes(self, reply):
+    @staticmethod
+    def _parse_structure_makeup_attributes(reply):
         """ extract the tags list from the message received"""
         structure = {}
-        status = self.unit_data_status(reply)
+        status = _unit_data_status(reply)
         if status != SUCCESS:
             structure['Error'] = status
             return
@@ -942,7 +913,7 @@ class CLXDriver(Base):
         """ extract the tags list from the message received"""
         tags_returned = reply[REPLY_START:]
         bytes_received = len(tags_returned)
-        status = self.unit_data_status(reply)
+        status = _unit_data_status(reply)
 
         template += tags_returned
 
@@ -958,8 +929,7 @@ class CLXDriver(Base):
         return offset, template
 
     def _build_udt(self, data, member_count):
-        udt = {'name': None,
-               'internal_tags': [], 'data_type': []}
+        udt = {'name': None, 'internal_tags': [], 'data_type': []}
         names = (x.decode(errors='replace') for x in data.split(b'\x00') if len(x) > 1)
         for name in names:
             if ';' in name and udt['name'] is None:
@@ -1010,6 +980,113 @@ class CLXDriver(Base):
 
         return self._udt_cache[tag['template_instance_id']]
 
+    def _parse_fragment(self, reply, last_idx, offset, tags, raw=False):
+        """ parse the fragment returned by a fragment service."""
+
+        try:
+            status = _unit_data_status(reply)
+            data_type = unpack_uint(reply[REPLY_START:REPLY_START + 2])
+            fragment_returned = reply[REPLY_START + 2:]
+        except Exception as e:
+            raise DataError(e)
+
+        fragment_returned_length = len(fragment_returned)
+        idx = 0
+        while idx < fragment_returned_length:
+            try:
+                typ = DATA_TYPE[data_type]
+                if raw:
+                    value = fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]]
+                else:
+                    value = UNPACK_DATA_FUNCTION[typ](fragment_returned[idx:idx + DATA_FUNCTION_SIZE[typ]])
+                idx += DATA_FUNCTION_SIZE[typ]
+            except Exception as e:
+                raise DataError(e)
+            if raw:
+                tags += value
+            else:
+                tags.append((last_idx, value))
+                last_idx += 1
+
+        if status == SUCCESS:
+            offset = -1
+        elif status == 0x06:
+            offset += fragment_returned_length
+        else:
+            self._status = (2, '{0}: {1}'.format(SERVICE_STATUS[status], self.get_extended_status(reply, 48)))
+            self.__log.warning(self._status)
+            offset = -1
+
+        return last_idx, offset
+
+    def _parse_multiple_request_read(self, reply, tags, tag_bits=None):
+        """ parse the message received from a multi request read:
+
+        For each tag parsed, the information extracted includes the tag name, the value read and the data type.
+        Those information are appended to the tag list as tuple
+
+        :return: the tag list
+        """
+        offset = 50
+        position = 50
+        tag_bits = tag_bits or {}
+        try:
+            number_of_service_replies = unpack_uint(reply[offset:offset + 2])
+            tag_list = []
+            for index in range(number_of_service_replies):
+                position += 2
+                start = offset + unpack_uint(reply[position:position + 2])
+                general_status = unpack_usint(reply[start + 2:start + 3])
+                tag = tags[index]
+                if general_status == 0:
+                    typ = DATA_TYPE[unpack_uint(reply[start + 4:start + 6])]
+                    value_begin = start + 6
+                    value_end = value_begin + DATA_FUNCTION_SIZE[typ]
+                    value = UNPACK_DATA_FUNCTION[typ](reply[value_begin:value_end])
+                    if tag in tag_bits:
+                        for bit in tag_bits[tag]:
+                            val = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
+                            tag_list.append((f'{tag}.{bit}', val, 'BOOL'))
+                    else:
+                        self._last_tag_read = (tag, value, typ)
+                        tag_list.append(self._last_tag_read)
+                else:
+                    self._last_tag_read = (tag, None, None)
+                    tag_list.append(self._last_tag_read)
+
+            return tag_list
+        except Exception as e:
+            raise DataError(e)
+
+    def _parse_multiple_request_write(self, tags, reply):
+        """ parse the message received from a multi request writ:
+
+        For each tag parsed, the information extracted includes the tag name and the status of the writing.
+        Those information are appended to the tag list as tuple
+
+        :return: the tag list
+        """
+        offset = 50
+        position = 50
+
+        try:
+            number_of_service_replies = unpack_uint(reply[offset:offset + 2])
+            tag_list = []
+            for index in range(number_of_service_replies):
+                position += 2
+                start = offset + unpack_uint(reply[position:position + 2])
+                general_status = unpack_usint(reply[start + 2:start + 3])
+
+                if general_status == 0:
+                    self._last_tag_write = (tags[index] + ('GOOD',))
+                else:
+                    self._last_tag_write = (tags[index] + ('BAD',))
+
+                tag_list.append(self._last_tag_write)
+            return tag_list
+        except Exception as e:
+            raise DataError(e)
+
     @property
     def last_tag_read(self):
         """ Return the last tag read by a multi request read
@@ -1026,6 +1103,6 @@ class CLXDriver(Base):
         """
         return self._last_tag_write
 
-    @staticmethod
-    def unit_data_status(reply):
+
+def _unit_data_status(reply):
         return unpack_usint(reply[48:49])

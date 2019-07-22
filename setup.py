@@ -17,10 +17,7 @@ setup(
     description="A PLC communication library for Python",
     long_description=read('README.rst'),
     license="MIT",
-    packages=[
-        "pycomm3",
-        "pycomm3.cip"
-    ],
+    packages=["pycomm3"],
     python_requires='>=3.6',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
