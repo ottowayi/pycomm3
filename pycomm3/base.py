@@ -182,7 +182,6 @@ class Base:
         """
         msg = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(message))
         msg += message
-
         self._send(msg)
         reply = self._receive()
         return reply if self._check_reply(reply) else None
