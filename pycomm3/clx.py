@@ -364,11 +364,11 @@ class CLXDriver(Base):
         return f'{base}[{(i * 32) + bit}]'
 
     def _write_tag_multi_write(self, tags):
-        rp_list = []
-        tags_added = []
+        rp_list = [[]]
+        tags_added = [[]]
+        request_len = 0
         for name, value, typ in tags:
-            name, bit = self._prep_bools(name, typ,
-                                         bits_only=False)  # check if we're writing a bit of a integer rather than a BOOL
+            name, bit = self._prep_bools(name, typ, bits_only=False)  # check if bit of int or bool array
             # Create the request path to wrap the tag name
             rp = self.create_tag_rp(name, multi_requests=True)
             if rp is None:
@@ -391,24 +391,34 @@ class CLXDriver(Base):
                                    b'\x01\x00' +
                                    PACK_DATA_FUNCTION[typ](value))
 
-                    rp_list.append(request)
+                    tag_req_len = len(request) + MULTISERVICE_WRITE_OVERHEAD
+                    if tag_req_len + request_len >= self._connection_size:
+                        rp_list.append([])
+                        tags_added.append([])
+                        request_len = 0
+                    rp_list[-1].append(request)
+                    request_len += tag_req_len
                 except (LookupError, struct.error) as e:
                     self._status = (8, f"Tag:{name} type:{typ} removed from write list. Error:{e}.")
 
                     # The tag in idx position need to be removed from the rp list because has some kind of error
                 else:
-                    tags_added.append((name, value, typ))
+                    tags_added[-1].append((name, value, typ))
 
         # Create the message request
-        message_request = self.build_multiple_service(rp_list, self._get_sequence())
-        reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
-                                                                    b''.join(message_request),
-                                                                    ADDRESS_ITEM['Connection Based'],
-                                                                    addr_data=self._target_cid, ))
-        if reply:
-            return self._parse_multiple_request_write(tags_added, reply)
-
-        raise DataError("send_unit_data returned not valid data")
+        replies = []
+        for req_list, tags_ in zip(rp_list, tags_added):
+            message_request = self.build_multiple_service(req_list, self._get_sequence())
+            msg = self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                  b''.join(message_request),
+                                                  ADDRESS_ITEM['Connection Based'],
+                                                  addr_data=self._target_cid, )
+            reply = self.send_unit_data(msg)
+            if reply:
+                replies += self._parse_multiple_request_write(tags_, reply)
+            else:
+                raise DataError("send_unit_data returned not valid data")
+        return replies
 
     def _write_tag_single_write(self, tag, value, typ):
         name, bit = self._prep_bools(tag, typ,
@@ -768,7 +778,7 @@ class CLXDriver(Base):
                 else:
                     new_tag['tag_type'] = 'atomic'
                     datatype = tag['symbol_type'] & 0b0000000011111111
-                    new_tag['tag_type'] = DATA_TYPE[datatype]
+                    new_tag['data_type'] = DATA_TYPE[datatype]
                     if datatype == DATA_TYPE['BOOL']:
                         new_tag['bit_position'] = (tag['symbol_type'] & 0b0000011100000000) >> 8
 
