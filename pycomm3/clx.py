@@ -35,9 +35,8 @@ from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, SERVICE_STATUS, BITS_PER_INT_TYPE,
                     REPLAY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
-                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, MULTISERVICE_OVERHEAD_PER_TAG)
-
-REPLY_START = 50
+                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START,
+                    MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD)
 
 
 @logged
@@ -221,7 +220,7 @@ class CLXDriver(Base):
                     self._status = (6, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
                     raise DataError(self._status[1])
                 else:
-                    tag_req_len = len(rp) + MULTISERVICE_OVERHEAD_PER_TAG
+                    tag_req_len = len(rp) + MULTISERVICE_READ_OVERHEAD
                     if tag_req_len + request_len >= self._connection_size:
                         rp_list.append([])
                         tags_read.append([])
@@ -233,13 +232,12 @@ class CLXDriver(Base):
         replies = []
         for req_list, tags_ in zip(rp_list, tags_read):
             message_request = self.build_multiple_service(req_list, self._get_sequence())
-            reply = self.send_unit_data(
-                self.build_common_packet_format(
+            msg = self.build_common_packet_format(
                     DATA_ITEM['Connected'],
                     b''.join(message_request),
                     ADDRESS_ITEM['Connection Based'],
                     addr_data=self._target_cid, )
-            )
+            reply = self.send_unit_data(msg)
             if reply is None:
                 raise DataError("send_unit_data returned not valid data")
 
