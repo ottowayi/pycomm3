@@ -24,6 +24,8 @@
 # SOFTWARE.
 #
 
+raise NotImplementedError('The SLC Driver has not been translated to Python 3 and currently is broken.')
+
 from pycomm3.base import *
 import re
 import math
