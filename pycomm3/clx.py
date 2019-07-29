@@ -31,12 +31,13 @@ from autologging import logged
 
 from . import DataError
 from .base import Base
-from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint, unpack_uint, unpack_dint,
+from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint, unpack_uint, unpack_dint, unpack_udint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, SERVICE_STATUS, BITS_PER_INT_TYPE,
                     REPLAY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
-                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START,
-                    MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD)
+                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START,  ATTRIBUTE_ID,
+                    MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, CONNECTION_SIZE, REQUEST_PATH_SIZE,
+                    VENDORS, PRODUCT_TYPES)
 
 
 @logged
@@ -61,7 +62,7 @@ class CLXDriver(Base):
 
 """
 
-    def __init__(self, ip_address, *args, slot=0, large_packets=True, **kwargs):
+    def __init__(self, ip_address, *args, slot=0, large_packets=True, init_info=True, init_tags=True, **kwargs):
         super().__init__(*args, **kwargs)
         self._instance_id_cache = {}
         self._struct_cache = {}
@@ -72,6 +73,17 @@ class CLXDriver(Base):
         self.attribs['cpu slot'] = slot
         self.attribs['extended forward open'] = large_packets
         self._connection_size = 4000 if large_packets else 500
+        self._tags = {}
+
+        if init_tags or init_info:
+            self.open()
+            if init_info:
+                self.get_plc_info()
+                self.get_plc_name()
+
+            if init_tags:
+                self._tags = self.get_tag_list()
+            self.close()
 
     def _check_reply(self, reply):
         """ check the replayed message for error"""
@@ -742,9 +754,11 @@ class CLXDriver(Base):
                 for t in prog_tags:
                     t['tag_name'] = f"{prog}.{t['tag_name']}"
                 tags += prog_tags
-            return tags
+            self._tags = tags
         else:
-            return self._get_tag_list(program)
+            self._tags = self._get_tag_list(program)
+
+        return self._tags
 
     def _get_tag_list(self, program=None):
         all_tags = self._get_instance_attribute_list_service(program)
@@ -1214,6 +1228,10 @@ class CLXDriver(Base):
         :return: A tuple (tag name, 'GOOD') if the write was successful otherwise (tag name, 'BAD')
         """
         return self._last_tag_write
+
+    @property
+    def tags(self):
+        return self._tags
 
 
 def _unit_data_status(reply):
