@@ -92,6 +92,11 @@ def unpack_dint(st):
     return int(struct.unpack('<i', st[0:4])[0])
 
 
+def unpack_udint(st):
+    """unpack 4 bytes little endian to int"""
+    return int(struct.unpack('<I', st[0:4])[0])
+
+
 def unpack_real(st):
     """unpack 4 bytes little endian to int"""
     return float(struct.unpack('<f', st[0:4])[0])
@@ -119,7 +124,7 @@ def print_bytes_msg(msg, info=''):
             out += "\n({:0>4d}) ".format(line * 10)
             new_line = False
         out += "{:0>2x} ".format(ch)
-        if column == 9:
+        if column == 15:
             new_line = True
             column = 0
             line += 1

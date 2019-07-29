@@ -59,14 +59,13 @@ class Base:
         self._connection_opened = False
         self._target_cid = None
         self._target_is_connected = False
-        self._device_description = "Device Unknown"
         self._last_tag_read = ()
         self._last_tag_write = ()
         self._status = (0, "")
         self._output_raw = False  # indicating value should be output as raw (hex)
-
+        self._info = {}
         self.attribs = {
-            'context': '_pycomm_',
+            'context': b'_pycomm_',
             'protocol version': b'\x01\x00',
             'rpi': 5000,
             'port': 0xAF12,
@@ -120,6 +119,10 @@ class Base:
                 self.__log.exception('Unhandled Client Error', exc_info=(exc_type, exc_val, exc_tb))
                 return False
 
+    def __repr__(self):
+        _ = self._info
+        return f"Program Name: {_.get('name')}, Device: {_.get('device_type', 'None')}, Revision: {_.get('revision', 'None')}"
+
     def _check_reply(self, reply):
         raise NotImplementedError("The method has not been implemented")
 
@@ -143,21 +146,17 @@ class Base:
         message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
         self._send(message)
 
-    def __repr__(self):
-        return self._device_description
-
     def list_identity(self):
         """ ListIdentity command to locate and identify potential target
 
-        return true if the replay contains the device description
+        return device description if reply contains valid response else none
         """
         message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
         self._send(message)
         reply = self._receive()
         if self._check_reply(reply):
             try:
-                self._device_description = reply[63:-1]
-                return True
+                return reply[63:-1].decode()
             except Exception as e:
                 raise DataError(e)
         return False
@@ -205,7 +204,7 @@ class Base:
             h += pack_uint(length)  # Length UINT
             h += pack_dint(self._session)  # Session Handle UDINT
             h += pack_dint(0)  # Status UDINT
-            h += self.attribs['context'].encode()  # Sender Context 8 bytes
+            h += self.attribs['context']  # Sender Context 8 bytes
             h += pack_dint(self.attribs['option'])  # Option UDINT
             return h
         except Exception as e:
@@ -545,7 +544,7 @@ class Base:
             msg += pack_uint(len(addr_data))  # Address Item Length
             msg += addr_data
         else:
-            msg += pack_uint(0)  # Address Item Length
+            msg += b'\x00\x00'  # Address Item Length
         msg += message_type  # Data Type ID
         msg += pack_uint(len(message))  # Data Item Length
         msg += message
@@ -559,7 +558,7 @@ class Base:
             CLASS_ID["8-bit"],
             CLASS_CODE["Message Router"],
             INSTANCE_ID["8-bit"],
-            pack_usint(1),  # Instance 1
+            b'\x01',  # Instance 1
             pack_uint(len(rp_list))  # Number of service contained in the request
         ]
         if sequence is not None:
@@ -642,4 +641,9 @@ class Base:
 
     @property
     def description(self):
-        return self._device_description
+        return self._info.get('name')
+
+    @property
+    def info(self):
+        return self._info
+

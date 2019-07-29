@@ -41,4 +41,4 @@ class DataError(PycommError):
 
 
 from .clx import CLXDriver
-from .slc import SLCDriver
+# from .slc import SLCDriver

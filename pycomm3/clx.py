@@ -622,6 +622,110 @@ class CLXDriver(Base):
                 return ''.join(ch for ch in chars if ch != '\x00')
         return None
 
+    def get_plc_name(self):
+        try:
+            if not self._target_is_connected:
+                if not self.forward_open():
+                    self._status = (10, "Target did not connected. get_plc_name will not be executed.")
+                    self.__log.warning(self._status)
+                    raise DataError(self._status[1])
+
+            msg = [
+                pack_uint(self._get_sequence()),
+                bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
+                REQUEST_PATH_SIZE,
+                CLASS_ID['8-bit'],
+                CLASS_CODE['Program Name'],
+                INSTANCE_ID["16-bit"],
+                b'\x00',
+                b'\x01\x00',  # Instance 1
+                b'\x01\x00',  # Number of Attributes
+                b'\x01\x00'   # Attribute 1 - program name
+            ]
+
+            request = self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                      b''.join(msg),
+                                                      ADDRESS_ITEM['Connection Based'],
+                                                      addr_data=self._target_cid,)
+            reply = self.send_unit_data(request)
+
+            if reply:
+                self._info['name'] = self._parse_plc_name(reply)
+                return self._info['name']
+            else:
+                raise DataError('send_unit_data did not return valid data')
+
+        except Exception as err:
+            raise DataError(err)
+
+    def get_plc_info(self):
+            try:
+                if not self._target_is_connected:
+                    if not self.forward_open():
+                        self._status = (10, "Target did not connected. get_plc_name will not be executed.")
+                        self.__log.warning(self._status)
+                        raise DataError(self._status[1])
+
+                msg = [
+                    pack_uint(self._get_sequence()),
+                    b'\x01',
+                    REQUEST_PATH_SIZE,
+                    CLASS_ID['8-bit'],
+                    CLASS_CODE['Identity Object'],
+                    INSTANCE_ID["16-bit"],
+                    b'\x00',
+                    b'\x01\x00',  # Instance 1
+]
+                request = self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                          b''.join(msg),
+                                                          ADDRESS_ITEM['Connection Based'],
+                                                          addr_data=self._target_cid,)
+                reply = self.send_unit_data(request)
+
+                if reply:
+                    info = self._parse_identity_object(reply)
+                    self._info = {**self._info, **info}
+                    return info
+                else:
+                    raise DataError('send_unit_data did not return valid data')
+
+            except Exception as err:
+                raise DataError(err)
+
+    def _parse_plc_name(self, reply):
+        status = _unit_data_status(reply)
+        if status != SUCCESS:
+            raise DataError(f'get_plc_name returned status {SERVICE_STATUS[status]}')
+        data = reply[REPLY_START:]
+        try:
+            name_len = unpack_uint(data[6:8])
+            name = data[8: 8 + name_len].decode()
+            return name
+        except Exception as err:
+            raise DataError(err)
+
+    def _parse_identity_object(self, reply):
+
+        data = reply[REPLY_START:]
+        vendor = unpack_uint(data[0:2])
+        product_type = unpack_uint(data[2:4])
+        product_code = unpack_uint(data[4:6])
+        major_fw = int(data[6])
+        minor_fw = int(data[7])
+        keyswitch = data[8:10]
+        serial_number = f'{unpack_udint(data[10:14]):0{8}x}'
+        device_type_len = int(data[14])
+        device_type = data[15:15+device_type_len].decode()
+
+        return {
+            'vendor': VENDORS[vendor],
+            'product_type': PRODUCT_TYPES[product_type],
+            'product_code': product_code,
+            'revision': f'{major_fw}.{minor_fw}',
+            'serial': serial_number,
+            'device_type': device_type
+        }
+
     def get_tag_list(self, program=None):
         """
         Returns the list of tags from the controller. For only controller-scoped tags, get `program` to None.
