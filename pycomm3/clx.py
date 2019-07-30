@@ -74,12 +74,14 @@ class CLXDriver(Base):
         self.attribs['extended forward open'] = large_packets
         self._connection_size = 4000 if large_packets else 500
         self._tags = {}
+        self.use_instance_ids = True
 
         if init_tags or init_info:
             self.open()
             if init_info:
                 self.get_plc_info()
                 self.get_plc_name()
+                self.use_instance_ids = self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS
 
             if init_tags:
                 self._tags = self.get_tag_list()
@@ -130,7 +132,7 @@ class CLXDriver(Base):
         if tags:
             base, *attrs = tags
 
-            if base in self._instance_id_cache:
+            if self.use_instance_ids and base in self._instance_id_cache:
                 rp = [CLASS_ID['8-bit'],
                       CLASS_CODE['Symbol Object'],
                       INSTANCE_ID['16-bit'], b'\x00',
@@ -733,6 +735,8 @@ class CLXDriver(Base):
             'vendor': VENDORS[vendor],
             'product_type': PRODUCT_TYPES[product_type],
             'product_code': product_code,
+            'version_major': major_fw,
+            'version_minor': minor_fw,
             'revision': f'{major_fw}.{minor_fw}',
             'serial': serial_number,
             'device_type': device_type
