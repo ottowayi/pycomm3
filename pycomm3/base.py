@@ -62,7 +62,6 @@ class Base:
         self._last_tag_read = ()
         self._last_tag_write = ()
         self._status = (0, "")
-        self._output_raw = False  # indicating value should be output as raw (hex)
         self._info = {}
         self.attribs = {
             'context': b'_pycomm_',

@@ -26,7 +26,6 @@
 
 import struct
 from collections import defaultdict
-
 from autologging import logged
 
 from . import DataError
@@ -35,8 +34,8 @@ from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, SERVICE_STATUS, BITS_PER_INT_TYPE,
                     REPLAY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
-                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START,  ATTRIBUTE_ID,
-                    MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, CONNECTION_SIZE, REQUEST_PATH_SIZE,
+                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START,
+                    MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
                     VENDORS, PRODUCT_TYPES)
 
 
@@ -106,7 +105,7 @@ class CLXDriver(Base):
                 status = unpack_usint(reply[42:43])
                 if status != SUCCESS:
                     self._status = (3, f"send_rr_data reply:{SERVICE_STATUS[status]} - "
-                                       f"Extend status:{self.get_extended_status(reply, 42)}")
+                    f"Extend status:{self.get_extended_status(reply, 42)}")
                     return False
                 else:
                     return True
@@ -114,7 +113,7 @@ class CLXDriver(Base):
                 status = _unit_data_status(reply)
                 if status not in (INSUFFICIENT_PACKETS, SUCCESS):
                     self._status = (3, f"send_unit_data reply:{SERVICE_STATUS[status]} - "
-                                       f"Extend status:{self.get_extended_status(reply, 48)}")
+                    f"Extend status:{self.get_extended_status(reply, 48)}")
                     self.__log.warning(self._status)
                     return False
             return True
@@ -247,10 +246,10 @@ class CLXDriver(Base):
         for req_list, tags_ in zip(rp_list, tags_read):
             message_request = self.build_multiple_service(req_list, self._get_sequence())
             msg = self.build_common_packet_format(
-                    DATA_ITEM['Connected'],
-                    b''.join(message_request),
-                    ADDRESS_ITEM['Connection Based'],
-                    addr_data=self._target_cid, )
+                DATA_ITEM['Connected'],
+                b''.join(message_request),
+                ADDRESS_ITEM['Connection Based'],
+                addr_data=self._target_cid, )
             reply = self.send_unit_data(msg)
             if reply is None:
                 raise DataError("send_unit_data returned not valid data")
@@ -335,10 +334,11 @@ class CLXDriver(Base):
                     pack_uint(counts),
                     pack_dint(offset)
                 ]
-            reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
-                                                                        b''.join(message_request),
-                                                                        ADDRESS_ITEM['Connection Based'],
-                                                                        addr_data=self._target_cid, ))
+            msg = self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                  b''.join(message_request),
+                                                  ADDRESS_ITEM['Connection Based'],
+                                                  addr_data=self._target_cid, )
+            reply = self.send_unit_data(msg)
             if reply is None:
                 raise DataError("send_unit_data returned not valid data")
 
@@ -654,13 +654,13 @@ class CLXDriver(Base):
                 b'\x00',
                 b'\x01\x00',  # Instance 1
                 b'\x01\x00',  # Number of Attributes
-                b'\x01\x00'   # Attribute 1 - program name
+                b'\x01\x00'  # Attribute 1 - program name
             ]
 
             request = self.build_common_packet_format(DATA_ITEM['Connected'],
                                                       b''.join(msg),
                                                       ADDRESS_ITEM['Connection Based'],
-                                                      addr_data=self._target_cid,)
+                                                      addr_data=self._target_cid, )
             reply = self.send_unit_data(request)
 
             if reply:
@@ -673,40 +673,41 @@ class CLXDriver(Base):
             raise DataError(err)
 
     def get_plc_info(self):
-            try:
-                if not self._target_is_connected:
-                    if not self.forward_open():
-                        self._status = (10, "Target did not connected. get_plc_name will not be executed.")
-                        self.__log.warning(self._status)
-                        raise DataError(self._status[1])
+        try:
+            if not self._target_is_connected:
+                if not self.forward_open():
+                    self._status = (10, "Target did not connected. get_plc_name will not be executed.")
+                    self.__log.warning(self._status)
+                    raise DataError(self._status[1])
 
-                msg = [
-                    pack_uint(self._get_sequence()),
-                    b'\x01',
-                    REQUEST_PATH_SIZE,
-                    CLASS_ID['8-bit'],
-                    CLASS_CODE['Identity Object'],
-                    INSTANCE_ID["16-bit"],
-                    b'\x00',
-                    b'\x01\x00',  # Instance 1
-]
-                request = self.build_common_packet_format(DATA_ITEM['Connected'],
-                                                          b''.join(msg),
-                                                          ADDRESS_ITEM['Connection Based'],
-                                                          addr_data=self._target_cid,)
-                reply = self.send_unit_data(request)
+            msg = [
+                pack_uint(self._get_sequence()),
+                b'\x01',
+                REQUEST_PATH_SIZE,
+                CLASS_ID['8-bit'],
+                CLASS_CODE['Identity Object'],
+                INSTANCE_ID["16-bit"],
+                b'\x00',
+                b'\x01\x00',  # Instance 1
+            ]
+            request = self.build_common_packet_format(DATA_ITEM['Connected'],
+                                                      b''.join(msg),
+                                                      ADDRESS_ITEM['Connection Based'],
+                                                      addr_data=self._target_cid, )
+            reply = self.send_unit_data(request)
 
-                if reply:
-                    info = self._parse_identity_object(reply)
-                    self._info = {**self._info, **info}
-                    return info
-                else:
-                    raise DataError('send_unit_data did not return valid data')
+            if reply:
+                info = self._parse_identity_object(reply)
+                self._info = {**self._info, **info}
+                return info
+            else:
+                raise DataError('send_unit_data did not return valid data')
 
-            except Exception as err:
-                raise DataError(err)
+        except Exception as err:
+            raise DataError(err)
 
-    def _parse_plc_name(self, reply):
+    @staticmethod
+    def _parse_plc_name(reply):
         status = _unit_data_status(reply)
         if status != SUCCESS:
             raise DataError(f'get_plc_name returned status {SERVICE_STATUS[status]}')
@@ -718,7 +719,8 @@ class CLXDriver(Base):
         except Exception as err:
             raise DataError(err)
 
-    def _parse_identity_object(self, reply):
+    @staticmethod
+    def _parse_identity_object(reply):
 
         data = reply[REPLY_START:]
         vendor = unpack_uint(data[0:2])
@@ -729,7 +731,7 @@ class CLXDriver(Base):
         keyswitch = data[8:10]
         serial_number = f'{unpack_udint(data[10:14]):0{8}x}'
         device_type_len = int(data[14])
-        device_type = data[15:15+device_type_len].decode()
+        device_type = data[15:15 + device_type_len].decode()
 
         return {
             'vendor': VENDORS[vendor],
@@ -844,7 +846,7 @@ class CLXDriver(Base):
         idx = count = instance = 0
         try:
             while idx < tags_returned_length:
-                instance = unpack_dint(tags_returned[idx:idx+4])
+                instance = unpack_dint(tags_returned[idx:idx + 4])
                 idx += 4
                 tag_length = unpack_uint(tags_returned[idx:idx + 2])
                 idx += 2
@@ -1239,4 +1241,4 @@ class CLXDriver(Base):
 
 
 def _unit_data_status(reply):
-        return unpack_usint(reply[48:49])
+    return unpack_usint(reply[48:49])
