@@ -47,7 +47,7 @@ def get_bit(value, idx):
 class Base:
     _sequence = 0
 
-    def __init__(self, direct_connection=False):
+    def __init__(self, direct_connection=False, debug=False):
         if Base._sequence == 0:
             Base._sequence = getpid()
         else:
@@ -55,6 +55,7 @@ class Base:
 
         self.__sock = None
         self.__direct_connections = direct_connection
+        self._debug = debug
         self._session = 0
         self._connection_opened = False
         self._target_cid = None
@@ -365,7 +366,8 @@ class Base:
         :return: true if no error otherwise false
         """
         try:
-            self.__log.debug(print_bytes_msg(message, '-------------- SEND --------------'))
+            if self._debug:
+                self.__log.debug(print_bytes_msg(message, '-------------- SEND --------------'))
             self.__sock.send(message)
         except Exception as e:
             raise CommError(e)
@@ -380,7 +382,8 @@ class Base:
         except Exception as e:
             raise CommError(e)
         else:
-            self.__log.debug(print_bytes_msg(reply, '----------- RECEIVE -----------'))
+            if self._debug:
+                self.__log.debug(print_bytes_msg(reply, '----------- RECEIVE -----------'))
             return reply
 
     def open(self):
