@@ -69,11 +69,27 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
     dint_tags = [tag['tag_name'] for tag in plc.tags if tag['data_type'] == 'DINT']
     plc.read_tag(dint_tags)
 
+    # Reading Arrays
+    plc.read_array('ARY1', 10) # Array name and number of elements to request
+    # Returns list of tuples of (index, value)  = [(0, 0), (1, 0), (2, 0) ... (9, 0)]
+
+    # Reading Strings
+    plc.read_string('STR1')  # This will first do a read_tag of STR1.LEN then,
+                             # use the LEN to do a read_array of STR1.DATA, equivalent to:
+                             # plc.read_array('STR1.DATA', plc.read_tag('STR1.LEN'))
+    # OUTPUT: 'A TEST STRING'
+    plc.read_string('STR1', 5)  # you can also specify the length to skip the initial read of .LEN
+    # OUTPUT: 'A TES'
+    plc.read_string('STR1', 82) # setting the length to the full length of the string will bypass
+                                # reading the .LEN, but will read_string terminate the return value
+                                # at the first NULL character
+    # OUTPUT: 'A TEST STRING'
+
 
 By default, when creating the CLXDriver object, it will open a connection to the plc, read the program name, get the
 controller info, and get all the controller scoped tags.  Using the ``init_tags`` kwarg will enable/disable automatically
 getting the controller tag list, and ``init_info`` will enable/disable program name and controller info loading.
-Reading the tag list first, this allows us to cache all the tag instance ids to help optimize read/write requests.
+By reading the tag list first, this allows us to cache all the tag instance ids to help optimize read/write requests.
 Symbol Instance Addressing is only available on v21+, if the PLC is on a firmware lower than that,
 getting the controller info will automatically disable that feature.  If you disable ``init_info`` and are using a controller
 on a version lower than 21, set the ``use_instance_ids`` attribute to false or your reads/writes will fail.
@@ -118,6 +134,8 @@ VBA Example:
 
         plc.Open
         Debug.Print plc.read_tag("Tag1")
+        Debug.Print plc.get_plc_name  # also stores the name in plc.description
+        Debug.Print plc.description
         plc.Close
 
     End Sub
