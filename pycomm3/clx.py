@@ -583,16 +583,20 @@ class CLXDriver(Base):
                     ]
                     byte_offset += byte_size
 
-                if self.send_unit_data(
-                        self.build_common_packet_format(
+                msg = self.build_common_packet_format(
                             DATA_ITEM['Connected'],
                             b''.join(message_request),
                             ADDRESS_ITEM['Connection Based'],
                             addr_data=self._target_cid,
-                        )) is None:
+                        )
+
+                reply = self.send_unit_data(msg)
+                if reply is None:
                     raise DataError("send_unit_data returned not valid data")
+
                 array_of_values = b''
                 byte_size = 0
+        return True
 
     def write_string(self, tag, value, size=82):
         """
@@ -616,8 +620,9 @@ class CLXDriver(Base):
         if str_len > size:
             str_len = size
 
-        self.write_tag(len_tag, str_len, 'DINT')
-        self.write_array(data_tag, data_to_send, 'SINT')
+        result_len = self.write_tag(len_tag, str_len, 'DINT')
+        result_data = self.write_array(data_tag, data_to_send, 'SINT')
+        return result_data and result_len
 
     def read_string(self, tag, str_len=None):
         data_tag = f'{tag}.DATA'
