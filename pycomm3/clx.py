@@ -1216,11 +1216,7 @@ class CLXDriver(Base):
                 start = offset + unpack_uint(reply[position:position + 2])
                 general_status = unpack_usint(reply[start + 2:start + 3])
 
-                if general_status == 0:
-                    self._last_tag_write = (tags[index] + ('GOOD',))
-                else:
-                    self._last_tag_write = (tags[index] + ('BAD',))
-
+                self._last_tag_write = (tags[index] + (general_status == 0,))
                 tag_list.append(self._last_tag_write)
             return tag_list
         except Exception as e:
