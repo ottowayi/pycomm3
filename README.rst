@@ -81,6 +81,7 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
                                  # plc.read_array('STR1.DATA', plc.read_tag('STR1.LEN')) and converting to ASCII
         # RETURN: 'A TEST STRING'
         plc.read_string('STR1', 5)  # you can also specify the length to skip the initial read of .LEN
+
         # RETURN: 'A TES'
         plc.read_string('STR1', 82) # setting the length to the full length of the string will bypass
                                     # reading the .LEN, but will read_string terminate the return value
@@ -90,6 +91,7 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
         # Writing Tags
         plc.write_tag('DINT1', 1, 'DINT')  # Writing Tags requires the Tag Name, Value, and Data Type
         # RETURN: True (if successful, False if not)
+
         plc.write_tag([('DINT1', -1, 'DINT'), ('DINT2', 0, 'DINT'), ('DINT3', 1, 'DINT')])
         # RETURN: [('DINT1', -1, 'DINT', 'GOOD'), ('DINT2', 0, 'DINT', 'GOOD'), ('DINT3', 1, 'DINT', 'GOOD')]
         # Writing multiple tags will return the Tag Name, Value written, Data Type, and True/False
@@ -136,7 +138,7 @@ on a version lower than 21, set the ``use_instance_ids`` attribute to false or y
 
 For Windows clients, a COM server is also available.  This way ``pycomm3`` can be used from VBA in Excel like RSLinx.
 
-To register, run the following command: ``` python -m pycomm3 --register```
+To register, run the following command: ``python -m pycomm3 --register``
 
 VBA Example:
 ::
