@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-# clx.py - Ethernet/IP Client for Rockwell PLCs
+# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
 #
-#
+# Copyright (c) 2019 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,7 +23,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from pycomm3.cip.cip_base import *
+
+raise NotImplementedError('The SLC Driver has not been translated to Python 3 and currently is broken.')
+
+from pycomm3.base import *
 import re
 import math
 #import binascii
@@ -155,12 +158,12 @@ def parse_tag(tag):
     return False, tag
 
 
-class Driver(Base):
+class SLCDriver(Base):
     """
     SLC/PLC_5 Implementation
     """
     def __init__(self):
-        super(Driver, self).__init__()
+        super(SLCDriver, self).__init__()
 
         self.__version__ = '0.1'
         self._last_sequence = 0

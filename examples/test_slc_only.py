@@ -1,6 +1,6 @@
 __author__ = 'agostino'
 
-from pycomm3.ab_comm.slc import Driver as SlcDriver
+from pycomm3.slc import SLCDriver as SlcDriver
 import logging
 
 if __name__ == '__main__':

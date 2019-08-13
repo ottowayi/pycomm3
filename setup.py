@@ -17,12 +17,11 @@ setup(
     description="A PLC communication library for Python",
     long_description=read('README.rst'),
     license="MIT",
-    packages=[
-        "pycomm3",
-        "pycomm3.ab_comm",
-        "pycomm3.cip"
-    ],
+    packages=["pycomm3"],
     python_requires='>=3.6',
+    install_requires=['autologging',
+                      'pypiwin32;platform_system=="Windows"'],
+    include_package_data=True,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
@@ -36,5 +35,5 @@ setup(
         'Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator',
         'Topic :: Scientific/Engineering :: Human Machine Interfaces',
     ],
-    include_package_data=True
+
 )
