@@ -765,11 +765,13 @@ class CLXDriver(Base):
                 for t in prog_tags:
                     t['tag_name'] = f"{prog}.{t['tag_name']}"
                 tags += prog_tags
-            self._tags = tags
         else:
-            self._tags = self._get_tag_list(program)
+            tags = self._get_tag_list(program)
 
-        return self._tags
+        if cache:
+            self._tags = {tag['tag_name']: tag for tag in tags}
+
+        return tags
 
     def _get_tag_list(self, program=None):
         all_tags = self._get_instance_attribute_list_service(program)
