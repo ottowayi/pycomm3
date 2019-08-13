@@ -68,7 +68,7 @@ class Base:
             'context': b'_pycomm_',
             'protocol version': b'\x01\x00',
             'rpi': 5000,
-            'port': 0xAF12,
+            'port': 0xAF12,  # 44818
             'timeout': 10,
             'backplane': 1,
             'cpu slot': 0,

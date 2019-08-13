@@ -749,14 +749,18 @@ class CLXDriver(Base):
             'device_type': device_type
         }
 
-    def get_tag_list(self, program=None):
+    def get_tag_list(self, program=None, cache=True):
         """
-        Returns the list of tags from the controller. For only controller-scoped tags, get `program` to None.
+        Returns the list of tags from the controller. For only controller-scoped tags, get `program` to None (default).
         Set `program` to a program name to only get the program scoped tags from the specified program.
-        To get all controller and all program scoped tags from all programs, set `program` to '*
+        To get all controller and all program scoped tags from all programs, set `program` to '*'
 
         Note, for program scoped tags the tag['tag_name'] will be 'Program:{program}.{tag_name}'. This is so the tag
         list can be fed directly into the read function.
+
+        If the `cache` parameter is True (default), the list of tags will be stored so they can be referenced later.  This
+        also allows the read/write methods to use the cached instance id's and allow packing more tags into a single
+        request.
         """
         if program == '*':
             tags = self._get_tag_list()
@@ -895,11 +899,11 @@ class CLXDriver(Base):
 
                 new_tag = {
                     'tag_name': name,
-                    'dim': (tag['symbol_type'] & 0b0110000000000000) >> 13,
+                    'dim': (tag['symbol_type'] & 0b0110000000000000) >> 13,  # bit 13 & 14, number of array dims
                     'instance_id': tag['instance_id']
                 }
 
-                if tag['symbol_type'] & 0b1000000000000000:
+                if tag['symbol_type'] & 0b1000000000000000:  # bit 15, 1 = struct, 0 = atomic
                     template_instance_id = tag['symbol_type'] & 0b0000111111111111
                     new_tag['tag_type'] = 'struct'
                     new_tag['data_type'] = 'user-created'

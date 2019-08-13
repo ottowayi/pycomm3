@@ -42,8 +42,8 @@ PIP:
 
     pip install git+https://github.com/ottowayi/pycomm3.git
 
-Usage
------
+Basic Usage
+-----------
 
 Connect to a PLC and get basic information about it and do some basic operations,
 use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board ethernet, leave ``slot=0``.
@@ -55,35 +55,51 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
     with CLXDriver('10.20.30.100', slot=1) as plc:
         print(plc)
 
-    # OUTPUT:
-    # Program Name: PLCA, Device: 1756-L74/A LOGIX5574, Revision: 31.11
+        # OUTPUT:
+        # Program Name: PLCA, Device: 1756-L74/A LOGIX5574, Revision: 31.11
 
-    # Read a tag
-    plc.read_tag('DINT1')
-    # Read a list of tags
-    plc.read_tag(['Tag1', 'Tag2', 'Tag3'])
-    # or
-    plc.read_tag('Tag1', 'Tag2', 'Tag3')
+        # Read a tag
+        plc.read_tag('DINT1')
+        # Read a list of tags
+        plc.read_tag(['Tag1', 'Tag2', 'Tag3'])
+        # or
+        plc.read_tag('Tag1', 'Tag2', 'Tag3')
 
-    # To read all the DINT controller-scoped tags:
-    dint_tags = [tag['tag_name'] for tag in plc.tags if tag['data_type'] == 'DINT']
-    plc.read_tag(dint_tags)
+        # To read all the DINT controller-scoped tags:
+        dint_tags = [tag for tag in plc.tags if plc.tags[tag].get('data_type') == 'DINT']
+        plc.read_tag(dint_tags)
+        # Note:  unlike pycomm/pylogix, you do not need to keep track of the packet size,
+        #        requests will automatically be split into multiple packets as needed.
 
-    # Reading Arrays
-    plc.read_array('ARY1', 10) # Array name and number of elements to request
-    # Returns list of tuples of (index, value)  = [(0, 0), (1, 0), (2, 0) ... (9, 0)]
+        # Reading Arrays
+        plc.read_array('ARY1', 10) # Array name and number of elements to request
+        # Returns list of tuples of (index, value)  = [(0, 0), (1, 0), (2, 0) ... (9, 0)]
 
-    # Reading Strings
-    plc.read_string('STR1')  # This will first do a read_tag of STR1.LEN then,
-                             # use the LEN to do a read_array of STR1.DATA, equivalent to:
-                             # plc.read_array('STR1.DATA', plc.read_tag('STR1.LEN'))
-    # OUTPUT: 'A TEST STRING'
-    plc.read_string('STR1', 5)  # you can also specify the length to skip the initial read of .LEN
-    # OUTPUT: 'A TES'
-    plc.read_string('STR1', 82) # setting the length to the full length of the string will bypass
-                                # reading the .LEN, but will read_string terminate the return value
-                                # at the first NULL character
-    # OUTPUT: 'A TEST STRING'
+        # Reading Strings
+        plc.read_string('STR1')  # This will first do a read_tag of STR1.LEN then,
+                                 # use the LEN to do a read_array of STR1.DATA, equivalent to:
+                                 # plc.read_array('STR1.DATA', plc.read_tag('STR1.LEN')) and converting to ASCII
+        # RETURN: 'A TEST STRING'
+        plc.read_string('STR1', 5)  # you can also specify the length to skip the initial read of .LEN
+        # RETURN: 'A TES'
+        plc.read_string('STR1', 82) # setting the length to the full length of the string will bypass
+                                    # reading the .LEN, but will read_string terminate the return value
+                                    # at the first NULL character
+        # RETURN: 'A TEST STRING'
+
+        # Writing Tags
+        plc.write_tag('DINT1', 1, 'DINT')  # Writing Tags requires the Tag Name, Value, and Data Type
+        # RETURN: True (if successful, False if not)
+        plc.write_tag([('DINT1', -1, 'DINT'), ('DINT2', 0, 'DINT'), ('DINT3', 1, 'DINT')])
+        # RETURN: [('DINT1', -1, 'DINT', 'GOOD'), ('DINT2', 0, 'DINT', 'GOOD'), ('DINT3', 1, 'DINT', 'GOOD')]
+        # Writing multiple tags will return the Tag Name, Value written, Data Type, and True/False
+
+        # Writing Strings
+        plc.write_string('Str2', 'Hello World!', size=20)  # Str2 is a STRING20 tag, size should be set to the
+                                                           # max length, the value will be padded with NULL characters
+                                                           # But, specifying a size smaller than the value will truncate it.
+        RETURN: True
+
 
 
 By default, when creating the CLXDriver object, it will open a connection to the plc, read the program name, get the

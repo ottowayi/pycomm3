@@ -360,6 +360,7 @@ BITS_PER_INT_TYPE = {
     'DWORD': 32,  # byte string 32-bits
     'LWORD': 64,  # byte string 64-bits
 }
+
 _DATA_TYPES = {
     'BOOL': 0xc1,
     'SINT': 0xc2,  # Signed 8-bit integer
