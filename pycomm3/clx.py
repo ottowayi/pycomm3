@@ -83,7 +83,7 @@ class CLXDriver(Base):
                 self.use_instance_ids = self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS
 
             if init_tags:
-                self._tags = self.get_tag_list()
+                self.get_tag_list()
             self.close()
 
     def _check_reply(self, reply):
