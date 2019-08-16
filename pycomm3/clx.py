@@ -394,7 +394,7 @@ class CLXDriver(Base):
                         rp = self.create_tag_rp(name, multi_requests=True)
                         request = bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]]) + rp
                         request += b''.join(self._make_write_bit_data(bit, value, bool_ary='[' in name))
-                        if typ == 'BOOL' and name.endswith('['):
+                        if typ == 'BOOL' and name.endswith(']'):
                             name = self._dword_to_boolarray(name, bit)
                         else:
                             name = f'{name}.{bit}'
