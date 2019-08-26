@@ -60,10 +60,14 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
 
         # Read a tag
         plc.read_tag('DINT1')
+        # Returns: (1, 'DINT'), a (value, data type) tuple
+
         # Read a list of tags
         plc.read_tag(['Tag1', 'Tag2', 'Tag3'])
         # or
         plc.read_tag('Tag1', 'Tag2', 'Tag3')
+        # Returns: [('Tag1', 0, 'DINT'), ('Tag2', 1, 'DINT'), ('Tag3, 2, 'DINT')]
+        # Reading multiple tags includes the tag name with each result
 
         # To read all the DINT controller-scoped tags:
         dint_tags = [tag for tag in plc.tags if plc.tags[tag].get('data_type') == 'DINT']
@@ -93,7 +97,7 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
         # RETURN: True (if successful, False if not)
 
         plc.write_tag([('DINT1', -1, 'DINT'), ('DINT2', 0, 'DINT'), ('DINT3', 1, 'DINT')])
-        # RETURN: [('DINT1', -1, 'DINT', 'GOOD'), ('DINT2', 0, 'DINT', 'GOOD'), ('DINT3', 1, 'DINT', 'GOOD')]
+        # RETURN: [('DINT1', -1, 'DINT', True), ('DINT2', 0, 'DINT', True), ('DINT3', 1, 'DINT', True)]
         # Writing multiple tags will return the Tag Name, Value written, Data Type, and True/False
 
         # Writing Strings
