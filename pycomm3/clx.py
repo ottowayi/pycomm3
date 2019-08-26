@@ -127,7 +127,6 @@ class CLXDriver(Base):
         If any error it returns none
         """
         tags = tag.split('.')
-        index = []
         if tags:
             base, *attrs = tags
 
@@ -145,16 +144,13 @@ class CLXDriver(Base):
                     rp.append(PADDING_BYTE)
 
             for attr in attrs:
-                # Check if is an array tag
-                if '[' in attr:
-                    # Remove the last square bracket
-                    attr = attr[:len(attr) - 1]
-                    # Isolate the value inside bracket
-                    inside_value = attr[attr.find('[') + 1:]
-                    # Now split the inside value in case part of multidimensional array
-                    index = inside_value.split(',')
-                    # Get only the tag part
-                    attr = attr[:attr.find('[')]
+                if '[' in attr:  # Check if is an array tag
+                    attr = attr[:len(attr) - 1]  # Remove the last square bracket
+                    inside_value = attr[attr.find('[') + 1:]  # Isolate the value inside bracket
+                    index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
+                    attr = attr[:attr.find('[')]  # Get only the tag part
+                else:
+                    index = []
                 tag_length = len(attr)
 
                 # Create the request path
@@ -175,8 +171,7 @@ class CLXDriver(Base):
                     elif val <= 0xfffffffff:
                         attr_path += [ELEMENT_ID["32-bit"], PADDING_BYTE, pack_dint(val)]
                     else:
-                        # Cannot create a valid request packet
-                        return None
+                        return None  # Cannot create a valid request packet
 
                 rp += attr_path
 

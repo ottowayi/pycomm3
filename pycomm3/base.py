@@ -226,7 +226,8 @@ class Base:
         reply = self._receive()
         if self._check_reply(reply):
             self._session = unpack_dint(reply[4:8])
-            self.__log.debug("Session ={0} has been registered.".format(print_bytes_line(reply[4:8])))
+            if self._debug:
+                self.__log.debug("Session ={0} has been registered.".format(print_bytes_line(reply[4:8])))
             return self._session
 
         self._status = 'Warning ! the session has not been registered.'

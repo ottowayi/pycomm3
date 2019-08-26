@@ -13,7 +13,6 @@ setup(
     author='Ian Ottoway',
     author_email="ian@ottoway.dev",
     url="https://github.com/ottowayi/pycomm3",
-    download_url="",
     description="A PLC communication library for Python",
     long_description=read('README.rst'),
     license="MIT",

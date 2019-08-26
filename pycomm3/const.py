@@ -31,6 +31,7 @@ HEADER_SIZE = 24
 MULTISERVICE_READ_OVERHEAD = 6
 MULTISERVICE_WRITE_OVERHEAD = 3
 MIN_VER_INSTANCE_IDS = 21  # using Symbol Instance Addressing not supported below version 21
+MIN_VER_LARGE_CONNECTIONS = 20  # >500 byte connections not supported below logix v20
 EXTENDED_SYMBOL = b'\x91'
 BOOL_ONE = 0xff
 REQUEST_SERVICE = 0
@@ -119,7 +120,7 @@ CLASS_CODE = {
 CONNECTION_MANAGER_INSTANCE = {
     'Open Request': b'\x01',
     'Open Format Rejected': b'\x02',
-    'Open Resource  Rejected': b'\x03',
+    'Open Resource Rejected': b'\x03',
     'Open Other Rejected': b'\x04',
     'Close Request': b'\x05',
     'Close Format Request': b'\x06',
