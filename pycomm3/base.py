@@ -29,12 +29,12 @@ from os import getpid, urandom
 from autologging import logged
 
 from . import DataError, CommError
-from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_dint, unpack_uint, unpack_usint,
-                     print_bytes_line, print_bytes_msg, DATA_FUNCTION_SIZE, UNPACK_DATA_FUNCTION)
+from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_dint, unpack_uint, unpack_usint, pack_ulong,
+                     unpack_udint, print_bytes_line, print_bytes_msg, DATA_FUNCTION_SIZE, UNPACK_DATA_FUNCTION)
 from .const import (DATA_ITEM, DATA_TYPE, TAG_SERVICES_REQUEST, EXTEND_CODES, ENCAPSULATION_COMMAND, EXTENDED_SYMBOL,
                     ELEMENT_ID, CLASS_CODE, PADDING_BYTE, CONNECTION_SIZE, CLASS_ID, INSTANCE_ID, FORWARD_CLOSE,
                     FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY, TIMEOUT_MULTIPLIER,
-                    TIMEOUT_TICKS, TRANSPORT_CLASS, ADDRESS_ITEM)
+                    TIMEOUT_TICKS, TRANSPORT_CLASS, ADDRESS_ITEM, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
 from .socket_ import Socket
 
 
@@ -234,6 +234,14 @@ class Base:
         self.__log.warning(self._status)
         return None
 
+    def un_register_session(self):
+        """ Un-register a connection
+
+        """
+        message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
+        self._send(message)
+        self._session = None
+
     def forward_open(self):
         """ CIP implementation of the forward open message
 
@@ -353,13 +361,78 @@ class Base:
         self.__log.warning(self._status)
         return False
 
-    def un_register_session(self):
-        """ Un-register a connection
+    def get_module_info(self, slot):
+        try:
+            if not self._target_is_connected:
+                if not self.forward_open():
+                    self._status = (10, "Target did not connected. get_plc_name will not be executed.")
+                    self.__log.warning(self._status)
+                    raise DataError(self._status[1])
 
-        """
-        message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
-        self._send(message)
-        self._session = None
+            msg = [
+                # unnconnected send portion
+                UNCONNECTED_SEND,
+                b'\x02',
+                CLASS_ID['8-bit'],
+                b'\x06',  # class
+                INSTANCE_ID["8-bit"],
+                b'\x01',
+                b'\x0A',  # priority
+                b'\x0e\x06\x00',
+
+                # Identity request portion
+                b'\x01',  # Service
+                b'\x02',
+                CLASS_ID['8-bit'],
+                CLASS_CODE['Identity Object'],
+                INSTANCE_ID["8-bit"],
+                b'\x01',  # Instance 1
+                b'\x01\x00',
+                b'\x01',  # backplane
+                pack_usint(slot),
+            ]
+            request = self.build_common_packet_format(DATA_ITEM['Unconnected'],
+                                                      b''.join(msg),
+                                                      ADDRESS_ITEM['UCMM'], )
+            reply = self.send_rr_data(request)
+
+            if reply:
+                info = self._parse_identity_object(reply)
+                # self._info = {**self._info, **info}
+                return info
+            else:
+                raise DataError('send_unit_data did not return valid data')
+
+        except Exception as err:
+            raise DataError(err)
+
+    @staticmethod
+    def _parse_identity_object(reply):
+        vendor = unpack_uint(reply[44:46])
+        product_type = unpack_uint(reply[46:48])
+        product_code = unpack_uint(reply[48:50])
+        major_fw = int(reply[50])
+        minor_fw = int(reply[51])
+        status = f'{unpack_uint(reply[52:54]):0{16}b}'
+        serial_number = f'{unpack_udint(reply[54:58]):0{8}x}'
+        product_name_len = int(reply[58])
+        tmp = 59 + product_name_len
+        device_type = reply[59:tmp].decode()
+
+        state = unpack_uint(reply[tmp:tmp+4]) if reply[tmp:] else -1  # some modules don't return a state
+
+        return {
+            'vendor': VENDORS.get(vendor, 'UNKNOWN'),
+            'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
+            'product_code': product_code,
+            'version_major': major_fw,
+            'version_minor': minor_fw,
+            'revision': f'{major_fw}.{minor_fw}',
+            'serial': serial_number,
+            'device_type': device_type,
+            'status': status,
+            'state': STATES.get(state, 'UNKNOWN'),
+        }
 
     def _send(self, message):
         """
