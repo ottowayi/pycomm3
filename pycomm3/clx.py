@@ -36,7 +36,7 @@ from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, 
                     REPLAY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
                     CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START,
                     MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
-                    VENDORS, PRODUCT_TYPES)
+                    VENDORS, PRODUCT_TYPES, KEYSWITCH)
 
 
 @logged
@@ -682,7 +682,7 @@ class CLXDriver(Base):
 
             msg = [
                 pack_uint(self._get_sequence()),
-                b'\x01',
+                b'\x01',  # Service
                 REQUEST_PATH_SIZE,
                 CLASS_ID['8-bit'],
                 CLASS_CODE['Identity Object'],
@@ -697,7 +697,7 @@ class CLXDriver(Base):
             reply = self.send_unit_data(request)
 
             if reply:
-                info = self._parse_identity_object(reply)
+                info = self._parse_plc_info(reply)
                 self._info = {**self._info, **info}
                 return info
             else:
@@ -720,7 +720,7 @@ class CLXDriver(Base):
             raise DataError(err)
 
     @staticmethod
-    def _parse_identity_object(reply):
+    def _parse_plc_info(reply):
 
         data = reply[REPLY_START:]
         vendor = unpack_uint(data[0:2])
@@ -728,20 +728,21 @@ class CLXDriver(Base):
         product_code = unpack_uint(data[4:6])
         major_fw = int(data[6])
         minor_fw = int(data[7])
-        keyswitch = data[8:10]
+        keyswitch = KEYSWITCH.get(int(data[8]), {}).get(int(data[9]), 'UNKNOWN')
         serial_number = f'{unpack_udint(data[10:14]):0{8}x}'
         device_type_len = int(data[14])
         device_type = data[15:15 + device_type_len].decode()
 
         return {
-            'vendor': VENDORS[vendor],
-            'product_type': PRODUCT_TYPES[product_type],
+            'vendor': VENDORS.get(vendor, 'UNKNOWN'),
+            'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
             'product_code': product_code,
             'version_major': major_fw,
             'version_minor': minor_fw,
             'revision': f'{major_fw}.{minor_fw}',
             'serial': serial_number,
-            'device_type': device_type
+            'device_type': device_type,
+            'keyswitch': keyswitch
         }
 
     def get_tag_list(self, program=None, cache=True):
