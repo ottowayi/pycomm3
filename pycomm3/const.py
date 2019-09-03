@@ -487,6 +487,7 @@ STATES = {
 
 }
 
+# From Rockwell KB Article #28917
 KEYSWITCH = {
     96: {
         16: 'RUN',
@@ -1763,4 +1764,3 @@ VENDORS = {
     1239: 'ALTE Transportation, S.L.',
     1240: 'Penko Engineering B.V.'
 }
-
