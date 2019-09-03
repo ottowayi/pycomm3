@@ -65,6 +65,14 @@ def pack_lint(l):
     return struct.pack('<q', l)
 
 
+def pack_long(l):
+    return struct.pack('<l', l)
+
+
+def pack_ulong(l):
+    return struct.pack('<L', l)
+
+
 def unpack_bool(st):
     return 1 if not st[0] == 0 else 0
 
@@ -105,6 +113,19 @@ def unpack_real(st):
 def unpack_lint(st):
     """unpack 4 bytes little endian to int"""
     return int(struct.unpack('<q', st[0:8])[0])
+
+
+def unpack_ulint(st):
+    """unpack 4 bytes little endian to int"""
+    return int(struct.unpack('<Q', st[0:8])[0])
+
+
+def unpack_long(st):
+    return int(struct.unpack('<l', st[0:4])[0])
+
+
+def unpack_ulong(st):
+    return int(struct.unpack('<L', st[0:4])[0])
 
 
 def print_bytes_line(msg):

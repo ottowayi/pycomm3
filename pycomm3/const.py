@@ -324,7 +324,6 @@ CONNECTION_SIZE = {
     'Direct Network': b'\x02'
 }
 
-
 CONNECTION_PARAMETER = {
     'PLC5': 0x4302,
     'SLC500': 0x4302,
@@ -473,6 +472,35 @@ PCCC_ERROR_CODE = {
     128: "Compatibility mode file missing or communication zone problem",
     144: "Remote node cannot buffer command",
     240: "Error code in EXT STS Byte"
+}
+
+# States defined in CIP Spec Vol 1, chapter 5, Identity Object
+STATES = {
+    0: 'Nonexistent',
+    1: 'Device Self Testing',
+    2: 'Standby',
+    3: 'Operational',
+    4: 'Major Recoverable Fault',
+    5: 'Major Unrecoverable Fault',
+    **{i: 'Reserved' for i in range(6, 255)},
+    255: 'Default for Get_Attributes_All service'
+
+}
+
+# From Rockwell KB Article #28917
+KEYSWITCH = {
+    96: {
+        16: 'RUN',
+        17: 'RUN',
+        48: 'REMOTE RUN',
+        49: 'REMOTE RUN'
+    },
+    112: {
+        32: 'PROG',
+        33: 'PROG',
+        48: 'REMOTE PROG',
+        49: 'REMOTE PROG'
+    }
 }
 
 #  Taken from PyLogix
