@@ -401,7 +401,7 @@ class Base:
                 # self._info = {**self._info, **info}
                 return info
             else:
-                raise DataError('send_unit_data did not return valid data')
+                raise DataError('send_rr_data did not return valid data')
 
         except Exception as err:
             raise DataError(err)
