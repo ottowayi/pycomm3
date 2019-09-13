@@ -50,9 +50,9 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
 
 ::
 
-    from pycomm3 import CLXDriver
+    from pycomm3 import LogixXDriver
 
-    with CLXDriver('10.20.30.100', slot=1) as plc:
+    with LogixDriver('10.20.30.100', slot=1) as plc:
         print(plc)
 
         # OUTPUT:
@@ -108,7 +108,7 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
 
 
 
-By default, when creating the CLXDriver object, it will open a connection to the plc, read the program name, get the
+By default, when creating the LogixDriver object, it will open a connection to the plc, read the program name, get the
 controller info, and get all the controller scoped tags.  Using the ``init_tags`` kwarg will enable/disable automatically
 getting the controller tag list, and ``init_info`` will enable/disable program name and controller info loading.
 By reading the tag list first, this allows us to cache all the tag instance ids to help optimize read/write requests.
@@ -118,7 +118,7 @@ on a version lower than 21, set the ``use_instance_ids`` attribute to false or y
 
 ::
 
-    with CLXDriver('10.20.30.100', init_info=False, init_tags=False) as plc:
+    with LogixDriver('10.20.30.100', init_info=False, init_tags=False) as plc:
         plc.use_instance_ids = False
 
         print(len(plc.tags))

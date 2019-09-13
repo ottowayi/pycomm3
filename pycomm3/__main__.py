@@ -29,10 +29,10 @@ import sys
 
 def register_COM_server():
     if '--register' in sys.argv or '--unregister' in sys.argv:
-        from pycomm3.com_server import CLXDriverCOMServer
+        from pycomm3.com_server import LogixDriverCOMServer
         import win32com.server.register
 
-        win32com.server.register.UseCommandLine(CLXDriverCOMServer)
+        win32com.server.register.UseCommandLine(LogixDriverCOMServer)
 
 
 if __name__ == '__main__':

@@ -40,7 +40,7 @@ from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, 
 
 
 @logged
-class CLXDriver(Base):
+class LogixDriver(Base):
     """
     This Ethernet/IP client is based on Rockwell specification. Please refer to the link below for details.
 
@@ -195,8 +195,6 @@ class CLXDriver(Base):
             if multi_requests:
                 request_path = bytes([len(request_path) // 2]) + request_path
 
-            _path = super().create_tag_rp(tag, multi_requests)
-            return _path
             return request_path
 
         return None
