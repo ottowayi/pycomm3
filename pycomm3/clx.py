@@ -120,6 +120,31 @@ class CLXDriver(Base):
         except Exception as e:
             raise DataError(e)
 
+    def _find_tag_index(self, tag):
+        if '[' in tag:  # Check if is an array tag
+            t = tag[:len(tag) - 1]  # Remove the last square bracket
+            inside_value = t[t.find('[') + 1:]  # Isolate the value inside bracket
+            index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
+            tag = t[:t.find('[')]  # Get only the tag part
+        else:
+            index = []
+        return tag.encode(), self._encode_tag_index(index)
+
+    @staticmethod
+    def _encode_tag_index(index):
+        path = []
+        for idx in index:
+            val = int(idx)
+            if val <= 0xff:
+                path += [ELEMENT_ID["8-bit"], pack_usint(val)]
+            elif val <= 0xffff:
+                path += [ELEMENT_ID["16-bit"], PADDING_BYTE, pack_uint(val)]
+            elif val <= 0xfffffffff:
+                path += [ELEMENT_ID["32-bit"], PADDING_BYTE, pack_dint(val)]
+            else:
+                return None  # Cannot create a valid request packet
+        return path
+
     def create_tag_rp(self, tag, multi_requests=False):
         """ Create tag Request Packet
 
@@ -136,43 +161,33 @@ class CLXDriver(Base):
                       INSTANCE_ID['16-bit'], b'\x00',
                       pack_uint(self._instance_id_cache[base])]
             else:
-                base_len = len(base)
+                base_tag, index = self._find_tag_index(base)
+                base_len = len(base_tag)
                 rp = [EXTENDED_SYMBOL,
                       pack_usint(base_len),
-                      base.encode()]
+                      base_tag]
                 if base_len % 2:
                     rp.append(PADDING_BYTE)
+                if index is None:
+                    return None
+                else:
+                    rp += index
 
             for attr in attrs:
-                if '[' in attr:  # Check if is an array tag
-                    attr = attr[:len(attr) - 1]  # Remove the last square bracket
-                    inside_value = attr[attr.find('[') + 1:]  # Isolate the value inside bracket
-                    index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
-                    attr = attr[:attr.find('[')]  # Get only the tag part
-                else:
-                    index = []
+                attr, index = self._find_tag_index(attr)
                 tag_length = len(attr)
-
                 # Create the request path
                 attr_path = [EXTENDED_SYMBOL,
                              pack_usint(tag_length),
-                             attr.encode()]
+                             attr]
                 # Add pad byte because total length of Request path must be word-aligned
                 if tag_length % 2:
                     attr_path.append(PADDING_BYTE)
                 # Add any index
-
-                for idx in index:
-                    val = int(idx)
-                    if val <= 0xff:
-                        attr_path += [ELEMENT_ID["8-bit"], pack_usint(val)]
-                    elif val <= 0xffff:
-                        attr_path += [ELEMENT_ID["16-bit"], PADDING_BYTE, pack_uint(val)]
-                    elif val <= 0xfffffffff:
-                        attr_path += [ELEMENT_ID["32-bit"], PADDING_BYTE, pack_dint(val)]
-                    else:
-                        return None  # Cannot create a valid request packet
-
+                if index is None:
+                    return None
+                else:
+                    attr_path += index
                 rp += attr_path
 
             # At this point the Request Path is completed,
@@ -180,6 +195,8 @@ class CLXDriver(Base):
             if multi_requests:
                 request_path = bytes([len(request_path) // 2]) + request_path
 
+            _path = super().create_tag_rp(tag, multi_requests)
+            return _path
             return request_path
 
         return None
