@@ -1,4 +1,4 @@
-from pycomm3.clx import CLXDriver as ClxDriver
+from pycomm3.clx import LogixDriver as ClxDriver
 import logging
 
 from time import sleep

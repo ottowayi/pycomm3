@@ -542,7 +542,7 @@ class Base:
             else:
                 return 'Extended Status Size Unknown'
         try:
-            return f'{EXTEND_CODES[status][extended_status]}'
+            return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
         except LookupError:
             return "Extended Status info not present"
 

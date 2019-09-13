@@ -24,7 +24,7 @@
 # SOFTWARE.
 #
 
-__version_info__ = (0, 2, 0)
+__version_info__ = (0, 3, 0)
 __version__ = '.'.join(f'{x}' for x in __version_info__)
 
 
@@ -40,4 +40,4 @@ class DataError(PycommError):
     ...
 
 
-from .clx import CLXDriver
+from .clx import LogixDriver
