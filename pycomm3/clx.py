@@ -647,8 +647,9 @@ class LogixDriver(Base):
             values = self.read_array(data_tag, length)
             if values:
                 _, values = zip(*values)
-                chars = [chr(v + 256) if v < 0 else chr(v) for v in values]
-                return ''.join(ch for ch in chars if ch != '\x00')
+                chars = ''.join(chr(v + 256) if v < 0 else chr(v) for v in values)
+                string, *_ = chars.split('\x00', maxsplit=1)
+                return string
         return None
 
     def get_plc_name(self):
