@@ -60,7 +60,7 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
 
 ::
 
-    from pycomm3 import LogixXDriver
+    from pycomm3 import LogixDriver
 
     with LogixDriver('10.20.30.100', slot=1) as plc:
         print(plc)
