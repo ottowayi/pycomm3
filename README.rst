@@ -15,6 +15,15 @@ This library is only supported on Python 3.6 and up.
 
 .. _pylogix: https://github.com/dmroeder/pylogix
 
+
+Disclaimer
+----------
+PLCs can be used to control heavy or dangerous equipment, this library is provided 'As Is' and makes no guarantees on
+it's reliability in a production environment.  This library makes no promises in the completeness or correctness of the
+protocol implementations and should not be solely relied upon for critical systems.  The development for this library
+is aimed at providing quick and convenient access for reading/writing data inside Allen-Bradley Control/Compact Logix PLCs.
+
+
 Implementation
 --------------
 The Logix5000 Controller Data Access Manual, available here `Rockwell Developer How-to Guides`_, was used to implement
@@ -41,6 +50,7 @@ PIP:
 ::
 
     pip install git+https://github.com/ottowayi/pycomm3.git
+
 
 Basic Usage
 -----------
@@ -84,11 +94,12 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
                                  # use the LEN to do a read_array of STR1.DATA, equivalent to:
                                  # plc.read_array('STR1.DATA', plc.read_tag('STR1.LEN')) and converting to ASCII
         # RETURN: 'A TEST STRING'
-        plc.read_string('STR1', 5)  # you can also specify the length to skip the initial read of .LEN
 
+        plc.read_string('STR1', 5)  # you can also specify the length to skip the initial read of .LEN
         # RETURN: 'A TES'
+
         plc.read_string('STR1', 82) # setting the length to the full length of the string will bypass
-                                    # reading the .LEN, but will read_string terminate the return value
+                                    # reading the .LEN, but will terminate the return value
                                     # at the first NULL character
         # RETURN: 'A TEST STRING'
 
