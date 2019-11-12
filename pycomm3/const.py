@@ -188,12 +188,13 @@ Rockwell Automation Publication
 1756-RM003P-EN-P - December 2014
 """
 
+
 SERVICE_STATUS = {
     0x01: "Connection failure (see extended status)",
     0x02: "Insufficient resource",
     0x03: "Invalid value",
     0x04: "IOI syntax error. A syntax error was detected decoding the Request Path (see extended status)",
-    0x05: "Destination unknown, class unsupported, instance \nundefined or structure element undefined (see extended status)",
+    0x05: "Destination unknown, class unsupported, instance undefined or structure element undefined (see extended status)",
     0x06: "Insufficient Packet Space",
     0x07: "Connection lost",
     0x08: "Service not supported",
@@ -230,6 +231,11 @@ SERVICE_STATUS = {
     0xFE: "Message timeout",
     0xff: "General Error (see extended status)"
 }
+
+
+def get_service_status(status):
+    return SERVICE_STATUS.get(status, f'Unknown Error ({status:0>2x})')
+
 
 EXTEND_CODES = {
     0x01: {
