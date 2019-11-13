@@ -29,14 +29,14 @@ from collections import defaultdict
 from autologging import logged
 
 from . import DataError
-from .base import Base
+from .base import Base, Tag
 from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint, unpack_uint, unpack_dint, unpack_udint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
-from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, SERVICE_STATUS, BITS_PER_INT_TYPE,
+from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, BITS_PER_INT_TYPE,
                     REPLAY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
                     CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START,
                     MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
-                    VENDORS, PRODUCT_TYPES, KEYSWITCH)
+                    VENDORS, PRODUCT_TYPES, KEYSWITCH, TAG_SERVICES_REPLY, get_service_status)
 
 
 @logged
@@ -79,44 +79,43 @@ class LogixDriver(Base):
             self.open()
             if init_info:
                 self.get_plc_info()
-                self.get_plc_name()
                 self.use_instance_ids = self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS
+                self.get_plc_name()
 
             if init_tags:
                 self.get_tag_list()
             self.close()
 
     def _check_reply(self, reply):
-        """ check the replayed message for error"""
+        """ check the replayed message for error
+
+            return the status error if unsuccessful, else None
+        """
         try:
             if reply is None:
-                self._status = (3, f'{REPLAY_INFO[unpack_dint(reply[:2])]} without reply')
-                return False
+                return f'{REPLAY_INFO[unpack_dint(reply[:2])]} without reply'
             # Get the type of command
             typ = unpack_uint(reply[:2])
 
             # Encapsulation status check
             if unpack_dint(reply[8:12]) != SUCCESS:
-                self._status = (3, f"{REPLAY_INFO[typ]} reply status:{SERVICE_STATUS[unpack_dint(reply[8:12])]}")
-                return False
+                return get_service_status(unpack_dint(reply[8:12]))
 
             # Command Specific Status check
             if typ == unpack_uint(ENCAPSULATION_COMMAND["send_rr_data"]):
                 status = unpack_usint(reply[42:43])
                 if status != SUCCESS:
-                    self._status = (3, f"send_rr_data reply:{SERVICE_STATUS[status]} - "
-                    f"Extend status:{self.get_extended_status(reply, 42)}")
-                    return False
+                    return f"send_rr_data reply:{get_service_status(status)} - " \
+                           f"Extend status:{self.get_extended_status(reply, 42)}"
                 else:
-                    return True
+                    return None
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
+                multi_requests = reply[46] == TAG_SERVICES_REPLY['Multiple Service Packet']
                 status = _unit_data_status(reply)
-                if status not in (INSUFFICIENT_PACKETS, SUCCESS):
-                    self._status = (3, f"send_unit_data reply:{SERVICE_STATUS[status]} - "
-                    f"Extend status:{self.get_extended_status(reply, 48)}")
-                    self.__log.warning(self._status)
-                    return False
-            return True
+                if status not in (INSUFFICIENT_PACKETS, SUCCESS) and not multi_requests:
+                    return f"send_unit_data reply:{get_service_status(status)} - " \
+                           f"Extend status:{self.get_extended_status(reply, 48)}"
+                return None
         except Exception as e:
             raise DataError(e)
 
@@ -212,13 +211,11 @@ class LogixDriver(Base):
 
         :return: None is returned in case of error otherwise the tag list is returned
         """
-        self.clear()
 
         if not self._target_is_connected:
             if not self.forward_open():
-                self._status = (6, "Target did not connected. read_tag will not be executed.")
-                self.__log.warning(self._status)
-                raise DataError(self._status[1])
+                self.__log.warning("Target did not connected. read_tag will not be executed.")
+                raise DataError("Target did not connected. read_tag will not be executed.")
 
         if len(tags) == 1:
             if isinstance(tags[0], (list, tuple)):
@@ -240,8 +237,7 @@ class LogixDriver(Base):
             if read:
                 rp = self.create_tag_rp(tag, multi_requests=True)
                 if rp is None:
-                    self._status = (6, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
-                    raise DataError(self._status[1])
+                    raise DataError(f"Cannot create tag {tag} request packet. read_tag will not be executed.")
                 else:
                     tag_req_len = len(rp) + MULTISERVICE_READ_OVERHEAD
                     if tag_req_len + request_len >= self._connection_size:
@@ -255,14 +251,11 @@ class LogixDriver(Base):
         replies = []
         for req_list, tags_ in zip(rp_list, tags_read):
             message_request = self.build_multiple_service(req_list, self._get_sequence())
-            msg = self.build_common_packet_format(
-                DATA_ITEM['Connected'],
-                b''.join(message_request),
-                ADDRESS_ITEM['Connection Based'],
-                addr_data=self._target_cid, )
-            reply = self.send_unit_data(msg)
-            if reply is None:
-                raise DataError("send_unit_data returned not valid data")
+            msg = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
+                                                  ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
+            success, reply = self.send_unit_data(msg)
+            if not success:
+                raise DataError(f"send_unit_data returned not valid data - {reply}")
 
             replies += self._parse_multiple_request_read(reply, tags_, tag_bits)
         return replies
@@ -271,7 +264,7 @@ class LogixDriver(Base):
         tag, bit = self._prep_bools(tag, 'BOOL', bits_only=True)
         rp = self.create_tag_rp(tag)
         if rp is None:
-            self._status = (6, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
+            self.__log.warning(f"Cannot create tag {tag} request packet. read_tag will not be executed.")
             return None
         else:
             # Creating the Message Request Packet
@@ -282,30 +275,22 @@ class LogixDriver(Base):
                 rp,  # the request path
                 b'\x01\x00'
             ]
+        request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
+                                                  ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
+        success, reply = self.send_unit_data(request)
 
-        reply = self.send_unit_data(
-            self.build_common_packet_format(
-                DATA_ITEM['Connected'],
-                b''.join(message_request),
-                ADDRESS_ITEM['Connection Based'],
-                addr_data=self._target_cid, )
-        )
-        if reply is None:
-            raise DataError("send_unit_data returned not valid data")
-
-            # Get the data type
-        if self._status[0] == SUCCESS:
+        if success:
             data_type = unpack_uint(reply[50:52])
             typ = DATA_TYPE[data_type]
             try:
                 value = UNPACK_DATA_FUNCTION[typ](reply[52:])
                 if bit is not None:
                     value = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
-                return value, typ
+                return Tag(tag, value, typ)
             except Exception as e:
                 raise DataError(e)
         else:
-            return None
+            return Tag(tag, None, None, reply)
 
     def read_array(self, tag, counts, raw=False):
         """ read array of atomic data type from a connected plc
@@ -318,12 +303,11 @@ class LogixDriver(Base):
         :param raw: the value should output as raw-value (hex)
         :return: None is returned in case of error otherwise the tag list is returned
         """
-        self.clear()
+
         if not self._target_is_connected:
             if not self.forward_open():
-                self._status = (7, "Target did not connected. read_tag will not be executed.")
-                self.__log.warning(self._status)
-                raise DataError(self._status[1])
+                self.__log.warning("Target did not connected. read_tag will not be executed.")
+                raise DataError("Target did not connected. read_tag will not be executed.")
 
         offset = 0
         last_idx = 0
@@ -332,7 +316,7 @@ class LogixDriver(Base):
         while offset != -1:
             rp = self.create_tag_rp(tag)
             if rp is None:
-                self._status = (7, f"Cannot create tag {tag} request packet. read_tag will not be executed.")
+                self.__log.warning(f"Cannot create tag {tag} request packet. read_tag will not be executed.")
                 return None
             else:
                 # Creating the Message Request Packet
@@ -348,9 +332,9 @@ class LogixDriver(Base):
                                                   b''.join(message_request),
                                                   ADDRESS_ITEM['Connection Based'],
                                                   addr_data=self._target_cid, )
-            reply = self.send_unit_data(msg)
-            if reply is None:
-                raise DataError("send_unit_data returned not valid data")
+            success, reply = self.send_unit_data(msg)
+            if not success:
+                raise DataError(f"send_unit_data returned not valid data - {reply}")
 
             last_idx, offset = self._parse_fragment(reply, last_idx, offset, tags, raw)
 
@@ -392,15 +376,15 @@ class LogixDriver(Base):
         tags_added = [[]]
         request_len = 0
         for name, value, typ in tags:
-            name, bit = self._prep_bools(name, typ, bits_only=False)  # check if bit of int or bool array
+            name, bit = self._prep_bools(name, typ, bits_only=False)  # check if bool & if bit of int or bool array
             # Create the request path to wrap the tag name
             rp = self.create_tag_rp(name, multi_requests=True)
             if rp is None:
-                self._status = (8, f"Cannot create tag {tags} req. packet. write_tag will not be executed")
+                self.__log.warning(f"Cannot create tag {tags} req. packet. write_tag will not be executed")
                 return None
             else:
                 try:
-                    if bit is not None:
+                    if bit is not None:  # then it is a boolean array
                         rp = self.create_tag_rp(name, multi_requests=True)
                         request = bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]]) + rp
                         request += b''.join(self._make_write_bit_data(bit, value, bool_ary='[' in name))
@@ -423,7 +407,7 @@ class LogixDriver(Base):
                     rp_list[-1].append(request)
                     request_len += tag_req_len
                 except (LookupError, struct.error) as e:
-                    self._status = (8, f"Tag:{name} type:{typ} removed from write list. Error:{e}.")
+                    self.__warning(f"Tag:{name} type:{typ} removed from write list. Error:{e}.")
 
                     # The tag in idx position need to be removed from the rp list because has some kind of error
                 else:
@@ -437,11 +421,11 @@ class LogixDriver(Base):
                                                   b''.join(message_request),
                                                   ADDRESS_ITEM['Connection Based'],
                                                   addr_data=self._target_cid, )
-            reply = self.send_unit_data(msg)
-            if reply:
+            success, reply = self.send_unit_data(msg)
+            if success:
                 replies += self._parse_multiple_request_write(tags_, reply)
             else:
-                raise DataError("send_unit_data returned not valid data")
+                raise DataError(f"send_unit_data returned not valid data - {reply}")
         return replies
 
     def _write_tag_single_write(self, tag, value, typ):
@@ -450,8 +434,7 @@ class LogixDriver(Base):
 
         rp = self.create_tag_rp(name)
         if rp is None:
-            self._status = (8, f"Cannot create tag {tag} request packet. write_tag will not be executed.")
-            self.__log.warning(self._status)
+            self.__log.warning(f"Cannot create tag {tag} request packet. write_tag will not be executed.")
             return None
         else:
             # Creating the Message Request Packet
@@ -473,15 +456,13 @@ class LogixDriver(Base):
                     pack_uint(1),  # Add the number of tag to write
                     PACK_DATA_FUNCTION[typ](value)
                 ]
-
-            reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
-                                                                        b''.join(message_request),
-                                                                        ADDRESS_ITEM['Connection Based'],
-                                                                        addr_data=self._target_cid))
-            if reply:
-                return True
-
-            raise DataError("send_unit_data returned not valid data")
+            request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
+                                                      ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid)
+            success, reply = self.send_unit_data(request)
+            if success:
+                return Tag(tag, value, typ)
+            else:
+                return Tag(tag, None, typ, reply)
 
     @staticmethod
     def _make_write_bit_data(bit, value, bool_ary=False):
@@ -527,13 +508,11 @@ class LogixDriver(Base):
         :param typ: the type of the tag to write or none if tag is an array of tuple or a tuple
         :return: None is returned in case of error otherwise the tag list is returned
         """
-        self.clear()  # cleanup error string
 
         if not self._target_is_connected:
             if not self.forward_open():
-                self._status = (8, "Target did not connected. write_tag will not be executed.")
-                self.__log.warning(self._status)
-                raise DataError(self._status[1])
+                self.__log.warning("Target did not connected. write_tag will not be executed.")
+                raise DataError("Target did not connected. write_tag will not be executed.")
 
         if isinstance(tag, (list, tuple)):
             return self._write_tag_multi_write(tag)
@@ -553,17 +532,15 @@ class LogixDriver(Base):
         :param values: the array of values to write, if raw: the frame with bytes
         :param raw: indicates that the values are given as raw values (hex)
         """
-        self.clear()
+
         if not isinstance(values, list):
-            self._status = (9, "A list of tags must be passed to write_array.")
-            self.__log.warning(self._status)
-            raise DataError(self._status[1])
+            self.__log.warning("A list of tags must be passed to write_array.")
+            raise DataError("A list of tags must be passed to write_array.")
 
         if not self._target_is_connected:
             if not self.forward_open():
-                self._status = (9, "Target did not connected. write_array will not be executed.")
-                self.__log.warning(self._status)
-                raise DataError(self._status[1])
+                self.__log.warning("Target did not connected. write_array will not be executed.")
+                raise DataError("Target did not connected. write_array will not be executed.")
 
         array_of_values = b''
         byte_size = 0
@@ -577,7 +554,7 @@ class LogixDriver(Base):
                 # create the message and send the fragment
                 rp = self.create_tag_rp(tag)
                 if rp is None:
-                    self._status = (9, f"Cannot create tag {tag} request packet write_array will not be executed.")
+                    self.__log.warning(f"Cannot create tag {tag} request packet write_array will not be executed.")
                     return None
                 else:
                     # Creating the Message Request Packet
@@ -600,9 +577,9 @@ class LogixDriver(Base):
                             addr_data=self._target_cid,
                         )
 
-                reply = self.send_unit_data(msg)
-                if reply is None:
-                    raise DataError("send_unit_data returned not valid data")
+                success, reply = self.send_unit_data(msg)
+                if not success:
+                    raise DataError(f"send_unit_data returned not valid data - {reply}")
 
                 array_of_values = b''
                 byte_size = 0
@@ -656,9 +633,8 @@ class LogixDriver(Base):
         try:
             if not self._target_is_connected:
                 if not self.forward_open():
-                    self._status = (10, "Target did not connected. get_plc_name will not be executed.")
-                    self.__log.warning(self._status)
-                    raise DataError(self._status[1])
+                    self.__log.warning("Target did not connected. get_plc_name will not be executed.")
+                    raise DataError("Target did not connected. get_plc_name will not be executed.")
 
             msg = [
                 pack_uint(self._get_sequence()),
@@ -677,13 +653,13 @@ class LogixDriver(Base):
                                                       b''.join(msg),
                                                       ADDRESS_ITEM['Connection Based'],
                                                       addr_data=self._target_cid, )
-            reply = self.send_unit_data(request)
+            success, reply = self.send_unit_data(request)
 
-            if reply:
+            if success:
                 self._info['name'] = self._parse_plc_name(reply)
                 return self._info['name']
             else:
-                raise DataError('send_unit_data did not return valid data')
+                raise DataError(f'send_unit_data did not return valid data - {reply}')
 
         except Exception as err:
             raise DataError(err)
@@ -692,9 +668,8 @@ class LogixDriver(Base):
         try:
             if not self._target_is_connected:
                 if not self.forward_open():
-                    self._status = (10, "Target did not connected. get_plc_name will not be executed.")
-                    self.__log.warning(self._status)
-                    raise DataError(self._status[1])
+                    self.__log.warning("Target did not connected. get_plc_name will not be executed.")
+                    raise DataError("Target did not connected. get_plc_name will not be executed.")
 
             msg = [
                 pack_uint(self._get_sequence()),
@@ -710,14 +685,14 @@ class LogixDriver(Base):
                                                       b''.join(msg),
                                                       ADDRESS_ITEM['Connection Based'],
                                                       addr_data=self._target_cid, )
-            reply = self.send_unit_data(request)
+            success, reply = self.send_unit_data(request)
 
-            if reply:
+            if success:
                 info = self._parse_plc_info(reply)
                 self._info = {**self._info, **info}
                 return info
             else:
-                raise DataError('send_unit_data did not return valid data')
+                raise DataError(f'send_unit_data did not return valid data - {reply}')
 
         except Exception as err:
             raise DataError(err)
@@ -726,7 +701,7 @@ class LogixDriver(Base):
     def _parse_plc_name(reply):
         status = _unit_data_status(reply)
         if status != SUCCESS:
-            raise DataError(f'get_plc_name returned status {SERVICE_STATUS[status]}')
+            raise DataError(f'get_plc_name returned status {get_service_status(status)}')
         data = reply[REPLY_START:]
         try:
             name_len = unpack_uint(data[6:8])
@@ -807,9 +782,8 @@ class LogixDriver(Base):
         try:
             if not self._target_is_connected:
                 if not self.forward_open():
-                    self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                    self.__log.warning(self._status)
-                    raise DataError(self._status[1])
+                    self.__log.warning("Target did not connected. get_tag_list will not be executed.")
+                    raise DataError("Target did not connected. get_tag_list will not be executed.")
 
             last_instance = 0
             tag_list = []
@@ -843,16 +817,11 @@ class LogixDriver(Base):
                     b'\x01\x00',  # Attribute 1: Symbol name
                     b'\x02\x00',
                 ]
-
-                reply = self.send_unit_data(
-                    self.build_common_packet_format(
-                        DATA_ITEM['Connected'],
-                        b''.join(message_request),
-                        ADDRESS_ITEM['Connection Based'],
-                        addr_data=self._target_cid,
-                    ))
-                if reply is None:
-                    raise DataError("send_unit_data returned not valid data")
+                request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
+                                                          ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid)
+                success, reply = self.send_unit_data(request)
+                if not success:
+                    raise DataError(f"send_unit_data returned not valid data - {reply}")
 
                 last_instance = self._parse_instance_attribute_list(reply, tag_list)
             return tag_list
@@ -889,7 +858,7 @@ class LogixDriver(Base):
         elif status == INSUFFICIENT_PACKETS:
             last_instance = instance + 1
         else:
-            self._status = (1, 'unknown status during _parse_instance_attribute_list')
+            self.__log.warning('unknown status during _parse_instance_attribute_list')
             last_instance = -1
 
         return last_instance
@@ -942,9 +911,8 @@ class LogixDriver(Base):
         if instance_id not in self._struct_cache:
             if not self._target_is_connected:
                 if not self.forward_open():
-                    self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                    self.__log.warning(self._status)
-                    raise DataError(self._status[1])
+                    self.__log.warning("Target did not connected. get_tag_list will not be executed.")
+                    raise DataError("Target did not connected. get_tag_list will not be executed.")
 
             message_request = [
                 pack_uint(self._get_sequence()),
@@ -961,13 +929,11 @@ class LogixDriver(Base):
                 b'\x02\x00',  # Template Member Count UINT
                 b'\x01\x00'  # Structure Handle We can use this to read and write UINT
             ]
-
-            reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
-                                                                        b''.join(message_request),
-                                                                        ADDRESS_ITEM['Connection Based'],
-                                                                        addr_data=self._target_cid, ))
-            if reply is None:
-                raise DataError("send_unit_data returned not valid data")
+            request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
+                                                      ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
+            success, reply = self.send_unit_data(request)
+            if not success:
+                raise DataError(f"send_unit_data returned not valid data - {reply}")
 
             self._struct_cache[instance_id] = self._parse_structure_makeup_attributes(reply)
 
@@ -1027,9 +993,8 @@ class LogixDriver(Base):
         """
         if not self._target_is_connected:
             if not self.forward_open():
-                self._status = (10, "Target did not connected. get_tag_list will not be executed.")
-                self.__log.warning(self._status)
-                raise DataError(self._status[1])
+                self.__log.warning("Target did not connected. get_tag_list will not be executed.")
+                raise DataError("Target did not connected. get_tag_list will not be executed.")
 
         if instance_id not in self._template_cache:
             offset = 0
@@ -1049,12 +1014,11 @@ class LogixDriver(Base):
                         pack_uint(((object_definition_size * 4) - 21) - offset)
                     ]
 
-                    reply = self.send_unit_data(self.build_common_packet_format(DATA_ITEM['Connected'],
-                                                                                b''.join(message_request),
-                                                                                ADDRESS_ITEM['Connection Based'],
-                                                                                addr_data=self._target_cid, ))
-                    if reply is None:
-                        raise DataError("send_unit_data returned not valid data")
+                    request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
+                                                              ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
+                    success, reply = self.send_unit_data(request)
+                    if not success:
+                        raise DataError(f"send_unit_data returned not valid data - {reply}")
 
                     offset, template = self._parse_template(reply, offset, template)
 
@@ -1077,8 +1041,7 @@ class LogixDriver(Base):
         elif status == INSUFFICIENT_PACKETS:
             offset += bytes_received
         else:
-            self._status = (1, f'unknown status {status} during _parse_template')
-            self.__log.warning(self._status)
+            self.__log.warning(f'unknown status {status} during _parse_template')
             offset = None
 
         return offset, template
@@ -1168,13 +1131,13 @@ class LogixDriver(Base):
         elif status == 0x06:
             offset += fragment_returned_length
         else:
-            self._status = (2, '{0}: {1}'.format(SERVICE_STATUS[status], self.get_extended_status(reply, 48)))
-            self.__log.warning(self._status)
+            self.__log.warning('{0}: {1}'.format(get_service_status(status), self.get_extended_status(reply, 48)))
             offset = -1
 
         return last_idx, offset
 
-    def _parse_multiple_request_read(self, reply, tags, tag_bits=None):
+    @staticmethod
+    def _parse_multiple_request_read(reply, tags, tag_bits=None):
         """ parse the message received from a multi request read:
 
         For each tag parsed, the information extracted includes the tag name, the value read and the data type.
@@ -1193,7 +1156,7 @@ class LogixDriver(Base):
                 start = offset + unpack_uint(reply[position:position + 2])
                 general_status = unpack_usint(reply[start + 2:start + 3])
                 tag = tags[index]
-                if general_status == 0:
+                if general_status == SUCCESS:
                     typ = DATA_TYPE[unpack_uint(reply[start + 4:start + 6])]
                     value_begin = start + 6
                     value_end = value_begin + DATA_FUNCTION_SIZE[typ]
@@ -1201,19 +1164,18 @@ class LogixDriver(Base):
                     if tag in tag_bits:
                         for bit in tag_bits[tag]:
                             val = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
-                            tag_list.append((f'{tag}.{bit}', val, 'BOOL'))
+                            tag_list.append(Tag(f'{tag}.{bit}', val, 'BOOL'))
                     else:
-                        self._last_tag_read = (tag, value, typ)
-                        tag_list.append(self._last_tag_read)
+                        tag_list.append(Tag(tag, value, typ))
                 else:
-                    self._last_tag_read = (tag, None, None)
-                    tag_list.append(self._last_tag_read)
+                    tag_list.append(Tag(tag, None, None, get_service_status(general_status)))
 
             return tag_list
         except Exception as e:
             raise DataError(e)
 
-    def _parse_multiple_request_write(self, tags, reply):
+    @staticmethod
+    def _parse_multiple_request_write(tags, reply):
         """ parse the message received from a multi request writ:
 
         For each tag parsed, the information extracted includes the tag name and the status of the writing.
@@ -1231,28 +1193,11 @@ class LogixDriver(Base):
                 position += 2
                 start = offset + unpack_uint(reply[position:position + 2])
                 general_status = unpack_usint(reply[start + 2:start + 3])
-
-                self._last_tag_write = (tags[index] + (general_status == 0,))
-                tag_list.append(self._last_tag_write)
+                error = None if general_status == SUCCESS else get_service_status(general_status)
+                tag_list.append(Tag(*tags[index], error))
             return tag_list
         except Exception as e:
             raise DataError(e)
-
-    @property
-    def last_tag_read(self):
-        """ Return the last tag read by a multi request read
-
-        :return: A tuple (tag name, value, type)
-        """
-        return self._last_tag_read
-
-    @property
-    def last_tag_write(self):
-        """ Return the last tag write by a multi request write
-
-        :return: A tuple (tag name, 'GOOD') if the write was successful otherwise (tag name, 'BAD')
-        """
-        return self._last_tag_write
 
     @property
     def tags(self):

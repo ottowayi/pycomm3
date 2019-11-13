@@ -27,7 +27,7 @@
 from os import getpid, urandom
 
 from autologging import logged
-
+from typing import NamedTuple, Any, Optional, Union
 from . import DataError, CommError
 from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_dint, unpack_uint, unpack_usint, pack_ulong,
                      unpack_udint, print_bytes_line, print_bytes_msg, DATA_FUNCTION_SIZE, UNPACK_DATA_FUNCTION)
@@ -41,6 +41,28 @@ from .socket_ import Socket
 def get_bit(value, idx):
     """:returns value of bit at position idx"""
     return (value & (1 << idx)) != 0
+
+
+def _mkstr(value):
+    """If value is a string, return it wrapped in quotes, else just return the value (like for repr's)"""
+    return f"'{value}'" if isinstance(value, str) else value
+
+
+class Tag(NamedTuple):
+    tag: str
+    value: Any
+    type: Union[str, None]
+    error: Optional[str] = None
+
+    def __bool__(self):
+        return self.value is not None and self.error is None
+
+    def __str__(self):
+        return f'{self.tag}, {self.value}, {self.type}, {self.error}'
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(tag={_mkstr(self.tag)}, value={_mkstr(self.value)}, " \
+               f"type={_mkstr(self.type)}, error={_mkstr(self.error)})"
 
 
 @logged
@@ -62,7 +84,6 @@ class Base:
         self._target_is_connected = False
         self._last_tag_read = ()
         self._last_tag_write = ()
-        self._status = (0, "")
         self._info = {}
         self.attribs = {
             'context': b'_pycomm_',
@@ -154,7 +175,7 @@ class Base:
         message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
         self._send(message)
         reply = self._receive()
-        if self._check_reply(reply):
+        if self._check_reply(reply) is None:
             try:
                 return reply[63:-1].decode()
             except Exception as e:
@@ -165,13 +186,14 @@ class Base:
         """ SendRRData transfer an encapsulated request/reply packet between the originator and target
 
         :param message: The message to be send to the target
-        :return: the replay received from the target
+        :return: True, reply data is successful else False, reply status
         """
         msg = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(message))
         msg += message
         self._send(msg)
         reply = self._receive()
-        return reply if self._check_reply(reply) else None
+        status = self._check_reply(reply)
+        return (True, reply) if status is None else (False, status)
 
     def send_unit_data(self, message):
         """ SendUnitData send encapsulated connected messages.
@@ -183,14 +205,8 @@ class Base:
         msg += message
         self._send(msg)
         reply = self._receive()
-        return reply if self._check_reply(reply) else None
-
-    def clear(self):
-        """ Clear the last status/error
-
-        :return: return am empty tuple
-        """
-        self._status = (0, "")
+        status = self._check_reply(reply)
+        return (True, reply) if status is None else (False, status)
 
     def build_header(self, command, length):
         """ Build the encapsulate message header
@@ -224,14 +240,15 @@ class Base:
         message += b'\x00\x00'
         self._send(message)
         reply = self._receive()
-        if self._check_reply(reply):
+
+        if self._check_reply(reply) is None:
             self._session = unpack_dint(reply[4:8])
+
             if self._debug:
                 self.__log.debug("Session ={0} has been registered.".format(print_bytes_line(reply[4:8])))
             return self._session
 
-        self._status = 'Warning ! the session has not been registered.'
-        self.__log.warning(self._status)
+        self.__log.warning('Session has not been registered.')
         return None
 
     def un_register_session(self):
@@ -251,8 +268,7 @@ class Base:
         """
 
         if self._session == 0:
-            self._status = (4, "A session need to be registered before to call forward_open.")
-            raise CommError(self._status[1])
+            raise CommError("A Session Not Registered Before forward_open.")
 
         init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
         if self.attribs['extended forward open']:
@@ -297,14 +313,15 @@ class Base:
             INSTANCE_ID["8-bit"],
             b'\x01'
         ]
-        reply = self.send_rr_data(self.build_common_packet_format(DATA_ITEM['Unconnected'],
-                                                                  b''.join(forward_open_msg),
-                                                                  ADDRESS_ITEM['UCMM'], ))
-        if reply:
+        packet = self.build_common_packet_format(DATA_ITEM['Unconnected'],
+                                                 b''.join(forward_open_msg),
+                                                 ADDRESS_ITEM['UCMM'], )
+        success, reply = self.send_rr_data(packet)
+        if success:
             self._target_cid = reply[44:48]
             self._target_is_connected = True
             return True
-        self._status = (4, "forward_open returned False")
+        self.__log.warning(f"forward_open failed - {reply}")
         return False
 
     def forward_close(self):
@@ -317,7 +334,6 @@ class Base:
         """
 
         if self._session == 0:
-            self._status = (5, "A session need to be registered before to call forward_close.")
             raise CommError("A session need to be registered before to call forward_close.")
 
         forward_close_msg = [
@@ -350,24 +366,23 @@ class Base:
                 pack_usint(self.attribs['backplane']),
                 pack_usint(self.attribs['cpu slot'])
             ]
-
-        if self.send_rr_data(
-                self.build_common_packet_format(DATA_ITEM['Unconnected'],
-                                                b''.join(forward_close_msg),
-                                                ADDRESS_ITEM['UCMM'])):
+        packet = self.build_common_packet_format(DATA_ITEM['Unconnected'],
+                                                 b''.join(forward_close_msg),
+                                                 ADDRESS_ITEM['UCMM'])
+        success, reply = self.send_rr_data(packet)
+        if success:
             self._target_is_connected = False
             return True
-        self._status = (5, "forward_close returned False")
-        self.__log.warning(self._status)
+
+        self.__log.warning(f"forward_close failed - {reply}")
         return False
 
     def get_module_info(self, slot):
         try:
             if not self._target_is_connected:
                 if not self.forward_open():
-                    self._status = (10, "Target did not connected. get_plc_name will not be executed.")
-                    self.__log.warning(self._status)
-                    raise DataError(self._status[1])
+                    self.__log.warning("Target did not connected. get_plc_name will not be executed.")
+                    raise DataError("Target did not connected. get_plc_name will not be executed.")
 
             msg = [
                 # unnconnected send portion
@@ -394,14 +409,13 @@ class Base:
             request = self.build_common_packet_format(DATA_ITEM['Unconnected'],
                                                       b''.join(msg),
                                                       ADDRESS_ITEM['UCMM'], )
-            reply = self.send_rr_data(request)
+            success, reply = self.send_rr_data(request)
 
-            if reply:
+            if success:
                 info = self._parse_identity_object(reply)
-                # self._info = {**self._info, **info}
                 return info
             else:
-                raise DataError('send_rr_data did not return valid data')
+                raise DataError(f'send_rr_data did not return valid data - {reply}')
 
         except Exception as err:
             raise DataError(err)
@@ -476,7 +490,7 @@ class Base:
                 self.attribs['cid'] = urandom(4)
                 self.attribs['vsn'] = urandom(4)
                 if self.register_session() is None:
-                    self._status = (13, "Session not registered")
+                    self.__log.warning("Session not registered")
                     return False
                 return True
             except Exception as e:
@@ -701,15 +715,6 @@ class Base:
         """
 
         return None
-
-    @property
-    def status(self):
-        """ Get the last status/error
-
-        This method can be used after any call to get any details in case of error
-        :return: A tuple containing (error group, error message)
-        """
-        return self._status
 
     @property
     def connected(self):
