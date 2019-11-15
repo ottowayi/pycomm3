@@ -54,7 +54,7 @@ PRIORITY = b'\x0a'
 TIMEOUT_TICKS = b'\x05'
 TIMEOUT_MULTIPLIER = b'\x01'
 TRANSPORT_CLASS = b'\xa3'
-
+BASE_TAG_BIT = 1 << 26
 
 ELEMENT_ID = {
     "8-bit": b'\x28',

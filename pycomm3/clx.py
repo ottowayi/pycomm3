@@ -34,7 +34,7 @@ from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, BITS_PER_INT_TYPE,
                     REPLAY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
-                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START,
+                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START, BASE_TAG_BIT,
                     MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
                     VENDORS, PRODUCT_TYPES, KEYSWITCH, TAG_SERVICES_REPLY, get_service_status)
 
@@ -459,10 +459,7 @@ class LogixDriver(Base):
             request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
                                                       ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid)
             success, reply = self.send_unit_data(request)
-            if success:
-                return Tag(tag, value, typ)
-            else:
-                return Tag(tag, None, typ, reply)
+            return Tag(tag, value, typ, None if success else reply)
 
     @staticmethod
     def _make_write_bit_data(bit, value, bool_ary=False):
@@ -813,9 +810,12 @@ class LogixDriver(Base):
                     path_size,
                     path,
                     # Request Data
-                    b'\x02\x00',  # Number of attributes to retrieve
-                    b'\x01\x00',  # Attribute 1: Symbol name
-                    b'\x02\x00',
+                    b'\x05\x00',  # Number of attributes to retrieve
+                    b'\x01\x00',  # Attr. 1: Symbol name
+                    b'\x02\x00',  # Attr. 2 : Symbol Type
+                    b'\x03\x00',  # Attr. 7 : Symbol Address
+                    b'\x05\x00',  # Attr. 8 : Symbol Object Address
+                    b'\x06\x00',  # Attr. 6 : ?
                 ]
                 request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
                                                           ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid)
@@ -847,9 +847,18 @@ class LogixDriver(Base):
                 symbol_type = unpack_uint(tags_returned[idx:idx + 2])
                 idx += 2
                 count += 1
+                symbol_address = unpack_udint(tags_returned[idx:idx+4])
+                idx += 4
+                symbol_object_address = unpack_udint(tags_returned[idx:idx+4])
+                idx += 4
+                software_control = unpack_udint(tags_returned[idx:idx+4])
+                idx += 4
                 tag_list.append({'instance_id': instance,
                                  'tag_name': tag_name,
-                                 'symbol_type': symbol_type})
+                                 'symbol_type': symbol_type,
+                                 'symbol_address': symbol_address,
+                                 'symbol_object_address': symbol_object_address,
+                                 'software_control': software_control})
         except Exception as e:
             raise DataError(e)
 
@@ -881,7 +890,11 @@ class LogixDriver(Base):
                 new_tag = {
                     'tag_name': name,
                     'dim': (tag['symbol_type'] & 0b0110000000000000) >> 13,  # bit 13 & 14, number of array dims
-                    'instance_id': tag['instance_id']
+                    'instance_id': tag['instance_id'],
+                    'symbol_address': tag['symbol_address'],
+                    'symbol_object_address': tag['symbol_object_address'],
+                    'software_control': tag['software_control'],
+                    'alias': False if tag['software_control'] & BASE_TAG_BIT else True
                 }
 
                 if tag['symbol_type'] & 0b1000000000000000:  # bit 15, 1 = struct, 0 = atomic
