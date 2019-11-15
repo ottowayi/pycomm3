@@ -705,26 +705,15 @@ class Base:
                     tag_list.append((tags[index] + ('BAD',)))
         return tag_list
 
-    @staticmethod
-    def parse_symbol_type(symbol):
-        """ parse_symbol_type
-
-        It parse the symbol to Rockwell Spec
-        :param symbol: the symbol associated to a tag
-        :return: A tuple containing information about the tag
-        """
-
-        return None
-
     @property
     def connected(self):
         return self._connection_opened
 
     @property
-    def description(self):
-        return self._info.get('name')
-
-    @property
     def info(self):
         return self._info
+
+    @property
+    def name(self):
+        return self._info.get('name')
 

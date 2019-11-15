@@ -167,8 +167,8 @@ VBA Example:
 
         plc.Open
         Debug.Print plc.read_tag("Tag1")
-        Debug.Print plc.get_plc_name  # also stores the name in plc.description
-        Debug.Print plc.description
+        Debug.Print plc.get_plc_name  # also stores the name in plc.name
+        Debug.Print plc.name
         plc.Close
 
     End Sub
