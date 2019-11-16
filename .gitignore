@@ -63,3 +63,8 @@ target/
 .settings/
 .pydevproject
 /venv/
+
+/tests/testing.*.BAK000.acd
+/tests/*.Recovery
+/tests/*.Wrk
+/tests/*.Sem
