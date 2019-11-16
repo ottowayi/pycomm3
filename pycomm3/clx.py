@@ -27,6 +27,7 @@
 import struct
 from collections import defaultdict
 from autologging import logged
+from types import GeneratorType
 
 from . import DataError
 from .base import Base, Tag
@@ -218,7 +219,7 @@ class LogixDriver(Base):
                 raise DataError("Target did not connected. read_tag will not be executed.")
 
         if len(tags) == 1:
-            if isinstance(tags[0], (list, tuple)):
+            if isinstance(tags[0], (list, tuple, GeneratorType)):
                 return self._read_tag_multi(tags[0])
             else:
                 return self._read_tag_single(tags[0])
@@ -511,7 +512,7 @@ class LogixDriver(Base):
                 self.__log.warning("Target did not connected. write_tag will not be executed.")
                 raise DataError("Target did not connected. write_tag will not be executed.")
 
-        if isinstance(tag, (list, tuple)):
+        if isinstance(tag, (list, tuple, GeneratorType)):
             return self._write_tag_multi_write(tag)
         else:
             if isinstance(tag, tuple):
