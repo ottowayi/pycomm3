@@ -161,7 +161,7 @@ class LogixDriver(Base):
                 return None  # Cannot create a valid request packet
         return path
 
-    def create_tag_rp(self, tag, multi_requests=False):
+    def create_tag_rp(self, tag):
         """ Create tag Request Packet
 
         It returns the request packed wrapped around the tag passed.
@@ -208,8 +208,7 @@ class LogixDriver(Base):
 
             # At this point the Request Path is completed,
             request_path = b''.join(rp)
-            if multi_requests:
-                request_path = bytes([len(request_path) // 2]) + request_path
+            request_path = bytes([len(request_path) // 2]) + request_path
 
             return request_path
 
@@ -288,9 +287,9 @@ class LogixDriver(Base):
             message_request = [
                 pack_uint(self._get_sequence()),
                 bytes([TAG_SERVICES_REQUEST['Read Tag']]),  # the Request Service
-                bytes([len(rp) // 2]),  # the Request Path Size length in word
+                # bytes([len(rp) // 2]),  # the Request Path Size length in word
                 rp,  # the request path
-                b'\x01\x00'
+                b'\x01\x00',
             ]
         request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
                                                   ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
