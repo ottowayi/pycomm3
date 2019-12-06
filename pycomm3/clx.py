@@ -34,10 +34,11 @@ from .base import Base, Tag
 from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint, unpack_uint, unpack_dint, unpack_udint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, BITS_PER_INT_TYPE,
-                    REPLAY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
+                    REPLY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
                     CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START, BASE_TAG_BIT,
                     MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
-                    VENDORS, PRODUCT_TYPES, KEYSWITCH, TAG_SERVICES_REPLY, get_service_status)
+                    VENDORS, PRODUCT_TYPES, KEYSWITCH, TAG_SERVICES_REPLY, get_service_status, get_extended_status,
+                    TEMPLATE_MEMBER_INFO_LEN)
 
 
 @logged
@@ -94,7 +95,7 @@ class LogixDriver(Base):
         """
         try:
             if reply is None:
-                return f'{REPLAY_INFO[unpack_dint(reply[:2])]} without reply'
+                return f'{REPLY_INFO[unpack_dint(reply[:2])]} without reply'
             # Get the type of command
             typ = unpack_uint(reply[:2])
 
@@ -107,16 +108,24 @@ class LogixDriver(Base):
                 status = unpack_usint(reply[42:43])
                 if status != SUCCESS:
                     return f"send_rr_data reply:{get_service_status(status)} - " \
-                           f"Extend status:{self.get_extended_status(reply, 42)}"
+                           f"Extend status:{get_extended_status(reply, 42)}"
                 else:
                     return None
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
-                multi_requests = reply[46] == TAG_SERVICES_REPLY['Multiple Service Packet']
+                service = reply[46]
                 status = _unit_data_status(reply)
-                if status not in (INSUFFICIENT_PACKETS, SUCCESS) and not multi_requests:
-                    return f"send_unit_data reply:{get_service_status(status)} - " \
-                           f"Extend status:{self.get_extended_status(reply, 48)}"
-                return None
+                if status == INSUFFICIENT_PACKETS and service in (TAG_SERVICES_REPLY['Multiple Service Packet'],
+                                                                  TAG_SERVICES_REPLY['Read Tag Fragmented'],
+                                                                  TAG_SERVICES_REPLY['Write Tag Fragmented'],
+                                                                  TAG_SERVICES_REPLY['Get Instance Attributes List'],
+                                                                  TAG_SERVICES_REPLY['Get Attributes']):
+                    return None
+                if status == SUCCESS:
+                    return None
+
+                return f"send_unit_data reply:{get_service_status(status)} - " \
+                       f"Extend status:{get_extended_status(reply, 48)}"
+
         except Exception as e:
             raise DataError(e)
 

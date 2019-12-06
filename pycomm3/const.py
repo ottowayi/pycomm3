@@ -24,6 +24,7 @@
 # SOFTWARE.
 #
 
+from .bytes_ import unpack_usint, unpack_dint, unpack_uint
 HEADER_SIZE = 24
 
 # used to estimate packet size  and determine
@@ -55,6 +56,9 @@ TIMEOUT_TICKS = b'\x05'
 TIMEOUT_MULTIPLIER = b'\x01'
 TRANSPORT_CLASS = b'\xa3'
 BASE_TAG_BIT = 1 << 26
+
+TEMPLATE_MEMBER_INFO_LEN = 8  # 2B bit/array len, 2B datatype, 4B offset
+STRUCTURE_READ_REPLY = b'\xa0\x02'
 
 ELEMENT_ID = {
     "8-bit": b'\x28',
@@ -147,7 +151,6 @@ TAG_SERVICES_REQUEST = {
     "Multiple Service Packet": 0x0a,
     "Get Instance Attributes List": 0x55,
     "Get Attributes": 0x03,
-    "Read Template": 0x4c,
 }
 
 _TAG_SERVICES_REPLY = {
@@ -159,11 +162,18 @@ _TAG_SERVICES_REPLY = {
     0x8a: "Multiple Service Packet",
     0xd5: "Get Instance Attributes List",
     0x83: "Get Attributes",
-    0xcc: "Read Template"
 }
 
 TAG_SERVICES_REPLY = {**_TAG_SERVICES_REPLY, **{v: k for k, v in _TAG_SERVICES_REPLY.items()}}
 
+
+MULTI_PACKET_SERVICES = (
+    TAG_SERVICES_REPLY['Multiple Service Packet'],
+    TAG_SERVICES_REPLY['Read Tag Fragmented'],
+    TAG_SERVICES_REPLY['Write Tag Fragmented'],
+    TAG_SERVICES_REPLY['Get Instance Attributes List'],
+    TAG_SERVICES_REPLY['Get Attributes']
+)
 """
 EtherNet/IP Encapsulation Error Codes
 
@@ -306,6 +316,36 @@ EXTEND_CODES = {
     }
 }
 
+
+def get_extended_status(msg, start):
+    status = unpack_usint(msg[start:start + 1])
+    # send_rr_data
+    # 42 General Status
+    # 43 Size of additional status
+    # 44..n additional status
+
+    # send_unit_data
+    # 48 General Status
+    # 49 Size of additional status
+    # 50..n additional status
+    extended_status_size = (unpack_usint(msg[start + 1:start + 2])) * 2
+    extended_status = 0
+    if extended_status_size != 0:
+        # There is an additional status
+        if extended_status_size == 1:
+            extended_status = unpack_usint(msg[start + 2:start + 3])
+        elif extended_status_size == 2:
+            extended_status = unpack_uint(msg[start + 2:start + 4])
+        elif extended_status_size == 4:
+            extended_status = unpack_dint(msg[start + 2:start + 6])
+        else:
+            return 'Extended Status Size Unknown'
+    try:
+        return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
+    except LookupError:
+        return "Extended Status info not present"
+
+
 DATA_ITEM = {
     'Connected': b'\xb1\x00',
     'Unconnected': b'\xb2\x00'
@@ -402,7 +442,7 @@ _DATA_TYPES = {
 
 DATA_TYPE = {**_DATA_TYPES, **{v: k for k, v in _DATA_TYPES.items()}}
 
-REPLAY_INFO = {
+REPLY_INFO = {
     0x4e: 'FORWARD_CLOSE (4E,00)',
     0x52: 'UNCONNECTED_SEND (52,00)',
     0x54: 'FORWARD_OPEN (54,00)',
