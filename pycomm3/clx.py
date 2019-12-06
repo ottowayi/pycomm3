@@ -66,16 +66,22 @@ class LogixDriver(Base):
     def __init__(self, ip_address, *args, slot=0, large_packets=True,
                  init_info=True, init_tags=True, init_program_tags=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self._instance_id_cache = {}
-        self._struct_cache = {}
-        self._template_cache = {}
-        self._udt_cache = {}
+        self._cache = {
+            'tag_name:id': {},
+            'id:struct': {},
+            'handle:id': {},
+            'id:udt': {}
+        }
+
+        self._data_types = {}
+        self.string_types = {'ASCIISTRING82': 82, 'STRING': 82}
         self._program_names = []
+        self._tags = {}
+
         self.attribs['ip address'] = ip_address
         self.attribs['cpu slot'] = slot
         self.attribs['extended forward open'] = large_packets
-        self._connection_size = 4000 if large_packets else 500
-        self._tags = {}
+        self._connection_size = 4002 if large_packets else 500
         self.use_instance_ids = True
 
         if init_tags or init_info:
@@ -165,11 +171,11 @@ class LogixDriver(Base):
         if tags:
             base, *attrs = tags
 
-            if self.use_instance_ids and base in self._instance_id_cache:
+            if self.use_instance_ids and base in self._cache['tag_name:id']:
                 rp = [CLASS_ID['8-bit'],
                       CLASS_CODE['Symbol Object'],
                       INSTANCE_ID['16-bit'], b'\x00',
-                      pack_uint(self._instance_id_cache[base])]
+                      pack_uint(self._cache['tag_name:id'][base])]
             else:
                 base_tag, index = self._find_tag_index(base)
                 base_len = len(base_tag)
@@ -263,6 +269,7 @@ class LogixDriver(Base):
             message_request = self.build_multiple_service(req_list, self._get_sequence())
             msg = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
                                                   ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
+
             success, reply = self.send_unit_data(msg)
             if not success:
                 raise DataError(f"send_unit_data returned not valid data - {reply}")
@@ -769,11 +776,12 @@ class LogixDriver(Base):
 
     def _get_tag_list(self, program=None):
         all_tags = self._get_instance_attribute_list_service(program)
-        user_tags = self._isolating_user_tag(all_tags)
+        user_tags = self._isolating_user_tag(all_tags, program)
         for tag in user_tags:
             if tag['tag_type'] == 'struct':
                 tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
                 tag['udt'] = self._parse_udt_raw(tag)
+
         return user_tags
 
     def _get_instance_attribute_list_service(self, program=None):
@@ -888,12 +896,14 @@ class LogixDriver(Base):
                     continue
                 if ':' in name or '__' in name:
                     continue
-                if tag['symbol_type'] & 0b0001000000000000:
+                if tag['symbol_type'] & 0b0001_0000_0000_0000:
                     continue
 
-                self._instance_id_cache[name] = tag['instance_id']
                 if program is not None:
                     name = f'{program}.{name}'
+
+                # self._instance_id_cache[name] = tag['instance_id']
+                self._cache['tag_name:id'][name] = tag['instance_id']
 
                 new_tag = {
                     'tag_name': name,
@@ -905,8 +915,8 @@ class LogixDriver(Base):
                     'alias': False if tag['software_control'] & BASE_TAG_BIT else True
                 }
 
-                if tag['symbol_type'] & 0b1000000000000000:  # bit 15, 1 = struct, 0 = atomic
-                    template_instance_id = tag['symbol_type'] & 0b0000111111111111
+                if tag['symbol_type'] & 0b_1000_0000_0000_0000:  # bit 15, 1 = struct, 0 = atomic
+                    template_instance_id = tag['symbol_type'] & 0b_0000_1111_1111_1111
                     new_tag['tag_type'] = 'struct'
                     new_tag['data_type'] = 'user-created'
                     new_tag['template_instance_id'] = template_instance_id
@@ -914,10 +924,10 @@ class LogixDriver(Base):
                     new_tag['udt'] = {}
                 else:
                     new_tag['tag_type'] = 'atomic'
-                    datatype = tag['symbol_type'] & 0b0000000011111111
+                    datatype = tag['symbol_type'] & 0b_0000_0000_1111_1111
                     new_tag['data_type'] = DATA_TYPE[datatype]
                     if datatype == DATA_TYPE['BOOL']:
-                        new_tag['bit_position'] = (tag['symbol_type'] & 0b0000011100000000) >> 8
+                        new_tag['bit_position'] = (tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
 
                 user_tags.append(new_tag)
 
@@ -929,7 +939,7 @@ class LogixDriver(Base):
         """
         get the structure makeup for a specific structure
         """
-        if instance_id not in self._struct_cache:
+        if instance_id not in self._cache['id:struct']:
             if not self._target_is_connected:
                 if not self.forward_open():
                     self.__log.warning("Target did not connected. get_tag_list will not be executed.")
@@ -948,17 +958,18 @@ class LogixDriver(Base):
                 b'\x04\x00',  # Template Object Definition Size UDINT
                 b'\x05\x00',  # Template Structure Size UDINT
                 b'\x02\x00',  # Template Member Count UINT
-                b'\x01\x00'  # Structure Handle We can use this to read and write UINT
+                b'\x01\x00',  # Structure Handle We can use this to read and write UINT
             ]
             request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
                                                       ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
             success, reply = self.send_unit_data(request)
             if not success:
                 raise DataError(f"send_unit_data returned not valid data - {reply}")
+            _struct = self._parse_structure_makeup_attributes(reply)
+            self._cache['id:struct'][instance_id] = _struct
+            self._cache['handle:id'][_struct['structure_handle']] = instance_id
 
-            self._struct_cache[instance_id] = self._parse_structure_makeup_attributes(reply)
-
-        return self._struct_cache[instance_id]
+        return self._cache['id:struct'][instance_id]
 
     @staticmethod
     def _parse_structure_makeup_attributes(reply):
@@ -1013,40 +1024,39 @@ class LogixDriver(Base):
 
         """
 
-        if instance_id not in self._template_cache:
-            offset = 0
-            template = b''
-            try:
-                while offset is not None:
-                    message_request = [
-                        pack_uint(self._get_sequence()),
-                        bytes([TAG_SERVICES_REQUEST['Read Template']]),
-                        b'\x03',  # Request Path ( 20 6B 25 00 Instance )
-                        CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
-                        CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                        INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                        b'\x00',
-                        pack_uint(instance_id),
-                        pack_dint(offset),  # Offset
-                        pack_uint(((object_definition_size * 4) - 21) - offset)
-                    ]
         if not self.forward_open():
             self.__log.warning("Target did not connected. get_tag_list will not be executed.")
             raise DataError("Target did not connected. get_tag_list will not be executed.")
 
-                    request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
-                                                              ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
-                    success, reply = self.send_unit_data(request)
-                    if not success:
-                        raise DataError(f"send_unit_data returned not valid data - {reply}")
+        offset = 0
+        template_raw = b''
+        try:
+            while offset is not None:
+                message_request = [
+                    pack_uint(self._get_sequence()),
+                    bytes([TAG_SERVICES_REQUEST['Read Tag']]),
+                    b'\x03',  # Request Path ( 20 6B 25 00 Instance )
+                    CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
+                    CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
+                    INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
+                    b'\x00',
+                    pack_uint(instance_id),
+                    pack_dint(offset),  # Offset
+                    pack_uint(((object_definition_size * 4) - 21) - offset)
+                ]
 
-                    offset, template = self._parse_template(reply, offset, template)
+                request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
+                                                          ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
+                success, reply = self.send_unit_data(request)
+                if not success:
+                    raise DataError(f"send_unit_data returned not valid data - {reply}")
 
-                self._template_cache[instance_id] = template
+                offset, template_raw = self._parse_template(reply, offset, template_raw)
 
-            except Exception as e:
-                raise DataError(e)
-        return self._template_cache[instance_id]
+        except Exception:
+            raise
+        else:
+            return template_raw
 
     def _parse_template(self, reply, offset, template):
         """ extract the tags list from the message received"""
@@ -1066,57 +1076,91 @@ class LogixDriver(Base):
 
         return offset, template
 
-    def _build_udt(self, data, member_count):
-        udt = {'name': None, 'internal_tags': [], 'data_type': []}
-        names = (x.decode(errors='replace') for x in data.split(b'\x00') if len(x) > 1)
-        for name in names:
-            if ';' in name and udt['name'] is None:
-                udt['name'] = name[:name.find(';')]
-            elif 'ZZZZZZZZZZ' in name:
-                continue
-            elif name.isalnum():
-                udt['internal_tags'].append(name)
-            else:
-                continue
-        if udt['name'] is None:
-            udt['name'] = 'Not a user define structure'
-
-        for _ in range(member_count):
-            array_size = unpack_uint(data[:2])
-            try:
-                data_type = DATA_TYPE[unpack_uint(data[2:4])]
-            except Exception:
-                dtval = unpack_uint(data[2:4])
-                instance_id = dtval & 0b0000111111111111
-                if instance_id in DATA_TYPE:
-                    data_type = DATA_TYPE[instance_id]
+    def _parse_template_data(self, data, member_count):
+        info_len = member_count * TEMPLATE_MEMBER_INFO_LEN
+        info_data = data[:info_len]
+        member_data = [self._parse_template_data_member_info(info)
+                       for info in (info_data[i:i+TEMPLATE_MEMBER_INFO_LEN]
+                                    for i in range(0, info_len, TEMPLATE_MEMBER_INFO_LEN))]
+        member_names = []
+        template_name = None
+        try:
+            for name in (x.decode(errors='replace') for x in data[info_len:].split(b'\x00') if len(x)):
+                if template_name is None and ';' in name:
+                    template_name, _ = name.split(';', maxsplit=1)
                 else:
-                    try:
-                        template = self._get_structure_makeup(instance_id)
-                        if not template.get('Error'):
-                            _data = self._read_template(instance_id, template['object_definition_size'])
-                            data_type = self._build_udt(_data, template['member_count'])
-                        else:
-                            data_type = 'None'
-                    except Exception:
-                        data_type = 'None'
+                    member_names.append(name)
+        except (ValueError, UnicodeDecodeError):
+            raise DataError(f'Unable to decode template or member names')
 
-            offset = unpack_dint(data[4:8])
-            udt['data_type'].append((array_size, data_type, offset))
+        template = {
+            'name': template_name,
+            'internal_tags': {},
+            'attributes': []
+        }
 
-            data = data[8:]
-        return udt
+        for member, info in zip(member_names, member_data):
+            if not member.startswith('ZZZZZZZZZZ') and not member.startswith('__'):
+                template['attributes'].append(member)
+            template['internal_tags'][member] = info
+
+        if template['attributes'] == ['LEN', 'DATA'] and \
+           template['internal_tags']['DATA']['data_type'] == 'SINT' and \
+           template['internal_tags']['DATA'].get('array'):
+            self.string_types[template_name] = template['internal_tags']['DATA']['array']
+        return template
+
+    def _get_data_type(self, instance_id):
+        if instance_id not in self._cache['id:udt']:
+            try:
+                template = self._get_structure_makeup(instance_id)  # instance id from type
+                if not template.get('Error'):
+                    _data = self._read_template(instance_id, template['object_definition_size'])
+                    data_type = self._parse_template_data(_data, template['member_count'])
+                    self._cache['id:udt'][instance_id] = data_type
+            except Exception:
+                self.__log.exception('fuck')
+
+        return self._cache['id:udt'][instance_id]
+
+    def _parse_template_data_member_info(self, info):
+        type_info = unpack_uint(info[:2])
+        typ = unpack_uint(info[2:4])
+        member = {'offset': unpack_udint(info[4:])}
+        atomic = True
+        if typ in DATA_TYPE:
+            data_type = DATA_TYPE[typ]
+        else:
+            instance_id = typ & 0b0000_1111_1111_1111
+            if instance_id in DATA_TYPE:
+                data_type = DATA_TYPE[instance_id]
+            else:
+                atomic = False
+                data_type = self._get_data_type(instance_id)
+
+        member['atomic'] = atomic
+        member['data_type'] = data_type
+
+        if data_type == 'BOOL':
+            member['bit'] = type_info
+        elif data_type is not None:
+            member['array'] = type_info
+
+        return member
 
     def _parse_udt_raw(self, tag):
-        if tag['template_instance_id'] not in self._udt_cache:
+        if tag['template_instance_id'] not in self._cache['id:udt']:
             try:
                 buff = self._read_template(tag['template_instance_id'], tag['template']['object_definition_size'])
                 member_count = tag['template']['member_count']
-                self._udt_cache[tag['template_instance_id']] = self._build_udt(buff, member_count)
-            except Exception as e:
-                raise DataError(e)
+                # udt = self._build_udt(buff, member_count)
+                udt = self._parse_template_data(buff, member_count)
+                self._cache['id:udt'][tag['template_instance_id']] = udt
 
-        return self._udt_cache[tag['template_instance_id']]
+            except Exception as e:
+                raise
+
+        return self._cache['id:udt'][tag['template_instance_id']]
 
     def _parse_fragment(self, reply, last_idx, offset, tags, raw=False):
         """ parse the fragment returned by a fragment service."""
