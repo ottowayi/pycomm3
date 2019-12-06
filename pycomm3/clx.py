@@ -1194,7 +1194,7 @@ class LogixDriver(Base):
         elif status == 0x06:
             offset += fragment_returned_length
         else:
-            self.__log.warning('{0}: {1}'.format(get_service_status(status), self.get_extended_status(reply, 48)))
+            self.__log.warning('{0}: {1}'.format(get_service_status(status), get_extended_status(reply, 48)))
             offset = -1
 
         return last_idx, offset

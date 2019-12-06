@@ -536,35 +536,6 @@ class Base:
         self._connection_opened = False
 
     @staticmethod
-    def get_extended_status(msg, start):
-        status = unpack_usint(msg[start:start + 1])
-        # send_rr_data
-        # 42 General Status
-        # 43 Size of additional status
-        # 44..n additional status
-
-        # send_unit_data
-        # 48 General Status
-        # 49 Size of additional status
-        # 50..n additional status
-        extended_status_size = (unpack_usint(msg[start + 1:start + 2])) * 2
-        extended_status = 0
-        if extended_status_size != 0:
-            # There is an additional status
-            if extended_status_size == 1:
-                extended_status = unpack_usint(msg[start + 2:start + 3])
-            elif extended_status_size == 2:
-                extended_status = unpack_uint(msg[start + 2:start + 4])
-            elif extended_status_size == 4:
-                extended_status = unpack_dint(msg[start + 2:start + 6])
-            else:
-                return 'Extended Status Size Unknown'
-        try:
-            return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
-        except LookupError:
-            return "Extended Status info not present"
-
-    @staticmethod
     def create_tag_rp(tag, multi_requests=False):
         """ Create tag Request Packet
 
