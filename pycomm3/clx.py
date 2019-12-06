@@ -63,7 +63,8 @@ class LogixDriver(Base):
 
 """
 
-    def __init__(self, ip_address, *args, slot=0, large_packets=True, init_info=True, init_tags=True, **kwargs):
+    def __init__(self, ip_address, *args, slot=0, large_packets=True,
+                 init_info=True, init_tags=True, init_program_tags=False, **kwargs):
         super().__init__(*args, **kwargs)
         self._instance_id_cache = {}
         self._struct_cache = {}
@@ -85,7 +86,7 @@ class LogixDriver(Base):
                 self.get_plc_name()
 
             if init_tags:
-                self.get_tag_list()
+                self.get_tag_list(program='*' if init_program_tags else None)
             self.close()
 
     def _check_reply(self, reply):
@@ -759,10 +760,7 @@ class LogixDriver(Base):
         if program == '*':
             tags = self._get_tag_list()
             for prog in self._program_names:
-                prog_tags = self._get_tag_list(prog)
-                for t in prog_tags:
-                    t['tag_name'] = f"{prog}.{t['tag_name']}"
-                tags += prog_tags
+                tags += self._get_tag_list(prog)
         else:
             tags = self._get_tag_list(program)
 
@@ -882,7 +880,7 @@ class LogixDriver(Base):
 
         return last_instance
 
-    def _isolating_user_tag(self, all_tags):
+    def _isolating_user_tag(self, all_tags, program=None):
         try:
             user_tags = []
             for tag in all_tags:
@@ -896,6 +894,8 @@ class LogixDriver(Base):
                     continue
 
                 self._instance_id_cache[name] = tag['instance_id']
+                if program is not None:
+                    name = f'{program}.{name}'
 
                 new_tag = {
                     'tag_name': name,
