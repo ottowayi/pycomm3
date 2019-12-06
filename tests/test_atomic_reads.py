@@ -1,26 +1,9 @@
 from pycomm3 import LogixDriver
 import os
+from math import isclose
+
 SLOT = int(os.environ['slot'])
 IP_ADDR = os.environ['ip']
-
-
-class FloatValue:
-    """Compares float equality approximately to 3 decimal places"""
-    def __init__(self, value):
-        self._value = value
-
-    def __eq__(self, other):
-        return abs(self._value - other) < .001
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __str__(self):
-        return f'~{round(self._value, 4)}'
-
-    def __repr__(self):
-        return str(self)
-
 
 atomic_tests = [
         # tag name, value, error, type
@@ -35,8 +18,8 @@ atomic_tests = [
         ('sint_1', -128, 'SINT'),
         ('sint_2', 127, 'SINT'),
         ('sint_3', 0, 'SINT'),
-        ('real_1', FloatValue(1234.5678), 'REAL'),
-        ('real_2', FloatValue(0.00123), 'REAL'),
+        ('real_1', 1234.5678, 'REAL'),
+        ('real_2', 0.00123, 'REAL'),
         ('real_3', 0, 'REAL'),
         ('doesnt_exist', None, None)
     ]
@@ -47,7 +30,10 @@ def _run_test_single_reads(init_tags, large_packets):
         for name, value, type in atomic_tests:
             tag = plc.read_tag(name)
             assert tag.tag == name, f'{name} - tag'
-            assert tag.value == value, f'{name} - value'
+            if isinstance(value, float):
+                assert isclose(tag.value, value, rel_tol=1e-4)
+            else:
+                assert tag.value == value, f'{name} - value'
             assert tag.type == type, f'{name} - type'
             if value is None:
                 assert tag.error, f'{name} - error'
@@ -65,16 +51,19 @@ def _run_test_multi_reads(init_tags, large_packets, tests=None):
         tags = plc.read_tag(test[0] for test in tests)
         assert len(tests) == len(tags), 'returns as many tags as read'
 
-        for tag, test in zip(tags, tests):
-            assert tag.tag == test[0]
-            assert tag.value == test[1]
-            assert tag.type == test[2]
-            if test[1] is None:
-                assert not tag
-                assert tag.error, f'{test[0]} - error'
+        for tag, (name, value, typ) in zip(tags, tests):
+            assert tag.tag == name, f'{name} - tag'
+            if isinstance(value, float):
+                assert isclose(tag.value, value, rel_tol=1e-4)
             else:
-                assert tag
-                assert tag.error is None, f'{test[0]} - error'
+                assert tag.value == value, f'{name} - value'
+            assert tag.type == typ, f'{name} - type'
+            if value is None:
+                assert not tag, f'{name} - __bool__'
+                assert tag.error, f'{name} - error'
+            else:
+                assert tag, f'{name} - __bool__'
+                assert tag.error is None, f'{name} - error'
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  single reads
