@@ -37,6 +37,7 @@ from .const import (DATA_ITEM, DATA_TYPE, TAG_SERVICES_REQUEST, EXTEND_CODES, EN
                     TIMEOUT_TICKS, TRANSPORT_CLASS, ADDRESS_ITEM, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
                     get_extended_status)
 from .socket_ import Socket
+from .packets import RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket
 
 
 def get_bit(value, idx):
@@ -76,7 +77,7 @@ class Base:
         else:
             Base._sequence = Base._get_sequence()
 
-        self.__sock = None
+        self._sock = None
         self.__direct_connections = direct_connection
         self._debug = debug
         self._session = 0
@@ -149,6 +150,12 @@ class Base:
     def _check_reply(self, reply):
         raise NotImplementedError("The method has not been implemented")
 
+    def new_request(self, command):
+        if command == 'send_unit_data':
+            return SendUnitDataRequestPacket(self)
+        elif command == 'send_rr_data':
+            return SendRRDataRequestPacket(self)
+
     @staticmethod
     def _get_sequence():
         """ Increase and return the sequence used with connected messages
@@ -183,19 +190,6 @@ class Base:
             except Exception as e:
                 raise DataError(e)
         return False
-
-    def send_rr_data(self, message):
-        """ SendRRData transfer an encapsulated request/reply packet between the originator and target
-
-        :param message: The message to be send to the target
-        :return: True, reply data is successful else False, reply status
-        """
-        msg = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(message))
-        msg += message
-        self._send(msg)
-        reply = self._receive()
-        status = self._check_reply(reply)
-        return (True, reply) if status is None else (False, status)
 
     def send_unit_data(self, message):
         """ SendUnitData send encapsulated connected messages.
@@ -318,15 +312,14 @@ class Base:
             INSTANCE_ID["8-bit"],
             b'\x01'
         ]
-        packet = self.build_common_packet_format(DATA_ITEM['Unconnected'],
-                                                 b''.join(forward_open_msg),
-                                                 ADDRESS_ITEM['UCMM'], )
-        success, reply = self.send_rr_data(packet)
-        if success:
-            self._target_cid = reply[44:48]
+        request = self.new_request('send_rr_data')
+        request.add(*forward_open_msg)
+        response = request.send()
+        if response:
+            self._target_cid = response.data[:4]
             self._target_is_connected = True
             return True
-        self.__log.warning(f"forward_open failed - {reply}")
+        self.__log.warning(f"forward_open failed - {response.error}")
         return False
 
     def forward_close(self):
@@ -340,6 +333,7 @@ class Base:
 
         if self._session == 0:
             raise CommError("A session need to be registered before to call forward_close.")
+        request = self.new_request('send_rr_data')
 
         forward_close_msg = [
             FORWARD_CLOSE,
@@ -371,24 +365,23 @@ class Base:
                 pack_usint(self.attribs['backplane']),
                 pack_usint(self.attribs['cpu slot'])
             ]
-        packet = self.build_common_packet_format(DATA_ITEM['Unconnected'],
-                                                 b''.join(forward_close_msg),
-                                                 ADDRESS_ITEM['UCMM'])
-        success, reply = self.send_rr_data(packet)
-        if success:
+
+        request.add(*forward_close_msg)
+        response = request.send()
+        if response:
             self._target_is_connected = False
             return True
 
-        self.__log.warning(f"forward_close failed - {reply}")
+        self.__log.warning(f"forward_close failed - {response.error}")
         return False
 
     def get_module_info(self, slot):
         try:
-
-            msg = [
             if not self.forward_open():
                 self.__log.warning("Target did not connected. get_plc_name will not be executed.")
                 raise DataError("Target did not connected. get_plc_name will not be executed.")
+            request = self.new_request('send_rr_data')
+            request.add(
                 # unnconnected send portion
                 UNCONNECTED_SEND,
                 b'\x02',
@@ -409,33 +402,30 @@ class Base:
                 b'\x01\x00',
                 b'\x01',  # backplane
                 pack_usint(slot),
-            ]
-            request = self.build_common_packet_format(DATA_ITEM['Unconnected'],
-                                                      b''.join(msg),
-                                                      ADDRESS_ITEM['UCMM'], )
-            success, reply = self.send_rr_data(request)
+            )
+            response = request.send()
 
-            if success:
-                info = self._parse_identity_object(reply)
+            if response:
+                info = self._parse_identity_object(response.data)
                 return info
             else:
-                raise DataError(f'send_rr_data did not return valid data - {reply}')
+                raise DataError(f'send_rr_data did not return valid data - {response.error}')
 
         except Exception as err:
             raise DataError(err)
 
     @staticmethod
     def _parse_identity_object(reply):
-        vendor = unpack_uint(reply[44:46])
-        product_type = unpack_uint(reply[46:48])
-        product_code = unpack_uint(reply[48:50])
-        major_fw = int(reply[50])
-        minor_fw = int(reply[51])
-        status = f'{unpack_uint(reply[52:54]):0{16}b}'
-        serial_number = f'{unpack_udint(reply[54:58]):0{8}x}'
-        product_name_len = int(reply[58])
-        tmp = 59 + product_name_len
-        device_type = reply[59:tmp].decode()
+        vendor = unpack_uint(reply[:2])
+        product_type = unpack_uint(reply[2:4])
+        product_code = unpack_uint(reply[4:6])
+        major_fw = int(reply[6])
+        minor_fw = int(reply[7])
+        status = f'{unpack_uint(reply[8:10]):0{16}b}'
+        serial_number = f'{unpack_udint(reply[10:12]):0{8}x}'
+        product_name_len = int(reply[12])
+        tmp = 15 + product_name_len
+        device_type = reply[15:tmp].decode()
 
         state = unpack_uint(reply[tmp:tmp+4]) if reply[tmp:] else -1  # some modules don't return a state
 
@@ -460,7 +450,7 @@ class Base:
         try:
             if self._debug:
                 self.__log.debug(print_bytes_msg(message, '-------------- SEND --------------'))
-            self.__sock.send(message)
+            self._sock.send(message)
         except Exception as e:
             raise CommError(e)
 
@@ -470,7 +460,7 @@ class Base:
         :return: reply data
         """
         try:
-            reply = self.__sock.receive()
+            reply = self._sock.receive()
         except Exception as e:
             raise CommError(e)
         else:
@@ -487,9 +477,9 @@ class Base:
         # handle the socket layer
         if not self._connection_opened:
             try:
-                if self.__sock is None:
-                    self.__sock = Socket()
-                self.__sock.connect(self.attribs['ip address'], self.attribs['port'])
+                if self._sock is None:
+                    self._sock = Socket()
+                self._sock.connect(self.attribs['ip address'], self.attribs['port'])
                 self._connection_opened = True
                 self.attribs['cid'] = urandom(4)
                 self.attribs['vsn'] = urandom(4)
@@ -518,8 +508,8 @@ class Base:
 
         # %GLA must do a cleanup __sock.close()
         try:
-            if self.__sock:
-                self.__sock.close()
+            if self._sock:
+                self._sock.close()
         except Exception as err:
             errs.append(err)
             self.__log.warning(f"close() -> __sock.close Err: {err}")
@@ -530,7 +520,7 @@ class Base:
             raise CommError(' - '.join(str(e) for e in errs))
 
     def clean_up(self):
-        self.__sock = None
+        self._sock = None
         self._target_is_connected = False
         self._session = 0
         self._connection_opened = False
