@@ -223,10 +223,9 @@ class LogixDriver(Base):
         :return: None is returned in case of error otherwise the tag list is returned
         """
 
-        if not self._target_is_connected:
-            if not self.forward_open():
-                self.__log.warning("Target did not connected. read_tag will not be executed.")
-                raise DataError("Target did not connected. read_tag will not be executed.")
+        if not self.forward_open():
+            self.__log.warning("Target did not connected. read_tag will not be executed.")
+            raise DataError("Target did not connected. read_tag will not be executed.")
 
         if len(tags) == 1:
             if isinstance(tags[0], (list, tuple, GeneratorType)):
@@ -674,10 +673,9 @@ class LogixDriver(Base):
 
     def get_plc_info(self):
         try:
-            if not self._target_is_connected:
-                if not self.forward_open():
-                    self.__log.warning("Target did not connected. get_plc_name will not be executed.")
-                    raise DataError("Target did not connected. get_plc_name will not be executed.")
+            if not self.forward_open():
+                self.__log.warning("Target did not connected. get_plc_name will not be executed.")
+                raise DataError("Target did not connected. get_plc_name will not be executed.")
 
             msg = [
                 pack_uint(self._get_sequence()),
@@ -1014,10 +1012,6 @@ class LogixDriver(Base):
         """ get a list of the tags in the plc
 
         """
-        if not self._target_is_connected:
-            if not self.forward_open():
-                self.__log.warning("Target did not connected. get_tag_list will not be executed.")
-                raise DataError("Target did not connected. get_tag_list will not be executed.")
 
         if instance_id not in self._template_cache:
             offset = 0
@@ -1036,6 +1030,9 @@ class LogixDriver(Base):
                         pack_dint(offset),  # Offset
                         pack_uint(((object_definition_size * 4) - 21) - offset)
                     ]
+        if not self.forward_open():
+            self.__log.warning("Target did not connected. get_tag_list will not be executed.")
+            raise DataError("Target did not connected. get_tag_list will not be executed.")
 
                     request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
                                                               ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )

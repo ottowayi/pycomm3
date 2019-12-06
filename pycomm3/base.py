@@ -86,6 +86,7 @@ class Base:
         self._last_tag_read = ()
         self._last_tag_write = ()
         self._info = {}
+        self._connection_size = 500
         self.attribs = {
             'context': b'_pycomm_',
             'protocol version': b'\x01\x00',
@@ -268,16 +269,19 @@ class Base:
         :return: False if any error in the replayed message
         """
 
+        if self._target_is_connected:
+            return True
+
         if self._session == 0:
             raise CommError("A Session Not Registered Before forward_open.")
 
         init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
         if self.attribs['extended forward open']:
             connection_size = 4002
-            net_params = pack_udint((connection_size & 0xFFFF) | init_net_params << 16)
+            net_params = pack_udint((self._connection_size & 0xFFFF) | init_net_params << 16)
         else:
             connection_size = 500
-            net_params = pack_uint((connection_size & 0x01FF) | init_net_params)
+            net_params = pack_uint((self._connection_size & 0x01FF) | init_net_params)
 
         if self.__direct_connections:
             connection_params = [CONNECTION_SIZE['Direct Network'], CLASS_ID["8-bit"], CLASS_CODE["Message Router"]]
@@ -380,12 +384,11 @@ class Base:
 
     def get_module_info(self, slot):
         try:
-            if not self._target_is_connected:
-                if not self.forward_open():
-                    self.__log.warning("Target did not connected. get_plc_name will not be executed.")
-                    raise DataError("Target did not connected. get_plc_name will not be executed.")
 
             msg = [
+            if not self.forward_open():
+                self.__log.warning("Target did not connected. get_plc_name will not be executed.")
+                raise DataError("Target did not connected. get_plc_name will not be executed.")
                 # unnconnected send portion
                 UNCONNECTED_SEND,
                 b'\x02',
