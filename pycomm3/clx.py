@@ -24,13 +24,13 @@
 # SOFTWARE.
 #
 
-import struct
+import struct, re
 from collections import defaultdict
 from autologging import logged
 from types import GeneratorType
 
-from . import DataError
-from .base import Base, Tag
+from . import DataError, Tag
+from .base import Base
 from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint, unpack_uint, unpack_dint, unpack_udint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, BITS_PER_INT_TYPE,
@@ -38,7 +38,10 @@ from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, 
                     CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START, BASE_TAG_BIT,
                     MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
                     VENDORS, PRODUCT_TYPES, KEYSWITCH, TAG_SERVICES_REPLY, get_service_status, get_extended_status,
-                    TEMPLATE_MEMBER_INFO_LEN)
+                    TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, STRUCTURE_READ_REPLY)
+
+
+re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
 
 
 @logged
@@ -121,7 +124,9 @@ class LogixDriver(Base):
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
                 service = reply[46]
                 status = _unit_data_status(reply)
-                if status == INSUFFICIENT_PACKETS and service in (TAG_SERVICES_REPLY['Multiple Service Packet'],
+                # return None
+                if status == INSUFFICIENT_PACKETS and service in (TAG_SERVICES_REPLY['Read Tag'],
+                                                                    TAG_SERVICES_REPLY['Multiple Service Packet'],
                                                                   TAG_SERVICES_REPLY['Read Tag Fragmented'],
                                                                   TAG_SERVICES_REPLY['Write Tag Fragmented'],
                                                                   TAG_SERVICES_REPLY['Get Instance Attributes List'],
@@ -250,7 +255,7 @@ class LogixDriver(Base):
             if bit is not None:
                 tag_bits[tag].append(bit)
             if read:
-                rp = self.create_tag_rp(tag, multi_requests=True)
+                rp = self.create_tag_rp(tag)
                 if rp is None:
                     raise DataError(f"Cannot create tag {tag} request packet. read_tag will not be executed.")
                 else:
@@ -644,13 +649,12 @@ class LogixDriver(Base):
 
     def get_plc_name(self):
         try:
-            if not self._target_is_connected:
-                if not self.forward_open():
-                    self.__log.warning("Target did not connected. get_plc_name will not be executed.")
-                    raise DataError("Target did not connected. get_plc_name will not be executed.")
+            if not self.forward_open():
+                self.__log.warning("Target did not connected. get_plc_name will not be executed.")
+                raise DataError("Target did not connected. get_plc_name will not be executed.")
 
-            msg = [
-                pack_uint(self._get_sequence()),
+            request = self.new_request('send_unit_data')
+            request.add(
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
                 REQUEST_PATH_SIZE,
                 CLASS_ID['8-bit'],
@@ -660,19 +664,15 @@ class LogixDriver(Base):
                 b'\x01\x00',  # Instance 1
                 b'\x01\x00',  # Number of Attributes
                 b'\x01\x00'  # Attribute 1 - program name
-            ]
+            )
 
-            request = self.build_common_packet_format(DATA_ITEM['Connected'],
-                                                      b''.join(msg),
-                                                      ADDRESS_ITEM['Connection Based'],
-                                                      addr_data=self._target_cid, )
-            success, reply = self.send_unit_data(request)
+            response = request.send()
 
-            if success:
-                self._info['name'] = self._parse_plc_name(reply)
+            if response:
+                self._info['name'] = self._parse_plc_name(response)
                 return self._info['name']
             else:
-                raise DataError(f'send_unit_data did not return valid data - {reply}')
+                raise DataError(f'send_unit_data did not return valid data - {response.error}')
 
         except Exception as err:
             raise DataError(err)
@@ -682,9 +682,8 @@ class LogixDriver(Base):
             if not self.forward_open():
                 self.__log.warning("Target did not connected. get_plc_name will not be executed.")
                 raise DataError("Target did not connected. get_plc_name will not be executed.")
-
-            msg = [
-                pack_uint(self._get_sequence()),
+            request = self.new_request('send_unit_data')
+            request.add(
                 b'\x01',  # Service
                 REQUEST_PATH_SIZE,
                 CLASS_ID['8-bit'],
@@ -692,40 +691,33 @@ class LogixDriver(Base):
                 INSTANCE_ID["16-bit"],
                 b'\x00',
                 b'\x01\x00',  # Instance 1
-            ]
-            request = self.build_common_packet_format(DATA_ITEM['Connected'],
-                                                      b''.join(msg),
-                                                      ADDRESS_ITEM['Connection Based'],
-                                                      addr_data=self._target_cid, )
-            success, reply = self.send_unit_data(request)
+            )
+            response = request.send()
 
-            if success:
-                info = self._parse_plc_info(reply)
+            if response:
+                info = self._parse_plc_info(response.data)
                 self._info = {**self._info, **info}
                 return info
             else:
-                raise DataError(f'send_unit_data did not return valid data - {reply}')
+                raise DataError(f'send_unit_data did not return valid data - {response.error}')
 
         except Exception as err:
             raise DataError(err)
 
     @staticmethod
-    def _parse_plc_name(reply):
-        status = _unit_data_status(reply)
-        if status != SUCCESS:
-            raise DataError(f'get_plc_name returned status {get_service_status(status)}')
-        data = reply[REPLY_START:]
+    def _parse_plc_name(response):
+
+        if response.service_status != SUCCESS:
+            raise DataError(f'get_plc_name returned status {get_service_status(response.error)}')
         try:
-            name_len = unpack_uint(data[6:8])
-            name = data[8: 8 + name_len].decode()
+            name_len = unpack_uint(response.data[6:8])
+            name = response.data[8: 8 + name_len].decode()
             return name
         except Exception as err:
             raise DataError(err)
 
     @staticmethod
-    def _parse_plc_info(reply):
-
-        data = reply[REPLY_START:]
+    def _parse_plc_info(data):
         vendor = unpack_uint(data[0:2])
         product_type = unpack_uint(data[2:4])
         product_code = unpack_uint(data[4:6])
@@ -778,8 +770,7 @@ class LogixDriver(Base):
         user_tags = self._isolating_user_tag(all_tags, program)
         for tag in user_tags:
             if tag['tag_type'] == 'struct':
-                tag['template'] = self._get_structure_makeup(tag['template_instance_id'])
-                tag['udt'] = self._parse_udt_raw(tag)
+                tag['udt'] = self._get_data_type(tag['template_instance_id'])
 
         return user_tags
 
@@ -800,12 +791,13 @@ class LogixDriver(Base):
             while last_instance != -1:
                 # Creating the Message Request Packet
                 path = []
-                if program is not None and not program.startswith('Program:'):
-                    program = f'Program:{program}'
                 if program:
+                    if not program.startswith('Program:'):
+                        program = f'Program:{program}'
                     path = [EXTENDED_SYMBOL, pack_usint(len(program)), program.encode('utf-8')]
                     if len(program) % 2:
                         path.append(b'\x00')
+
                 path += [
                     # Request Path ( 20 6B 25 00 Instance )
                     CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
@@ -816,37 +808,34 @@ class LogixDriver(Base):
                 ]
                 path = b''.join(path)
                 path_size = pack_usint(len(path) // 2)
-
-                message_request = [
-                    pack_uint(self._get_sequence()),
+                request = self.new_request('send_unit_data')
+                request.add(
                     bytes([TAG_SERVICES_REQUEST['Get Instance Attributes List']]),
                     path_size,
                     path,
                     # Request Data
-                    b'\x05\x00',  # Number of attributes to retrieve
+                    b'\x06\x00',  # Number of attributes to retrieve
                     b'\x01\x00',  # Attr. 1: Symbol name
                     b'\x02\x00',  # Attr. 2 : Symbol Type
                     b'\x03\x00',  # Attr. 7 : Symbol Address
                     b'\x05\x00',  # Attr. 8 : Symbol Object Address
-                    b'\x06\x00',  # Attr. 6 : ?
-                ]
-                request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
-                                                          ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid)
-                success, reply = self.send_unit_data(request)
-                if not success:
-                    raise DataError(f"send_unit_data returned not valid data - {reply}")
+                    b'\x06\x00',  # Attr. 6 : ? - Not documented
+                    b'\x0a\x00'   # Attr. 10 : external access
+                )
+                response = request.send()
+                if not response:
+                    raise DataError(f"send_unit_data returned not valid data - {response.error}")
 
-                last_instance = self._parse_instance_attribute_list(reply, tag_list)
+                last_instance = self._parse_instance_attribute_list(response, tag_list)
             return tag_list
 
         except Exception as e:
             raise DataError(e)
 
-    def _parse_instance_attribute_list(self, reply, tag_list):
+    def _parse_instance_attribute_list(self, response, tag_list):
         """ extract the tags list from the message received"""
 
-        status = _unit_data_status(reply)
-        tags_returned = reply[REPLY_START:]
+        tags_returned = response.data
         tags_returned_length = len(tags_returned)
         idx = count = instance = 0
         try:
@@ -866,18 +855,22 @@ class LogixDriver(Base):
                 idx += 4
                 software_control = unpack_udint(tags_returned[idx:idx+4])
                 idx += 4
+                access = tags_returned[idx] & 0b_0011
+                idx += 1
+
                 tag_list.append({'instance_id': instance,
                                  'tag_name': tag_name,
                                  'symbol_type': symbol_type,
                                  'symbol_address': symbol_address,
                                  'symbol_object_address': symbol_object_address,
-                                 'software_control': software_control})
+                                 'software_control': software_control,
+                                 'external_access': EXTERNAL_ACCESS.get(access, 'Unknown')})
         except Exception as e:
             raise DataError(e)
 
-        if status == SUCCESS:
+        if response.service_status == SUCCESS:
             last_instance = -1
-        elif status == INSUFFICIENT_PACKETS:
+        elif response.service_status == INSUFFICIENT_PACKETS:
             last_instance = instance + 1
         else:
             self.__log.warning('unknown status during _parse_instance_attribute_list')
@@ -901,7 +894,6 @@ class LogixDriver(Base):
                 if program is not None:
                     name = f'{program}.{name}'
 
-                # self._instance_id_cache[name] = tag['instance_id']
                 self._cache['tag_name:id'][name] = tag['instance_id']
 
                 new_tag = {
@@ -911,7 +903,8 @@ class LogixDriver(Base):
                     'symbol_address': tag['symbol_address'],
                     'symbol_object_address': tag['symbol_object_address'],
                     'software_control': tag['software_control'],
-                    'alias': False if tag['software_control'] & BASE_TAG_BIT else True
+                    'alias': False if tag['software_control'] & BASE_TAG_BIT else True,
+                    'external_access': tag['external_access']
                 }
 
                 if tag['symbol_type'] & 0b_1000_0000_0000_0000:  # bit 15, 1 = struct, 0 = atomic
@@ -919,7 +912,6 @@ class LogixDriver(Base):
                     new_tag['tag_type'] = 'struct'
                     new_tag['data_type'] = 'user-created'
                     new_tag['template_instance_id'] = template_instance_id
-                    new_tag['template'] = {}
                     new_tag['udt'] = {}
                 else:
                     new_tag['tag_type'] = 'atomic'
@@ -943,9 +935,8 @@ class LogixDriver(Base):
                 if not self.forward_open():
                     self.__log.warning("Target did not connected. get_tag_list will not be executed.")
                     raise DataError("Target did not connected. get_tag_list will not be executed.")
-
-            message_request = [
-                pack_uint(self._get_sequence()),
+            request = self.new_request('send_unit_data')
+            request.add(
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
                 b'\x03',  # Request Path ( 20 6B 25 00 Instance )
                 CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
@@ -958,28 +949,27 @@ class LogixDriver(Base):
                 b'\x05\x00',  # Template Structure Size UDINT
                 b'\x02\x00',  # Template Member Count UINT
                 b'\x01\x00',  # Structure Handle We can use this to read and write UINT
-            ]
-            request = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
-                                                      ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
-            success, reply = self.send_unit_data(request)
-            if not success:
-                raise DataError(f"send_unit_data returned not valid data - {reply}")
-            _struct = self._parse_structure_makeup_attributes(reply)
+            )
+
+            response = request.send()
+            if not response:
+                raise DataError(f"send_unit_data returned not valid data", response.error)
+            _struct = self._parse_structure_makeup_attributes(response)
             self._cache['id:struct'][instance_id] = _struct
             self._cache['handle:id'][_struct['structure_handle']] = instance_id
 
         return self._cache['id:struct'][instance_id]
 
     @staticmethod
-    def _parse_structure_makeup_attributes(reply):
+    def _parse_structure_makeup_attributes(response):
         """ extract the tags list from the message received"""
         structure = {}
-        status = _unit_data_status(reply)
-        if status != SUCCESS:
-            structure['Error'] = status
+
+        if response.service_status != SUCCESS:
+            structure['Error'] = response.service_status
             return
 
-        attribute = reply[REPLY_START:]
+        attribute = response.data
         idx = 4
         try:
             if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
@@ -1116,6 +1106,7 @@ class LogixDriver(Base):
                 if not template.get('Error'):
                     _data = self._read_template(instance_id, template['object_definition_size'])
                     data_type = self._parse_template_data(_data, template['member_count'])
+                    data_type['template'] = template
                     self._cache['id:udt'][instance_id] = data_type
             except Exception:
                 self.__log.exception('fuck')
@@ -1146,20 +1137,6 @@ class LogixDriver(Base):
             member['array'] = type_info
 
         return member
-
-    def _parse_udt_raw(self, tag):
-        if tag['template_instance_id'] not in self._cache['id:udt']:
-            try:
-                buff = self._read_template(tag['template_instance_id'], tag['template']['object_definition_size'])
-                member_count = tag['template']['member_count']
-                # udt = self._build_udt(buff, member_count)
-                udt = self._parse_template_data(buff, member_count)
-                self._cache['id:udt'][tag['template_instance_id']] = udt
-
-            except Exception as e:
-                raise
-
-        return self._cache['id:udt'][tag['template_instance_id']]
 
     def _parse_fragment(self, reply, last_idx, offset, tags, raw=False):
         """ parse the fragment returned by a fragment service."""

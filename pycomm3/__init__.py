@@ -27,6 +27,8 @@
 __version_info__ = (0, 3, 1)
 __version__ = '.'.join(f'{x}' for x in __version_info__)
 
+from typing import NamedTuple, Any, Union, Optional
+
 
 class PycommError(Exception):
     ...
@@ -38,6 +40,29 @@ class CommError(PycommError):
 
 class DataError(PycommError):
     ...
+
+
+def _mkstr(value):
+    """If value is a string, return it wrapped in quotes, else just return the value (like for repr's)"""
+    return f"'{value}'" if isinstance(value, str) else value
+
+
+class Tag(NamedTuple):
+    tag: str
+    value: Any
+    type: Union[str, None]
+    error: Optional[str] = None
+
+    def __bool__(self):
+        return self.value is not None and self.error is None
+
+    def __str__(self):
+        return f'{self.tag}, {self.value}, {self.type}, {self.error}'
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(tag={_mkstr(self.tag)}, value={_mkstr(self.value)}, " \
+               f"type={_mkstr(self.type)}, error={_mkstr(self.error)})"
+
 
 
 from .clx import LogixDriver

@@ -37,34 +37,12 @@ from .const import (DATA_ITEM, DATA_TYPE, TAG_SERVICES_REQUEST, EXTEND_CODES, EN
                     TIMEOUT_TICKS, TRANSPORT_CLASS, ADDRESS_ITEM, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
                     get_extended_status)
 from .socket_ import Socket
-from .packets import RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket
+from .packets import REQUEST_MAP
 
 
 def get_bit(value, idx):
     """:returns value of bit at position idx"""
     return (value & (1 << idx)) != 0
-
-
-def _mkstr(value):
-    """If value is a string, return it wrapped in quotes, else just return the value (like for repr's)"""
-    return f"'{value}'" if isinstance(value, str) else value
-
-
-class Tag(NamedTuple):
-    tag: str
-    value: Any
-    type: Union[str, None]
-    error: Optional[str] = None
-
-    def __bool__(self):
-        return self.value is not None and self.error is None
-
-    def __str__(self):
-        return f'{self.tag}, {self.value}, {self.type}, {self.error}'
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}(tag={_mkstr(self.tag)}, value={_mkstr(self.value)}, " \
-               f"type={_mkstr(self.type)}, error={_mkstr(self.error)})"
 
 
 @logged
@@ -151,10 +129,8 @@ class Base:
         raise NotImplementedError("The method has not been implemented")
 
     def new_request(self, command):
-        if command == 'send_unit_data':
-            return SendUnitDataRequestPacket(self)
-        elif command == 'send_rr_data':
-            return SendRRDataRequestPacket(self)
+        cls = REQUEST_MAP[command]
+        return cls(self)
 
     @staticmethod
     def _get_sequence():
@@ -181,15 +157,9 @@ class Base:
 
         return device description if reply contains valid response else none
         """
-        message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
-        self._send(message)
-        reply = self._receive()
-        if self._check_reply(reply) is None:
-            try:
-                return reply[63:-1].decode()
-            except Exception as e:
-                raise DataError(e)
-        return False
+        request = self.new_request('list_identity')
+        response = request.send()
+        return response.identity
 
     def send_unit_data(self, message):
         """ SendUnitData send encapsulated connected messages.
@@ -231,17 +201,18 @@ class Base:
             return self._session
 
         self._session = 0
-        message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
-        message += self.attribs['protocol version']
-        message += b'\x00\x00'
-        self._send(message)
-        reply = self._receive()
+        request = self.new_request('register_session')
+        request.add(
+            self.attribs['protocol version'],
+            b'\x00\x00'
+        )
 
-        if self._check_reply(reply) is None:
-            self._session = unpack_dint(reply[4:8])
+        response = request.send()
+        if response:
+            self._session = response.session
 
             if self._debug:
-                self.__log.debug("Session ={0} has been registered.".format(print_bytes_line(reply[4:8])))
+                self.__log.debug(f"Session = {response.session} has been registered.")
             return self._session
 
         self.__log.warning('Session has not been registered.')
@@ -251,8 +222,8 @@ class Base:
         """ Un-register a connection
 
         """
-        message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
-        self._send(message)
+        request = self.new_request('unregister_session')
+        request.send()
         self._session = None
 
     def forward_open(self):
@@ -427,7 +398,7 @@ class Base:
         tmp = 15 + product_name_len
         device_type = reply[15:tmp].decode()
 
-        state = unpack_uint(reply[tmp:tmp+4]) if reply[tmp:] else -1  # some modules don't return a state
+        state = unpack_uint(reply[tmp:tmp + 4]) if reply[tmp:] else -1  # some modules don't return a state
 
         return {
             'vendor': VENDORS.get(vendor, 'UNKNOWN'),
@@ -681,4 +652,3 @@ class Base:
     @property
     def name(self):
         return self._info.get('name')
-
