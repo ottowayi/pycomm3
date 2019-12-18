@@ -74,7 +74,7 @@ def pack_ulong(l):
 
 
 def unpack_bool(st):
-    return 1 if not st[0] == 0 else 0
+    return not st[0] == 0
 
 
 def unpack_sint(st):
