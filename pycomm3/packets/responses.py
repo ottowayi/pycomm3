@@ -4,14 +4,14 @@ from ..bytes_ import pack_uint, pack_dint, print_bytes_msg, unpack_uint, unpack_
 from autologging import logged
 from ..const import (ENCAPSULATION_COMMAND, REPLY_INFO, SUCCESS, INSUFFICIENT_PACKETS, TAG_SERVICES_REPLY,
                     get_service_status, get_extended_status, MULTI_PACKET_SERVICES, DATA_ITEM, ADDRESS_ITEM,
-                    REPLY_START, TAG_SERVICES_REQUEST, STRUCTURE_READ_REPLY, DATA_TYPE)
+                    REPLY_START, TAG_SERVICES_REQUEST, STRUCTURE_READ_REPLY, DATA_TYPE, DATA_TYPE_SIZE)
 from collections import defaultdict
 
 
 @logged
 class ResponsePacket(Packet):
 
-    def __init__(self, raw_data: bytes = None):
+    def __init__(self, raw_data: bytes = None, *args, **kwargs):
         super().__init__()
         self.raw = raw_data
         self._error = None
@@ -62,8 +62,8 @@ class ResponsePacket(Packet):
 
 
 class SendUnitDataResponsePacket(ResponsePacket):
-    def __init__(self, raw_data: bytes = None):
-        super().__init__(raw_data)
+    def __init__(self, raw_data: bytes = None, *args, **kwargs):
+        super().__init__(raw_data, *args, **kwargs)
 
     def _parse_reply(self):
         try:
@@ -83,17 +83,23 @@ class SendUnitDataResponsePacket(ResponsePacket):
         ))
 
 
+@logged
 class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
-    def __init__(self, raw_data: bytes = None):
+    def __init__(self, raw_data: bytes = None, *args, tag_info=None, string_types=None, **kwargs):
         self.value = None
         self.data_type = None
+        self.tag_info = tag_info
+        self._string_types = string_types or []
         super().__init__(raw_data)
 
     def _parse_reply(self):
         try:
             super()._parse_reply()
             if self.data[:2] == STRUCTURE_READ_REPLY:
-                self._parse_structure_reply(self.data[2:])
+                self.data_type = unpack_uint(self.data[2:4])
+                # print(f'raw = {self.data[4:]}')
+                self.value = self._parse_structure_reply(self.data[4:], self.tag_info['udt'])
+
             else:
                 data_type = DATA_TYPE[unpack_uint(self.data[:2])]
                 value = UNPACK_DATA_FUNCTION[data_type](self.data[2:])
@@ -101,11 +107,45 @@ class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
                 self.value = value
 
         except Exception as err:
+            self.__log.exception('fuck')
             self._error = f'Failed to parse reply - {err}'
 
-    def _parse_structure_reply(self, data):
-        self.value = 'is a structure'
-        self.data_type = unpack_uint(data[:2])
+    def _parse_structure_reply(self, data, data_type):
+        values = {}
+        size = data_type['template']['structure_size']
+
+        for tag, type_def in data_type['internal_tags'].items():
+            data_type = type_def['data_type']
+            array = type_def.get('array')
+            offset = type_def['offset']
+            if type_def['atomic']:
+                dt_len = DATA_TYPE_SIZE[data_type]
+                func = UNPACK_DATA_FUNCTION[data_type]
+                if array:
+                    ary_data = data[offset:offset + (dt_len * array)]
+                    value = [func(ary_data[i:i+dt_len]) for i in range(0, array, dt_len)]
+                else:
+                    if data_type == 'BOOL':
+                        bit = type_def.get('bit', 0)
+                        value = bool(data[offset] & (1 << bit))
+                    else:
+                        value = func(data[offset:offset + dt_len])
+                        if data_type == 'DWORD':
+                            bits = [x == '1' for x in bin(value)[2:]]
+                            value = [False for _ in range(32 - len(bits))] + bits
+                values[tag] = value
+            elif data_type['name'] in self._string_types:
+
+                str_len = unpack_dint(data[offset:offset + 4])
+                str_data = data[offset + 4: offset + 4 + str_len]
+                values[tag] = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
+            else:
+                if array:
+                    ary_data = data[offset:offset + (size * array)]
+                    values[tag] = [self._parse_structure_reply(ary_data[i:i+size], data_type) for i in range(0, array, size)]
+                else:
+                    values[tag] = self._parse_structure_reply(data[offset:offset+size], data_type)
+        return values
 
     def __str__(self):
         return f'{self.__class__.__name__}({self.data_type}, {self.value}, {self.service_status})'
@@ -115,7 +155,7 @@ class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
 
 class SendRRDataResponsePacket(ResponsePacket):
 
-    def __init__(self, raw_data: bytes = None):
+    def __init__(self, raw_data: bytes = None, *args, **kwargs):
         super().__init__(raw_data)
 
     def _parse_reply(self):
@@ -136,7 +176,7 @@ class SendRRDataResponsePacket(ResponsePacket):
 
 class RegisterSessionResponsePacket(ResponsePacket):
 
-    def __init__(self, raw_data: bytes = None):
+    def __init__(self, raw_data: bytes = None, *args, **kwargs):
         self.session = None
         super().__init__(raw_data)
 
@@ -166,7 +206,7 @@ class UnRegisterSessionResponsePacket(ResponsePacket):
 
 class ListIdentityResponsePacket(ResponsePacket):
 
-    def __init__(self, raw_data: bytes = None):
+    def __init__(self, raw_data: bytes = None, *args, **kwargs):
         self.identity = None
         super().__init__(raw_data)
 

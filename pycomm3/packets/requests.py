@@ -96,35 +96,36 @@ class RequestPacket(Packet):
 class SendUnitDataRequestPacket(RequestPacket):
     _message_type = DATA_ITEM['Connected']
     _address_type = ADDRESS_ITEM['Connection Based']
-    _ResponseClass = SendUnitDataResponsePacket
 
     def __init__(self, plc):
         super().__init__(plc)
         self._msg = [pack_uint(plc._get_sequence()), ]
 
-    def send(self):
+    def _build_request(self):
         msg = self._build_common_packet_format(addr_data=self._plc._target_cid)
         header = self._build_header(ENCAPSULATION_COMMAND['send_unit_data'], len(msg))
-        print(f'header: {header}')
-        print(f'msg: {msg}')
-        self._send(header + msg)
+        return header + msg
+
+    def send(self):
+        self._send(self._build_request())
         reply = self._receive()
-        return self._ResponseClass(reply)
+        return SendUnitDataResponsePacket(reply)
 
 
 @logged
 class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
-    _ResponseClass = ReadTagServiceResponsePacket
 
     def __init__(self, plc):
         super().__init__(plc)
         self.error = None
         self.tag = None
         self.elements = None
+        self.tag_info = None
 
-    def add(self, tag, elements=1):
+    def add(self, tag, elements=1, tag_info=None):
         self.tag = tag
         self.elements = elements
+        self.tag_info = tag_info
         request_path = self._plc.create_tag_rp(self.tag)
         if request_path is None:
             self.error = 'Invalid Tag Request Path'
@@ -136,9 +137,10 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
         )
 
     def send(self):
-        print('send')
         if not self.error:
-            response = super().send()
+            self._send(self._build_request())
+            reply = self._receive()
+            return ReadTagServiceResponsePacket(reply, tag_info=self.tag_info, string_types=self._plc.string_types)
         else:
             response = ReadTagServiceResponsePacket()
             response._error = self.error

@@ -219,6 +219,47 @@ class LogixDriver(Base):
 
         return None
 
+
+    # def read(self, *tags):
+    #     """
+    #
+    #     read('tag')
+    #     read('tag1', 'tag2',...)
+    #     read(('tag1', 4))
+    #
+    #     :param tags:
+    #     :type tags: list of string or tuples
+    #     :return:
+    #     :rtype:
+    #     """
+    #     ...
+    #     if not self._instance_id_cache:
+    #         raise DataError('Tag cache must be initialized before read')
+    #
+    #     if self.forward_open():
+    #         tag_rps = []
+    #         for tag in tags:
+    #             if not isinstance(tag, str) and len(tag) == 2:
+    #                 tag_rps.append(self._make_read_request(*tag))
+    #             else:
+    #                 if tag in self._tags:
+    #                     ...
+    #                 else:
+    #                     match = re_bit.match(tag)
+    #                     if match:
+    #
+    #
+    #     else:
+    #         raise DataError("Target did not connected. read_tag will not be executed.")
+
+    def _make_read_request(self, tag, ary_len=1):
+        request = [
+            bytes([TAG_SERVICES_REQUEST['Read Tag']]),
+            self.create_tag_rp(tag),
+            pack_uint(ary_len)
+        ]
+        return b''.join(request)
+
     def read_tag(self, *tags):
         """ read tag from a connected plc
 
@@ -244,6 +285,77 @@ class LogixDriver(Base):
                 return self._read_tag_single(tags[0])
         else:
             return self._read_tag_multi(tags)
+
+    def _read_tag(self, tag, count=1):
+        if not self.forward_open():
+            self.__log.warning("Target did not connected. read_tag will not be executed.")
+            raise DataError("Target did not connected. read_tag will not be executed.")
+
+        rp = self.create_tag_rp(tag)
+        if rp is None:
+            self.__log.warning(f"Cannot create tag {tag} request packet. read_tag will not be executed.")
+            return None
+        else:
+            offset = 0
+            raw_udt_data = b''
+            while offset is not None:
+                # Creating the Message Request Packet
+                request = self.new_request('send_unit_data')
+                request.add(
+                    bytes([TAG_SERVICES_REQUEST['Read Tag Fragmented']]),  # the Request Service
+                    # bytes([len(rp) // 2]),  # the Request Path Size length in word
+                    rp,  # the request path
+                    pack_uint(count),
+                    pack_dint(offset)
+                )
+                response = request.send()
+
+                if not request:
+                    raise DataError(f"send_unit_data returned not valid data - {response.error}")
+
+                offset, fragment, data_type, handle = self._parse_read_tag_reply(response, offset)
+                print(f'offset: {offset}, fragment len: {len(fragment)}, data_type: {data_type}')
+                print(f'fragment:\n{fragment}')
+                print('----------------------------------------------------------------------')
+                raw_udt_data += fragment
+
+            return raw_udt_data
+        # if success:
+        #     data_type = unpack_uint(reply[50:52])
+        #     typ = DATA_TYPE[data_type]
+        #     try:
+        #         value = UNPACK_DATA_FUNCTION[typ](reply[52:])
+        #         if bit is not None:
+        #             value = bool(value & (1 << bit)) if bit < BITS_PER_INT_TYPE[typ] else None
+        #         return Tag(tag, value, typ)
+        #     except Exception as e:
+        #         raise DataError(e)
+        # else:
+        #     return Tag(tag, None, None, reply)
+
+    def _parse_read_tag_reply(self, response, offset):
+        try:
+
+            data_type = response.data[:2]
+            if data_type == STRUCTURE_READ_REPLY:
+                data_type = 'udt'
+                handle = response.data[2:4]
+                fragment_returned = response.data[4:]
+            else:
+                handle = None
+                fragment_returned = response.data[2:]
+                data_type = unpack_uint(data_type)
+        except Exception as e:
+            raise DataError(e)
+
+        if response.service_status == SUCCESS:
+            offset = None
+        elif response.service_status == INSUFFICIENT_PACKETS:
+            offset += len(fragment_returned)
+        else:
+            offset = None
+            self.__log.warning(response.error)
+        return offset, fragment_returned, data_type, handle
 
     def _read_tag_multi(self, tags):
         tag_bits = defaultdict(list)
@@ -1083,7 +1195,7 @@ class LogixDriver(Base):
             raise DataError(f'Unable to decode template or member names')
 
         template = {
-            'name': template_name,
+            'name': template_name or member_names.pop(0),  # predefined types put name as first member (DWORD)
             'internal_tags': {},
             'attributes': []
         }
