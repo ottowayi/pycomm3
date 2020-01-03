@@ -84,7 +84,7 @@ class LogixDriver(Base):
         self.attribs['ip address'] = ip_address
         self.attribs['cpu slot'] = slot
         self.attribs['extended forward open'] = large_packets
-        self._connection_size = 4002 if large_packets else 500
+        self.connection_size = 4000 if large_packets else 500
         self.use_instance_ids = True
 
         if init_tags or init_info:
@@ -372,7 +372,7 @@ class LogixDriver(Base):
                     raise DataError(f"Cannot create tag {tag} request packet. read_tag will not be executed.")
                 else:
                     tag_req_len = len(rp) + MULTISERVICE_READ_OVERHEAD
-                    if tag_req_len + request_len >= self._connection_size:
+                    if tag_req_len + request_len >= self.connection_size:
                         rp_list.append([])
                         tags_read.append([])
                         request_len = 0
@@ -385,7 +385,7 @@ class LogixDriver(Base):
             message_request = self.build_multiple_service(req_list, self._get_sequence())
             msg = self.build_common_packet_format(DATA_ITEM['Connected'], b''.join(message_request),
                                                   ADDRESS_ITEM['Connection Based'], addr_data=self._target_cid, )
-
+            print(msg)
             success, reply = self.send_unit_data(msg)
             if not success:
                 raise DataError(f"send_unit_data returned not valid data - {reply}")
@@ -533,7 +533,7 @@ class LogixDriver(Base):
                                    PACK_DATA_FUNCTION[typ](value))
 
                     tag_req_len = len(request) + MULTISERVICE_WRITE_OVERHEAD
-                    if tag_req_len + request_len >= self._connection_size:
+                    if tag_req_len + request_len >= self.connection_size:
                         rp_list.append([])
                         tags_added.append([])
                         request_len = 0
@@ -1194,8 +1194,12 @@ class LogixDriver(Base):
         except (ValueError, UnicodeDecodeError):
             raise DataError(f'Unable to decode template or member names')
 
+        predefine = template_name is None
+        if predefine:
+            template_name = member_names.pop(0)
+
         template = {
-            'name': template_name or member_names.pop(0),  # predefined types put name as first member (DWORD)
+            'name': template_name,  # predefined types put name as first member (DWORD)
             'internal_tags': {},
             'attributes': []
         }
@@ -1205,10 +1209,14 @@ class LogixDriver(Base):
                 template['attributes'].append(member)
             template['internal_tags'][member] = info
 
+        # if predefine:
+        #     template['attributes'].pop(0)
+
         if template['attributes'] == ['LEN', 'DATA'] and \
            template['internal_tags']['DATA']['data_type'] == 'SINT' and \
            template['internal_tags']['DATA'].get('array'):
-            self.string_types[template_name] = template['internal_tags']['DATA']['array']
+            template['string'] = template['internal_tags']['DATA']['array']
+
         return template
 
     def _get_data_type(self, instance_id):
@@ -1229,7 +1237,7 @@ class LogixDriver(Base):
         type_info = unpack_uint(info[:2])
         typ = unpack_uint(info[2:4])
         member = {'offset': unpack_udint(info[4:])}
-        atomic = True
+        tag_type = 'atomic'
         if typ in DATA_TYPE:
             data_type = DATA_TYPE[typ]
         else:
@@ -1237,10 +1245,10 @@ class LogixDriver(Base):
             if instance_id in DATA_TYPE:
                 data_type = DATA_TYPE[instance_id]
             else:
-                atomic = False
+                tag_type = 'struct'
                 data_type = self._get_data_type(instance_id)
 
-        member['atomic'] = atomic
+        member['tag_type'] = tag_type
         member['data_type'] = data_type
 
         if data_type == 'BOOL':

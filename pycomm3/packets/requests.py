@@ -1,12 +1,13 @@
 from . import Packet
 from autologging import logged
 from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceResponsePacket, RegisterSessionResponsePacket,
-               UnRegisterSessionResponsePacket, ListIdentityResponsePacket, SendRRDataResponsePacket)
+               UnRegisterSessionResponsePacket, ListIdentityResponsePacket, SendRRDataResponsePacket,
+               MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket)
 
-from ..bytes_ import pack_uint, pack_dint, print_bytes_msg, unpack_uint, unpack_usint, unpack_dint
+from ..bytes_ import pack_uint, pack_dint, print_bytes_msg, unpack_uint, pack_usint, unpack_dint
 from ..const import (ENCAPSULATION_COMMAND, REPLY_INFO, SUCCESS, INSUFFICIENT_PACKETS, TAG_SERVICES_REPLY,
                     get_service_status, get_extended_status, MULTI_PACKET_SERVICES, DATA_ITEM, ADDRESS_ITEM,
-                    REPLY_START, TAG_SERVICES_REQUEST)
+                    REPLY_START, TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_ID, INSTANCE_ID)
 from .. import CommError, Tag
 
 
@@ -15,6 +16,7 @@ class RequestPacket(Packet):
     _message_type = None
     _address_type = None
     _timeout = b'\x0a\x00'  # 10
+    single = True
 
     def __init__(self, plc: 'LogixDriver'):
         super().__init__()
@@ -51,6 +53,7 @@ class RequestPacket(Packet):
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
         addr_data = b'\x00\x00' if addr_data is None else pack_uint(len(addr_data)) + addr_data
+        msg = self.message
         return b''.join([
             b'\x00\x00\x00\x00',  # Interface Handle: shall be 0 for CIP
             self._timeout,
@@ -58,8 +61,8 @@ class RequestPacket(Packet):
             self._address_type,
             addr_data,
             self._message_type,
-            pack_uint(len(self.message)),
-            self.message
+            pack_uint(len(msg)),
+            msg
         ])
 
     def _send(self, message):
@@ -140,12 +143,129 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
         if not self.error:
             self._send(self._build_request())
             reply = self._receive()
-            return ReadTagServiceResponsePacket(reply, tag_info=self.tag_info, string_types=self._plc.string_types)
+            return ReadTagServiceResponsePacket(reply, elements=self.elements, tag_info=self.tag_info, tag=self.tag)
         else:
-            response = ReadTagServiceResponsePacket()
+            response = ReadTagServiceResponsePacket(tag=self.tag)
             response._error = self.error
 
         return response
+
+
+@logged
+class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
+    def __init__(self, plc):
+        super().__init__(plc)
+        self.error = None
+        self.tag = None
+        self.elements = None
+        self.tag_info = None
+        self.request_path = None
+
+    def add(self, tag, elements=1, tag_info=None):
+        self.tag = tag
+        self.elements = elements
+        self.tag_info = tag_info
+        self.request_path = self._plc.create_tag_rp(self.tag)
+        if self.request_path is None:
+            self.error = 'Invalid Tag Request Path'
+
+    def send(self):
+        if not self.error:
+            offset = 0
+            responses = []
+            while offset is not None:
+                self._msg.extend([bytes([TAG_SERVICES_REQUEST['Read Tag Fragmented']]),
+                                 self.request_path,
+                                 pack_uint(self.elements),
+                                 pack_dint(offset)])
+                self._send(self._build_request())
+                reply = self._receive()
+                response = ReadTagFragmentedServiceResponsePacket(reply, self.tag_info, self.elements)
+                responses.append(response)
+                if response.service_status == INSUFFICIENT_PACKETS:
+                    offset += len(response.bytes_)
+                    self._msg = [pack_uint(self._plc._get_sequence())]
+                else:
+                    offset = None
+            if all(responses):
+                final_response = responses[-1]
+                final_response.bytes_ = b''.join(resp.bytes_ for resp in responses)
+                final_response.parse_bytes()
+                return final_response
+
+        failed_response = ReadTagServiceResponsePacket()
+        failed_response._error = self.error or 'One or more fragment responses failed'
+
+
+@logged
+class MultiServiceRequestPacket(SendUnitDataRequestPacket):
+    single = False
+
+    def __init__(self, plc, sequence=1):
+        super().__init__(plc)
+        self.error = None
+        self.tags = []
+        self._msg.extend((
+            bytes([TAG_SERVICES_REQUEST["Multiple Service Packet"]]),  # the Request Service
+            pack_usint(2),  # the Request Path Size length in word
+            CLASS_ID["8-bit"],
+            CLASS_CODE["Message Router"],
+            INSTANCE_ID["8-bit"],
+            b'\x01',  # Instance 1
+        ))
+        self._message = None
+        self._msg_errors = None
+
+    @property
+    def message(self) -> bytes:
+        return self._message
+
+    def build_message(self, tags):
+        rp_list, errors = [], []
+        for tag in tags:
+            if tag['rp'] is None:
+                errors.append(f'Unable to create request path {tag["tag"]}')
+            else:
+                rp_list.append(tag['rp'])
+
+        offset = len(rp_list) * 2 + 2
+        offsets = []
+        for rp in rp_list:
+            offsets.append(pack_uint(offset))
+            offset += len(rp)
+
+        msg = self._msg + [pack_uint(len(rp_list))] + offsets + rp_list
+        return b''.join(msg)
+
+    def add_read(self, tag, elements=1, tag_info=None):
+        request_path = self._plc.create_tag_rp(tag)
+        if request_path is not None:
+            request_path = bytes([TAG_SERVICES_REQUEST['Read Tag']]) + request_path + pack_uint(elements)
+            tag = {'tag': tag, 'elements': elements, 'tag_info': tag_info, 'rp': request_path}
+            message = self.build_message(self.tags + [tag])
+            if len(message) < self._plc.connection_size:
+                self._message = message
+                self.tags.append(tag)
+                return True
+            else:
+                return False
+        else:
+            self.__log.error(f'Failed to create request path for {tag}')
+            return False
+
+    def add_write(self, tag, value, tag_info):
+        ...
+
+    def send(self):
+        if not self._msg_errors:
+            self._send(self._build_request())
+            reply = self._receive()
+            return MultiServiceResponsePacket(reply, tags=self.tags)
+        else:
+            self.error = f'Failed to create request path for: {", ".join(self._msg_errors)}'
+            response = MultiServiceResponsePacket()
+            response._error = self.error
+            return response
 
 
 @logged

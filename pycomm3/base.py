@@ -65,7 +65,7 @@ class Base:
         self._last_tag_read = ()
         self._last_tag_write = ()
         self._info = {}
-        self._connection_size = 500
+        self.connection_size = 500
         self.attribs = {
             'context': b'_pycomm_',
             'protocol version': b'\x01\x00',
@@ -243,10 +243,10 @@ class Base:
         init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
         if self.attribs['extended forward open']:
             connection_size = 4002
-            net_params = pack_udint((self._connection_size & 0xFFFF) | init_net_params << 16)
+            net_params = pack_udint((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
             connection_size = 500
-            net_params = pack_uint((self._connection_size & 0x01FF) | init_net_params)
+            net_params = pack_uint((self.connection_size & 0x01FF) | init_net_params)
 
         if self.__direct_connections:
             connection_params = [CONNECTION_SIZE['Direct Network'], CLASS_ID["8-bit"], CLASS_CODE["Message Router"]]

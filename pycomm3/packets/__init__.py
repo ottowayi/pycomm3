@@ -7,13 +7,14 @@ class Packet:
 
 
 from .responses import (ResponsePacket, SendUnitDataResponsePacket, SendRRDataResponsePacket, ListIdentityResponsePacket,
-                        RegisterSessionResponsePacket, UnRegisterSessionResponsePacket, ReadTagServiceResponsePacket)
+                        RegisterSessionResponsePacket, UnRegisterSessionResponsePacket, ReadTagServiceResponsePacket,
+                        MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket)
 
 from .requests import (RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket, ListIdentityRequestPacket,
-                       RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket)
+                       RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket,
+                       MultiServiceRequestPacket, ReadTagFragmentedServiceRequestPacket)
 
 from collections import defaultdict
-
 
 
 REQUEST_MAP = defaultdict(RequestPacket,
@@ -23,5 +24,7 @@ REQUEST_MAP = defaultdict(RequestPacket,
     'register_session': RegisterSessionRequestPacket,
     'unregister_session': UnRegisterSessionRequestPacket,
     'list_identity': ListIdentityRequestPacket,
-    'read_tag': ReadTagServiceRequestPacket
+    'read_tag': ReadTagServiceRequestPacket,
+    'multi_request': MultiServiceRequestPacket,
+    'read_tag_fragmented': ReadTagFragmentedServiceRequestPacket
 })

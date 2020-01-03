@@ -42,6 +42,11 @@ class DataError(PycommError):
     ...
 
 
+class RequestError(PycommError):
+    ...
+
+
+
 def _mkstr(value):
     """If value is a string, return it wrapped in quotes, else just return the value (like for repr's)"""
     return f"'{value}'" if isinstance(value, str) else value
