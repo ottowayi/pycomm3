@@ -69,6 +69,7 @@ class ResponsePacket(Packet):
     def service_extended_status(self):
         return 'Unknown Error'
 
+
 class SendUnitDataResponsePacket(ResponsePacket):
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
         super().__init__(raw_data, *args, **kwargs)
@@ -101,6 +102,9 @@ def parse_read_reply_struct(data, data_type):
     values = {}
     size = data_type['template']['structure_size']
 
+    if data_type.get('string'):
+        return parse_string(data)
+
     for tag, type_def in data_type['internal_tags'].items():
             data_type = type_def['data_type']
             array = type_def.get('array')
@@ -130,9 +134,7 @@ def parse_read_reply_struct(data, data_type):
                     array_data = data[offset:offset + (str_size * array)]
                     values[tag] = [parse_string(array_data[i:i+str_size]) for i in range(0, len(array_data), str_size)]
                 else:
-                    str_len = unpack_dint(data[offset:offset + 4])
-                    str_data = data[offset + 4: offset + 4 + str_len]
-                    values[tag] = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
+                    values[tag] = parse_string(data[offset:offset + str_size])
             else:
                 if array:
                     ary_data = data[offset:offset + (size * array)]
@@ -180,6 +182,9 @@ def parse_read_reply(data, data_type, elements):
             dt = f'{data_type}[{elements}]'
         else:
             value = UNPACK_DATA_FUNCTION[data_type](data[2:])
+
+    if dt == 'ASCIISTRING82':  # internal name for STRING builtin type
+        dt = 'STRING'
     return value, dt
 
 
