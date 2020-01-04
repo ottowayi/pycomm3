@@ -160,12 +160,14 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         self.elements = None
         self.tag_info = None
         self.request_path = None
+        self.request_num = 0
 
-    def add(self, tag, elements=1, tag_info=None):
+    def add(self, tag, elements=1, tag_info=None, request_num=0):
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
         self.request_path = self._plc.create_tag_rp(self.tag)
+        self.request_num = request_num
         if self.request_path is None:
             self.error = 'Invalid Tag Request Path'
 
@@ -237,11 +239,11 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         msg = self._msg + [pack_uint(len(rp_list))] + offsets + rp_list
         return b''.join(msg)
 
-    def add_read(self, tag, elements=1, tag_info=None):
+    def add_read(self, tag, elements=1, tag_info=None, request_num=0):
         request_path = self._plc.create_tag_rp(tag)
         if request_path is not None:
             request_path = bytes([TAG_SERVICES_REQUEST['Read Tag']]) + request_path + pack_uint(elements)
-            tag = {'tag': tag, 'elements': elements, 'tag_info': tag_info, 'rp': request_path}
+            tag = {'tag': tag, 'elements': elements, 'tag_info': tag_info, 'rp': request_path, 'request_num': request_num}
             message = self.build_message(self.tags + [tag])
             if len(message) < self._plc.connection_size:
                 self._message = message

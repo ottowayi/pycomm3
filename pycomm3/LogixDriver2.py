@@ -47,28 +47,28 @@ class LogixDriver2(LogixDriver):
                 response = request.send()
             except Exception as err:
                 if request.single:
-                    results[request.tag] = Tag(request.tag, None, None, str(err))
+                    results[request.request_num] = Tag(request.tag, None, None, str(err))
                 else:
                     for tag in request.tags:
-                        results[tag['tag']] = Tag(tag['tag'], None, None, str(err))
+                        results[tag['request_num']] = Tag(tag['tag'], None, None, str(err))
             else:
                 if request.single:
                     if response:
-                        results[request.tag] = Tag(request.tag, response.value, response.data_type, None)
+                        results[request.request_num] = Tag(request.tag, response.value, response.data_type, None)
                     else:
-                        results[request.tag] = Tag(request.tag, None, None, response.error)
+                        results[request.request_num] = Tag(request.tag, None, None, response.error)
                 else:
                     for tag in response.tags:
                         if tag['service_status'] == SUCCESS:
-                            results[tag['tag']] = Tag(tag['tag'], tag['value'], tag['data_type'])
+                            results[tag['request_num']] = Tag(tag['tag'], tag['value'], tag['data_type'])
                         else:
-                            results[tag['tag']] = Tag(tag['tag'], None, None,
-                                                      SERVICE_STATUS.get(tag['service_status'], 'Unknown Service Error'))
+                            results[tag['request_num']] = Tag(tag['tag'], None, None,
+                                                              tag.get('error', 'Unknown Service Error'))
 
         if len(_tags) == 1:
-            return results[_tags[0]]
+            return results[0]
         else:
-            return [results[tag] for tag in _tags]
+            return [results[i] for i in range(len(tags))]
 
     def _read_build_requests(self, tags):
         requests = []
@@ -77,17 +77,17 @@ class LogixDriver2(LogixDriver):
         request_size, response_size = 0, 0
         tags_ = []
 
-        for tag in tags:
+        for i, tag in enumerate(tags):
             try:
                 tag, base, elements, tag_data = self._parse_tag_read_request(tag)
                 tags_.append(tag)
             except RequestError as err:
-                results[tag] = Tag(tag, None, None, str(err))
+                results[i] = Tag(tag, None, None, str(err))
             else:
                 return_size = _tag_return_size(tag_data) * elements
                 if return_size > self.connection_size:
                     _request = self.new_request('read_tag_fragmented')
-                    _request.add(tag, elements, tag_data)
+                    _request.add(tag, elements, tag_data, i)
                     requests.append(_request)
                 else:
                     if current_request is None:
@@ -96,7 +96,7 @@ class LogixDriver2(LogixDriver):
                         requests.append(current_request)
 
                     if response_size + return_size < self.connection_size:
-                        if current_request.add_read(tag, elements, tag_data):
+                        if current_request.add_read(tag, elements, tag_data, i):
                             continue
                         else:
                             request_size, response_size = 0, 0
@@ -128,12 +128,12 @@ class LogixDriver2(LogixDriver):
         def _recurse_attrs(attrs, data):
             cur, *remain = attrs
             if not len(remain):
-                return data[cur]
+                return data[_strip_array(cur)]
             else:
                 return _recurse_attrs(remain, data[cur]['data_type']['internal_tags'])
 
         try:
-            data = self._tags[base]
+            data = self._tags[_strip_array(base)]
             if not len(attrs):
                 return data
             else:
@@ -143,7 +143,10 @@ class LogixDriver2(LogixDriver):
             self.__log.exception(f'Failed to lookup tag data for {base}, {attrs}')
             raise
 
-
+def _strip_array(tag):
+    if '[' in tag:
+        return tag[:tag.find('[')]
+    return tag
 
 
 

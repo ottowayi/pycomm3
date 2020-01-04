@@ -39,9 +39,9 @@ class ResponsePacket(Packet):
         else:
             if self._error is None:
                 if self.command_status not in (None, SUCCESS):
-                    return f'{get_service_status(self.command_status)} - {get_extended_status(self.raw, 42)}'
+                    return self.command_extended_status()
                 if self.service_status not in (None, SUCCESS):
-                    return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 42)}'
+                    return self.service_extended_status()
                 return 'Unknown Error'
             else:
                 return self._error
@@ -63,6 +63,11 @@ class ResponsePacket(Packet):
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
 
+    def command_extended_status(self):
+        return 'Unknown Error'
+
+    def service_extended_status(self):
+        return 'Unknown Error'
 
 class SendUnitDataResponsePacket(ResponsePacket):
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
@@ -85,50 +90,56 @@ class SendUnitDataResponsePacket(ResponsePacket):
             valid
         ))
 
+    def command_extended_status(self):
+        return f'{get_service_status(self.command_status)} - {get_extended_status(self.raw, 48)}'
+
+    def service_extended_status(self):
+        return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 48)}'
+
 
 def parse_read_reply_struct(data, data_type):
     values = {}
     size = data_type['template']['structure_size']
 
     for tag, type_def in data_type['internal_tags'].items():
-        data_type = type_def['data_type']
-        array = type_def.get('array')
-        offset = type_def['offset']
-        if type_def['tag_type'] == 'atomic':
-            dt_len = DATA_TYPE_SIZE[data_type]
-            func = UNPACK_DATA_FUNCTION[data_type]
-            if array:
-                ary_data = data[offset:offset + (dt_len * array)]
-                value = [func(ary_data[i:i + dt_len]) for i in range(0, array * dt_len, dt_len)]
-                if data_type == 'DWORD':
-                    value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
-                    value.reverse()
-            else:
-                if data_type == 'BOOL':
-                    bit = type_def.get('bit', 0)
-                    value = bool(data[offset] & (1 << bit))
-                else:
-                    value = func(data[offset:offset + dt_len])
+            data_type = type_def['data_type']
+            array = type_def.get('array')
+            offset = type_def['offset']
+            if type_def['tag_type'] == 'atomic':
+                dt_len = DATA_TYPE_SIZE[data_type]
+                func = UNPACK_DATA_FUNCTION[data_type]
+                if array:
+                    ary_data = data[offset:offset + (dt_len * array)]
+                    value = [func(ary_data[i:i + dt_len]) for i in range(0, array * dt_len, dt_len)]
                     if data_type == 'DWORD':
-                        value = dword_to_bool_array(value)
+                        value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
+                        value.reverse()
+                else:
+                    if data_type == 'BOOL':
+                        bit = type_def.get('bit', 0)
+                        value = bool(data[offset] & (1 << bit))
+                    else:
+                        value = func(data[offset:offset + dt_len])
+                        if data_type == 'DWORD':
+                            value = dword_to_bool_array(value)
 
-            values[tag] = value
-        elif data_type.get('string'):
-            str_size = data_type.get('string') + 4
-            if array:
-                array_data = data[offset:offset + (str_size * array)]
-                values[tag] = [parse_string(array_data[i:i+str_size]) for i in range(0, array*str_size, str_size)]
+                values[tag] = value
+            elif data_type.get('string'):
+                str_size = data_type.get('string') + 4
+                if array:
+                    array_data = data[offset:offset + (str_size * array)]
+                    values[tag] = [parse_string(array_data[i:i+str_size]) for i in range(0, len(array_data), str_size)]
+                else:
+                    str_len = unpack_dint(data[offset:offset + 4])
+                    str_data = data[offset + 4: offset + 4 + str_len]
+                    values[tag] = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
             else:
-                str_len = unpack_dint(data[offset:offset + 4])
-                str_data = data[offset + 4: offset + 4 + str_len]
-                values[tag] = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
-        else:
-            if array:
-                ary_data = data[offset:offset + (size * array)]
-                values[tag] = [parse_read_reply_struct(ary_data[i:i + size], data_type) for i in
-                               range(0, array*size, size)]
-            else:
-                values[tag] = parse_read_reply_struct(data[offset:offset + size], data_type)
+                if array:
+                    ary_data = data[offset:offset + (size * array)]
+                    values[tag] = [parse_read_reply_struct(ary_data[i:i + size], data_type) for i in
+                                   range(0, len(ary_data), size)]
+                else:
+                    values[tag] = parse_read_reply_struct(data[offset:offset + size], data_type)
     return values
 
 
@@ -227,6 +238,7 @@ class ReadTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
             self._error = f'Failed to parse reply - {err}'
 
 
+@logged
 class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
     def __init__(self, raw_data: bytes = None, tags=None, *args, **kwargs):
@@ -245,7 +257,7 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
         values = []
 
         for data, tag in zip(reply_data, self.tags):
-            service = unpack_dint(data)
+            service = unpack_uint(data)
             if service == TAG_SERVICES_REPLY['Read Tag']:
                 service_status = data[2]
                 tag['service_status'] = service_status
@@ -253,9 +265,11 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
                     value, dt = parse_read_reply(data[4:], tag['tag_info'], tag['elements'])
                 else:
                     value, dt = None, None
+                    tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
                 values.append(value)
                 tag['value'] = value
                 tag['data_type'] = dt
+
         self.values = values
 
 
@@ -278,6 +292,12 @@ class SendRRDataResponsePacket(ResponsePacket):
             super().is_valid(),
             self.service_status == SUCCESS
         ))
+
+    def command_extended_status(self):
+        return f'{get_service_status(self.command_status)} - {get_extended_status(self.raw, 42)}'
+
+    def service_extended_status(self):
+        return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 42)}'
 
 
 class RegisterSessionResponsePacket(ResponsePacket):
