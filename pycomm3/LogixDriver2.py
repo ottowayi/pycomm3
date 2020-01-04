@@ -65,7 +65,7 @@ class LogixDriver2(LogixDriver):
                             results[tag['request_num']] = Tag(tag['tag'], None, None,
                                                               tag.get('error', 'Unknown Service Error'))
 
-        if len(_tags) == 1:
+        if len(tags) == 1:
             return results[0]
         else:
             return [results[i] for i in range(len(tags))]
