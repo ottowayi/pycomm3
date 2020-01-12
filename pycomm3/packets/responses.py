@@ -1,14 +1,38 @@
-from . import Packet
-from ..bytes_ import pack_uint, pack_dint, print_bytes_msg, unpack_uint, unpack_usint, unpack_dint, UNPACK_DATA_FUNCTION
-# from .. import CommError, LogixDriver, Tag
-from autologging import logged
-from ..const import (ENCAPSULATION_COMMAND, REPLY_INFO, SUCCESS, INSUFFICIENT_PACKETS, TAG_SERVICES_REPLY,
-                    get_service_status, get_extended_status, MULTI_PACKET_SERVICES, DATA_ITEM, ADDRESS_ITEM,
-                    REPLY_START, TAG_SERVICES_REQUEST, STRUCTURE_READ_REPLY, DATA_TYPE, DATA_TYPE_SIZE)
-from collections import defaultdict
+# -*- coding: utf-8 -*-
+#
+# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
+#
+# Copyright (c) 2019 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+
 from itertools import tee, zip_longest, chain
 
-import better_exceptions
+from autologging import logged
+
+from . import Packet
+from ..bytes_ import unpack_uint, unpack_usint, unpack_dint, UNPACK_DATA_FUNCTION
+from ..const import (SUCCESS, INSUFFICIENT_PACKETS, TAG_SERVICES_REPLY,
+                     get_service_status, get_extended_status, MULTI_PACKET_SERVICES, REPLY_START, STRUCTURE_READ_REPLY,
+                     DATA_TYPE, DATA_TYPE_SIZE)
 
 
 @logged
@@ -70,6 +94,7 @@ class ResponsePacket(Packet):
         return 'Unknown Error'
 
 
+@logged
 class SendUnitDataResponsePacket(ResponsePacket):
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
         super().__init__(raw_data, *args, **kwargs)
@@ -96,96 +121,6 @@ class SendUnitDataResponsePacket(ResponsePacket):
 
     def service_extended_status(self):
         return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 48)}'
-
-
-def parse_read_reply_struct(data, data_type):
-    values = {}
-    size = data_type['template']['structure_size']
-
-    if data_type.get('string'):
-        return parse_string(data)
-
-    for tag, type_def in data_type['internal_tags'].items():
-            data_type = type_def['data_type']
-            array = type_def.get('array')
-            offset = type_def['offset']
-            if type_def['tag_type'] == 'atomic':
-                dt_len = DATA_TYPE_SIZE[data_type]
-                func = UNPACK_DATA_FUNCTION[data_type]
-                if array:
-                    ary_data = data[offset:offset + (dt_len * array)]
-                    value = [func(ary_data[i:i + dt_len]) for i in range(0, array * dt_len, dt_len)]
-                    if data_type == 'DWORD':
-                        value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
-                        value.reverse()
-                else:
-                    if data_type == 'BOOL':
-                        bit = type_def.get('bit', 0)
-                        value = bool(data[offset] & (1 << bit))
-                    else:
-                        value = func(data[offset:offset + dt_len])
-                        if data_type == 'DWORD':
-                            value = dword_to_bool_array(value)
-
-                values[tag] = value
-            elif data_type.get('string'):
-                str_size = data_type.get('string') + 4
-                if array:
-                    array_data = data[offset:offset + (str_size * array)]
-                    values[tag] = [parse_string(array_data[i:i+str_size]) for i in range(0, len(array_data), str_size)]
-                else:
-                    values[tag] = parse_string(data[offset:offset + str_size])
-            else:
-                if array:
-                    ary_data = data[offset:offset + (size * array)]
-                    values[tag] = [parse_read_reply_struct(ary_data[i:i + size], data_type) for i in
-                                   range(0, len(ary_data), size)]
-                else:
-                    values[tag] = parse_read_reply_struct(data[offset:offset + size], data_type)
-    return values
-
-
-def parse_string(data):
-    str_len = unpack_dint(data)
-    str_data = data[4:4+str_len]
-    string = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
-    return string
-
-
-def dword_to_bool_array(dword):
-    bits = [x == '1' for x in bin(dword)[2:]]
-    bools = [False for _ in range(32 - len(bits))] + bits
-    return bools
-
-
-def parse_read_reply(data, data_type, elements):
-    if data[:2] == STRUCTURE_READ_REPLY:
-        # data_type = data_type['udt']['name']
-        data = data[4:]
-        size = data_type['udt']['template']['structure_size']
-        dt = data_type['udt']['name']
-        if elements > 1:
-            dt = f'{dt}[{elements}]'
-            value = [parse_read_reply_struct(data[i: i + size], data_type['udt'])
-                     for i in range(0, len(data), size)]
-        else:
-            value = parse_read_reply_struct(data, data_type['udt'])
-
-    else:
-        data_type = DATA_TYPE[unpack_uint(data[:2])]
-        dt = data_type
-        if elements > 1:
-            func = UNPACK_DATA_FUNCTION[data_type]
-            size = DATA_TYPE_SIZE[data_type]
-            data = data[2:]
-            value = [func(data[i:i + size]) for i in range(0, len(data), size)]
-            dt = f'{data_type}[{elements}]'
-        else:
-            value = UNPACK_DATA_FUNCTION[data_type](data[2:])
-
-    if dt == 'ASCIISTRING82':  # internal name for STRING builtin type
-        dt = 'STRING'
-    return value, dt
 
 
 @logged
@@ -278,6 +213,7 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
         self.values = values
 
 
+@logged
 class SendRRDataResponsePacket(ResponsePacket):
 
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
@@ -305,6 +241,7 @@ class SendRRDataResponsePacket(ResponsePacket):
         return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 42)}'
 
 
+@logged
 class RegisterSessionResponsePacket(ResponsePacket):
 
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
@@ -335,6 +272,7 @@ class UnRegisterSessionResponsePacket(ResponsePacket):
         return True
 
 
+@logged
 class ListIdentityResponsePacket(ResponsePacket):
 
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
@@ -353,5 +291,100 @@ class ListIdentityResponsePacket(ResponsePacket):
             super().is_valid(),
             self.identity is not None
         ))
+
+
+def parse_read_reply(data, data_type, elements):
+    if data[:2] == STRUCTURE_READ_REPLY:
+        data = data[4:]
+        size = data_type['udt']['template']['structure_size']
+        dt_name = data_type['udt']['name']
+        if elements > 1:
+            value = [parse_read_reply_struct(data[i: i + size], data_type['udt'])
+                     for i in range(0, len(data), size)]
+        else:
+            value = parse_read_reply_struct(data, data_type['udt'])
+
+    else:
+        datatype = DATA_TYPE[unpack_uint(data[:2])]
+        dt_name = datatype
+        if elements > 1:
+            func = UNPACK_DATA_FUNCTION[datatype]
+            size = DATA_TYPE_SIZE[datatype]
+            data = data[2:]
+            value = [func(data[i:i + size]) for i in range(0, len(data), size)]
+            if datatype == 'DWORD':
+                value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
+        else:
+            value = UNPACK_DATA_FUNCTION[datatype](data[2:])
+            if datatype == 'DWORD':
+                value = dword_to_bool_array(value)
+
+    if dt_name == 'ASCIISTRING82':  # internal name for STRING builtin type
+        dt_name = 'STRING'
+
+    if elements > 1:
+        dt_name = f'{dt_name}[{elements}]'
+
+    return value, dt_name
+
+
+def parse_read_reply_struct(data, data_type):
+    values = {}
+    size = data_type['template']['structure_size']
+
+    if data_type.get('string'):
+        return parse_string(data)
+
+    for tag, type_def in data_type['internal_tags'].items():
+        datatype = type_def['data_type']
+        array = type_def.get('array')
+        offset = type_def['offset']
+        if type_def['tag_type'] == 'atomic':
+            dt_len = DATA_TYPE_SIZE[datatype]
+            func = UNPACK_DATA_FUNCTION[datatype]
+            if array:
+                ary_data = data[offset:offset + (dt_len * array)]
+                value = [func(ary_data[i:i + dt_len]) for i in range(0, array * dt_len, dt_len)]
+                if datatype == 'DWORD':
+                    value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
+            else:
+                if datatype == 'BOOL':
+                    bit = type_def.get('bit', 0)
+                    value = bool(data[offset] & (1 << bit))
+                else:
+                    value = func(data[offset:offset + dt_len])
+                    if datatype == 'DWORD':
+                        value = dword_to_bool_array(value)
+
+            values[tag] = value
+        elif datatype.get('string'):
+            str_size = datatype.get('string') + 4
+            if array:
+                array_data = data[offset:offset + (str_size * array)]
+                values[tag] = [parse_string(array_data[i:i+str_size]) for i in range(0, len(array_data), str_size)]
+            else:
+                values[tag] = parse_string(data[offset:offset + str_size])
+        else:
+            if array:
+                ary_data = data[offset:offset + (size * array)]
+                values[tag] = [parse_read_reply_struct(ary_data[i:i + size], datatype) for i in
+                               range(0, len(ary_data), size)]
+            else:
+                values[tag] = parse_read_reply_struct(data[offset:offset + size], datatype)
+    return values
+
+
+def parse_string(data):
+    str_len = unpack_dint(data)
+    str_data = data[4:4+str_len]
+    string = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
+    return string
+
+
+def dword_to_bool_array(dword):
+    bits = [x == '1' for x in bin(dword)[2:]]
+    bools = [False for _ in range(32 - len(bits))] + bits
+    bools.reverse()
+    return bools
 
 
