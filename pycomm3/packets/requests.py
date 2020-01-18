@@ -253,11 +253,7 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
         if data_type not in DATA_TYPE:
             raise RequestError("Unsupported data type")
         self.data_type = DATA_TYPE[data_type]
-        pack_func = PACK_DATA_FUNCTION[data_type]
-        if elements > 1:
-            _val = b''.join(pack_func(value[i]) for i in range(elements))
-        else:
-            _val = pack_func(value)
+        _val = writable_value(value, self.elements, data_type)
 
         super().add(
             bytes([TAG_SERVICES_REQUEST['Write Tag']]),
@@ -335,7 +331,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
                 return False
         else:
             self.__log.error(f'Failed to create request path for {tag}')
-            return False
+            raise RequestError('Failed to create request path')
 
     def add_write(self, tag, value, elements=1, tag_info=None):
         request_path = self._plc.create_tag_rp(tag)
@@ -345,11 +341,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
             if data_type not in DATA_TYPE:
                 raise RequestError("Unsupported data type")
 
-            pack_func = PACK_DATA_FUNCTION[data_type]
-            if elements > 1:
-                _val = b''.join(pack_func(value[i]) for i in range(elements))
-            else:
-                _val = pack_func(value)
+            _val = writable_value(value, elements, data_type)
 
             request_path = b''.join((bytes([TAG_SERVICES_REQUEST['Write Tag']]),
                                      request_path,
@@ -368,8 +360,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
 
         else:
             self.__log.error(f'Failed to create request path for {tag}')
-            return False
-
+            raise RequestError('Failed to create request path')
 
     def send(self):
         if not self._msg_errors:
@@ -441,3 +432,19 @@ class ListIdentityRequestPacket(RequestPacket):
         self._send(msg)
         reply = self._receive()
         return ListIdentityResponsePacket(reply)
+
+
+def writable_value(value, elements, data_type):
+    try:
+        if not isinstance(value, bytes):
+            pack_func = PACK_DATA_FUNCTION[data_type]
+            if elements > 1:
+                _val = b''.join(pack_func(value[i]) for i in range(elements))
+            else:
+                _val = pack_func(value)
+        else:
+            _val = value
+
+        return _val
+    except Exception as err:
+        raise RequestError('Unable to create a writable value', err)

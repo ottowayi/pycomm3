@@ -14,7 +14,7 @@ from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, 
                     MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
                     VENDORS, PRODUCT_TYPES, KEYSWITCH, TAG_SERVICES_REPLY, get_service_status, get_extended_status,
                     TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, STRUCTURE_READ_REPLY, DATA_TYPE_SIZE)
-from pprint import pprint
+from .packets.requests import writable_value
 
 
 re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
@@ -41,14 +41,14 @@ class LogixDriver2(LogixDriver):
 
         parsed_requests = self._parse_requested_tags(tags)
         requests = self._read__build_requests(parsed_requests)
-        read_results = self._read__send_requests(requests)
+        read_results = self._send_requests(requests)
 
         results = []
 
         for tag in tags:
             try:
                 request_data = parsed_requests[tag]
-                result = read_results[(request_data['tag_to_read'], request_data['elements'])]
+                result = read_results[(request_data['plc_tag'], request_data['elements'])]
                 if request_data.get('bit') is None:
                     results.append(result)
                 else:
@@ -69,85 +69,100 @@ class LogixDriver2(LogixDriver):
         else:
             return results[0]
 
-    def _read__build_requests(self, parsed_tags: dict):
+    def _read__build_requests(self, parsed_tags):
         requests = []
         response_size = 0
         current_request = self.new_request('multi_request')
         requests.append(current_request)
         tags_in_requests = set()
         for tag, tag_data in parsed_tags.items():
-            if tag_data.get('error') is None and (tag_data['tag_to_read'], tag_data['elements'])not in tags_in_requests:
-                tags_in_requests.add((tag_data['tag_to_read'], tag_data['elements']))
+            if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements'])not in tags_in_requests:
+                tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
                 return_size = _tag_return_size(tag_data['tag_info']) * tag_data['elements']
                 if return_size > self.connection_size:
                     _request = self.new_request('read_tag_fragmented')
-                    _request.add(tag_data['tag_to_read'], tag_data['elements'], tag_data['tag_info'])
+                    _request.add(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'])
                     requests.append(_request)
                 else:
-                    if response_size + return_size < self.connection_size:
-                        if current_request.add_read(tag_data['tag_to_read'], tag_data['elements'], tag_data['tag_info']):
-                            response_size += return_size
+                    try:
+                        if response_size + return_size < self.connection_size:
+                            if current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info']):
+                                response_size += return_size
+                            else:
+                                response_size = return_size
+                                current_request = self.new_request('multi_request')
+                                current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'])
+                                requests.append(current_request)
                         else:
                             response_size = return_size
                             current_request = self.new_request('multi_request')
-                            current_request.add_read(tag_data['tag_to_read'], tag_data['elements'], tag_data['tag_info'])
+                            current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'])
                             requests.append(current_request)
-                    else:
-                        response_size = return_size
-                        current_request = self.new_request('multi_request')
-                        current_request.add_read(tag_data['tag_to_read'], tag_data['elements'], tag_data['tag_info'])
-                        requests.append(current_request)
+                    except RequestError:
+                        self.__log.exception(f'Failed to build request for {tag} - skipping')
+                        continue
 
         return requests
 
-    @staticmethod
-    def _read__send_requests(requests):
-
-        def _mkkey(t=None, r=None):
-            if t is not None:
-                return t['tag'], t['elements']
-            else:
-                return r.tag, r.elements
-
-        results = {}
-
-        for request in requests:
-            try:
-                response = request.send()
-            except Exception as err:
-                if request.single:
-                    results[_mkkey(r=request)] = Tag(request.tag, None, None, str(err))
-                else:
-                    for tag in request.tags:
-                        results[_mkkey(t=tag)] = Tag(tag['tag'], None, None, str(err))
-            else:
-                if request.type_ in 'read write':
-                    if response:
-                        results[_mkkey(r=request)] = Tag(request.tag,
-                                                         response.value if request.type_ == 'read' else request.value,
-                                                         response.data_type if request.type_ == 'read' else request.data_type)
-                    else:
-                        results[_mkkey(r=request)] = Tag(request.tag, None, None, response.error)
-                else:
-                    for tag in response.tags:
-                        if tag['service_status'] == SUCCESS:
-                            results[_mkkey(t=tag)] = Tag(tag['tag'], tag['value'], tag['data_type'])
-                        else:
-                            results[_mkkey(t=tag)] = Tag(tag['tag'], None, None, tag.get('error', 'Unknown Service Error'))
-        return results
-
     @with_forward_open
     def write(self, *tags_values):
-        request = self.new_request('multi_request')
-        for (tag, value) in tags_values:
-            tag, bit, elements, tag_info = self._parse_tag_request(tag)
-            request.add_write(tag, value, elements, tag_info)
+        tags = (tag for (tag, value) in tags_values)
+        parsed_requests = self._parse_requested_tags(tags)
 
-        response = request.send()
-        if response:
-            return Tag(request.tag, value, None, None)
+        normal_tags = set()
+        bit_tags = set()
+
+        for tag, value in tags_values:
+            parsed_requests[tag]['value'] = value
+
+            if parsed_requests[tag].get('bit') is None:
+                normal_tags.add(tag)
+            else:
+                bit_tags.add(tag)
+
+        requests = self._write__build_requests(parsed_requests)
+        write_results = self._send_requests(requests)
+        results = []
+        for tag, _ in tags_values:
+            try:
+                request_data = parsed_requests[tag]
+                result = write_results[(request_data['plc_tag'], request_data['elements'])]
+                results.append(result)
+            except Exception as err:
+                results.append(Tag(tag, None, None, f'Invalid tag request - {err}'))
+
+        if len(tags_values) > 1:
+            return results
         else:
-            return Tag(request.tag, None, None, response.error)
+            return results[0]
+
+    def _write__build_requests(self, parsed_tags):
+        requests = []
+        current_request = self.new_request('multi_request')
+        requests.append(current_request)
+
+        tags_in_requests = set()
+        for tag, tag_data in parsed_tags.items():
+            if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements'])not in tags_in_requests:
+                tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
+                _val = writable_value(tag_data['value'], tag_data['elements'], tag_data['tag_info']['data_type'])
+
+                if len(_val) > self.connection_size:
+                    _request = self.new_request('write_tag_fragmented')
+                    _request.add(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info'])
+                    requests.append(_request)
+                else:
+                    try:
+                        if not current_request.add_write(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info']):
+                            current_request = self.new_request('multi_request')
+                            requests.append(current_request)
+                            current_request.add_write(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info'])
+
+                    except RequestError:
+                        self.__log.exception(f'Failed to build request for {tag} - skipping')
+                        continue
+
+        return requests
 
     def _get_tag_info(self, base, attrs):
 
@@ -174,11 +189,11 @@ class LogixDriver2(LogixDriver):
         for tag in tags:
             parsed = {}
             try:
-                tag_to_read, bit, elements, tag_info = self._parse_tag_request(tag)
+                plc_tag, bit, elements, tag_info = self._parse_tag_request(tag)
             except RequestError as err:
                 parsed['error'] = str(err)
             else:
-                parsed['tag_to_read'] = tag_to_read
+                parsed['plc_tag'] = plc_tag
                 parsed['bit'] = bit
                 parsed['elements'] = elements
                 parsed['tag_info'] = tag_info
@@ -218,6 +233,43 @@ class LogixDriver2(LogixDriver):
         except Exception as err:
             # something went wrong parsing the tag path
             raise RequestError('Failed to parse tag read request', tag)
+
+    @staticmethod
+    def _send_requests(requests):
+
+        def _mkkey(t=None, r=None):
+            if t is not None:
+                return t['tag'], t['elements']
+            else:
+                return r.tag, r.elements
+
+        results = {}
+
+        for request in requests:
+            try:
+                response = request.send()
+            except Exception as err:
+                if request.type_ != 'multi':
+                    results[_mkkey(r=request)] = Tag(request.tag, None, None, str(err))
+                else:
+                    for tag in request.tags:
+                        results[_mkkey(t=tag)] = Tag(tag['tag'], None, None, str(err))
+            else:
+                if request.type_ != 'multi':
+                    if response:
+                        results[_mkkey(r=request)] = Tag(request.tag,
+                                                         response.value if request.type_ == 'read' else request.value,
+                                                         response.data_type if request.type_ == 'read' else request.data_type)
+                    else:
+                        results[_mkkey(r=request)] = Tag(request.tag, None, None, response.error)
+                else:
+                    for tag in response.tags:
+                        if tag['service_status'] == SUCCESS:
+                            results[_mkkey(t=tag)] = Tag(tag['tag'], tag['value'], tag['data_type'])
+                        else:
+                            results[_mkkey(t=tag)] = Tag(tag['tag'], None, None,
+                                                         tag.get('error', 'Unknown Service Error'))
+        return results
 
 
 def _strip_array(tag):
