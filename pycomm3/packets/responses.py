@@ -179,11 +179,22 @@ class ReadTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
 
 
 @logged
+class WriteTagServiceResponsePacket(SendUnitDataResponsePacket):
+    ...
+
+
+@logged
+class WriteTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
+    ...
+
+
+@logged
 class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
     def __init__(self, raw_data: bytes = None, tags=None, *args, **kwargs):
         self.tags = tags
         self.values = None
+        self.request_statuses = None
         super().__init__(raw_data, *args, **kwargs)
 
     def _parse_reply(self):
@@ -198,17 +209,18 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
         for data, tag in zip(reply_data, self.tags):
             service = unpack_uint(data)
-            if service == TAG_SERVICES_REPLY['Read Tag']:
+            if service in (TAG_SERVICES_REPLY['Read Tag'], TAG_SERVICES_REPLY['Write Tag']):
                 service_status = data[2]
                 tag['service_status'] = service_status
-                if service_status == SUCCESS:
-                    value, dt = parse_read_reply(data[4:], tag['tag_info'], tag['elements'])
-                else:
-                    value, dt = None, None
-                    tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
-                values.append(value)
-                tag['value'] = value
-                tag['data_type'] = dt
+                if service == TAG_SERVICES_REPLY['Read Tag']:
+                    if service_status == SUCCESS:
+                        value, dt = parse_read_reply(data[4:], tag['tag_info'], tag['elements'])
+                    else:
+                        value, dt = None, None
+                        tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
+                    values.append(value)
+                    tag['value'] = value
+                    tag['data_type'] = dt
 
         self.values = values
 

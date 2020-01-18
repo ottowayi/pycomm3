@@ -38,7 +38,8 @@ class LogixDriver2(LogixDriver):
 
     @with_forward_open
     def read(self, *tags):
-        parsed_requests = self._read__parse_requested_tags(tags)
+
+        parsed_requests = self._parse_requested_tags(tags)
         requests = self._read__build_requests(parsed_requests)
         read_results = self._read__send_requests(requests)
 
@@ -67,23 +68,6 @@ class LogixDriver2(LogixDriver):
             return results
         else:
             return results[0]
-
-    def _read__parse_requested_tags(self, tags):
-        requests = {}
-        for tag in tags:
-            parsed = {}
-            try:
-                tag_to_read, bit, elements, tag_info = self._read_parse_tag_requests(tag)
-            except RequestError as err:
-                parsed['error'] = str(err)
-            else:
-                parsed['tag_to_read'] = tag_to_read
-                parsed['bit'] = bit
-                parsed['elements'] = elements
-                parsed['tag_info'] = tag_info
-            finally:
-                requests[tag] = parsed
-        return requests
 
     def _read__build_requests(self, parsed_tags: dict):
         requests = []
@@ -137,9 +121,11 @@ class LogixDriver2(LogixDriver):
                     for tag in request.tags:
                         results[_mkkey(t=tag)] = Tag(tag['tag'], None, None, str(err))
             else:
-                if request.single:
+                if request.type_ in 'read write':
                     if response:
-                        results[_mkkey(r=request)] = Tag(request.tag, response.value, response.data_type, None)
+                        results[_mkkey(r=request)] = Tag(request.tag,
+                                                         response.value if request.type_ == 'read' else request.value,
+                                                         response.data_type if request.type_ == 'read' else request.data_type)
                     else:
                         results[_mkkey(r=request)] = Tag(request.tag, None, None, response.error)
                 else:
@@ -150,7 +136,57 @@ class LogixDriver2(LogixDriver):
                             results[_mkkey(t=tag)] = Tag(tag['tag'], None, None, tag.get('error', 'Unknown Service Error'))
         return results
 
-    def _read__parse_tag_requests(self, tag: str):
+    @with_forward_open
+    def write(self, *tags_values):
+        request = self.new_request('multi_request')
+        for (tag, value) in tags_values:
+            tag, bit, elements, tag_info = self._parse_tag_request(tag)
+            request.add_write(tag, value, elements, tag_info)
+
+        response = request.send()
+        if response:
+            return Tag(request.tag, value, None, None)
+        else:
+            return Tag(request.tag, None, None, response.error)
+
+    def _get_tag_info(self, base, attrs):
+
+        def _recurse_attrs(attrs, data):
+            cur, *remain = attrs
+            if not len(remain):
+                return data[_strip_array(cur)]
+            else:
+                return _recurse_attrs(remain, data[cur]['data_type']['internal_tags'])
+
+        try:
+            data = self._tags[_strip_array(base)]
+            if not len(attrs):
+                return data
+            else:
+                return _recurse_attrs(attrs, data['udt']['internal_tags'])
+
+        except Exception as err:
+            self.__log.exception(f'Failed to lookup tag data for {base}, {attrs}')
+            raise
+
+    def _parse_requested_tags(self, tags):
+        requests = {}
+        for tag in tags:
+            parsed = {}
+            try:
+                tag_to_read, bit, elements, tag_info = self._parse_tag_request(tag)
+            except RequestError as err:
+                parsed['error'] = str(err)
+            else:
+                parsed['tag_to_read'] = tag_to_read
+                parsed['bit'] = bit
+                parsed['elements'] = elements
+                parsed['tag_info'] = tag_info
+            finally:
+                requests[tag] = parsed
+        return requests
+
+    def _parse_tag_request(self, tag: str):
         try:
             if tag.endswith('}') and '{' in tag:
                 tag, _tmp = tag.split('{')
@@ -182,26 +218,6 @@ class LogixDriver2(LogixDriver):
         except Exception as err:
             # something went wrong parsing the tag path
             raise RequestError('Failed to parse tag read request', tag)
-
-    def _get_tag_info(self, base, attrs):
-
-        def _recurse_attrs(attrs, data):
-            cur, *remain = attrs
-            if not len(remain):
-                return data[_strip_array(cur)]
-            else:
-                return _recurse_attrs(remain, data[cur]['data_type']['internal_tags'])
-
-        try:
-            data = self._tags[_strip_array(base)]
-            if not len(attrs):
-                return data
-            else:
-                return _recurse_attrs(attrs, data['udt']['internal_tags'])
-
-        except Exception as err:
-            self.__log.exception(f'Failed to lookup tag data for {base}, {attrs}')
-            raise
 
 
 def _strip_array(tag):
