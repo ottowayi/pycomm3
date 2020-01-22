@@ -212,12 +212,15 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
             if service in (TAG_SERVICES_REPLY['Read Tag'], TAG_SERVICES_REPLY['Write Tag']):
                 service_status = data[2]
                 tag['service_status'] = service_status
+                if service_status != SUCCESS:
+                    tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
+
                 if service == TAG_SERVICES_REPLY['Read Tag']:
                     if service_status == SUCCESS:
                         value, dt = parse_read_reply(data[4:], tag['tag_info'], tag['elements'])
                     else:
                         value, dt = None, None
-                        tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
+
                     values.append(value)
                     tag['value'] = value
                     tag['data_type'] = dt
