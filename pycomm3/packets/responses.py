@@ -334,9 +334,6 @@ def parse_read_reply(data, data_type, elements):
             if datatype == 'DWORD':
                 value = dword_to_bool_array(value)
 
-    if dt_name == 'ASCIISTRING82':  # internal name for STRING builtin type
-        dt_name = 'STRING'
-
     if elements > 1:
         dt_name = f'{dt_name}[{elements}]'
 

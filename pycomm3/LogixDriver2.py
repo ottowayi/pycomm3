@@ -6,7 +6,7 @@ from functools import wraps
 from . import DataError, Tag, RequestError
 from .base import Base
 from .clx import LogixDriver
-from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint, unpack_uint, unpack_dint, unpack_udint,
+from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_sint, unpack_usint, unpack_uint, unpack_dint, unpack_udint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, BITS_PER_INT_TYPE, SERVICE_STATUS,
                     REPLY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
@@ -145,22 +145,39 @@ class LogixDriver2(LogixDriver):
         for tag, tag_data in parsed_tags.items():
             if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements'])not in tags_in_requests:
                 tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
+
+                string = tag_data['tag_info']['udt'].get('string') if tag_data['tag_info']['data_type'] == 'user-created' else None
+
+                if string:
+                    str_len = pack_dint(string)
+                    if tag_data['elements'] > 1:
+                        string_bytes = b''
+                        for val in tag_data['value']:
+                            str_data = self._string_to_sint_array(val, string)
+                            string_bytes += str_len + str_data
+                    else:
+                        str_data = self._string_to_sint_array(tag_data['value'], string)
+                        string_bytes = str_len + str_data
+
+                    tag_data['value'] = string_bytes + b'\x00' * (len(string_bytes) % 4)
+
                 _val = writable_value(tag_data['value'], tag_data['elements'], tag_data['tag_info']['data_type'])
 
                 if len(_val) > self.connection_size:
                     _request = self.new_request('write_tag_fragmented')
                     _request.add(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info'])
                     requests.append(_request)
-                else:
-                    try:
-                        if not current_request.add_write(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info']):
-                            current_request = self.new_request('multi_request')
-                            requests.append(current_request)
-                            current_request.add_write(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info'])
+                    continue
 
-                    except RequestError:
-                        self.__log.exception(f'Failed to build request for {tag} - skipping')
-                        continue
+                try:
+                    if not current_request.add_write(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info']):
+                        current_request = self.new_request('multi_request')
+                        requests.append(current_request)
+                        current_request.add_write(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info'])
+
+                except RequestError:
+                    self.__log.exception(f'Failed to build request for {tag} - skipping')
+                    continue
 
         return requests
 
@@ -295,3 +312,15 @@ def _tag_return_size(tag_info):
         size = tag_info['udt']['template']['structure_size']
 
     return size
+
+
+def _string_to_sint_array(string, string_len):
+    sint_array = [b'\x00' for _ in range(string_len)]
+    if len(string) > string_len:
+        string = string[:string_len]
+
+    for i, s in enumerate(string):
+        unsigned = ord(s)
+        sint_array[i] = pack_sint(unsigned - 256 if unsigned > 127 else unsigned)
+
+    return b''.join(sint_array)

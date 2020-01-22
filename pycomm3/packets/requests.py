@@ -338,14 +338,22 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         if request_path is not None:
 
             data_type = tag_info['data_type']
-            if data_type not in DATA_TYPE:
+            if data_type == 'user-created':
+                if not isinstance(value, bytes):
+                    raise RequestError('Writing UDTs only supports bytes for value')
+                _dt_value = b'\xA0\x02' + pack_uint(tag_info['template_instance_id'])
+                data_type = tag_info['udt']['name']
+
+            elif data_type not in DATA_TYPE:
                 raise RequestError("Unsupported data type")
+            else:
+                _dt_value = pack_uint(DATA_TYPE[data_type])
 
             _val = writable_value(value, elements, data_type)
 
             request_path = b''.join((bytes([TAG_SERVICES_REQUEST['Write Tag']]),
                                      request_path,
-                                     pack_uint(DATA_TYPE[data_type]),
+                                     _dt_value,
                                      pack_uint(elements),
                                      _val))
             _tag = {'tag': tag, 'elements': elements, 'tag_info': tag_info, 'rp': request_path, 'service': 'write',
@@ -364,7 +372,8 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
 
     def send(self):
         if not self._msg_errors:
-            self._send(self._build_request())
+            request = self._build_request()
+            self._send(request)
             reply = self._receive()
             return MultiServiceResponsePacket(reply, tags=self.tags)
         else:
@@ -435,16 +444,15 @@ class ListIdentityRequestPacket(RequestPacket):
 
 
 def writable_value(value, elements, data_type):
-    try:
-        if not isinstance(value, bytes):
-            pack_func = PACK_DATA_FUNCTION[data_type]
-            if elements > 1:
-                _val = b''.join(pack_func(value[i]) for i in range(elements))
-            else:
-                _val = pack_func(value)
-        else:
-            _val = value
+    if isinstance(value, bytes):
+        return value
 
-        return _val
+    try:
+        pack_func = PACK_DATA_FUNCTION[data_type]
+        if elements > 1:
+            return b''.join(pack_func(value[i]) for i in range(elements))
+        else:
+            return pack_func(value)
     except Exception as err:
         raise RequestError('Unable to create a writable value', err)
+
