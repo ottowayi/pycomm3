@@ -77,7 +77,6 @@ class LogixDriver(Base):
         }
 
         self._data_types = {}
-        self.string_types = {'ASCIISTRING82': 82, 'STRING': 82}
         self._program_names = []
         self._tags = {}
 
@@ -126,7 +125,7 @@ class LogixDriver(Base):
                 status = _unit_data_status(reply)
                 # return None
                 if status == INSUFFICIENT_PACKETS and service in (TAG_SERVICES_REPLY['Read Tag'],
-                                                                    TAG_SERVICES_REPLY['Multiple Service Packet'],
+                                                                  TAG_SERVICES_REPLY['Multiple Service Packet'],
                                                                   TAG_SERVICES_REPLY['Read Tag Fragmented'],
                                                                   TAG_SERVICES_REPLY['Write Tag Fragmented'],
                                                                   TAG_SERVICES_REPLY['Get Instance Attributes List'],
@@ -1198,6 +1197,9 @@ class LogixDriver(Base):
         if predefine:
             template_name = member_names.pop(0)
 
+        if template_name == 'ASCIISTRING82':  # internal name for STRING builtin type
+            template_name = 'STRING'
+
         template = {
             'name': template_name,  # predefined types put name as first member (DWORD)
             'internal_tags': {},
@@ -1208,9 +1210,6 @@ class LogixDriver(Base):
             if not member.startswith('ZZZZZZZZZZ') and not member.startswith('__'):
                 template['attributes'].append(member)
             template['internal_tags'][member] = info
-
-        # if predefine:
-        #     template['attributes'].pop(0)
 
         if template['attributes'] == ['LEN', 'DATA'] and \
            template['internal_tags']['DATA']['data_type'] == 'SINT' and \
