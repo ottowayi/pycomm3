@@ -33,7 +33,7 @@ from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceRespons
 from .. import CommError, RequestError
 from ..bytes_ import pack_uint, pack_dint, print_bytes_msg, pack_usint, PACK_DATA_FUNCTION
 from ..const import (ENCAPSULATION_COMMAND, INSUFFICIENT_PACKETS, DATA_ITEM, ADDRESS_ITEM,
-                     TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_ID, INSTANCE_ID, DATA_TYPE)
+                     TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_ID, INSTANCE_ID, DATA_TYPE, DATA_TYPE_SIZE)
 
 
 @logged
@@ -250,15 +250,23 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
             self.error = 'Invalid Tag Request Path'
 
         data_type = tag_info['data_type']
-        if data_type not in DATA_TYPE:
+        if tag_info['tag_type'] == 'struct':
+            if not isinstance(value, bytes):
+                raise RequestError('Writing UDTs only supports bytes for value')
+            _dt_value = b'\xA0\x02' + pack_uint(tag_info['data_type']['template']['structure_handle'])
+            data_type = tag_info['data_type']['name']
+
+        elif data_type not in DATA_TYPE:
             raise RequestError("Unsupported data type")
-        self.data_type = DATA_TYPE[data_type]
+        else:
+            _dt_value = pack_uint(DATA_TYPE[data_type])
+
         _val = writable_value(value, self.elements, data_type)
 
         super().add(
             bytes([TAG_SERVICES_REQUEST['Write Tag']]),
             request_path,
-            pack_uint(DATA_TYPE[data_type]),
+            _dt_value,
             pack_uint(self.elements),
             _val
         )
@@ -333,31 +341,18 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
             self.__log.error(f'Failed to create request path for {tag}')
             raise RequestError('Failed to create request path')
 
-    def add_write(self, tag, value, elements=1, tag_info=None):
+    def add_write(self, tag, value, elements=1, tag_info=None, bits_write=None):
         request_path = self._plc.create_tag_rp(tag)
         if request_path is not None:
-
-            data_type = tag_info['data_type']
-            if tag_info['tag_type'] == 'struct':
-                if not isinstance(value, bytes):
-                    raise RequestError('Writing UDTs only supports bytes for value')
-                _dt_value = b'\xA0\x02' + pack_uint(tag_info['data_type']['template']['structure_handle'])
-                data_type = tag_info['data_type']['name']
-
-            elif data_type not in DATA_TYPE:
-                raise RequestError("Unsupported data type")
+            if bits_write:
+                data_type = tag_info['data_type']
+                request_path = _make_write_data_bit(tag_info, value, request_path)
             else:
-                _dt_value = pack_uint(DATA_TYPE[data_type])
+                request_path, data_type = _make_write_data_tag(tag_info, value, elements, request_path)
 
-            _val = writable_value(value, elements, data_type)
-
-            request_path = b''.join((bytes([TAG_SERVICES_REQUEST['Write Tag']]),
-                                     request_path,
-                                     _dt_value,
-                                     pack_uint(elements),
-                                     _val))
             _tag = {'tag': tag, 'elements': elements, 'tag_info': tag_info, 'rp': request_path, 'service': 'write',
                     'value': value, 'data_type': data_type}
+
             message = self.build_message(self.tags + [_tag])
             if len(message) < self._plc.connection_size:
                 self._message = message
@@ -381,6 +376,49 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
             response = MultiServiceResponsePacket()
             response._error = self.error
             return response
+
+
+def _make_write_data_tag(tag_info, value, elements, request_path):
+    data_type = tag_info['data_type']
+    if tag_info['tag_type'] == 'struct':
+        if not isinstance(value, bytes):
+            raise RequestError('Writing UDTs only supports bytes for value')
+        _dt_value = b'\xA0\x02' + pack_uint(tag_info['data_type']['template']['structure_handle'])
+        data_type = tag_info['data_type']['name']
+
+    elif data_type not in DATA_TYPE:
+        raise RequestError("Unsupported data type")
+    else:
+        _dt_value = pack_uint(DATA_TYPE[data_type])
+
+    _val = writable_value(value, elements, data_type)
+
+    request_path = b''.join((bytes([TAG_SERVICES_REQUEST['Write Tag']]),
+                             request_path,
+                             _dt_value,
+                             pack_uint(elements),
+                             _val))
+    return request_path, data_type
+
+
+def _make_write_data_bit(tag_info, value, request_path):
+    mask_size = DATA_TYPE_SIZE.get(tag_info['data_type'])
+    if mask_size is None:
+        raise RequestError(f'Invalid data type {tag_info["data_type"]} for writing bits')
+
+    or_mask, and_mask = value
+    request_path = b''.join((
+        bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]]),
+        request_path,
+        pack_uint(mask_size),
+        pack_dint(or_mask)[:mask_size],
+        pack_dint(and_mask)[:mask_size]
+    ))
+
+    return request_path
+
+
+
 
 
 class WriteTagFragmentedServiceRequestPacket:

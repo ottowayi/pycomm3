@@ -209,21 +209,21 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
         for data, tag in zip(reply_data, self.tags):
             service = unpack_uint(data)
-            if service in (TAG_SERVICES_REPLY['Read Tag'], TAG_SERVICES_REPLY['Write Tag']):
-                service_status = data[2]
-                tag['service_status'] = service_status
-                if service_status != SUCCESS:
-                    tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
+            # if service in (TAG_SERVICES_REPLY['Read Tag'], TAG_SERVICES_REPLY['Write Tag']):
+            service_status = data[2]
+            tag['service_status'] = service_status
+            if service_status != SUCCESS:
+                tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
 
-                if service == TAG_SERVICES_REPLY['Read Tag']:
-                    if service_status == SUCCESS:
-                        value, dt = parse_read_reply(data[4:], tag['tag_info'], tag['elements'])
-                    else:
-                        value, dt = None, None
+            if service == TAG_SERVICES_REPLY['Read Tag']:
+                if service_status == SUCCESS:
+                    value, dt = parse_read_reply(data[4:], tag['tag_info'], tag['elements'])
+                else:
+                    value, dt = None, None
 
-                    values.append(value)
-                    tag['value'] = value
-                    tag['data_type'] = dt
+                values.append(value)
+                tag['value'] = value
+                tag['data_type'] = dt
 
         self.values = values
 
@@ -318,7 +318,6 @@ def parse_read_reply(data, data_type, elements):
                      for i in range(0, len(data), size)]
         else:
             value = parse_read_reply_struct(data, data_type['data_type'])
-
     else:
         datatype = DATA_TYPE[unpack_uint(data[:2])]
         dt_name = datatype

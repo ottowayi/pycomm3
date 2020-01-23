@@ -31,6 +31,7 @@ def with_forward_open(func):
     return wrapped
 
 
+@logged
 class LogixDriver2(LogixDriver):
 
     def __init__(self, *args, **kwargs):
@@ -120,7 +121,7 @@ class LogixDriver2(LogixDriver):
             else:
                 bit_tags.add(tag)
 
-        requests = self._write__build_requests(parsed_requests)
+        requests, bit_writes = self._write__build_requests(parsed_requests)
         write_results = self._send_requests(requests)
         results = []
         for tag, _ in tags_values:
@@ -140,25 +141,19 @@ class LogixDriver2(LogixDriver):
         requests = []
         current_request = self.new_request('multi_request')
         requests.append(current_request)
+        bit_writes = {}
 
         tags_in_requests = set()
         for tag, tag_data in parsed_tags.items():
             if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements'])not in tags_in_requests:
                 tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
 
-                string = _get_string_length_from_struct(tag_data['tag_info'])
-                if string:
-                    str_len = pack_dint(string)
-                    if tag_data['elements'] > 1:
-                        string_bytes = b''
-                        for val in tag_data['value']:
-                            str_data = _string_to_sint_array(val, string)
-                            string_bytes += str_len + str_data
-                    else:
-                        str_data = _string_to_sint_array(tag_data['value'], string)
-                        string_bytes = str_len + str_data
+                string = _make_string_bytes(tag_data)
+                if string is not None:
+                    tag_data['value'] = string
 
-                    tag_data['value'] = string_bytes + b'\x00' * (len(string_bytes) % 4)
+                if _bit_request(tag_data, bit_writes):
+                    continue
 
                 _val = writable_value(tag_data['value'], tag_data['elements'], tag_data['tag_info']['data_type'])
 
@@ -178,7 +173,18 @@ class LogixDriver2(LogixDriver):
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
                     continue
 
-        return requests
+        if bit_writes:
+            for tag in bit_writes:
+                try:
+                    value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
+                    if not current_request.add_write(tag, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True):
+                        current_request = self.new_request('multi_request')
+                        requests.append(current_request)
+                        current_request.add_write(tag, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True)
+                except RequestError:
+                    self.__log.exception(f'Failed to build request for {tag} - skipping')
+                    continue
+        return requests, bit_writes
 
     def _get_tag_info(self, base, attrs):
 
@@ -331,3 +337,47 @@ def _get_string_length_from_struct(tag_info):
         return tag_info['data_type'].get('string')
     else:
         return None
+
+
+def _make_string_bytes(tag_data):
+    string_length = _get_string_length_from_struct(tag_data['tag_info'])
+
+    if string_length is None:
+        return None
+
+    str_len = pack_dint(string_length)
+    if tag_data['elements'] > 1:
+        string_bytes = b''
+        for val in tag_data['value']:
+            str_data = _string_to_sint_array(val, string_length)
+            string_bytes += str_len + str_data
+    else:
+        str_data = _string_to_sint_array(tag_data['value'], string_length)
+        string_bytes = str_len + str_data
+
+    return string_bytes + b'\x00' * (len(string_bytes) % 4)  # pad data to 4-byte boundaries
+
+
+def _bit_request(tag_data, bit_requests):
+    if tag_data.get('bit') is None:
+        return None
+
+    if tag_data['plc_tag'] not in bit_requests:
+        bit_requests[tag_data['plc_tag']] = {'and_mask': 0xFFFFFFFF,
+                                   'or_mask': 0x00000000,
+                                   'bits': [],
+                                   'tag_info': tag_data['tag_info']}
+
+    bits_ = bit_requests[tag_data['plc_tag']]
+    typ_, bit = tag_data['bit']
+    bits_['bits'].append(bit)
+
+    if typ_ == 'bool_array':
+        bit = bit % 32
+
+    if tag_data['value']:
+        bits_['or_mask'] |= (1 << bit)
+    else:
+        bits_['and_mask'] &= ~(1 << bit)
+
+    return True
