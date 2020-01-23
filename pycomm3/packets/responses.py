@@ -311,13 +311,13 @@ class ListIdentityResponsePacket(ResponsePacket):
 def parse_read_reply(data, data_type, elements):
     if data[:2] == STRUCTURE_READ_REPLY:
         data = data[4:]
-        size = data_type['udt']['template']['structure_size']
-        dt_name = data_type['udt']['name']
+        size = data_type['data_type']['template']['structure_size']
+        dt_name = data_type['data_type']['name']
         if elements > 1:
-            value = [parse_read_reply_struct(data[i: i + size], data_type['udt'])
+            value = [parse_read_reply_struct(data[i: i + size], data_type['data_type'])
                      for i in range(0, len(data), size)]
         else:
-            value = parse_read_reply_struct(data, data_type['udt'])
+            value = parse_read_reply_struct(data, data_type['data_type'])
 
     else:
         datatype = DATA_TYPE[unpack_uint(data[:2])]

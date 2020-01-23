@@ -338,11 +338,11 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         if request_path is not None:
 
             data_type = tag_info['data_type']
-            if data_type == 'user-created':
+            if tag_info['tag_type'] == 'struct':
                 if not isinstance(value, bytes):
                     raise RequestError('Writing UDTs only supports bytes for value')
-                _dt_value = b'\xA0\x02' + pack_uint(tag_info['template_instance_id'])
-                data_type = tag_info['udt']['name']
+                _dt_value = b'\xA0\x02' + pack_uint(tag_info['data_type']['template']['structure_handle'])
+                data_type = tag_info['data_type']['name']
 
             elif data_type not in DATA_TYPE:
                 raise RequestError("Unsupported data type")

@@ -881,7 +881,7 @@ class LogixDriver(Base):
         user_tags = self._isolating_user_tag(all_tags, program)
         for tag in user_tags:
             if tag['tag_type'] == 'struct':
-                tag['udt'] = self._get_data_type(tag['template_instance_id'])
+                tag['data_type'] = self._get_data_type(tag['template_instance_id'])
 
         return user_tags
 
@@ -1023,7 +1023,6 @@ class LogixDriver(Base):
                     new_tag['tag_type'] = 'struct'
                     new_tag['data_type'] = 'user-created'
                     new_tag['template_instance_id'] = template_instance_id
-                    new_tag['udt'] = {}
                 else:
                     new_tag['tag_type'] = 'atomic'
                     datatype = tag['symbol_type'] & 0b_0000_0000_1111_1111

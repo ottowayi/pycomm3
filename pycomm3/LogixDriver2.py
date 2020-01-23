@@ -146,17 +146,16 @@ class LogixDriver2(LogixDriver):
             if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements'])not in tags_in_requests:
                 tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
 
-                string = tag_data['tag_info']['udt'].get('string') if tag_data['tag_info']['data_type'] == 'user-created' else None
-
+                string = _get_string_length_from_struct(tag_data['tag_info'])
                 if string:
                     str_len = pack_dint(string)
                     if tag_data['elements'] > 1:
                         string_bytes = b''
                         for val in tag_data['value']:
-                            str_data = self._string_to_sint_array(val, string)
+                            str_data = _string_to_sint_array(val, string)
                             string_bytes += str_len + str_data
                     else:
-                        str_data = self._string_to_sint_array(tag_data['value'], string)
+                        str_data = _string_to_sint_array(tag_data['value'], string)
                         string_bytes = str_len + str_data
 
                     tag_data['value'] = string_bytes + b'\x00' * (len(string_bytes) % 4)
@@ -195,7 +194,7 @@ class LogixDriver2(LogixDriver):
             if not len(attrs):
                 return data
             else:
-                return _recurse_attrs(attrs, data['udt']['internal_tags'])
+                return _recurse_attrs(attrs, data['data_type']['internal_tags'])
 
         except Exception as err:
             self.__log.exception(f'Failed to lookup tag data for {base}, {attrs}')
@@ -309,7 +308,7 @@ def _tag_return_size(tag_info):
     if tag_info['tag_type'] == 'atomic':
         size = DATA_TYPE_SIZE[tag_info['data_type']]
     else:
-        size = tag_info['udt']['template']['structure_size']
+        size = tag_info['data_type']['template']['structure_size']
 
     return size
 
@@ -324,3 +323,11 @@ def _string_to_sint_array(string, string_len):
         sint_array[i] = pack_sint(unsigned - 256 if unsigned > 127 else unsigned)
 
     return b''.join(sint_array)
+
+
+def _get_string_length_from_struct(tag_info):
+
+    if tag_info['tag_type'] == 'struct':
+        return tag_info['data_type'].get('string')
+    else:
+        return None
