@@ -40,7 +40,7 @@ from .responses import (ResponsePacket, SendUnitDataResponsePacket, SendRRDataRe
 from .requests import (RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket, ListIdentityRequestPacket,
                        RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket,
                        MultiServiceRequestPacket, ReadTagFragmentedServiceRequestPacket, WriteTagServiceRequestPacket,
-                       WriteTagFragmentedServiceRequestPacket, WriteBitServiceRequestPacket)
+                       WriteTagFragmentedServiceRequestPacket)
 
 from collections import defaultdict
 
@@ -56,6 +56,5 @@ REQUEST_MAP = defaultdict(RequestPacket,
     'multi_request': MultiServiceRequestPacket,
     'read_tag_fragmented': ReadTagFragmentedServiceRequestPacket,
     'write_tag': WriteTagServiceRequestPacket,
-    'write_bit': WriteBitServiceRequestPacket,
     'write_tag_fragmented': WriteTagFragmentedServiceRequestPacket,
 })
