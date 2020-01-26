@@ -1,23 +1,12 @@
-import struct, re
-from collections import defaultdict
 from autologging import logged
-from types import GeneratorType
-from functools import wraps
+
 from . import DataError, Tag, RequestError
-from .base import Base
+from .bytes_ import (pack_dint, pack_sint)
 from .clx import LogixDriver
-from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_sint, unpack_usint, unpack_uint, unpack_dint, unpack_udint,
-                     UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
-from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, BITS_PER_INT_TYPE, SERVICE_STATUS,
-                    REPLY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
-                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START, BASE_TAG_BIT,
-                    MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
-                    VENDORS, PRODUCT_TYPES, KEYSWITCH, TAG_SERVICES_REPLY, get_service_status, get_extended_status,
-                    TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, STRUCTURE_READ_REPLY, DATA_TYPE_SIZE)
+from .const import (SUCCESS, DATA_TYPE_SIZE)
 from .packets.requests import writable_value
 
-
-re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
+#  re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
 
 
 def with_forward_open(func):
@@ -124,10 +113,14 @@ class LogixDriver2(LogixDriver):
         requests, bit_writes = self._write__build_requests(parsed_requests)
         write_results = self._send_requests(requests)
         results = []
-        for tag, _ in tags_values:
+        for tag, value in tags_values:
             try:
                 request_data = parsed_requests[tag]
+                bit = parsed_requests[tag].get('bit')
                 result = write_results[(request_data['plc_tag'], request_data['elements'])]
+                result = result._replace(tag=tag, value=value)
+                if bit is not None:
+                    result = result._replace(type='BOOL')
                 results.append(result)
             except Exception as err:
                 results.append(Tag(tag, None, None, f'Invalid tag request - {err}'))
@@ -155,19 +148,19 @@ class LogixDriver2(LogixDriver):
                 if _bit_request(tag_data, bit_writes):
                     continue
 
-                _val = writable_value(tag_data['value'], tag_data['elements'], tag_data['tag_info']['data_type'])
+                tag_data['write_value'] = writable_value(tag_data['value'], tag_data['elements'], tag_data['tag_info']['data_type'])
 
-                if len(_val) > self.connection_size:
+                if len(tag_data['write_value']) > self.connection_size:
                     _request = self.new_request('write_tag_fragmented')
                     _request.add(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info'])
                     requests.append(_request)
                     continue
 
                 try:
-                    if not current_request.add_write(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info']):
+                    if not current_request.add_write(tag_data['plc_tag'], tag_data['write_value'], tag_data['elements'], tag_data['tag_info']):
                         current_request = self.new_request('multi_request')
                         requests.append(current_request)
-                        current_request.add_write(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info'])
+                        current_request.add_write(tag_data['plc_tag'], tag_data['write_value'], tag_data['elements'], tag_data['tag_info'])
 
                 except RequestError:
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
@@ -331,29 +324,21 @@ def _string_to_sint_array(string, string_len):
     return b''.join(sint_array)
 
 
-def _get_string_length_from_struct(tag_info):
-
-    if tag_info['tag_type'] == 'struct':
-        return tag_info['data_type'].get('string')
+def _make_string_bytes(tag_data):
+    if tag_data['tag_info']['tag_type'] == 'struct':
+        string_length = tag_data['tag_info']['data_type'].get('string')
     else:
         return None
 
-
-def _make_string_bytes(tag_data):
-    string_length = _get_string_length_from_struct(tag_data['tag_info'])
-
-    if string_length is None:
-        return None
-
-    str_len = pack_dint(string_length)
     if tag_data['elements'] > 1:
         string_bytes = b''
         for val in tag_data['value']:
             str_data = _string_to_sint_array(val, string_length)
-            string_bytes += str_len + str_data
+            str_bytes = pack_dint(len(val)) + str_data
+            string_bytes += str_bytes + b'\x00' * (len(str_bytes) % 4)  # pad data to 4-byte boundaries
     else:
         str_data = _string_to_sint_array(tag_data['value'], string_length)
-        string_bytes = str_len + str_data
+        string_bytes = pack_dint(len(tag_data['value'])) + str_data
 
     return string_bytes + b'\x00' * (len(string_bytes) % 4)  # pad data to 4-byte boundaries
 
@@ -364,9 +349,9 @@ def _bit_request(tag_data, bit_requests):
 
     if tag_data['plc_tag'] not in bit_requests:
         bit_requests[tag_data['plc_tag']] = {'and_mask': 0xFFFFFFFF,
-                                   'or_mask': 0x00000000,
-                                   'bits': [],
-                                   'tag_info': tag_data['tag_info']}
+                                             'or_mask': 0x00000000,
+                                             'bits': [],
+                                             'tag_info': tag_data['tag_info']}
 
     bits_ = bit_requests[tag_data['plc_tag']]
     typ_, bit = tag_data['bit']

@@ -29,9 +29,10 @@ from autologging import logged
 from . import Packet
 from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceResponsePacket, RegisterSessionResponsePacket,
                UnRegisterSessionResponsePacket, ListIdentityResponsePacket, SendRRDataResponsePacket,
-               MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, WriteTagServiceResponsePacket)
+               MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, WriteTagServiceResponsePacket,
+               WriteTagFragmentedServiceResponsePacket)
 from .. import CommError, RequestError
-from ..bytes_ import pack_uint, pack_dint, print_bytes_msg, pack_usint, PACK_DATA_FUNCTION
+from ..bytes_ import pack_uint, pack_udint, pack_dint, print_bytes_msg, pack_usint, PACK_DATA_FUNCTION
 from ..const import (ENCAPSULATION_COMMAND, INSUFFICIENT_PACKETS, DATA_ITEM, ADDRESS_ITEM,
                      TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_ID, INSTANCE_ID, DATA_TYPE, DATA_TYPE_SIZE)
 
@@ -188,14 +189,12 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         self.elements = None
         self.tag_info = None
         self.request_path = None
-        self.request_num = 0
 
-    def add(self, tag, elements=1, tag_info=None, request_num=0):
+    def add(self, tag, elements=1, tag_info=None):
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
         self.request_path = self._plc.create_tag_rp(self.tag)
-        self.request_num = request_num
         if self.request_path is None:
             self.error = 'Invalid Tag Request Path'
 
@@ -225,6 +224,7 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
 
         failed_response = ReadTagServiceResponsePacket()
         failed_response._error = self.error or 'One or more fragment responses failed'
+        return failed_response
 
 
 @logged
@@ -240,7 +240,7 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
         self.value = None
         self.data_type = None
 
-    def add(self, tag, value, elements=1, tag_info=None):
+    def add(self, tag, value, elements=1, tag_info=None, bits_write=None):
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
@@ -248,28 +248,19 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
         request_path = self._plc.create_tag_rp(self.tag)
         if request_path is None:
             self.error = 'Invalid Tag Request Path'
-
-        data_type = tag_info['data_type']
-        if tag_info['tag_type'] == 'struct':
-            if not isinstance(value, bytes):
-                raise RequestError('Writing UDTs only supports bytes for value')
-            _dt_value = b'\xA0\x02' + pack_uint(tag_info['data_type']['template']['structure_handle'])
-            data_type = tag_info['data_type']['name']
-
-        elif data_type not in DATA_TYPE:
-            raise RequestError("Unsupported data type")
+            
         else:
-            _dt_value = pack_uint(DATA_TYPE[data_type])
+            if bits_write:
+                request_path = _make_write_data_bit(tag_info, value, request_path)
+                data_type = 'BOOL'
+            else:
+                request_path, data_type = _make_write_data_tag(tag_info, value, elements, request_path)
 
-        _val = writable_value(value, self.elements, data_type)
-
-        super().add(
-            bytes([TAG_SERVICES_REQUEST['Write Tag']]),
-            request_path,
-            _dt_value,
-            pack_uint(self.elements),
-            _val
-        )
+            super().add(
+                bytes([TAG_SERVICES_REQUEST['Write Tag']]),
+                request_path,
+            )
+            self.data_type = data_type
 
     def send(self):
         if not self.error:
@@ -281,6 +272,71 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
             response._error = self.error
 
         return response
+
+
+@logged
+class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
+    type_ = 'write'
+
+    def __init__(self, plc):
+        super().__init__(plc)
+        self.error = None
+        self.tag = None
+        self.value = None
+        self.elements = None
+        self.tag_info = None
+        self.request_path = None
+        self.data_type = None
+
+    def add(self, tag, value, elements=1, tag_info=None):
+        if tag_info['tag_type'] != 'atomic':
+            raise RequestError('Fragmented write of structures is not supported')
+
+        self.tag = tag
+        self.value = value
+        self.elements = elements
+        self.data_type = tag_info['data_type']
+        self.tag_info = tag_info
+        self.request_path = self._plc.create_tag_rp(self.tag)
+        if self.request_path is None:
+            self.error = 'Invalid Tag Request Path'
+
+    def send(self):
+        if not self.error:
+            responses = []
+            segment_size = self._plc.connection_size // (DATA_TYPE_SIZE[self.data_type] + 4)
+            pack_func = PACK_DATA_FUNCTION[self.data_type]
+            segments = (self.value[i:i+segment_size]
+                        for i in range(0, len(self.value), segment_size))
+
+            offset = 0
+            elements_packed = pack_uint(self.elements)
+            data_type_packed = pack_uint(DATA_TYPE[self.data_type])
+            for segment in segments:
+                segment_bytes = b''.join(pack_func(s) for s in segment)
+                self._msg.extend((
+                    bytes([TAG_SERVICES_REQUEST["Write Tag Fragmented"]]),
+                    self.request_path,
+                    data_type_packed,
+                    elements_packed,
+                    pack_dint(offset),
+                    segment_bytes
+                ))
+
+                self._send(self._build_request())
+                reply = self._receive()
+                response = WriteTagFragmentedServiceResponsePacket(reply)
+                responses.append(response)
+                offset += len(segment_bytes)
+                self._msg = [pack_uint(self._plc._get_sequence()), ]
+
+            if all(responses):
+                final_response = responses[-1]
+                return final_response
+
+        failed_response = ReadTagServiceResponsePacket()
+        failed_response._error = self.error or 'One or more fragment responses failed'
+        return failed_response
 
 
 @logged
@@ -378,7 +434,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
             return response
 
 
-def _make_write_data_tag(tag_info, value, elements, request_path):
+def _make_write_data_tag(tag_info, value, elements, request_path, fragmented=False):
     data_type = tag_info['data_type']
     if tag_info['tag_type'] == 'struct':
         if not isinstance(value, bytes):
@@ -391,13 +447,15 @@ def _make_write_data_tag(tag_info, value, elements, request_path):
     else:
         _dt_value = pack_uint(DATA_TYPE[data_type])
 
-    _val = writable_value(value, elements, data_type)
+    # _val = writable_value(value, elements, data_type)
 
-    request_path = b''.join((bytes([TAG_SERVICES_REQUEST['Write Tag']]),
+    service = bytes([TAG_SERVICES_REQUEST['Write Tag Fragmented' if fragmented else 'Write Tag']])
+
+    request_path = b''.join((service,
                              request_path,
                              _dt_value,
                              pack_uint(elements),
-                             _val))
+                             value))
     return request_path, data_type
 
 
@@ -411,22 +469,11 @@ def _make_write_data_bit(tag_info, value, request_path):
         bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]]),
         request_path,
         pack_uint(mask_size),
-        pack_dint(or_mask)[:mask_size],
-        pack_dint(and_mask)[:mask_size]
+        pack_udint(or_mask)[:mask_size],
+        pack_udint(and_mask)[:mask_size]
     ))
 
     return request_path
-
-
-
-
-
-class WriteTagFragmentedServiceRequestPacket:
-    ...
-
-
-class WriteBitServiceRequestPacket:
-    ...
 
 
 @logged

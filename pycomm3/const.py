@@ -508,7 +508,7 @@ def get_extended_status(msg, start):
     try:
         return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
     except LookupError:
-        return "Extended Status info not present"
+        return "Extended status info not present"
 
 
 PCCC_DATA_TYPE = {

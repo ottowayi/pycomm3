@@ -46,7 +46,6 @@ class RequestError(PycommError):
     ...
 
 
-
 def _mkstr(value):
     """If value is a string, return it wrapped in quotes, else just return the value (like for repr's)"""
     return f"'{value}'" if isinstance(value, str) else value
@@ -67,7 +66,6 @@ class Tag(NamedTuple):
     def __repr__(self):
         return f"{self.__class__.__name__}(tag={_mkstr(self.tag)}, value={_mkstr(self.value)}, " \
                f"type={_mkstr(self.type)}, error={_mkstr(self.error)})"
-
 
 
 from .clx import LogixDriver

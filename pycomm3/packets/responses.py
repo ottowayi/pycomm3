@@ -333,7 +333,9 @@ def parse_read_reply(data, data_type, elements):
             if datatype == 'DWORD':
                 value = dword_to_bool_array(value)
 
-    if elements > 1:
+    if dt_name == 'DWORD':
+        dt_name = f'BOOL[{elements * 32}]'
+    elif elements > 1:
         dt_name = f'{dt_name}[{elements}]'
 
     return value, dt_name
@@ -382,7 +384,8 @@ def parse_read_reply_struct(data, data_type):
                                range(0, len(ary_data), size)]
             else:
                 values[tag] = parse_read_reply_struct(data[offset:offset + size], datatype)
-    return values
+
+    return {k: v for k, v in values.items() if k in data_type['attributes']}
 
 
 def parse_string(data):
