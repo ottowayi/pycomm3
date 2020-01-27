@@ -1,6 +1,6 @@
-import pytest
 from pycomm3 import LogixDriver
 import os
+
 
 SLOT = int(os.environ['slot'])
 IP_ADDR = os.environ['ip']
@@ -27,4 +27,7 @@ def test_connect_init_info():
 def test_connect_init_tags():
     with LogixDriver(IP_ADDR, slot=SLOT, init_info=False, init_tags=True) as plc:
         assert len(plc.tags) > 0
-        assert plc._instance_id_cache
+        assert plc._cache['tag_name:id']
+        assert plc._cache['id:struct']
+        assert plc._cache['handle:id']
+        assert plc._cache['id:udt']

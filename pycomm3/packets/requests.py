@@ -526,18 +526,3 @@ class ListIdentityRequestPacket(RequestPacket):
         self._send(msg)
         reply = self._receive()
         return ListIdentityResponsePacket(reply)
-
-
-def writable_value(value, elements, data_type):
-    if isinstance(value, bytes):
-        return value
-
-    try:
-        pack_func = PACK_DATA_FUNCTION[data_type]
-        if elements > 1:
-            return b''.join(pack_func(value[i]) for i in range(elements))
-        else:
-            return pack_func(value)
-    except Exception as err:
-        raise RequestError('Unable to create a writable value', err)
-
