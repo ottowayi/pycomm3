@@ -64,7 +64,11 @@ target/
 .pydevproject
 /venv/
 
-/tests/testing.*.BAK000.acd
-/tests/*.Recovery
-/tests/*.Wrk
-/tests/*.Sem
+# Logix Files, besides main project
+*.BAK000.acd
+*.Recovery
+*.Wrk
+*.Sem
+
+# dev testing script
+/dev_test.py

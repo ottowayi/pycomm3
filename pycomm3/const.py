@@ -465,7 +465,7 @@ EXTEND_CODES = {
         0x2104: "Address out of range",
         0x2105: "Access beyond end of the object",
         0x2106: "Data in use",
-        0x2107: "Tag type used n request dose not match the target tag's data type",
+        0x2107: "Tag type used in request does not match the target tag's data type",
         0x2108: "Controller in upload or download mode",
         0x2109: "Attempt to change number of array dimensions",
         0x210A: "Invalid symbol name",
@@ -508,7 +508,7 @@ def get_extended_status(msg, start):
     try:
         return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
     except LookupError:
-        return "Extended Status info not present"
+        return "Extended status info not present"
 
 
 PCCC_DATA_TYPE = {

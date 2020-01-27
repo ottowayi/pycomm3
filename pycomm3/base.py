@@ -27,22 +27,16 @@
 from os import getpid, urandom
 
 from autologging import logged
-from typing import NamedTuple, Any, Optional, Union
+
 from . import DataError, CommError
-from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_dint, unpack_uint, unpack_usint, pack_ulong,
-                     unpack_udint, print_bytes_line, print_bytes_msg, DATA_FUNCTION_SIZE, UNPACK_DATA_FUNCTION)
-from .const import (DATA_ITEM, DATA_TYPE, TAG_SERVICES_REQUEST, EXTEND_CODES, ENCAPSULATION_COMMAND, EXTENDED_SYMBOL,
+from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_usint, unpack_udint,
+                     print_bytes_msg, DATA_FUNCTION_SIZE, UNPACK_DATA_FUNCTION)
+from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, ENCAPSULATION_COMMAND, EXTENDED_SYMBOL,
                     ELEMENT_ID, CLASS_CODE, PADDING_BYTE, CONNECTION_SIZE, CLASS_ID, INSTANCE_ID, FORWARD_CLOSE,
                     FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY, TIMEOUT_MULTIPLIER,
-                    TIMEOUT_TICKS, TRANSPORT_CLASS, ADDRESS_ITEM, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
-                    get_extended_status)
-from .socket_ import Socket
+                    TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
 from .packets import REQUEST_MAP
-
-
-def get_bit(value, idx):
-    """:returns value of bit at position idx"""
-    return (value & (1 << idx)) != 0
+from .socket_ import Socket
 
 
 @logged
@@ -65,7 +59,7 @@ class Base:
         self._last_tag_read = ()
         self._last_tag_write = ()
         self._info = {}
-        self._connection_size = 500
+        self.connection_size = 500
         self.attribs = {
             'context': b'_pycomm_',
             'protocol version': b'\x01\x00',
@@ -125,10 +119,23 @@ class Base:
         _ = self._info
         return f"Program Name: {_.get('name')}, Device: {_.get('device_type', 'None')}, Revision: {_.get('revision', 'None')}"
 
+    @property
+    def connected(self):
+        return self._connection_opened
+
+    @property
+    def info(self):
+        return self._info
+
+    @property
+    def name(self):
+        return self._info.get('name')
+
     def _check_reply(self, reply):
         raise NotImplementedError("The method has not been implemented")
 
     def new_request(self, command):
+        """ Creates a new RequestPacket based on the command"""
         cls = REQUEST_MAP[command]
         return cls(self)
 
@@ -144,14 +151,6 @@ class Base:
             Base._sequence = getpid() % 65535
         return Base._sequence
 
-    def nop(self):
-        """ No replay command
-
-        A NOP provides a way for either an originator or target to determine if the TCP connection is still open.
-        """
-        message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
-        self._send(message)
-
     def list_identity(self):
         """ ListIdentity command to locate and identify potential target
 
@@ -160,37 +159,6 @@ class Base:
         request = self.new_request('list_identity')
         response = request.send()
         return response.identity
-
-    def send_unit_data(self, message):
-        """ SendUnitData send encapsulated connected messages.
-
-        :param message: The message to be send to the target
-        :return: the replay received from the target
-        """
-        msg = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(message))
-        msg += message
-        self._send(msg)
-        reply = self._receive()
-        status = self._check_reply(reply)
-        return (True, reply) if status is None else (False, status)
-
-    def build_header(self, command, length):
-        """ Build the encapsulate message header
-
-        The header is 24 bytes fixed length, and includes the command and the length of the optional data portion.
-
-         :return: the header
-        """
-        try:
-            h = command
-            h += pack_uint(length)  # Length UINT
-            h += pack_dint(self._session)  # Session Handle UDINT
-            h += pack_dint(0)  # Status UDINT
-            h += self.attribs['context']  # Sender Context 8 bytes
-            h += pack_dint(self.attribs['option'])  # Option UDINT
-            return h
-        except Exception as e:
-            raise CommError(e)
 
     def register_session(self):
         """ Register a new session with the communication partner
@@ -243,10 +211,10 @@ class Base:
         init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
         if self.attribs['extended forward open']:
             connection_size = 4002
-            net_params = pack_udint((self._connection_size & 0xFFFF) | init_net_params << 16)
+            net_params = pack_udint((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
             connection_size = 500
-            net_params = pack_uint((self._connection_size & 0x01FF) | init_net_params)
+            net_params = pack_uint((self.connection_size & 0x01FF) | init_net_params)
 
         if self.__direct_connections:
             connection_params = [CONNECTION_SIZE['Direct Network'], CLASS_ID["8-bit"], CLASS_CODE["Message Router"]]
@@ -496,6 +464,49 @@ class Base:
         self._session = 0
         self._connection_opened = False
 
+    # --------------------------------------------------------------
+    #  OLD CODE - to be removed
+    #
+    # --------------------------------------------------------------
+    def nop(self):
+        """ No replay command
+
+        A NOP provides a way for either an originator or target to determine if the TCP connection is still open.
+        """
+        message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
+        self._send(message)
+
+    def send_unit_data(self, message):
+        """ SendUnitData send encapsulated connected messages.
+
+        :param message: The message to be send to the target
+        :return: the replay received from the target
+        """
+        msg = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(message))
+        msg += message
+        self._send(msg)
+        reply = self._receive()
+        status = self._check_reply(reply)
+        return (True, reply) if status is None else (False, status)
+
+    def build_header(self, command, length):
+        """ Build the encapsulate message header
+
+        The header is 24 bytes fixed length, and includes the command and the length of the optional data portion.
+
+         :return: the header
+        """
+        try:
+            h = command
+            h += pack_uint(length)  # Length UINT
+            h += pack_dint(self._session)  # Session Handle UDINT
+            h += pack_dint(0)  # Status UDINT
+            h += self.attribs['context']  # Sender Context 8 bytes
+            h += pack_dint(self.attribs['option'])  # Option UDINT
+            return h
+        except Exception as e:
+            raise CommError(e)
+
     @staticmethod
     def create_tag_rp(tag, multi_requests=False):
         """ Create tag Request Packet
@@ -640,15 +651,3 @@ class Base:
                 else:
                     tag_list.append((tags[index] + ('BAD',)))
         return tag_list
-
-    @property
-    def connected(self):
-        return self._connection_opened
-
-    @property
-    def info(self):
-        return self._info
-
-    @property
-    def name(self):
-        return self._info.get('name')
