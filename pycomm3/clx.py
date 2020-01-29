@@ -83,12 +83,7 @@ class LogixDriver(Base):
     def __init__(self, ip_address, *args, slot=0, large_packets=True,
                  init_info=True, init_tags=True, init_program_tags=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self._cache = {
-            'tag_name:id': {},
-            'id:struct': {},
-            'handle:id': {},
-            'id:udt': {}
-        }
+        self._cache = None
 
         self._data_types = {}
         self._program_names = []
@@ -125,11 +120,11 @@ class LogixDriver(Base):
         if tags:
             base, *attrs = tags
 
-            if self.use_instance_ids and base in self._cache['tag_name:id']:
+            if self.use_instance_ids and base in self.tags:
                 rp = [CLASS_ID['8-bit'],
                       CLASS_CODE['Symbol Object'],
                       INSTANCE_ID['16-bit'], b'\x00',
-                      pack_uint(self._cache['tag_name:id'][base])]
+                      pack_uint(self.tags[base]['instance_id'])]
             else:
                 base_tag, index = self._find_tag_index(base)
                 base_len = len(base_tag)
@@ -258,6 +253,14 @@ class LogixDriver(Base):
         also allows the read/write methods to use the cached instance id's and allow packing more tags into a single
         request.
         """
+        if cache:
+            self._cache = {
+                'tag_name:id': {},
+                'id:struct': {},
+                'handle:id': {},
+                'id:udt': {}
+            }
+
         if program == '*':
             tags = self._get_tag_list()
             for prog in self._program_names:
@@ -267,6 +270,8 @@ class LogixDriver(Base):
 
         if cache:
             self._tags = {tag['tag_name']: tag for tag in tags}
+
+        self._cache = None
 
         return tags
 
