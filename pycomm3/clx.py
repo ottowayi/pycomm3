@@ -319,13 +319,14 @@ class LogixDriver(Base):
                     path_size,
                     path,
                     # Request Data
-                    b'\x06\x00',  # Number of attributes to retrieve
+                    b'\x07\x00',  # Number of attributes to retrieve
                     b'\x01\x00',  # Attr. 1: Symbol name
                     b'\x02\x00',  # Attr. 2 : Symbol Type
-                    b'\x03\x00',  # Attr. 7 : Symbol Address
-                    b'\x05\x00',  # Attr. 8 : Symbol Object Address
-                    b'\x06\x00',  # Attr. 6 : ? - Not documented
-                    b'\x0a\x00'   # Attr. 10 : external access
+                    b'\x03\x00',  # Attr. 3 : Symbol Address
+                    b'\x05\x00',  # Attr. 5 : Symbol Object Address
+                    b'\x06\x00',  # Attr. 6 : ? - Not documented (Software Control?)
+                    b'\x0a\x00',   # Attr. 10 : external access
+                    b'\x08\x00'    # Attr. 8 : array dimensions [1,2,3]
                 )
                 response = request.send()
                 if not response:
@@ -362,6 +363,12 @@ class LogixDriver(Base):
                 idx += 4
                 access = tags_returned[idx] & 0b_0011
                 idx += 1
+                dim1 = unpack_udint(tags_returned[idx:idx + 4])
+                idx += 4
+                dim2 = unpack_udint(tags_returned[idx:idx + 4])
+                idx += 4
+                dim3 = unpack_udint(tags_returned[idx:idx + 4])
+                idx += 4
 
                 tag_list.append({'instance_id': instance,
                                  'tag_name': tag_name,
@@ -369,7 +376,9 @@ class LogixDriver(Base):
                                  'symbol_address': symbol_address,
                                  'symbol_object_address': symbol_object_address,
                                  'software_control': software_control,
-                                 'external_access': EXTERNAL_ACCESS.get(access, 'Unknown')})
+                                 'external_access': EXTERNAL_ACCESS.get(access, 'Unknown'),
+                                 'dimensions': [dim1, dim2, dim3]})
+
         except Exception as e:
             raise DataError(e)
 
@@ -409,7 +418,8 @@ class LogixDriver(Base):
                     'symbol_object_address': tag['symbol_object_address'],
                     'software_control': tag['software_control'],
                     'alias': False if tag['software_control'] & BASE_TAG_BIT else True,
-                    'external_access': tag['external_access']
+                    'external_access': tag['external_access'],
+                    'dimensions': tag['dimensions']
                 }
 
                 if tag['symbol_type'] & 0b_1000_0000_0000_0000:  # bit 15, 1 = struct, 0 = atomic
