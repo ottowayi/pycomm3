@@ -920,7 +920,6 @@ class LogixDriver(Base):
 
             return the status error if unsuccessful, else None
         """
-        x = 1/0
         try:
             if reply is None:
                 return f'{REPLY_INFO[unpack_dint(reply[:2])]} without reply'
@@ -1122,7 +1121,7 @@ class LogixDriver(Base):
                 message_request = [
                     pack_uint(self._get_sequence()),
                     bytes([TAG_SERVICES_REQUEST["Read Tag Fragmented"]]),  # the Request Service
-                    bytes([len(rp) // 2]),  # the Request Path Size length in word
+                    # bytes([len(rp) // 2]),  # the Request Path Size length in word
                     rp,  # the request path
                     pack_uint(counts),
                     pack_dint(offset)
@@ -1279,7 +1278,7 @@ class LogixDriver(Base):
                 pack_uint(self._get_sequence()),
                 bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]
                        if bit is not None else TAG_SERVICES_REQUEST["Write Tag"]]),
-                bytes([len(rp) // 2]),  # the Request Path Size length in word
+                # bytes([len(rp) // 2]),  # the Request Path Size length in word
                 rp,  # the request path
             ]
             if bit is not None:
