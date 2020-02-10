@@ -740,9 +740,13 @@ class LogixDriver(Base):
                 request_data = parsed_requests[tag]
                 bit = parsed_requests[tag].get('bit')
                 result = write_results[(request_data['plc_tag'], request_data['elements'])]
-                result = result._replace(tag=tag, value=value)
+
+                if request_data['elements'] > 1:
+                    result = result._replace(type=f'{result.type}[{request_data["elements"]}]')
                 if bit is not None:
-                    result = result._replace(type='BOOL')
+                    result = result._replace(tag=tag, type='BOOL', value=value)
+                else:
+                    result = result._replace(tag=request_data['plc_tag'], value=value)
                 results.append(result)
             except Exception as err:
                 results.append(Tag(tag, None, None, f'Invalid tag request - {err}'))
@@ -811,7 +815,7 @@ class LogixDriver(Base):
             if not len(remain):
                 return data[_strip_array(cur)]
             else:
-                return _recurse_attrs(remain, data[cur]['data_type']['internal_tags'])
+                return _recurse_attrs(remain, data[_strip_array(cur)]['data_type']['internal_tags'])
 
         try:
             data = self._tags[_strip_array(base)]

@@ -18,7 +18,6 @@ def test_connect_init_info():
     with LogixDriver(IP_ADDR, slot=SLOT, init_info=True, init_tags=False) as plc:
         # assert plc.name == 'PLCA'
         assert plc.info['vendor'] == 'Rockwell Automation/Allen-Bradley'
-        # assert plc.info['product_code'] == 55
         assert plc.info['keyswitch'] == 'REMOTE RUN'
         # assert plc.info['name'] == 'testing'
         # assert plc.name == 'testing'
@@ -27,7 +26,5 @@ def test_connect_init_info():
 def test_connect_init_tags():
     with LogixDriver(IP_ADDR, slot=SLOT, init_info=False, init_tags=True) as plc:
         assert len(plc.tags) > 0
-        assert plc._cache['tag_name:id']
-        assert plc._cache['id:struct']
-        assert plc._cache['handle:id']
-        assert plc._cache['id:udt']
+        assert isinstance(plc.tags, dict)
+
