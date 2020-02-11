@@ -427,13 +427,11 @@ class Base:
                     return False
                 return True
             except Exception as e:
-                # self.clean_up()
                 raise CommError(e)
 
     def close(self):
         """
         socket close
-        :return: true if no error otherwise false
         """
         errs = []
         try:
