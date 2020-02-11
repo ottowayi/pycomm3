@@ -65,6 +65,11 @@ def pack_lint(l):
     return struct.pack('<q', l)
 
 
+def pack_ulint(l):
+    """unpack 4 bytes little endian to int"""
+    return struct.pack('<Q', l)
+
+
 def pack_long(l):
     return struct.pack('<l', l)
 
@@ -74,7 +79,7 @@ def pack_ulong(l):
 
 
 def unpack_bool(st):
-    return 1 if not st[0] == 0 else 0
+    return not st[0] == 0
 
 
 def unpack_sint(st):
@@ -165,8 +170,8 @@ PACK_DATA_FUNCTION = {
     'LINT': pack_lint,
     'BYTE': pack_sint,     # byte string 8-bits
     'WORD': pack_uint,     # byte string 16-bits
-    'DWORD': pack_dint,    # byte string 32-bits
-    'LWORD': pack_lint    # byte string 64-bits
+    'DWORD': pack_udint,    # byte string 32-bits
+    'LWORD': pack_ulint    # byte string 64-bits
 }
 
 
@@ -181,8 +186,8 @@ UNPACK_DATA_FUNCTION = {
     'LINT': unpack_lint,
     'BYTE': unpack_sint,     # byte string 8-bits
     'WORD': unpack_uint,     # byte string 16-bits
-    'DWORD': unpack_dint,    # byte string 32-bits
-    'LWORD': unpack_lint    # byte string 64-bits
+    'DWORD': unpack_udint,    # byte string 32-bits
+    'LWORD': unpack_ulint    # byte string 64-bits
 }
 
 

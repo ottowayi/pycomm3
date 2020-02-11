@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from pycomm3 import __version__
 import os
 
@@ -16,7 +16,7 @@ setup(
     description="A PLC communication library for Python",
     long_description=read('README.rst'),
     license="MIT",
-    packages=["pycomm3"],
+    packages=find_packages(),
     python_requires='>=3.6',
     install_requires=['autologging',
                       'pypiwin32;platform_system=="Windows"'],

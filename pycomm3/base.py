@@ -29,18 +29,14 @@ from os import getpid, urandom
 from autologging import logged
 
 from . import DataError, CommError
-from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_dint, unpack_uint, unpack_usint, pack_ulong,
-                     unpack_udint, print_bytes_line, print_bytes_msg, DATA_FUNCTION_SIZE, UNPACK_DATA_FUNCTION)
-from .const import (DATA_ITEM, DATA_TYPE, TAG_SERVICES_REQUEST, EXTEND_CODES, ENCAPSULATION_COMMAND, EXTENDED_SYMBOL,
+from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_usint, unpack_udint,
+                     print_bytes_msg, DATA_FUNCTION_SIZE, UNPACK_DATA_FUNCTION)
+from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, ENCAPSULATION_COMMAND, EXTENDED_SYMBOL,
                     ELEMENT_ID, CLASS_CODE, PADDING_BYTE, CONNECTION_SIZE, CLASS_ID, INSTANCE_ID, FORWARD_CLOSE,
                     FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY, TIMEOUT_MULTIPLIER,
-                    TIMEOUT_TICKS, TRANSPORT_CLASS, ADDRESS_ITEM, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
+                    TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
+from .packets import REQUEST_MAP
 from .socket_ import Socket
-
-
-def get_bit(value, idx):
-    """:returns value of bit at position idx"""
-    return (value & (1 << idx)) != 0
 
 
 @logged
@@ -53,7 +49,7 @@ class Base:
         else:
             Base._sequence = Base._get_sequence()
 
-        self.__sock = None
+        self._sock = None
         self.__direct_connections = direct_connection
         self._debug = debug
         self._session = 0
@@ -62,8 +58,8 @@ class Base:
         self._target_is_connected = False
         self._last_tag_read = ()
         self._last_tag_write = ()
-        self._status = (0, "")
         self._info = {}
+        self.connection_size = 500
         self.attribs = {
             'context': b'_pycomm_',
             'protocol version': b'\x01\x00',
@@ -123,8 +119,25 @@ class Base:
         _ = self._info
         return f"Program Name: {_.get('name')}, Device: {_.get('device_type', 'None')}, Revision: {_.get('revision', 'None')}"
 
+    @property
+    def connected(self):
+        return self._connection_opened
+
+    @property
+    def info(self):
+        return self._info
+
+    @property
+    def name(self):
+        return self._info.get('name')
+
     def _check_reply(self, reply):
         raise NotImplementedError("The method has not been implemented")
+
+    def new_request(self, command):
+        """ Creates a new RequestPacket based on the command"""
+        cls = REQUEST_MAP[command]
+        return cls(self)
 
     @staticmethod
     def _get_sequence():
@@ -138,77 +151,14 @@ class Base:
             Base._sequence = getpid() % 65535
         return Base._sequence
 
-    def nop(self):
-        """ No replay command
-
-        A NOP provides a way for either an originator or target to determine if the TCP connection is still open.
-        """
-        message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
-        self._send(message)
-
     def list_identity(self):
         """ ListIdentity command to locate and identify potential target
 
         return device description if reply contains valid response else none
         """
-        message = self.build_header(ENCAPSULATION_COMMAND['list_identity'], 0)
-        self._send(message)
-        reply = self._receive()
-        if self._check_reply(reply):
-            try:
-                return reply[63:-1].decode()
-            except Exception as e:
-                raise DataError(e)
-        return False
-
-    def send_rr_data(self, message):
-        """ SendRRData transfer an encapsulated request/reply packet between the originator and target
-
-        :param message: The message to be send to the target
-        :return: the replay received from the target
-        """
-        msg = self.build_header(ENCAPSULATION_COMMAND["send_rr_data"], len(message))
-        msg += message
-        self._send(msg)
-        reply = self._receive()
-        return reply if self._check_reply(reply) else None
-
-    def send_unit_data(self, message):
-        """ SendUnitData send encapsulated connected messages.
-
-        :param message: The message to be send to the target
-        :return: the replay received from the target
-        """
-        msg = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(message))
-        msg += message
-        self._send(msg)
-        reply = self._receive()
-        return reply if self._check_reply(reply) else None
-
-    def clear(self):
-        """ Clear the last status/error
-
-        :return: return am empty tuple
-        """
-        self._status = (0, "")
-
-    def build_header(self, command, length):
-        """ Build the encapsulate message header
-
-        The header is 24 bytes fixed length, and includes the command and the length of the optional data portion.
-
-         :return: the header
-        """
-        try:
-            h = command
-            h += pack_uint(length)  # Length UINT
-            h += pack_dint(self._session)  # Session Handle UDINT
-            h += pack_dint(0)  # Status UDINT
-            h += self.attribs['context']  # Sender Context 8 bytes
-            h += pack_dint(self.attribs['option'])  # Option UDINT
-            return h
-        except Exception as e:
-            raise CommError(e)
+        request = self.new_request('list_identity')
+        response = request.send()
+        return response.identity
 
     def register_session(self):
         """ Register a new session with the communication partner
@@ -219,27 +169,29 @@ class Base:
             return self._session
 
         self._session = 0
-        message = self.build_header(ENCAPSULATION_COMMAND['register_session'], 4)
-        message += self.attribs['protocol version']
-        message += b'\x00\x00'
-        self._send(message)
-        reply = self._receive()
-        if self._check_reply(reply):
-            self._session = unpack_dint(reply[4:8])
+        request = self.new_request('register_session')
+        request.add(
+            self.attribs['protocol version'],
+            b'\x00\x00'
+        )
+
+        response = request.send()
+        if response:
+            self._session = response.session
+
             if self._debug:
-                self.__log.debug("Session ={0} has been registered.".format(print_bytes_line(reply[4:8])))
+                self.__log.debug(f"Session = {response.session} has been registered.")
             return self._session
 
-        self._status = 'Warning ! the session has not been registered.'
-        self.__log.warning(self._status)
+        self.__log.warning('Session has not been registered.')
         return None
 
     def un_register_session(self):
         """ Un-register a connection
 
         """
-        message = self.build_header(ENCAPSULATION_COMMAND['unregister_session'], 0)
-        self._send(message)
+        request = self.new_request('unregister_session')
+        request.send()
         self._session = None
 
     def forward_open(self):
@@ -250,17 +202,19 @@ class Base:
         :return: False if any error in the replayed message
         """
 
+        if self._target_is_connected:
+            return True
+
         if self._session == 0:
-            self._status = (4, "A session need to be registered before to call forward_open.")
-            raise CommError(self._status[1])
+            raise CommError("A Session Not Registered Before forward_open.")
 
         init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
         if self.attribs['extended forward open']:
             connection_size = 4002
-            net_params = pack_udint((connection_size & 0xFFFF) | init_net_params << 16)
+            net_params = pack_udint((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
             connection_size = 500
-            net_params = pack_uint((connection_size & 0x01FF) | init_net_params)
+            net_params = pack_uint((self.connection_size & 0x01FF) | init_net_params)
 
         if self.__direct_connections:
             connection_params = [CONNECTION_SIZE['Direct Network'], CLASS_ID["8-bit"], CLASS_CODE["Message Router"]]
@@ -297,14 +251,14 @@ class Base:
             INSTANCE_ID["8-bit"],
             b'\x01'
         ]
-        reply = self.send_rr_data(self.build_common_packet_format(DATA_ITEM['Unconnected'],
-                                                                  b''.join(forward_open_msg),
-                                                                  ADDRESS_ITEM['UCMM'], ))
-        if reply:
-            self._target_cid = reply[44:48]
+        request = self.new_request('send_rr_data')
+        request.add(*forward_open_msg)
+        response = request.send()
+        if response:
+            self._target_cid = response.data[:4]
             self._target_is_connected = True
             return True
-        self._status = (4, "forward_open returned False")
+        self.__log.warning(f"forward_open failed - {response.error}")
         return False
 
     def forward_close(self):
@@ -317,8 +271,8 @@ class Base:
         """
 
         if self._session == 0:
-            self._status = (5, "A session need to be registered before to call forward_close.")
             raise CommError("A session need to be registered before to call forward_close.")
+        request = self.new_request('send_rr_data')
 
         forward_close_msg = [
             FORWARD_CLOSE,
@@ -351,25 +305,22 @@ class Base:
                 pack_usint(self.attribs['cpu slot'])
             ]
 
-        if self.send_rr_data(
-                self.build_common_packet_format(DATA_ITEM['Unconnected'],
-                                                b''.join(forward_close_msg),
-                                                ADDRESS_ITEM['UCMM'])):
+        request.add(*forward_close_msg)
+        response = request.send()
+        if response:
             self._target_is_connected = False
             return True
-        self._status = (5, "forward_close returned False")
-        self.__log.warning(self._status)
+
+        self.__log.warning(f"forward_close failed - {response.error}")
         return False
 
     def get_module_info(self, slot):
         try:
-            if not self._target_is_connected:
-                if not self.forward_open():
-                    self._status = (10, "Target did not connected. get_plc_name will not be executed.")
-                    self.__log.warning(self._status)
-                    raise DataError(self._status[1])
-
-            msg = [
+            if not self.forward_open():
+                self.__log.warning("Target did not connected. get_plc_name will not be executed.")
+                raise DataError("Target did not connected. get_plc_name will not be executed.")
+            request = self.new_request('send_rr_data')
+            request.add(
                 # unnconnected send portion
                 UNCONNECTED_SEND,
                 b'\x02',
@@ -390,36 +341,32 @@ class Base:
                 b'\x01\x00',
                 b'\x01',  # backplane
                 pack_usint(slot),
-            ]
-            request = self.build_common_packet_format(DATA_ITEM['Unconnected'],
-                                                      b''.join(msg),
-                                                      ADDRESS_ITEM['UCMM'], )
-            reply = self.send_rr_data(request)
+            )
+            response = request.send()
 
-            if reply:
-                info = self._parse_identity_object(reply)
-                # self._info = {**self._info, **info}
+            if response:
+                info = self._parse_identity_object(response.data)
                 return info
             else:
-                raise DataError('send_rr_data did not return valid data')
+                raise DataError(f'send_rr_data did not return valid data - {response.error}')
 
         except Exception as err:
             raise DataError(err)
 
     @staticmethod
     def _parse_identity_object(reply):
-        vendor = unpack_uint(reply[44:46])
-        product_type = unpack_uint(reply[46:48])
-        product_code = unpack_uint(reply[48:50])
-        major_fw = int(reply[50])
-        minor_fw = int(reply[51])
-        status = f'{unpack_uint(reply[52:54]):0{16}b}'
-        serial_number = f'{unpack_udint(reply[54:58]):0{8}x}'
-        product_name_len = int(reply[58])
-        tmp = 59 + product_name_len
-        device_type = reply[59:tmp].decode()
+        vendor = unpack_uint(reply[:2])
+        product_type = unpack_uint(reply[2:4])
+        product_code = unpack_uint(reply[4:6])
+        major_fw = int(reply[6])
+        minor_fw = int(reply[7])
+        status = f'{unpack_uint(reply[8:10]):0{16}b}'
+        serial_number = f'{unpack_udint(reply[10:12]):0{8}x}'
+        product_name_len = int(reply[12])
+        tmp = 15 + product_name_len
+        device_type = reply[15:tmp].decode()
 
-        state = unpack_uint(reply[tmp:tmp+4]) if reply[tmp:] else -1  # some modules don't return a state
+        state = unpack_uint(reply[tmp:tmp + 4]) if reply[tmp:] else -1  # some modules don't return a state
 
         return {
             'vendor': VENDORS.get(vendor, 'UNKNOWN'),
@@ -442,7 +389,7 @@ class Base:
         try:
             if self._debug:
                 self.__log.debug(print_bytes_msg(message, '-------------- SEND --------------'))
-            self.__sock.send(message)
+            self._sock.send(message)
         except Exception as e:
             raise CommError(e)
 
@@ -452,7 +399,7 @@ class Base:
         :return: reply data
         """
         try:
-            reply = self.__sock.receive()
+            reply = self._sock.receive()
         except Exception as e:
             raise CommError(e)
         else:
@@ -469,14 +416,14 @@ class Base:
         # handle the socket layer
         if not self._connection_opened:
             try:
-                if self.__sock is None:
-                    self.__sock = Socket()
-                self.__sock.connect(self.attribs['ip address'], self.attribs['port'])
+                if self._sock is None:
+                    self._sock = Socket()
+                self._sock.connect(self.attribs['ip address'], self.attribs['port'])
                 self._connection_opened = True
                 self.attribs['cid'] = urandom(4)
                 self.attribs['vsn'] = urandom(4)
                 if self.register_session() is None:
-                    self._status = (13, "Session not registered")
+                    self.__log.warning("Session not registered")
                     return False
                 return True
             except Exception as e:
@@ -500,8 +447,8 @@ class Base:
 
         # %GLA must do a cleanup __sock.close()
         try:
-            if self.__sock:
-                self.__sock.close()
+            if self._sock:
+                self._sock.close()
         except Exception as err:
             errs.append(err)
             self.__log.warning(f"close() -> __sock.close Err: {err}")
@@ -512,39 +459,53 @@ class Base:
             raise CommError(' - '.join(str(e) for e in errs))
 
     def clean_up(self):
-        self.__sock = None
+        self._sock = None
         self._target_is_connected = False
         self._session = 0
         self._connection_opened = False
 
-    @staticmethod
-    def get_extended_status(msg, start):
-        status = unpack_usint(msg[start:start + 1])
-        # send_rr_data
-        # 42 General Status
-        # 43 Size of additional status
-        # 44..n additional status
+    # --------------------------------------------------------------
+    #  OLD CODE - to be removed
+    #
+    # --------------------------------------------------------------
+    def nop(self):
+        """ No replay command
 
-        # send_unit_data
-        # 48 General Status
-        # 49 Size of additional status
-        # 50..n additional status
-        extended_status_size = (unpack_usint(msg[start + 1:start + 2])) * 2
-        extended_status = 0
-        if extended_status_size != 0:
-            # There is an additional status
-            if extended_status_size == 1:
-                extended_status = unpack_usint(msg[start + 2:start + 3])
-            elif extended_status_size == 2:
-                extended_status = unpack_uint(msg[start + 2:start + 4])
-            elif extended_status_size == 4:
-                extended_status = unpack_dint(msg[start + 2:start + 6])
-            else:
-                return 'Extended Status Size Unknown'
+        A NOP provides a way for either an originator or target to determine if the TCP connection is still open.
+        """
+        message = self.build_header(ENCAPSULATION_COMMAND['nop'], 0)
+        self._send(message)
+
+    def send_unit_data(self, message):
+        """ SendUnitData send encapsulated connected messages.
+
+        :param message: The message to be send to the target
+        :return: the replay received from the target
+        """
+        msg = self.build_header(ENCAPSULATION_COMMAND["send_unit_data"], len(message))
+        msg += message
+        self._send(msg)
+        reply = self._receive()
+        status = self._check_reply(reply)
+        return (True, reply) if status is None else (False, status)
+
+    def build_header(self, command, length):
+        """ Build the encapsulate message header
+
+        The header is 24 bytes fixed length, and includes the command and the length of the optional data portion.
+
+         :return: the header
+        """
         try:
-            return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
-        except LookupError:
-            return "Extended Status info not present"
+            h = command
+            h += pack_uint(length)  # Length UINT
+            h += pack_dint(self._session)  # Session Handle UDINT
+            h += pack_dint(0)  # Status UDINT
+            h += self.attribs['context']  # Sender Context 8 bytes
+            h += pack_dint(self.attribs['option'])  # Option UDINT
+            return h
+        except Exception as e:
+            raise CommError(e)
 
     @staticmethod
     def create_tag_rp(tag, multi_requests=False):
@@ -690,36 +651,3 @@ class Base:
                 else:
                     tag_list.append((tags[index] + ('BAD',)))
         return tag_list
-
-    @staticmethod
-    def parse_symbol_type(symbol):
-        """ parse_symbol_type
-
-        It parse the symbol to Rockwell Spec
-        :param symbol: the symbol associated to a tag
-        :return: A tuple containing information about the tag
-        """
-
-        return None
-
-    @property
-    def status(self):
-        """ Get the last status/error
-
-        This method can be used after any call to get any details in case of error
-        :return: A tuple containing (error group, error message)
-        """
-        return self._status
-
-    @property
-    def connected(self):
-        return self._connection_opened
-
-    @property
-    def description(self):
-        return self._info.get('name')
-
-    @property
-    def info(self):
-        return self._info
-

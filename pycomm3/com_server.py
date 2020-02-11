@@ -35,7 +35,7 @@ class LogixDriverCOMServer(LogixDriver):
     _reg_clsctx_ = pythoncom.CLSCTX_LOCAL_SERVER
     _public_methods_ = ['open', 'close', 'read_tag', 'write_tag', 'read_string', 'write_string',
                         'read_array', 'write_array', 'get_plc_info', 'get_plc_name', 'get_tag_list']
-    _readonly_attrs_ = ['tags', 'info', 'description']
+    _readonly_attrs_ = ['tags', 'info', 'name']
     _public_attrs_ = ['ip_address', 'slot', 'large_packets', ] + _readonly_attrs_
 
     _reg_clsid_ = CLSID

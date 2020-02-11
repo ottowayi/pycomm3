@@ -51,12 +51,14 @@ PIP:
 
     pip install git+https://github.com/ottowayi/pycomm3.git
 
+Eventually this library will be published to PyPI when it's ready.
+
 
 Basic Usage
 -----------
 
-Connect to a PLC and get basic information about it and do some basic operations,
-use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board ethernet, leave ``slot=0``.
+Connect to a PLC and get some basic information,
+use the ``slot`` kwarg if the PLC is not in slot 0.  CompactLogix leave ``slot=0``.
 
 ::
 
@@ -64,91 +66,150 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  Controllers with on-board e
 
     with LogixDriver('10.20.30.100', slot=1) as plc:
         print(plc)
-
         # OUTPUT:
         # Program Name: PLCA, Device: 1756-L74/A LOGIX5574, Revision: 31.11
 
-        # Read a tag
-        plc.read_tag('DINT1')
-        # Returns: (1, 'DINT'), a (value, data type) tuple
-
-        # Read a list of tags
-        plc.read_tag(['Tag1', 'Tag2', 'Tag3'])
-        # or
-        plc.read_tag('Tag1', 'Tag2', 'Tag3')
-        # Returns: [('Tag1', 0, 'DINT'), ('Tag2', 1, 'DINT'), ('Tag3, 2, 'DINT')]
-        # Reading multiple tags includes the tag name with each result
-
-        # To read all the DINT controller-scoped tags:
-        dint_tags = [tag for tag in plc.tags if plc.tags[tag].get('data_type') == 'DINT']
-        plc.read_tag(dint_tags)
-        # Note:  unlike pycomm/pylogix, you do not need to keep track of the packet size,
-        #        requests will automatically be split into multiple packets as needed.
-
-        # Reading Arrays
-        plc.read_array('ARY1', 10) # Array name and number of elements to request
-        # Returns list of tuples of (index, value)  = [(0, 0), (1, 0), (2, 0) ... (9, 0)]
-
-        # Reading Strings
-        plc.read_string('STR1')  # This will first do a read_tag of STR1.LEN then,
-                                 # use the LEN to do a read_array of STR1.DATA, equivalent to:
-                                 # plc.read_array('STR1.DATA', plc.read_tag('STR1.LEN')) and converting to ASCII
-        # RETURN: 'A TEST STRING'
-
-        plc.read_string('STR1', 5)  # you can also specify the length to skip the initial read of .LEN
-        # RETURN: 'A TES'
-
-        plc.read_string('STR1', 82) # setting the length to the full length of the string will bypass
-                                    # reading the .LEN, but will terminate the return value
-                                    # at the first NULL character
-        # RETURN: 'A TEST STRING'
-
-        # Writing Tags
-        plc.write_tag('DINT1', 1, 'DINT')  # Writing Tags requires the Tag Name, Value, and Data Type
-        # RETURN: True (if successful, False if not)
-
-        plc.write_tag([('DINT1', -1, 'DINT'), ('DINT2', 0, 'DINT'), ('DINT3', 1, 'DINT')])
-        # RETURN: [('DINT1', -1, 'DINT', True), ('DINT2', 0, 'DINT', True), ('DINT3', 1, 'DINT', True)]
-        # Writing multiple tags will return the Tag Name, Value written, Data Type, and True/False
-
-        # Writing Strings
-        plc.write_string('Str2', 'Hello World!', size=20)  # Str2 is a STRING20 tag, size should be set to the
-                                                           # max length, the value will be padded with NULL characters
-                                                           # But, specifying a size smaller than the value will truncate it.
-        RETURN: True
+        print(plc.info)
+        # OUTPUT:
+        # {'vendor': 'Rockwell Automation/Allen-Bradley', 'product_type': 'Programmable Logic Controller',
+        # 'product_code': 55, 'version_major': 20, 'version_minor': 12, 'revision': '20.12', 'serial': '004b8fe0',
+        # 'device_type': '1756-L62/B LOGIX5562', 'keyswitch': 'REMOTE RUN', 'name': 'PLCA'}
 
 
 
 By default, when creating the LogixDriver object, it will open a connection to the plc, read the program name, get the
 controller info, and get all the controller scoped tags.  Using the ``init_tags`` kwarg will enable/disable automatically
 getting the controller tag list, and ``init_info`` will enable/disable program name and controller info loading.
-By reading the tag list first, this allows us to cache all the tag instance ids to help optimize read/write requests.
+By reading the tag list first, this allows us to cache all the tag type/structure information, including the instance ids
+for all the tags.  This information allows the ``read``/``write`` methods to require only the tag name. If your project
+will require program-scoped tags, be sure to set the ``init_program_tags`` kwarg.  By default, only the controller-scoped
+tags will be read and cached.  Calling ``plc.get_tag_list(program='*')`` will also have the same effect.
+
 Symbol Instance Addressing is only available on v21+, if the PLC is on a firmware lower than that,
 getting the controller info will automatically disable that feature.  If you disable ``init_info`` and are using a controller
-on a version lower than 21, set the ``use_instance_ids`` attribute to false or your reads/writes will fail.
+on a version lower than 21, set the ``plc.use_instance_ids`` attribute to false or your reads/writes will fail.
+
+
+Reading/Writing Tags
+--------------------
+
+Reading or writing tags is as simple as calling the ``read`` and ``write`` methods. Both methods accept any number of tags,
+and will automatically pack multiple tags into a _Multiple Service Packet Service (0x0A)_ while making sure to stay below the connection size.
+If there is a tag value that cannot fit within the request/reply packet, it will automatically handle that tag independently
+using the *Read Tag Fragmented (0x52)* or *Write Tag Fragmented (0x53)* requests.
+Other similar libraries do not do this automatically, this library attempts to be as seamless as possible.
+
+Both methods will return ``Tag`` objects to reflect the success or failure of the operation.
 
 ::
 
-    with LogixDriver('10.20.30.100', init_info=False, init_tags=False) as plc:
-        plc.use_instance_ids = False
+    class Tag(NamedTuple):
+        tag: str
+        value: Any
+        type: Union[str, None]
+        error: Optional[str] = None
 
-        print(len(plc.tags))
-        # OUTPUT: 0
+``Tag`` objects are considered successful if the value is not None and the error is None.  Otherwise, the error will
+indicate either the CIP error or exception that was thrown.  ``Tag.__bool__()`` has been implemented in this way.
+``type`` will indicate the data type of the tag and include ``[<length>]`` if multiple array elements are requested.
+``value`` will contain the value of the tag either read or written, structures (read only) will be in the form of a
+``{ attribute: value, ... }``.  Even though strings are technically structures, both reading and writing support
+automatically converting them to/from normal string objects.  Any structures that contain a DINT and an array of SINTs
+will be treated as a string.  Reading of structures as a whole is supported as long as no attributes have External Access
+set to None (CIP limitation).  Writing structures as a whole is not supported (for the time being) except for string objects.
 
-        tags = plc.get_tag_list()
-        print(len(tags), len(plc.tags))
-        # OUTPUT: 100 100
 
-        plc.get_plc_info()  # sets and returns plc.info
-        plc.get_plc_name()  # sets plc.info['name'] and returns the name
-        print(plc.info)
-        print(plc)
+Examples::
 
-        # OUTPUT:
-        # {'vendor': 'Rockwell Automation/Allen-Bradley', 'product_type': 'Programmable Logic Controller',
-        #  'product_code': 55, 'version_major': 20, 'version_minor': 12, 'revision': '20.12',
-        #  'serial': '004b8fe0', 'device_type': '1756-L62/B LOGIX5562', 'name': 'PLCA'}
-        # Program Name: PLCA, Device: 1756-L62/B LOGIX5562, Revision: 20.12
+    with LogixDriver('10.20.30.100') as plc:
+        plc.read('tag1', 'tag2', 'tag3')  # read multiple tags
+        plc.read('array{10}') # read 10 elements starting at 0 from an array
+        plc.read('array[5]{20}) # read 20 elements starting at elements 5 from an array
+        plc.read('string_tag')  # read a string tag and get a string
+
+        # writes require a sequence of tuples of [(tag name, value), ... ]
+        plc.write(('tag1, 0), ('tag2', 1), ('tag3', 2))  # write multiple tags
+        plc.write(('array{5}', [1, 2, 3, 4, 5]))  # write 5 elements to an array starting at the 0 element
+        plc.write(('array[10]{5}', [1, 2, 3, 4, 5]))  # write 5 elements to an array starting at element 10
+        plc.write(('string_tag', 'Hello World!'))  # write to a string tag with a string
+        plc.write(('string_array[2]{5}', 'Write an array of strings'.split()))  # write an array of 5 strings starting at element 2
+
+.. Note::
+
+    Tag names for both ``read`` and ``write`` are case-sensitive and are required to be the same as they are named in
+    the controller.  This may change in the future. (pull requests welcome)
+
+Tag Definitions
+---------------
+
+Tag definitions are uploaded from the controller automatically when connecting.  This allows the ``read``/``writing`` methods
+to work.  These definitions contain information like instance ids and structure size and composition.  This information
+allows for many optimizations and features that other similar libraries do not offer. The old ``pycomm`` API does not
+depend on these, but the new ``read``/``write`` methods do. The tag definitions are accessible from the ``tags`` attribute.
+The ``tags`` property is a dict of ``{tag name: definition}``.
+
+Tag Information Collected::
+
+    {
+        'tag1': {
+            'tag_name': 'tag1',  # same as key
+            'dim': 0,  # number of dimensions of array (0-3)
+            'instance_id':  # used for reads/writes on v21+ controllers
+            'alias': True/False,  # if the tag is an alias to another (this is not documented, but an educated guess found thru trial and error
+            'external_access': 'Read/Write',  # string value of external access setting
+            'dimensions': [0, 0, 0]  # array dimensions
+            'tag_type': 'atomic',
+            'data_type' : 'DINT'  # string value of an atomic type
+       }
+       'tag2' : {
+            ...
+            'tag_type': 'struct',
+            'data_type': {
+                'name': 'TYPE', # name of structure, udt, or aoi
+                'internal_tags': {
+                    'attribute': {  # is an atomic type
+                        'offset': 0 # byte offset for members within the struct, used mostly for reading an entire structure
+                        'tag_type': 'atomic',
+                        'data_type:  'Type', # name of data type
+                        'bit': 0   # optional, exists if element is mapped to a bit of a dint or element of a bool array
+                        'array': 0,  # optional, length of error if the attribute is an array
+                        }
+                    'attribute2': {  # is a struct
+                        ...,
+                        'tag_type': 'struct',
+                        'data_type': {
+                            'name': 'TYPE',  # name of data type,
+                            'internal_tags' : {  # definition of all tags internal/hidden and public attributes
+                                ... # offset/array/bit/tag_type/data_type
+                            },
+                            'attributes' : [...], # list of public attributes (shown in Logix)
+                            'template' : {...}, # used internally
+                        }
+
+                    }
+                    ...
+                }
+            }
+       }
+
+
+        ...
+    }
+
+
+
+.. Note::
+    If running multiple clients, you can initialize all the tag definitions in one client and pass them to other clients
+    by turning off the init_* args and setting ``plc2._tags = plc1.tags``.
+
+
+COM Usage
+---------
+
+.. Note::
+
+    This is only implemented for a few methods and not the newer ``read``/``write`` methods.  If this feature is useful,
+    it will be expanded in the future.
 
 
 For Windows clients, a COM server is also available.  This way ``pycomm3`` can be used from VBA in Excel like RSLinx.
@@ -167,8 +228,8 @@ VBA Example:
 
         plc.Open
         Debug.Print plc.read_tag("Tag1")
-        Debug.Print plc.get_plc_name  # also stores the name in plc.description
-        Debug.Print plc.description
+        Debug.Print plc.get_plc_name  # also stores the name in plc.name
+        Debug.Print plc.name
         plc.Close
 
     End Sub

@@ -24,14 +24,19 @@
 # SOFTWARE.
 #
 
+from .bytes_ import unpack_usint, unpack_dint, unpack_uint
+
+
 HEADER_SIZE = 24
 
 # used to estimate packet size  and determine
 # when to start a new packet
 MULTISERVICE_READ_OVERHEAD = 6
 MULTISERVICE_WRITE_OVERHEAD = 3
+
 MIN_VER_INSTANCE_IDS = 21  # using Symbol Instance Addressing not supported below version 21
 MIN_VER_LARGE_CONNECTIONS = 20  # >500 byte connections not supported below logix v20
+
 EXTENDED_SYMBOL = b'\x91'
 BOOL_ONE = 0xff
 REQUEST_SERVICE = 0
@@ -54,7 +59,10 @@ PRIORITY = b'\x0a'
 TIMEOUT_TICKS = b'\x05'
 TIMEOUT_MULTIPLIER = b'\x01'
 TRANSPORT_CLASS = b'\xa3'
+BASE_TAG_BIT = 1 << 26
 
+TEMPLATE_MEMBER_INFO_LEN = 8  # 2B bit/array len, 2B datatype, 4B offset
+STRUCTURE_READ_REPLY = b'\xa0\x02'
 
 ELEMENT_ID = {
     "8-bit": b'\x28',
@@ -147,7 +155,6 @@ TAG_SERVICES_REQUEST = {
     "Multiple Service Packet": 0x0a,
     "Get Instance Attributes List": 0x55,
     "Get Attributes": 0x03,
-    "Read Template": 0x4c,
 }
 
 _TAG_SERVICES_REPLY = {
@@ -159,10 +166,178 @@ _TAG_SERVICES_REPLY = {
     0x8a: "Multiple Service Packet",
     0xd5: "Get Instance Attributes List",
     0x83: "Get Attributes",
-    0xcc: "Read Template"
 }
 
 TAG_SERVICES_REPLY = {**_TAG_SERVICES_REPLY, **{v: k for k, v in _TAG_SERVICES_REPLY.items()}}
+
+
+MULTI_PACKET_SERVICES = (
+    TAG_SERVICES_REPLY['Multiple Service Packet'],
+    TAG_SERVICES_REPLY['Read Tag Fragmented'],
+    TAG_SERVICES_REPLY['Write Tag Fragmented'],
+    TAG_SERVICES_REPLY['Get Instance Attributes List'],
+    TAG_SERVICES_REPLY['Get Attributes']
+)
+
+DATA_ITEM = {
+    'Connected': b'\xb1\x00',
+    'Unconnected': b'\xb2\x00'
+}
+
+ADDRESS_ITEM = {
+    'Connection Based': b'\xa1\x00',
+    'Null': b'\x00\x00',
+    'UCMM': b'\x00\x00'
+}
+
+UCMM = {
+    'Interface Handle': 0,
+    'Item Count': 2,
+    'Address Type ID': 0,
+    'Address Length': 0,
+    'Data Type ID': 0x00b2
+}
+
+CONNECTION_SIZE = {
+    'Backplane': b'\x03',  # CLX
+    'Direct Network': b'\x02'
+}
+
+CONNECTION_PARAMETER = {
+    'PLC5': 0x4302,
+    'SLC500': 0x4302,
+    'CNET': 0x4320,
+    'DHP': 0x4302,
+    'Default': 0x43f8,
+}
+
+"""
+Atomic Data Type:
+
+          Bit = BOOL
+     Bit array = DWORD (32-bit boolean array)
+ 8-bit integer = SINT
+16-bit integer = UINT
+32-bit integer = DINT
+  32-bit float = REAL
+64-bit integer = LINT
+
+From Rockwell Automation Publication 1756-PM020C-EN-P November 2012:
+When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xff, respectively.
+"""
+
+DATA_TYPE_SIZE = {
+    'BOOL': 1,
+    'SINT': 1,
+    'INT': 2,
+    'DINT': 4,
+    'REAL': 4,
+    'DWORD': 4,
+    'LINT': 8
+}
+
+BITS_PER_INT_TYPE = {
+    'SINT': 8,  # Signed 8-bit integer
+    'INT': 16,  # Signed 16-bit integer
+    'DINT': 32,  # Signed 32-bit integer
+    'LINT': 64,  # Signed 64-bit integer
+    'USINT': 8,  # Unsigned 8-bit integer
+    'UINT': 16,  # Unsigned 16-bit integer
+    'UDINT': 32,  # Unsigned 32-bit integer
+    'ULINT': 64,  # Unsigned 64-bit integer
+    'WORD': 16,  # byte string 16-bits
+    'DWORD': 32,  # byte string 32-bits
+    'LWORD': 64,  # byte string 64-bits
+}
+
+_DATA_TYPES = {
+    'BOOL': 0xc1,
+    'SINT': 0xc2,  # Signed 8-bit integer
+    'INT': 0xc3,  # Signed 16-bit integer
+    'DINT': 0xc4,  # Signed 32-bit integer
+    'LINT': 0xc5,  # Signed 64-bit integer
+    'USINT': 0xc6,  # Unsigned 8-bit integer
+    'UINT': 0xc7,  # Unsigned 16-bit integer
+    'UDINT': 0xc8,  # Unsigned 32-bit integer
+    'ULINT': 0xc9,  # Unsigned 64-bit integer
+    'REAL': 0xca,  # 32-bit floating point
+    'LREAL': 0xcb,  # 64-bit floating point
+    'STIME': 0xcc,  # Synchronous time
+    'DATE': 0xcd,
+    'TIME_OF_DAY': 0xce,
+    'DATE_AND_TIME': 0xcf,
+    'STRING': 0xd0,  # character string (1 byte per character)
+    'BYTE': 0xd1,  # byte string 8-bits
+    'WORD': 0xd2,  # byte string 16-bits
+    'DWORD': 0xd3,  # byte string 32-bits
+    'LWORD': 0xd4,  # byte string 64-bits
+    'STRING2': 0xd5,  # character string (2 byte per character)
+    'FTIME': 0xd6,  # Duration high resolution
+    'LTIME': 0xd7,  # Duration long
+    'ITIME': 0xd8,  # Duration short
+    'STRINGN': 0xd9,  # character string (n byte per character)
+    'SHORT_STRING': 0xda,  # character string (1 byte per character, 1 byte length indicator)
+    'TIME': 0xdb,  # Duration in milliseconds
+    'EPATH': 0xdc,  # CIP Path segment
+    'ENGUNIT': 0xdd,  # Engineering Units
+    'STRINGI': 0xde  # International character string
+}
+
+DATA_TYPE = {**_DATA_TYPES, **{v: k for k, v in _DATA_TYPES.items()}}
+
+REPLY_INFO = {
+    0x4e: 'FORWARD_CLOSE (4E,00)',
+    0x52: 'UNCONNECTED_SEND (52,00)',
+    0x54: 'FORWARD_OPEN (54,00)',
+    0x6f: 'send_rr_data (6F,00)',
+    0x70: 'send_unit_data (70,00)',
+    0x00: 'nop',
+    0x01: 'list_targets',
+    0x04: 'list_services',
+    0x63: 'list_identity',
+    0x64: 'list_interfaces',
+    0x65: 'register_session',
+    0x66: 'unregister_session',
+}
+
+
+EXTERNAL_ACCESS = {
+    0: 'Full Access',
+    1: 'Reserved',
+    2: 'Read Only',
+    3: 'No Access',
+}
+
+
+# States defined in CIP Spec Vol 1, chapter 5, Identity Object
+STATES = {
+    0: 'Nonexistent',
+    1: 'Device Self Testing',
+    2: 'Standby',
+    3: 'Operational',
+    4: 'Major Recoverable Fault',
+    5: 'Major Unrecoverable Fault',
+    **{i: 'Reserved' for i in range(6, 255)},
+    255: 'Default for Get_Attributes_All service'
+
+}
+
+# From Rockwell KB Article #28917
+KEYSWITCH = {
+    96: {
+        16: 'RUN',
+        17: 'RUN',
+        48: 'REMOTE RUN',
+        49: 'REMOTE RUN'
+    },
+    112: {
+        32: 'PROG',
+        33: 'PROG',
+        48: 'REMOTE PROG',
+        49: 'REMOTE PROG'
+    }
+}
+
 
 """
 EtherNet/IP Encapsulation Error Codes
@@ -188,12 +363,13 @@ Rockwell Automation Publication
 1756-RM003P-EN-P - December 2014
 """
 
+
 SERVICE_STATUS = {
     0x01: "Connection failure (see extended status)",
     0x02: "Insufficient resource",
     0x03: "Invalid value",
     0x04: "IOI syntax error. A syntax error was detected decoding the Request Path (see extended status)",
-    0x05: "Destination unknown, class unsupported, instance \nundefined or structure element undefined (see extended status)",
+    0x05: "Destination unknown, class unsupported, instance undefined or structure element undefined (see extended status)",
     0x06: "Insufficient Packet Space",
     0x07: "Connection lost",
     0x08: "Service not supported",
@@ -230,6 +406,11 @@ SERVICE_STATUS = {
     0xFE: "Message timeout",
     0xff: "General Error (see extended status)"
 }
+
+
+def get_service_status(status):
+    return SERVICE_STATUS.get(status, f'Unknown Error ({status:0>2x})')
+
 
 EXTEND_CODES = {
     0x01: {
@@ -284,7 +465,7 @@ EXTEND_CODES = {
         0x2104: "Address out of range",
         0x2105: "Access beyond end of the object",
         0x2106: "Data in use",
-        0x2107: "Tag type used n request dose not match the target tag's data type",
+        0x2107: "Tag type used in request does not match the target tag's data type",
         0x2108: "Controller in upload or download mode",
         0x2109: "Attempt to change number of array dimensions",
         0x210A: "Invalid symbol name",
@@ -300,116 +481,35 @@ EXTEND_CODES = {
     }
 }
 
-DATA_ITEM = {
-    'Connected': b'\xb1\x00',
-    'Unconnected': b'\xb2\x00'
-}
 
-ADDRESS_ITEM = {
-    'Connection Based': b'\xa1\x00',
-    'Null': b'\x00\x00',
-    'UCMM': b'\x00\x00'
-}
+def get_extended_status(msg, start):
+    status = unpack_usint(msg[start:start + 1])
+    # send_rr_data
+    # 42 General Status
+    # 43 Size of additional status
+    # 44..n additional status
 
-UCMM = {
-    'Interface Handle': 0,
-    'Item Count': 2,
-    'Address Type ID': 0,
-    'Address Length': 0,
-    'Data Type ID': 0x00b2
-}
+    # send_unit_data
+    # 48 General Status
+    # 49 Size of additional status
+    # 50..n additional status
+    extended_status_size = (unpack_usint(msg[start + 1:start + 2])) * 2
+    extended_status = 0
+    if extended_status_size != 0:
+        # There is an additional status
+        if extended_status_size == 1:
+            extended_status = unpack_usint(msg[start + 2:start + 3])
+        elif extended_status_size == 2:
+            extended_status = unpack_uint(msg[start + 2:start + 4])
+        elif extended_status_size == 4:
+            extended_status = unpack_dint(msg[start + 2:start + 6])
+        else:
+            return 'Extended Status Size Unknown'
+    try:
+        return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
+    except LookupError:
+        return "Extended status info not present"
 
-CONNECTION_SIZE = {
-    'Backplane': b'\x03',  # CLX
-    'Direct Network': b'\x02'
-}
-
-CONNECTION_PARAMETER = {
-    'PLC5': 0x4302,
-    'SLC500': 0x4302,
-    'CNET': 0x4320,
-    'DHP': 0x4302,
-    'Default': 0x43f8,
-}
-
-"""
-Atomic Data Type:
-
-          Bit = BOOL
-     Bit array = DWORD (32-bit boolean array)
- 8-bit integer = SINT
-16-bit integer = UINT
-32-bit integer = DINT
-  32-bit float = REAL
-64-bit integer = LINT
-
-From Rockwell Automation Publication 1756-PM020C-EN-P November 2012:
-When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xff, respectively.
-"""
-
-BITS_PER_INT_TYPE = {
-    'SINT': 8,  # Signed 8-bit integer
-    'INT': 16,  # Signed 16-bit integer
-    'DINT': 32,  # Signed 32-bit integer
-    'LINT': 64,  # Signed 64-bit integer
-    'USINT': 8,  # Unsigned 8-bit integer
-    'UINT': 16,  # Unsigned 16-bit integer
-    'UDINT': 32,  # Unsigned 32-bit integer
-    'ULINT': 64,  # Unsigned 64-bit integer
-    'WORD': 16,  # byte string 16-bits
-    'DWORD': 32,  # byte string 32-bits
-    'LWORD': 64,  # byte string 64-bits
-}
-
-_DATA_TYPES = {
-    'BOOL': 0xc1,
-    'SINT': 0xc2,  # Signed 8-bit integer
-    'INT': 0xc3,  # Signed 16-bit integer
-    'DINT': 0xc4,  # Signed 32-bit integer
-    'LINT': 0xc5,  # Signed 64-bit integer
-    'USINT': 0xc6,  # Unsigned 8-bit integer
-    'UINT': 0xc7,  # Unsigned 16-bit integer
-    'UDINT': 0xc8,  # Unsigned 32-bit integer
-    'ULINT': 0xc9,  # Unsigned 64-bit integer
-    'REAL': 0xca,  # 32-bit floating point
-    'LREAL': 0xcb,  # 64-bit floating point
-    'STIME': 0xcc,  # Synchronous time
-    'DATE': 0xcd,
-    'TIME_OF_DAY': 0xce,
-    'DATE_AND_TIME': 0xcf,
-    'STRING': 0xd0,  # character string (1 byte per character)
-    'BYTE': 0xd1,  # byte string 8-bits
-    'WORD': 0xd2,  # byte string 16-bits
-    'DWORD': 0xd3,  # byte string 32-bits
-    'LWORD': 0xd4,  # byte string 64-bits
-    'STRING2': 0xd5,  # character string (2 byte per character)
-    'FTIME': 0xd6,  # Duration high resolution
-    'LTIME': 0xd7,  # Duration long
-    'ITIME': 0xd8,  # Duration short
-    'STRINGN': 0xd9,  # character string (n byte per character)
-    'SHORT_STRING': 0xda,  # character string (1 byte per character, 1 byte length indicator)
-    'TIME': 0xdb,  # Duration in milliseconds
-    'EPATH': 0xdc,  # CIP Path segment
-    'ENGUNIT': 0xdd,  # Engineering Units
-    'STRINGI': 0xde  # International character string
-}
-
-DATA_TYPE = {**_DATA_TYPES, **{v: k for k, v in _DATA_TYPES.items()}}
-
-REPLAY_INFO = {
-    0x4e: 'FORWARD_CLOSE (4E,00)',
-    0x52: 'UNCONNECTED_SEND (52,00)',
-    0x54: 'FORWARD_OPEN (54,00)',
-    0x6f: 'send_rr_data (6F,00)',
-    0x70: 'send_unit_data (70,00)',
-    0x00: 'nop',
-    0x01: 'list_targets',
-    0x04: 'list_services',
-    0x63: 'list_identity',
-    0x64: 'list_interfaces',
-    0x65: 'register_session',
-    0x66: 'unregister_session',
-}
 
 PCCC_DATA_TYPE = {
     'N': b'\x89',
@@ -424,6 +524,7 @@ PCCC_DATA_TYPE = {
     'O': b'\x8b',
     'I': b'\x8c'
 }
+
 
 PCCC_DATA_SIZE = {
     'N': 2,
@@ -440,6 +541,7 @@ PCCC_DATA_SIZE = {
     'I': 2
 }
 
+
 PCCC_CT = {
     'PRE': 1,
     'ACC': 2,
@@ -452,6 +554,7 @@ PCCC_CT = {
     'UN': 11,
     'UA': 10
 }
+
 
 PCCC_ERROR_CODE = {
     -2: "Not Acknowledged (NAK)",
@@ -474,34 +577,6 @@ PCCC_ERROR_CODE = {
     240: "Error code in EXT STS Byte"
 }
 
-# States defined in CIP Spec Vol 1, chapter 5, Identity Object
-STATES = {
-    0: 'Nonexistent',
-    1: 'Device Self Testing',
-    2: 'Standby',
-    3: 'Operational',
-    4: 'Major Recoverable Fault',
-    5: 'Major Unrecoverable Fault',
-    **{i: 'Reserved' for i in range(6, 255)},
-    255: 'Default for Get_Attributes_All service'
-
-}
-
-# From Rockwell KB Article #28917
-KEYSWITCH = {
-    96: {
-        16: 'RUN',
-        17: 'RUN',
-        48: 'REMOTE RUN',
-        49: 'REMOTE RUN'
-    },
-    112: {
-        32: 'PROG',
-        33: 'PROG',
-        48: 'REMOTE PROG',
-        49: 'REMOTE PROG'
-    }
-}
 
 #  Taken from PyLogix
 # List originally came from Wireshark /epan/dissectors/packet-cip.c
