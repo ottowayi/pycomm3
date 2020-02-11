@@ -187,7 +187,7 @@ Tag Information Collected::
                         }
 
                     }
-                    ...
+                ...
                 }
             }
        }
@@ -233,6 +233,16 @@ VBA Example:
         plc.Close
 
     End Sub
+
+Unit Testing
+------------
+
+``pytest`` is used for unit testing. The ``tests`` directory contains an L5X export of the ``Pycomm3_Testing`` program
+that contains all tags necessary for testing.  The only requirement for testing (besides a running PLC with the testing
+program) is the environment variables ``IP`` and ``SLOT`` for the PLC defined.
+
+.. Note::
+    Test coverage is not complete, pull requests are very much welcome to cover all combinations for reading and writing tags.
 
 
 License
