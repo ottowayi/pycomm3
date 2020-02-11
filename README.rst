@@ -51,6 +51,8 @@ PIP:
 
     pip install git+https://github.com/ottowayi/pycomm3.git
 
+Eventually this library will be published to PyPI when it's ready.
+
 
 Basic Usage
 -----------
@@ -81,25 +83,134 @@ getting the controller tag list, and ``init_info`` will enable/disable program n
 By reading the tag list first, this allows us to cache all the tag type/structure information, including the instance ids
 for all the tags.  This information allows the ``read``/``write`` methods to require only the tag name. If your project
 will require program-scoped tags, be sure to set the ``init_program_tags`` kwarg.  By default, only the controller-scoped
-tag will be read and cached.  Calling ``plc.get_tag_list(program='*')`` will also have the same effect.
+tags will be read and cached.  Calling ``plc.get_tag_list(program='*')`` will also have the same effect.
 
 Symbol Instance Addressing is only available on v21+, if the PLC is on a firmware lower than that,
 getting the controller info will automatically disable that feature.  If you disable ``init_info`` and are using a controller
-on a version lower than 21, set the ``use_instance_ids`` attribute to false or your reads/writes will fail.
+on a version lower than 21, set the ``plc.use_instance_ids`` attribute to false or your reads/writes will fail.
 
-Reading Tags
-------------
 
-TODO: add examples
+Reading/Writing Tags
+--------------------
 
-Writing Tags
-------------
+Reading or writing tags is as simple as calling the ``read`` and ``write`` methods. Both methods accept any number of tags,
+and will automatically pack multiple tags into a _Multiple Service Packet Service (0x0A)_ while making sure to stay below the connection size.
+If there is a tag value that cannot fit within the request/reply packet, it will automatically handle that tag independently
+using the *Read Tag Fragmented (0x52)* or *Write Tag Fragmented (0x53)* requests.
+Other similar libraries do not do this automatically, this library attempts to be as seamless as possible.
 
-TODO: add examples
+Both methods will return ``Tag`` objects to reflect the success or failure of the operation.
+
+::
+
+    class Tag(NamedTuple):
+        tag: str
+        value: Any
+        type: Union[str, None]
+        error: Optional[str] = None
+
+``Tag`` objects are considered successful if the value is not None and the error is None.  Otherwise, the error will
+indicate either the CIP error or exception that was thrown.  ``Tag.__bool__()`` has been implemented in this way.
+``type`` will indicate the data type of the tag and include ``[<length>]`` if multiple array elements are requested.
+``value`` will contain the value of the tag either read or written, structures (read only) will be in the form of a
+``{ attribute: value, ... }``.  Even though strings are technically structures, both reading and writing support
+automatically converting them to/from normal string objects.  Any structures that contain a DINT and an array of SINTs
+will be treated as a string.  Reading of structures as a whole is supported as long as no attributes have External Access
+set to None (CIP limitation).  Writing structures as a whole is not supported (for the time being) except for string objects.
+
+
+Examples::
+
+    with LogixDriver('10.20.30.100') as plc:
+        plc.read('tag1', 'tag2', 'tag3')  # read multiple tags
+        plc.read('array{10}') # read 10 elements starting at 0 from an array
+        plc.read('array[5]{20}) # read 20 elements starting at elements 5 from an array
+        plc.read('string_tag')  # read a string tag and get a string
+
+        # writes require a sequence of tuples of [(tag name, value), ... ]
+        plc.write(('tag1, 0), ('tag2', 1), ('tag3', 2))  # write multiple tags
+        plc.write(('array{5}', [1, 2, 3, 4, 5]))  # write 5 elements to an array starting at the 0 element
+        plc.write(('array[10]{5}', [1, 2, 3, 4, 5]))  # write 5 elements to an array starting at element 10
+        plc.write(('string_tag', 'Hello World!'))  # write to a string tag with a string
+        plc.write(('string_array[2]{5}', 'Write an array of strings'.split()))  # write an array of 5 strings starting at element 2
+
+.. Note::
+
+    Tag names for both ``read`` and ``write`` are case-sensitive and are required to be the same as they are named in
+    the controller.  This may change in the future. (pull requests welcome)
+
+Tag Definitions
+---------------
+
+Tag definitions are uploaded from the controller automatically when connecting.  This allows the ``read``/``writing`` methods
+to work.  These definitions contain information like instance ids and structure size and composition.  This information
+allows for many optimizations and features that other similar libraries do not offer. The old ``pycomm`` API does not
+depend on these, but the new ``read``/``write`` methods do. The tag definitions are accessible from the ``tags`` attribute.
+The ``tags`` property is a dict of ``{tag name: definition}``.
+
+Tag Information Collected::
+
+    {
+        'tag1': {
+            'tag_name': 'tag1',  # same as key
+            'dim': 0,  # number of dimensions of array (0-3)
+            'instance_id':  # used for reads/writes on v21+ controllers
+            'alias': True/False,  # if the tag is an alias to another (this is not documented, but an educated guess found thru trial and error
+            'external_access': 'Read/Write',  # string value of external access setting
+            'dimensions': [0, 0, 0]  # array dimensions
+            'tag_type': 'atomic',
+            'data_type' : 'DINT'  # string value of an atomic type
+       }
+       'tag2' : {
+            ...
+            'tag_type': 'struct',
+            'data_type': {
+                'name': 'TYPE', # name of structure, udt, or aoi
+                'internal_tags': {
+                    'attribute': {  # is an atomic type
+                        'offset': 0 # byte offset for members within the struct, used mostly for reading an entire structure
+                        'tag_type': 'atomic',
+                        'data_type:  'Type', # name of data type
+                        'bit': 0   # optional, exists if element is mapped to a bit of a dint or element of a bool array
+                        'array': 0,  # optional, length of error if the attribute is an array
+                        }
+                    'attribute2': {  # is a struct
+                        ...,
+                        'tag_type': 'struct',
+                        'data_type': {
+                            'name': 'TYPE',  # name of data type,
+                            'internal_tags' : {  # definition of all tags internal/hidden and public attributes
+                                ... # offset/array/bit/tag_type/data_type
+                            },
+                            'attributes' : [...], # list of public attributes (shown in Logix)
+                            'template' : {...}, # used internally
+                        }
+
+                    }
+                    ...
+                }
+            }
+       }
+
+
+        ...
+    }
+
+
+
+.. Note::
+    If running multiple clients, you can initialize all the tag definitions in one client and pass them to other clients
+    by turning off the init_* args and setting ``plc2._tags = plc1.tags``.
 
 
 COM Usage
 ---------
+
+.. Note::
+
+    This is only implemented for a few methods and not the newer ``read``/``write`` methods.  If this feature is useful,
+    it will be expanded in the future.
+
 
 For Windows clients, a COM server is also available.  This way ``pycomm3`` can be used from VBA in Excel like RSLinx.
 
