@@ -49,9 +49,7 @@ The package can be installed from
 PIP:
 ::
 
-    pip install git+https://github.com/ottowayi/pycomm3.git
-
-Eventually this library will be published to PyPI when it's ready.
+    pip install pycomm3
 
 
 Basic Usage
@@ -94,7 +92,7 @@ Reading/Writing Tags
 --------------------
 
 Reading or writing tags is as simple as calling the ``read`` and ``write`` methods. Both methods accept any number of tags,
-and will automatically pack multiple tags into a _Multiple Service Packet Service (0x0A)_ while making sure to stay below the connection size.
+and will automatically pack multiple tags into a *Multiple Service Packet Service (0x0A)* while making sure to stay below the connection size.
 If there is a tag value that cannot fit within the request/reply packet, it will automatically handle that tag independently
 using the *Read Tag Fragmented (0x52)* or *Write Tag Fragmented (0x53)* requests.
 Other similar libraries do not do this automatically, this library attempts to be as seamless as possible.
@@ -114,9 +112,10 @@ indicate either the CIP error or exception that was thrown.  ``Tag.__bool__()`` 
 ``type`` will indicate the data type of the tag and include ``[<length>]`` if multiple array elements are requested.
 ``value`` will contain the value of the tag either read or written, structures (read only) will be in the form of a
 ``{ attribute: value, ... }``.  Even though strings are technically structures, both reading and writing support
-automatically converting them to/from normal string objects.  Any structures that contain a DINT and an array of SINTs
-will be treated as a string.  Reading of structures as a whole is supported as long as no attributes have External Access
-set to None (CIP limitation).  Writing structures as a whole is not supported (for the time being) except for string objects.
+automatically converting them to/from normal string objects.  Any structures that have only the attributes ``LEN`` (DINT)
+and ``DATA`` (array of SINT) will automatically be treated as strings. Reading of structures as a whole is supported
+as long as no attributes have External Access set to None (CIP limitation).  Writing structures as a whole is not
+supported (for the time being) except for string objects.
 
 
 Examples::

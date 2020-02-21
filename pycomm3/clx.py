@@ -27,6 +27,7 @@
 import struct
 from collections import defaultdict
 from types import GeneratorType
+from typing import Union, List, Sequence, Tuple, Optional, Any
 
 from autologging import logged
 
@@ -40,7 +41,6 @@ from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, 
                     MULTISERVICE_READ_OVERHEAD, MULTISERVICE_WRITE_OVERHEAD, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
                     VENDORS, PRODUCT_TYPES, KEYSWITCH, TAG_SERVICES_REPLY, get_service_status, get_extended_status,
                     TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE)
-
 
 # re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
 
@@ -61,9 +61,7 @@ def with_forward_open(func):
 @logged
 class LogixDriver(Base):
     """
-    This Ethernet/IP client is based on Rockwell specification. Please refer to the link below for details.
-
-    http://literature.rockwellautomation.com/idc/groups/literature/documents/pm/1756-pm020_-en-p.pdf
+    An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
 
     The following services have been implemented:
         - Read Tag Service (0x4c)
@@ -73,15 +71,18 @@ class LogixDriver(Base):
         - Multiple Service Packet (0x0a)
         - Read Modify Write Tag (0xce)
 
-    The client has been successfully tested with the following PLCs:
-        - CompactLogix 5330ERM
-        - CompactLogix 5370
-        - ControlLogix 5572 and 1756-EN2T Module
-
 """
 
-    def __init__(self, ip_address, *args, slot=0, large_packets=True,
-                 init_info=True, init_tags=True, init_program_tags=False, **kwargs):
+    def __init__(self, ip_address: str, *args, slot: int = 0, large_packets: bool = True,
+                 init_info: bool = True, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
+        """
+        :param ip_address: IP address of PLC
+        :param slot: Slot of PLC in chassis (leave at 0 for CompactLogix)
+        :param large_packets: if True, Extended Forward Open will be used (v20+ and EN2T+)
+        :param init_info:  if True, initializes controller info (name, revision, etc) on connect
+        :param init_tags: if True, uploads all controller-scoped tag definitions on connect
+        :param init_program_tags: if True, uploads all program-scoped tag definitions on connect
+        """
         super().__init__(*args, **kwargs)
         self._cache = None
 
@@ -104,92 +105,16 @@ class LogixDriver(Base):
 
             if init_tags:
                 self.get_tag_list(program='*' if init_program_tags else None)
-            self.close()
 
     @property
-    def tags(self):
+    def tags(self) -> dict:
+        """
+        Read-only property to access all the tag definitions uploaded from the controller.
+        """
         return self._tags
 
-    def create_tag_rp(self, tag):
-        """ Create tag Request Packet
-
-        It returns the request packed wrapped around the tag passed.
-        If any error it returns none
-        """
-        tags = tag.split('.')
-        if tags:
-            base, *attrs = tags
-
-            if self.use_instance_ids and base in self.tags:
-                rp = [CLASS_ID['8-bit'],
-                      CLASS_CODE['Symbol Object'],
-                      INSTANCE_ID['16-bit'], b'\x00',
-                      pack_uint(self.tags[base]['instance_id'])]
-            else:
-                base_tag, index = self._find_tag_index(base)
-                base_len = len(base_tag)
-                rp = [EXTENDED_SYMBOL,
-                      pack_usint(base_len),
-                      base_tag]
-                if base_len % 2:
-                    rp.append(PADDING_BYTE)
-                if index is None:
-                    return None
-                else:
-                    rp += index
-
-            for attr in attrs:
-                attr, index = self._find_tag_index(attr)
-                tag_length = len(attr)
-                # Create the request path
-                attr_path = [EXTENDED_SYMBOL,
-                             pack_usint(tag_length),
-                             attr]
-                # Add pad byte because total length of Request path must be word-aligned
-                if tag_length % 2:
-                    attr_path.append(PADDING_BYTE)
-                # Add any index
-                if index is None:
-                    return None
-                else:
-                    attr_path += index
-                rp += attr_path
-
-            # At this point the Request Path is completed,
-            request_path = b''.join(rp)
-            request_path = bytes([len(request_path) // 2]) + request_path
-
-            return request_path
-
-        return None
-
-    def _find_tag_index(self, tag):
-        if '[' in tag:  # Check if is an array tag
-            t = tag[:len(tag) - 1]  # Remove the last square bracket
-            inside_value = t[t.find('[') + 1:]  # Isolate the value inside bracket
-            index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
-            tag = t[:t.find('[')]  # Get only the tag part
-        else:
-            index = []
-        return tag.encode(), self._encode_tag_index(index)
-
-    @staticmethod
-    def _encode_tag_index(index):
-        path = []
-        for idx in index:
-            val = int(idx)
-            if val <= 0xff:
-                path += [ELEMENT_ID["8-bit"], pack_usint(val)]
-            elif val <= 0xffff:
-                path += [ELEMENT_ID["16-bit"], PADDING_BYTE, pack_uint(val)]
-            elif val <= 0xfffffffff:
-                path += [ELEMENT_ID["32-bit"], PADDING_BYTE, pack_dint(val)]
-            else:
-                return None  # Cannot create a valid request packet
-        return path
-
     @with_forward_open
-    def get_plc_name(self):
+    def get_plc_name(self) -> str:
         try:
             request = self.new_request('send_unit_data')
             request.add(
@@ -216,7 +141,23 @@ class LogixDriver(Base):
             raise DataError(err)
 
     @with_forward_open
-    def get_plc_info(self):
+    def get_plc_info(self) -> dict:
+        """
+        Reads basic information from the controller, returns it and stores it in the ``info`` property.
+
+        info = {
+            'vendor': 'Rockwell Automation/Allen-Bradley',
+            'product_type': 'Programmable Logic Controller',
+            'product_code': 55,
+            'version_major': 20,
+            'version_minor': 12,
+            'revision': '20.12',
+            'serial': '00ff00ff',
+            'device_type': '1756-L62/B LOGIX5562',
+            'keyswitch': 'REMOTE RUN',
+            'name': 'PLCA'
+        }
+        """
         try:
             request = self.new_request('send_unit_data')
             request.add(
@@ -240,26 +181,27 @@ class LogixDriver(Base):
         except Exception as err:
             raise DataError(err)
 
-    def get_tag_list(self, program=None, cache=True):
+    @with_forward_open
+    def get_tag_list(self, program: str = None, cache: bool = True) -> List[dict]:
         """
-        Returns the list of tags from the controller. For only controller-scoped tags, get `program` to None (default).
+        Returns the list of tags from the controller. For only controller-scoped tags, set `program` to None (default).
         Set `program` to a program name to only get the program scoped tags from the specified program.
         To get all controller and all program scoped tags from all programs, set `program` to '*'
 
         Note, for program scoped tags the tag['tag_name'] will be 'Program:{program}.{tag_name}'. This is so the tag
         list can be fed directly into the read function.
 
-        If the `cache` parameter is True (default), the list of tags will be stored so they can be referenced later.  This
-        also allows the read/write methods to use the cached instance id's and allow packing more tags into a single
-        request.
+        If the `cache` parameter is True (default), the list of tags will be stored so they can be referenced later.
+        This also allows the read/write methods to use the cached instance id's and allow packing more tags into a single
+        request.  While this method returns a list of tags, when cached the tag list is stored as a dict of {tag['tag_name'] : tag, ...}
         """
-        if cache:
-            self._cache = {
-                'tag_name:id': {},
-                'id:struct': {},
-                'handle:id': {},
-                'id:udt': {}
-            }
+
+        self._cache = {
+            'tag_name:id': {},
+            'id:struct': {},
+            'handle:id': {},
+            'id:udt': {}
+        }
 
         if program == '*':
             tags = self._get_tag_list()
@@ -291,11 +233,6 @@ class LogixDriver(Base):
         of the attribute data associated with the requested attribute
         """
         try:
-            if not self._target_is_connected:
-                if not self.forward_open():
-                    self.__log.warning("Target did not connected. get_tag_list will not be executed.")
-                    raise DataError("Target did not connected. get_tag_list will not be executed.")
-
             last_instance = 0
             tag_list = []
             while last_instance != -1:
@@ -330,8 +267,8 @@ class LogixDriver(Base):
                     b'\x03\x00',  # Attr. 3 : Symbol Address
                     b'\x05\x00',  # Attr. 5 : Symbol Object Address
                     b'\x06\x00',  # Attr. 6 : ? - Not documented (Software Control?)
-                    b'\x0a\x00',   # Attr. 10 : external access
-                    b'\x08\x00'    # Attr. 8 : array dimensions [1,2,3]
+                    b'\x0a\x00',  # Attr. 10 : external access
+                    b'\x08\x00'  # Attr. 8 : array dimensions [1,2,3]
                 )
                 response = request.send()
                 if not response:
@@ -360,11 +297,11 @@ class LogixDriver(Base):
                 symbol_type = unpack_uint(tags_returned[idx:idx + 2])
                 idx += 2
                 count += 1
-                symbol_address = unpack_udint(tags_returned[idx:idx+4])
+                symbol_address = unpack_udint(tags_returned[idx:idx + 4])
                 idx += 4
-                symbol_object_address = unpack_udint(tags_returned[idx:idx+4])
+                symbol_object_address = unpack_udint(tags_returned[idx:idx + 4])
                 idx += 4
-                software_control = unpack_udint(tags_returned[idx:idx+4])
+                software_control = unpack_udint(tags_returned[idx:idx + 4])
                 idx += 4
                 access = tags_returned[idx] & 0b_0011
                 idx += 1
@@ -569,7 +506,7 @@ class LogixDriver(Base):
         info_len = member_count * TEMPLATE_MEMBER_INFO_LEN
         info_data = data[:info_len]
         member_data = [self._parse_template_data_member_info(info)
-                       for info in (info_data[i:i+TEMPLATE_MEMBER_INFO_LEN]
+                       for info in (info_data[i:i + TEMPLATE_MEMBER_INFO_LEN]
                                     for i in range(0, info_len, TEMPLATE_MEMBER_INFO_LEN))]
         member_names = []
         template_name = None
@@ -601,8 +538,8 @@ class LogixDriver(Base):
             template['internal_tags'][member] = info
 
         if template['attributes'] == ['LEN', 'DATA'] and \
-           template['internal_tags']['DATA']['data_type'] == 'SINT' and \
-           template['internal_tags']['DATA'].get('array'):
+                template['internal_tags']['DATA']['data_type'] == 'SINT' and \
+                template['internal_tags']['DATA'].get('array'):
             template['string'] = template['internal_tags']['DATA']['array']
 
         return template
@@ -647,7 +584,12 @@ class LogixDriver(Base):
         return self._cache['id:udt'][instance_id]
 
     @with_forward_open
-    def read(self, *tags):
+    def read(self, *tags: str) -> Union[Tag, List[Tag]]:
+        """
+
+        :param tags: one or many tags to read
+        :return: one or many ``Tag`` objects
+        """
 
         parsed_requests = self._parse_requested_tags(tags)
         requests = self._read__build_requests(parsed_requests)
@@ -717,7 +659,7 @@ class LogixDriver(Base):
         return requests
 
     @with_forward_open
-    def write(self, *tags_values):
+    def write(self, *tags_values: Sequence[Tuple[str, Union[int, float, str, bool]]]) -> Union[Tag, List[Tag]]:
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 
@@ -919,6 +861,85 @@ class LogixDriver(Base):
     #  OLD CODE - to be removed
     #
     # --------------------------------------------------------------
+
+    def create_tag_rp(self, tag):
+        """ Creates a request pad
+
+        It returns the request packed wrapped around the tag passed.
+        If any error it returns none
+        """
+        tags = tag.split('.')
+        if tags:
+            base, *attrs = tags
+
+            if self.use_instance_ids and base in self.tags:
+                rp = [CLASS_ID['8-bit'],
+                      CLASS_CODE['Symbol Object'],
+                      INSTANCE_ID['16-bit'], b'\x00',
+                      pack_uint(self.tags[base]['instance_id'])]
+            else:
+                base_tag, index = self._find_tag_index(base)
+                base_len = len(base_tag)
+                rp = [EXTENDED_SYMBOL,
+                      pack_usint(base_len),
+                      base_tag]
+                if base_len % 2:
+                    rp.append(PADDING_BYTE)
+                if index is None:
+                    return None
+                else:
+                    rp += index
+
+            for attr in attrs:
+                attr, index = self._find_tag_index(attr)
+                tag_length = len(attr)
+                # Create the request path
+                attr_path = [EXTENDED_SYMBOL,
+                             pack_usint(tag_length),
+                             attr]
+                # Add pad byte because total length of Request path must be word-aligned
+                if tag_length % 2:
+                    attr_path.append(PADDING_BYTE)
+                # Add any index
+                if index is None:
+                    return None
+                else:
+                    attr_path += index
+                rp += attr_path
+
+            # At this point the Request Path is completed,
+            request_path = b''.join(rp)
+            request_path = bytes([len(request_path) // 2]) + request_path
+
+            return request_path
+
+        return None
+
+    def _find_tag_index(self, tag):
+        if '[' in tag:  # Check if is an array tag
+            t = tag[:len(tag) - 1]  # Remove the last square bracket
+            inside_value = t[t.find('[') + 1:]  # Isolate the value inside bracket
+            index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
+            tag = t[:t.find('[')]  # Get only the tag part
+        else:
+            index = []
+        return tag.encode(), self._encode_tag_index(index)
+
+    @staticmethod
+    def _encode_tag_index(index):
+        path = []
+        for idx in index:
+            val = int(idx)
+            if val <= 0xff:
+                path += [ELEMENT_ID["8-bit"], pack_usint(val)]
+            elif val <= 0xffff:
+                path += [ELEMENT_ID["16-bit"], PADDING_BYTE, pack_uint(val)]
+            elif val <= 0xfffffffff:
+                path += [ELEMENT_ID["32-bit"], PADDING_BYTE, pack_dint(val)]
+            else:
+                return None  # Cannot create a valid request packet
+        return path
+
     def _check_reply(self, reply):
         """ check the replayed message for error
 
@@ -1433,11 +1454,11 @@ class LogixDriver(Base):
                     byte_offset += byte_size
 
                 msg = self.build_common_packet_format(
-                            DATA_ITEM['Connected'],
-                            b''.join(message_request),
-                            ADDRESS_ITEM['Connection Based'],
-                            addr_data=self._target_cid,
-                        )
+                    DATA_ITEM['Connected'],
+                    b''.join(message_request),
+                    ADDRESS_ITEM['Connection Based'],
+                    addr_data=self._target_cid,
+                )
 
                 success, reply = self.send_unit_data(msg)
                 if not success:
@@ -1497,7 +1518,6 @@ def _unit_data_status(reply):
 
 
 def _parse_plc_name(response):
-
     if response.service_status != SUCCESS:
         raise DataError(f'get_plc_name returned status {get_service_status(response.error)}')
     try:
@@ -1509,27 +1529,27 @@ def _parse_plc_name(response):
 
 
 def _parse_plc_info(data):
-        vendor = unpack_uint(data[0:2])
-        product_type = unpack_uint(data[2:4])
-        product_code = unpack_uint(data[4:6])
-        major_fw = int(data[6])
-        minor_fw = int(data[7])
-        keyswitch = KEYSWITCH.get(int(data[8]), {}).get(int(data[9]), 'UNKNOWN')
-        serial_number = f'{unpack_udint(data[10:14]):0{8}x}'
-        device_type_len = int(data[14])
-        device_type = data[15:15 + device_type_len].decode()
+    vendor = unpack_uint(data[0:2])
+    product_type = unpack_uint(data[2:4])
+    product_code = unpack_uint(data[4:6])
+    major_fw = int(data[6])
+    minor_fw = int(data[7])
+    keyswitch = KEYSWITCH.get(int(data[8]), {}).get(int(data[9]), 'UNKNOWN')
+    serial_number = f'{unpack_udint(data[10:14]):0{8}x}'
+    device_type_len = int(data[14])
+    device_type = data[15:15 + device_type_len].decode()
 
-        return {
-            'vendor': VENDORS.get(vendor, 'UNKNOWN'),
-            'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
-            'product_code': product_code,
-            'version_major': major_fw,
-            'version_minor': minor_fw,
-            'revision': f'{major_fw}.{minor_fw}',
-            'serial': serial_number,
-            'device_type': device_type,
-            'keyswitch': keyswitch
-        }
+    return {
+        'vendor': VENDORS.get(vendor, 'UNKNOWN'),
+        'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
+        'product_code': product_code,
+        'version_major': major_fw,
+        'version_minor': minor_fw,
+        'revision': f'{major_fw}.{minor_fw}',
+        'serial': serial_number,
+        'device_type': device_type,
+        'keyswitch': keyswitch
+    }
 
 
 def writable_value(value, elements, data_type):

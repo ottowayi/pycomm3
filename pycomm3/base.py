@@ -131,9 +131,6 @@ class Base:
     def name(self):
         return self._info.get('name')
 
-    def _check_reply(self, reply):
-        raise NotImplementedError("The method has not been implemented")
-
     def new_request(self, command):
         """ Creates a new RequestPacket based on the command"""
         cls = REQUEST_MAP[command]
@@ -361,8 +358,8 @@ class Base:
         major_fw = int(reply[6])
         minor_fw = int(reply[7])
         status = f'{unpack_uint(reply[8:10]):0{16}b}'
-        serial_number = f'{unpack_udint(reply[10:12]):0{8}x}'
-        product_name_len = int(reply[12])
+        serial_number = f'{unpack_udint(reply[10:14]):0{8}x}'
+        product_name_len = int(reply[14])
         tmp = 15 + product_name_len
         device_type = reply[15:tmp].decode()
 
@@ -427,13 +424,11 @@ class Base:
                     return False
                 return True
             except Exception as e:
-                # self.clean_up()
                 raise CommError(e)
 
     def close(self):
         """
         socket close
-        :return: true if no error otherwise false
         """
         errs = []
         try:
@@ -468,6 +463,10 @@ class Base:
     #  OLD CODE - to be removed
     #
     # --------------------------------------------------------------
+
+    def _check_reply(self, reply):
+        raise NotImplementedError("The method has not been implemented")
+
     def nop(self):
         """ No replay command
 

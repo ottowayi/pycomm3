@@ -19,11 +19,12 @@ setup(
     packages=find_packages(),
     python_requires='>=3.6',
     install_requires=['autologging',
-                      'pypiwin32;platform_system=="Windows"'],
+                      'pywin32;platform_system=="Windows"'],
     include_package_data=True,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
+        'Intended Audience :: Manufacturing',
         'Natural Language :: English',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
