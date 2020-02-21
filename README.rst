@@ -114,9 +114,10 @@ indicate either the CIP error or exception that was thrown.  ``Tag.__bool__()`` 
 ``type`` will indicate the data type of the tag and include ``[<length>]`` if multiple array elements are requested.
 ``value`` will contain the value of the tag either read or written, structures (read only) will be in the form of a
 ``{ attribute: value, ... }``.  Even though strings are technically structures, both reading and writing support
-automatically converting them to/from normal string objects.  Any structures that contain a DINT and an array of SINTs
-will be treated as a string.  Reading of structures as a whole is supported as long as no attributes have External Access
-set to None (CIP limitation).  Writing structures as a whole is not supported (for the time being) except for string objects.
+automatically converting them to/from normal string objects.  Any structures that have only the attributes ``LEN`` (DINT)
+and ``DATA`` (array of SINT) will automatically be treated as strings. Reading of structures as a whole is supported
+as long as no attributes have External Access set to None (CIP limitation).  Writing structures as a whole is not
+supported (for the time being) except for string objects.
 
 
 Examples::
