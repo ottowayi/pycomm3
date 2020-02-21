@@ -49,9 +49,7 @@ The package can be installed from
 PIP:
 ::
 
-    pip install git+https://github.com/ottowayi/pycomm3.git
-
-Eventually this library will be published to PyPI when it's ready.
+    pip install pycomm3
 
 
 Basic Usage
