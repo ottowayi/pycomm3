@@ -94,7 +94,7 @@ Reading/Writing Tags
 --------------------
 
 Reading or writing tags is as simple as calling the ``read`` and ``write`` methods. Both methods accept any number of tags,
-and will automatically pack multiple tags into a _Multiple Service Packet Service (0x0A)_ while making sure to stay below the connection size.
+and will automatically pack multiple tags into a *Multiple Service Packet Service (0x0A)* while making sure to stay below the connection size.
 If there is a tag value that cannot fit within the request/reply packet, it will automatically handle that tag independently
 using the *Read Tag Fragmented (0x52)* or *Write Tag Fragmented (0x53)* requests.
 Other similar libraries do not do this automatically, this library attempts to be as seamless as possible.
