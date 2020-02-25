@@ -24,7 +24,7 @@
 # SOFTWARE.
 #
 
-__version_info__ = (0, 4, 1)
+__version_info__ = (0, 4, 2)
 __version__ = '.'.join(f'{x}' for x in __version_info__)
 
 from typing import NamedTuple, Any, Union, Optional
@@ -54,7 +54,7 @@ def _mkstr(value):
 class Tag(NamedTuple):
     tag: str
     value: Any
-    type: Union[str, None]
+    type: Optional[str] = None
     error: Optional[str] = None
 
     def __bool__(self):
