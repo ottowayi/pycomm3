@@ -113,6 +113,10 @@ class LogixDriver(Base):
         """
         return self._tags
 
+    @property
+    def data_types(self):
+        return self._data_types
+
     @with_forward_open
     def get_plc_name(self) -> str:
         try:
@@ -367,7 +371,6 @@ class LogixDriver(Base):
                 if tag['symbol_type'] & 0b_1000_0000_0000_0000:  # bit 15, 1 = struct, 0 = atomic
                     template_instance_id = tag['symbol_type'] & 0b_0000_1111_1111_1111
                     new_tag['tag_type'] = 'struct'
-                    new_tag['data_type'] = 'user-created'
                     new_tag['template_instance_id'] = template_instance_id
                 else:
                     new_tag['tag_type'] = 'atomic'
@@ -578,6 +581,7 @@ class LogixDriver(Base):
                     data_type = self._parse_template_data(_data, template['member_count'])
                     data_type['template'] = template
                     self._cache['id:udt'][instance_id] = data_type
+                    self._data_types[data_type['name']] = data_type
             except Exception:
                 self.__log.exception('fuck')
 
