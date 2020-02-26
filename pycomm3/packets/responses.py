@@ -209,7 +209,6 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
         for data, tag in zip(reply_data, self.tags):
             service = unpack_uint(data)
-            # if service in (TAG_SERVICES_REPLY['Read Tag'], TAG_SERVICES_REPLY['Write Tag']):
             service_status = data[2]
             tag['service_status'] = service_status
             if service_status != SUCCESS:

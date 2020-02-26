@@ -754,17 +754,20 @@ class LogixDriver(Base):
                     continue
         return requests, bit_writes
 
-    def _get_tag_info(self, base, attrs):
+    def _get_tag_info(self, base, attrs) -> Optional[dict]:
 
         def _recurse_attrs(attrs, data):
             cur, *remain = attrs
+            curr_tag = _strip_array(cur)
             if not len(remain):
-                return data[_strip_array(cur)]
+                return data.get(curr_tag)
             else:
-                return _recurse_attrs(remain, data[_strip_array(cur)]['data_type']['internal_tags'])
-
+                if curr_tag in data:
+                    return _recurse_attrs(remain, data[curr_tag]['data_type']['internal_tags'])
+                else:
+                    return None
         try:
-            data = self._tags[_strip_array(base)]
+            data = self._tags.get(_strip_array(base))
             if not len(attrs):
                 return data
             else:
@@ -779,19 +782,23 @@ class LogixDriver(Base):
         for tag in tags:
             parsed = {}
             try:
-                plc_tag, bit, elements, tag_info = self._parse_tag_request(tag)
+                parsed_request = self._parse_tag_request(tag)
+                if parsed_request is not None:
+                    plc_tag, bit, elements, tag_info = parsed_request
+                    parsed['plc_tag'] = plc_tag
+                    parsed['bit'] = bit
+                    parsed['elements'] = elements
+                    parsed['tag_info'] = tag_info
+                else:
+                    parsed['error'] = 'Failed to parse tag request'
             except RequestError as err:
                 parsed['error'] = str(err)
-            else:
-                parsed['plc_tag'] = plc_tag
-                parsed['bit'] = bit
-                parsed['elements'] = elements
-                parsed['tag_info'] = tag_info
+
             finally:
                 requests[tag] = parsed
         return requests
 
-    def _parse_tag_request(self, tag: str):
+    def _parse_tag_request(self, tag: str) -> Optional[Tuple[str, Optional[int], int, dict]]:
         try:
             if tag.endswith('}') and '{' in tag:
                 tag, _tmp = tag.split('{')
@@ -1592,7 +1599,7 @@ def _tag_return_size(tag_info):
     else:
         size = tag_info['data_type']['template']['structure_size']
 
-    return size
+    return size + 12  # account for service overhead
 
 
 def _string_to_sint_array(string, string_len):
