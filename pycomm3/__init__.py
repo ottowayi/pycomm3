@@ -36,4 +36,3 @@ from .exceptions import PycommError, CommError, DataError, RequestError
 from .cip_base import CIPDriver
 from .clx import LogixDriver
 from .slc import SLCDriver
-
