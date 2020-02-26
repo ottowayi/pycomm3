@@ -69,3 +69,4 @@ class Tag(NamedTuple):
 
 
 from .clx import LogixDriver
+from .slc import SLCDriver

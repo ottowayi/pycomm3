@@ -24,9 +24,17 @@
 # SOFTWARE.
 #
 
-raise NotImplementedError('The SLC Driver has not been translated to Python 3 and currently is broken.')
+# raise NotImplementedError('The SLC Driver has not been translated to Python 3 and currently is broken.')
 
-from pycomm3.base import *
+from pycomm3.const import (REPLY_INFO, PCCC_CT, PCCC_DATA_SIZE, PCCC_DATA_TYPE, PCCC_ERROR_CODE, SUCCESS, 
+                           ENCAPSULATION_COMMAND, SERVICE_STATUS, DATA_ITEM, ADDRESS_ITEM, CLASS_ID, PATH,
+                           TAG_SERVICES_REPLY)
+
+from pycomm3.bytes_ import (pack_uint, unpack_usint, unpack_dint, unpack_uint, pack_usint, 
+                             UNPACK_PCCC_DATA_FUNCTION, PACK_PCCC_DATA_FUNCTION )
+from pycomm3.base import Base
+from pycomm3 import DataError
+
 import re
 import math
 #import binascii
@@ -162,27 +170,28 @@ class SLCDriver(Base):
     """
     SLC/PLC_5 Implementation
     """
-    def __init__(self):
-        super(SLCDriver, self).__init__()
+    def __init__(self, ip_address):
 
-        self.__version__ = '0.1'
+        super().__init__()
+        self.attribs['ip address'] = ip_address
         self._last_sequence = 0
 
-    def _check_reply(self):
+    def _check_reply(self, reply):
         """
         check the replayed message for error
         """
         self._more_packets_available = False
+        self._reply = reply
         try:
             if self._reply is None:
-                self._status = (3, '%s without reply' % REPLAY_INFO[unpack_dint(self._message[:2])])
+                self._status = (3, '%s without reply' % REPLY_INFO[unpack_dint(self._message[:2])])
                 return False
             # Get the type of command
             typ = unpack_uint(self._reply[:2])
 
             # Encapsulation status check
             if unpack_dint(self._reply[8:12]) != SUCCESS:
-                self._status = (3, "{0} reply status:{1}".format(REPLAY_INFO[typ],
+                self._status = (3, "{0} reply status:{1}".format(REPLY_INFO[typ],
                                                                  SERVICE_STATUS[unpack_dint(self._reply[8:12])]))
                 return False
 
@@ -191,17 +200,17 @@ class SLCDriver(Base):
                 status = unpack_usint(self._reply[42:43])
                 if status != SUCCESS:
                     self._status = (3, "send_rr_data reply:{0} - Extend status:{1}".format(
-                        SERVICE_STATUS[status], get_extended_status(self._reply, 42)))
+                        SERVICE_STATUS[status], self.get_extended_status(self._reply, 42)))
                     return False
                 else:
                     return True
 
             elif typ == unpack_uint(ENCAPSULATION_COMMAND["send_unit_data"]):
                 status = unpack_usint(self._reply[48:49])
-                if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Read Tag Fragmented"]:
+                if unpack_usint(self._reply[46:47]) == TAG_SERVICES_REPLY["Read Tag Fragmented"]:
                     self._parse_fragment(50, status)
                     return True
-                if unpack_usint(self._reply[46:47]) == I_TAG_SERVICES_REPLY["Get Instance Attributes List"]:
+                if unpack_usint(self._reply[46:47]) == TAG_SERVICES_REPLY["Get Instance Attributes List"]:
                     self._parse_tag_list(50, status)
                     return True
                 if status == 0x06:
@@ -209,7 +218,7 @@ class SLCDriver(Base):
                     self._more_packets_available = True
                 elif status != SUCCESS:
                     self._status = (3, "send_unit_data reply:{0} - Extend status:{1}".format(
-                        SERVICE_STATUS[status], get_extended_status(self._reply, 48)))
+                        SERVICE_STATUS[status], self.get_extended_status(self._reply, 48)))
                     return False
                 else:
                     return True
@@ -255,7 +264,7 @@ class SLCDriver(Base):
         ]
 
         if self.send_unit_data(
-            build_common_packet_format(
+            self.build_common_packet_format(
                 DATA_ITEM['Connected'],
                 b''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
@@ -305,7 +314,7 @@ class SLCDriver(Base):
         ]
 
         if self.send_unit_data(
-            build_common_packet_format(
+            self.build_common_packet_format(
                 DATA_ITEM['Connected'],
                 b''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
@@ -396,7 +405,7 @@ class SLCDriver(Base):
 
         logger.debug("SLC read_tag({0},{1})".format(tag, n))
         if self.send_unit_data(
-            build_common_packet_format(
+            self.build_common_packet_format(
                 DATA_ITEM['Connected'],
                 b''.join(message_request),
                 ADDRESS_ITEM['Connection Based'],
@@ -421,7 +430,7 @@ class SLCDriver(Base):
 
                     tag_value = UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](
                         self._reply[new_value:new_value+data_size])
-                    return get_bit(tag_value, bit_position)
+                    return (tag_value & (1 << bit_position)) != 0
 
                 else:
                     values_list = []
@@ -477,9 +486,9 @@ class SLCDriver(Base):
         if int(res[2]['address_field'] == 3):
             bit_field = True
             bit_position = int(res[2]['sub_element'])
-            values_list = ''
+            values_list = b''
         else:
-            values_list = '\xff\xff'
+            values_list = b'\xff\xff'
 
         multi_requests = False
         if isinstance(value, list):
@@ -506,7 +515,7 @@ class SLCDriver(Base):
                     if (res[2]['file_type'] == 'T' or res[2]['file_type'] == 'C') \
                             and (bit_position == PCCC_CT['PRE'] or bit_position == PCCC_CT['ACC']):
                         sub_element = bit_position
-                        values_list = '\xff\xff' + PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](value)
+                        values_list = b'\xff\xff' + PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](value)
                     else:
                         sub_element = 0
                         if value > 0:
@@ -553,12 +562,12 @@ class SLCDriver(Base):
 
         logger.debug("SLC write_tag({0},{1})".format(tag, value))
         if self.send_unit_data(
-            build_common_packet_format(
+            self.build_common_packet_format(
                 DATA_ITEM['Connected'],
                 b''.join(message_request) + data_to_write,
                 ADDRESS_ITEM['Connection Based'],
                 addr_data=self._target_cid,)):
-            sts = int(unpack_usint(self._reply[58]))
+            sts = int(self._reply[58])
             try:
                 if sts != 0:
                     sts_txt = PCCC_ERROR_CODE[sts]
