@@ -22,9 +22,7 @@
 # SOFTWARE.
 #
 
-import datetime
-import itertools
-import time
+
 import re
 import logging
 from typing import Union, List, Tuple, Optional
@@ -269,7 +267,7 @@ def parse_tag(tag):
     return False, tag
 
 
+
 def get_bit(value, idx):
     """:returns value of bit at position idx"""
     return (value & (1 << idx)) != 0
-
