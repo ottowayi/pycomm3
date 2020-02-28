@@ -352,7 +352,7 @@ class LogixDriver(Base):
                     continue
 
                 if program is not None:
-                    name = f'{program}.{name}'
+                    name = f'Program:{program}.{name}'
 
                 self._cache['tag_name:id'][name] = tag['instance_id']
 
@@ -809,6 +809,8 @@ class LogixDriver(Base):
             bit = None
 
             base, *attrs = tag.split('.')
+            if base.startswith('Program:'):
+                base = f'{base}.{attrs.pop(0)}'
             if len(attrs) and attrs[-1].isdigit():
                 _bit = attrs.pop(-1)
                 bit = ('bit', int(_bit))
