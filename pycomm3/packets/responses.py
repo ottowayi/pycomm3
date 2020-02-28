@@ -209,7 +209,6 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
         for data, tag in zip(reply_data, self.tags):
             service = unpack_uint(data)
-            # if service in (TAG_SERVICES_REPLY['Read Tag'], TAG_SERVICES_REPLY['Write Tag']):
             service_status = data[2]
             tag['service_status'] = service_status
             if service_status != SUCCESS:
@@ -372,6 +371,7 @@ def parse_read_reply_struct(data, data_type):
             values[tag] = value
         elif datatype.get('string'):
             str_size = datatype.get('string') + 4
+            str_size += str_size % 4
             if array:
                 array_data = data[offset:offset + (str_size * array)]
                 values[tag] = [parse_string(array_data[i:i+str_size]) for i in range(0, len(array_data), str_size)]
