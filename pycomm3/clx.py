@@ -87,7 +87,7 @@ class LogixDriver(Base):
         self._cache = None
 
         self._data_types = {}
-        self._program_names = []
+        self._program_names = set()
         self._tags = {}
 
         self.attribs['ip address'] = ip_address
@@ -344,7 +344,7 @@ class LogixDriver(Base):
             for tag in all_tags:
                 name = tag['tag_name'].decode()
                 if 'Program:' in name:
-                    self._program_names.append(name)
+                    self._program_names.add(name.replace('Program:', ''))
                     continue
                 if ':' in name or '__' in name:
                     continue
