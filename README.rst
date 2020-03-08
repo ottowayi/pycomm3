@@ -65,13 +65,13 @@ use the ``slot`` kwarg if the PLC is not in slot 0.  CompactLogix leave ``slot=0
     with LogixDriver('10.20.30.100', slot=1) as plc:
         print(plc)
         # OUTPUT:
-        # Program Name: PLCA, Device: 1756-L74/A LOGIX5574, Revision: 31.11
+        # Program Name: PLCA, Device: 1756-L83E/B, Revision: 28.13
 
         print(plc.info)
         # OUTPUT:
         # {'vendor': 'Rockwell Automation/Allen-Bradley', 'product_type': 'Programmable Logic Controller',
-        # 'product_code': 55, 'version_major': 20, 'version_minor': 12, 'revision': '20.12', 'serial': '004b8fe0',
-        # 'device_type': '1756-L62/B LOGIX5562', 'keyswitch': 'REMOTE RUN', 'name': 'PLCA'}
+        #  'product_code': 166, 'version_major': 28, 'version_minor': 13, 'revision': '28.13', 'serial': 'FFFFFFFF',
+        #  'device_type': '1756-L83E/B', 'keyswitch': 'REMOTE RUN', 'name': 'PLCA'}
 
 
 
@@ -104,7 +104,7 @@ Both methods will return ``Tag`` objects to reflect the success or failure of th
     class Tag(NamedTuple):
         tag: str
         value: Any
-        type: Union[str, None]
+        type: Optional[str] = None
         error: Optional[str] = None
 
 ``Tag`` objects are considered successful if the value is not None and the error is None.  Otherwise, the error will
