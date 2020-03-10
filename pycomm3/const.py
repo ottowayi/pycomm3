@@ -85,16 +85,16 @@ ATTRIBUTE_ID = {
     "16-bit": b'\x31',
 }
 
-# Path are combined as:
-# CLASS_ID + PATHS
-# For example PCCC path is CLASS_ID["8-bit"]+PATH["PCCC"] -> 0x20, 0x67, 0x24, 0x01.
-PATH = {
-    'Connection Manager': b'\x06\x24\x01',
-    'Router': b'\x02\x24\x01',
-    'Backplane Data Type': b'\x66\x24\x01',
-    'PCCC': b'\x67\x24\x01',
-    'DHCP Channel A': b'\xa6\x24\x01\x01\x2c\x01',
-    'DHCP Channel B': b'\xa6\x24\x01\x02\x2c\x01'
+PATH_SEGMENTS = {
+    'backplane': 0x01,
+    'bp': 0x01,
+    'enet': 0x02,
+    'dhrio-a': 0x02,
+    'dhrio-b': 0x03,
+    'dnet': 0x02,
+    'cnet': 0x02,
+    'dh485-a': 0x02,
+    'dh485-b': 0x03,
 }
 
 ENCAPSULATION_COMMAND = {  # Volume 2: 2-3.2 Command Field UINT 2 byte
