@@ -27,10 +27,10 @@
 import struct
 from collections import defaultdict
 from types import GeneratorType
-from typing import Union, List, Sequence, Tuple, Optional, Any
+from typing import Union, List, Sequence, Tuple, Optional
 
 from autologging import logged
-
+from functools import wraps
 from . import DataError, Tag, RequestError
 from .base import Base
 from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint, unpack_uint, unpack_dint, unpack_udint,
@@ -48,14 +48,14 @@ from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, 
 def with_forward_open(func):
     """Decorator to ensure a forward open request has been completed with the plc"""
 
-    def forward_open_decorator(self, *args, **kwargs):
+    @wraps(func)
+    def wrapped(self, *args, **kwargs):
         if not self.forward_open():
             msg = f'Target did not connected. {func.__name__} will not be executed.'
-            self.__log.warning(msg)
             raise DataError(msg)
         return func(self, *args, **kwargs)
 
-    return forward_open_decorator
+    return wrapped
 
 
 @logged
@@ -73,7 +73,7 @@ class LogixDriver(Base):
 
 """
 
-    def __init__(self, ip_address: str, *args, slot: int = 0, large_packets: bool = True,
+    def __init__(self, path: str, *args,  large_packets: bool = True,
                  init_info: bool = True, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
         """
         :param ip_address: IP address of PLC
@@ -83,15 +83,13 @@ class LogixDriver(Base):
         :param init_tags: if True, uploads all controller-scoped tag definitions on connect
         :param init_program_tags: if True, uploads all program-scoped tag definitions on connect
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(path, *args, **kwargs)
         self._cache = None
 
         self._data_types = {}
         self._program_names = set()
         self._tags = {}
 
-        self.attribs['ip address'] = ip_address
-        self.attribs['cpu slot'] = slot
         self.attribs['extended forward open'] = large_packets
         self.connection_size = 4000 if large_packets else 500
         self.use_instance_ids = True

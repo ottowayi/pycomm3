@@ -447,8 +447,6 @@ def _make_write_data_tag(tag_info, value, elements, request_path, fragmented=Fal
     else:
         _dt_value = pack_uint(DATA_TYPE[data_type])
 
-    # _val = writable_value(value, elements, data_type)
-
     service = bytes([TAG_SERVICES_REQUEST['Write Tag Fragmented' if fragmented else 'Write Tag']])
 
     request_path = b''.join((service,

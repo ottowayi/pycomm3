@@ -31,26 +31,82 @@ from autologging import logged
 from . import DataError, CommError
 from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_usint, unpack_udint,
                      print_bytes_msg, DATA_FUNCTION_SIZE, UNPACK_DATA_FUNCTION)
-from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, ENCAPSULATION_COMMAND, EXTENDED_SYMBOL,
+from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, ENCAPSULATION_COMMAND, EXTENDED_SYMBOL, PATH_SEGMENTS,
                     ELEMENT_ID, CLASS_CODE, PADDING_BYTE, CONNECTION_SIZE, CLASS_ID, INSTANCE_ID, FORWARD_CLOSE,
                     FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY, TIMEOUT_MULTIPLIER,
                     TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
 from .packets import REQUEST_MAP
 from .socket_ import Socket
+import socket
+
+
+def _parse_connection_path(path):
+    ip, *segments = path.split('/')
+    if not socket.inet_aton(ip):
+        raise ValueError('Invalid IP Address', ip)
+    segments = [_parse_path_segment(s) for s in segments]
+
+    if not segments:
+        _path = [pack_usint(PATH_SEGMENTS['backplane']), b'\x00']  # default backplane/0
+    elif len(segments) == 1:
+        _path = [pack_usint(PATH_SEGMENTS['backplane']), pack_usint(segments[0])]
+    else:
+        pairs = (segments[i:i + 2] for i in range(0, len(segments), 2))
+        _path = []
+        for port, dest in pairs:
+            if isinstance(dest, bytes):
+                port |= 1 << 4  # set Extended Link Address bit, CIP Vol 1 C-1.3
+                dest_len = len(dest)
+                if dest_len % 2:
+                    dest += b'\x00'
+                _path.extend([pack_usint(port), pack_usint(dest_len), dest])
+            else:
+                _path.extend([pack_usint(port), pack_usint(dest)])
+
+    _path += [
+        CLASS_ID['8-bit'],
+        CLASS_CODE['Message Router'],
+        INSTANCE_ID['8-bit'],
+        b'\x01'
+    ]
+
+    _path_bytes = b''.join(_path)
+
+    if len(_path_bytes) % 2:
+        _path_bytes += b'\x00'
+
+    return ip, pack_usint(len(_path_bytes) // 2) + _path_bytes
+
+
+def _parse_path_segment(segment: str):
+    try:
+        if segment.isnumeric():
+            return int(segment)
+        else:
+            tmp = PATH_SEGMENTS.get(segment.lower())
+            if tmp:
+                return tmp
+            else:
+                if socket.inet_aton(segment):
+                    return b''.join(pack_usint(ord(c)) for c in segment)
+    except:
+        raise ValueError(f'Failed to parse path segment', segment)
+
+    raise ValueError(f'Path segment is invalid', segment)
 
 
 @logged
 class Base:
     _sequence = 0
 
-    def __init__(self, direct_connection=False, debug=False):
+    def __init__(self, path, debug=False):
         if Base._sequence == 0:
             Base._sequence = getpid()
         else:
             Base._sequence = Base._get_sequence()
 
         self._sock = None
-        self.__direct_connections = direct_connection
+        # self.__direct_connections = direct_connection
         self._debug = debug
         self._session = 0
         self._connection_opened = False
@@ -60,21 +116,22 @@ class Base:
         self._last_tag_write = ()
         self._info = {}
         self.connection_size = 500
+        ip, _path = _parse_connection_path(path)
+
         self.attribs = {
             'context': b'_pycomm_',
             'protocol version': b'\x01\x00',
             'rpi': 5000,
             'port': 0xAF12,  # 44818
             'timeout': 10,
-            'backplane': 1,
-            'cpu slot': 0,
+            'ip address': ip,
+            'cip_path': _path,
             'option': 0,
             'cid': b'\x27\x04\x19\x71',
             'csn': b'\x27\x04',
             'vid': b'\x09\x10',
             'vsn': b'\x09\x10\x19\x71',
             'name': 'Base',
-            'ip address': None,
             'extended forward open': False}
 
     def __len__(self):
@@ -207,18 +264,9 @@ class Base:
 
         init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
         if self.attribs['extended forward open']:
-            connection_size = 4002
             net_params = pack_udint((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
-            connection_size = 500
             net_params = pack_uint((self.connection_size & 0x01FF) | init_net_params)
-
-        if self.__direct_connections:
-            connection_params = [CONNECTION_SIZE['Direct Network'], CLASS_ID["8-bit"], CLASS_CODE["Message Router"]]
-        else:
-            connection_params = [
-                CONNECTION_SIZE['Backplane'],
-            ]
 
         forward_open_msg = [
             FORWARD_OPEN if not self.attribs['extended forward open'] else LARGE_FORWARD_OPEN,
@@ -241,12 +289,7 @@ class Base:
             b'\x01\x40\x20\x00',
             net_params,
             TRANSPORT_CLASS,
-            *connection_params,
-            pack_usint(self.attribs['backplane']),
-            pack_usint(self.attribs['cpu slot']),
-            b'\x20\x02',
-            INSTANCE_ID["8-bit"],
-            b'\x01'
+            self.attribs['cip_path']
         ]
         request = self.new_request('send_rr_data')
         request.add(*forward_open_msg)
@@ -271,6 +314,8 @@ class Base:
             raise CommError("A session need to be registered before to call forward_close.")
         request = self.new_request('send_rr_data')
 
+        path_size, *path = self.attribs['cip_path']  # for some reason we need to add a 0x00 between these? CIP Vol 1
+
         forward_close_msg = [
             FORWARD_CLOSE,
             b'\x02',
@@ -283,24 +328,8 @@ class Base:
             self.attribs['csn'],
             self.attribs['vid'],
             self.attribs['vsn'],
-            CLASS_ID["8-bit"],
-            CLASS_CODE["Message Router"],
-            INSTANCE_ID["8-bit"],
-            b'\x01'
+            bytes([path_size, 0, *path])
         ]
-
-        if self.__direct_connections:
-            forward_close_msg[11:2] = [
-                CONNECTION_SIZE['Direct Network'],
-                b'\x00'
-            ]
-        else:
-            forward_close_msg[11:4] = [
-                CONNECTION_SIZE['Backplane'],
-                b'\x00',
-                pack_usint(self.attribs['backplane']),
-                pack_usint(self.attribs['cpu slot'])
-            ]
 
         request.add(*forward_close_msg)
         response = request.send()
