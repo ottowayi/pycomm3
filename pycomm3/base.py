@@ -32,7 +32,7 @@ from . import DataError, CommError
 from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_usint, unpack_udint,
                      print_bytes_msg, DATA_FUNCTION_SIZE, UNPACK_DATA_FUNCTION)
 from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, ENCAPSULATION_COMMAND, EXTENDED_SYMBOL, PATH_SEGMENTS,
-                    ELEMENT_ID, CLASS_CODE, PADDING_BYTE, CONNECTION_SIZE, CLASS_ID, INSTANCE_ID, FORWARD_CLOSE,
+                    ELEMENT_ID, CLASS_CODE, PADDING_BYTE, CLASS_ID, INSTANCE_ID, FORWARD_CLOSE,
                     FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY, TIMEOUT_MULTIPLIER,
                     TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
 from .packets import REQUEST_MAP
@@ -42,7 +42,9 @@ import socket
 
 def _parse_connection_path(path):
     ip, *segments = path.split('/')
-    if not socket.inet_aton(ip):
+    try:
+        socket.inet_aton(ip)
+    except OSError:
         raise ValueError('Invalid IP Address', ip)
     segments = [_parse_path_segment(s) for s in segments]
 
@@ -87,8 +89,11 @@ def _parse_path_segment(segment: str):
             if tmp:
                 return tmp
             else:
-                if socket.inet_aton(segment):
+                try:
+                    socket.inet_aton(segment)
                     return b''.join(pack_usint(ord(c)) for c in segment)
+                except OSError:
+                    raise ValueError('Invalid IP Address Segment', segment)
     except:
         raise ValueError(f'Failed to parse path segment', segment)
 
