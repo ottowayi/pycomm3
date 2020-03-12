@@ -94,6 +94,9 @@ Symbol Instance Addressing is only available on v21+, if the PLC is on a firmwar
 getting the controller info will automatically disable that feature.  If you disable ``init_info`` and are using a controller
 on a version lower than 21, set the ``plc.use_instance_ids`` attribute to false or your reads/writes will fail.
 
+Default behavior is to use the Extended Forward Open service when opening a connection.  This allows the use of 4KB of data for
+each request, standard is only 500B.  Although this requires the communications module to be an EN2T or newer and the PLC
+firmware to be version 20 or newer.  To use standard Forward Open service set the ``large_packets`` kwarg to False.
 
 Reading/Writing Tags
 --------------------
