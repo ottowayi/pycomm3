@@ -81,7 +81,7 @@ class LogixDriver:
             .. note::
 
                 Both the IP Address and IP Address/Slot options are shortcuts, they will be replaced with the
-                CIP path automatically.  The ``enet`` / ``backplane`` (or ``bp``) are symbols for the CIP routing
+                CIP path automatically.  The ``enet`` / ``backplane`` (or ``bp``) segments are symbols for the CIP routing
                 port numbers and will be replaced with the correct value.
 
         :param large_packets: if True (default), the *Extended Forward Open* service will be used

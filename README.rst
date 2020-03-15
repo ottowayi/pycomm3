@@ -26,7 +26,7 @@ is aimed at providing quick and convenient access for reading/writing data insid
 
 Implementation
 --------------
-The Logix5000 Controller Data Access Manual, available here `Rockwell Developer How-to Guides`_, was used to implement
+The Logix5000 Controller Data Access Manual, available from the `Rockwell Developer How-to Guides`_, was used to implement
 the Ethernet/IP features in this library.  Features like reading tags/arrays, writing tags/arrays, getting the tag list are
 all implemented based on the Data Access Manual.  The Rockwell KB Article *CIP Messages References* `748424`_ lists many useful KB Articles
 for using the MSG instruction to perform various Ethernet/IP services. The Rockwell Knowledge Base Article `23341`_ was used to implement feature
@@ -34,11 +34,11 @@ for getting the program name of the controller.  Article `28917`_ was used for c
 
 .. _Rockwell Developer How-to Guides: https://www.rockwellautomation.com/global/detail.page?pagetitle=Technology-Licensing-Developer-How-To-Guides&content_type=article&docid=f997dd3546ab8a53b86390649d17b89b#gate-44235fb6-1c27-499f-950b-e36e93af98de
 
-.. _23341: https://rockwellautomation.custhelp.com/app/answers/detail/a_id/23341
+.. _23341: https://rockwellautomation.custhelp.com/app/answers/answer_view/a_id/23341
 
-.. _748424: https://rockwellautomation.custhelp.com/app/answers/detail/a_id/748424/page/1
+.. _748424: https://rockwellautomation.custhelp.com/app/answers/answer_view/a_id/748424
 
-.. _28917: https://rockwellautomation.custhelp.com/app/answers/detail/a_id/28917
+.. _28917: https://rockwellautomation.custhelp.com/app/answers/answer_view/a_id/28917
 
 
 
@@ -61,7 +61,7 @@ has 3 forms:
   - IP Address Only (``10.20.30.100``) - Use if PLC is in slot 0 or if connecting to CompactLogix
   - IP Address/Slot (``10.20.30.100/1``) - Use if PLC is not in slot 0
   - CIP Routing Path (``10.20.30.100/backplane/3/enet/10.20.40.100/backplane/0``) - Use if needing to route thru a backplane
-     - first 2 examples will replaced with the full path automatically, they're there for convenience.
+     - first 2 examples will be replaced with the full path automatically, they're there for convenience.
      - ``enet``/``backplane`` (or ``bp``) are for port selection, standard CIP routing but without having to remember
        which port is what value.
 
@@ -96,7 +96,7 @@ on a version lower than 21, set the ``plc.use_instance_ids`` attribute to false 
 
 Default behavior is to use the Extended Forward Open service when opening a connection.  This allows the use of 4KB of data for
 each request, standard is only 500B.  Although this requires the communications module to be an EN2T or newer and the PLC
-firmware to be version 20 or newer.  To use standard Forward Open service set the ``large_packets`` kwarg to False.
+firmware to be version 20 or newer.  To use standard the Forward Open service set the ``large_packets`` kwarg to False.
 
 Reading/Writing Tags
 --------------------
