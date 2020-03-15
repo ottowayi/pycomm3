@@ -231,7 +231,7 @@ class SLCDriver(Base):
         """
 
         # Creating the Message Request Packet
-        self._last_sequence = pack_uint(Base._get_sequence())
+        self._last_sequence = pack_uint(self._sequence)
 
         #  PCCC_Cmd_Rd_w3_Q2 = [0x0f, 0x00, 0x30, 0x00, 0xa2, 0x6d, 0x00, 0xa5, 0x02, 0x00]
         message_request = [
@@ -279,7 +279,7 @@ class SLCDriver(Base):
         """ get queue size
         """
         # Creating the Message Request Packet
-        self._last_sequence = pack_uint(Base._get_sequence())
+        self._last_sequence = pack_uint(self._sequence)
 
         message_request = [
             self._last_sequence,
@@ -371,7 +371,7 @@ class SLCDriver(Base):
         data_size = PCCC_DATA_SIZE[res[2]['file_type']]
 
         # Creating the Message Request Packet
-        self._last_sequence = pack_uint(Base._get_sequence())
+        self._last_sequence = pack_uint(self._sequence)
         
         message_request = [
             self._last_sequence,
@@ -528,7 +528,7 @@ class SLCDriver(Base):
         data_to_write = values_list
 
         # Creating the Message Request Packet
-        self._last_sequence = pack_uint(Base._get_sequence())
+        self._last_sequence = pack_uint(self._sequence)
 
         message_request = [
             self._last_sequence,
