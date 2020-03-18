@@ -33,7 +33,7 @@ from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceRespons
                WriteTagFragmentedServiceResponsePacket)
 from .. import CommError, RequestError
 from ..bytes_ import pack_uint, pack_udint, pack_dint, print_bytes_msg, pack_usint, PACK_DATA_FUNCTION
-from ..const import (ENCAPSULATION_COMMAND, INSUFFICIENT_PACKETS, DATA_ITEM, ADDRESS_ITEM,
+from ..const import (ENCAPSULATION_COMMAND, INSUFFICIENT_PACKETS, DATA_ITEM, ADDRESS_ITEM, EXTENDED_SYMBOL, ELEMENT_ID,
                      TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_ID, INSTANCE_ID, DATA_TYPE, DATA_TYPE_SIZE)
 
 
@@ -156,7 +156,7 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
-        request_path = self._plc._create_tag_rp(self.tag)
+        request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
         if request_path is None:
             self.error = 'Invalid Tag Request Path'
 
@@ -194,7 +194,7 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
-        self.request_path = self._plc._create_tag_rp(self.tag)
+        self.request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
         if self.request_path is None:
             self.error = 'Invalid Tag Request Path'
 
@@ -245,7 +245,7 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
         self.elements = elements
         self.tag_info = tag_info
         self.value = value
-        request_path = self._plc._create_tag_rp(self.tag)
+        request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
         if request_path is None:
             self.error = 'Invalid Tag Request Path'
             
@@ -296,7 +296,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         self.elements = elements
         self.data_type = tag_info['data_type']
         self.tag_info = tag_info
-        self.request_path = self._plc._create_tag_rp(self.tag)
+        self.request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
         if self.request_path is None:
             self.error = 'Invalid Tag Request Path'
 
@@ -380,7 +380,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
 
     def add_read(self, tag, elements=1, tag_info=None):
 
-        request_path = self._plc._create_tag_rp(tag)
+        request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
         if request_path is not None:
 
             request_path = bytes([TAG_SERVICES_REQUEST['Read Tag']]) + request_path + pack_uint(elements)
@@ -397,7 +397,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
             raise RequestError('Failed to create request path')
 
     def add_write(self, tag, value, elements=1, tag_info=None, bits_write=None):
-        request_path = self._plc._create_tag_rp(tag)
+        request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
         if request_path is not None:
             if bits_write:
                 data_type = tag_info['data_type']
@@ -523,3 +523,83 @@ class ListIdentityRequestPacket(RequestPacket):
         self._send(msg)
         reply = self._receive()
         return ListIdentityResponsePacket(reply)
+
+
+def _create_tag_rp(tag, tag_cache, use_instance_ids):
+    """
+
+    It returns the request packed wrapped around the tag passed.
+    If any error it returns none
+    """
+    tags = tag.split('.')
+    if tags:
+        base, *attrs = tags
+
+        if use_instance_ids and base in tag_cache:
+            rp = [CLASS_ID['8-bit'],
+                  CLASS_CODE['Symbol Object'],
+                  INSTANCE_ID['16-bit'], b'\x00',
+                  pack_uint(tag_cache[base]['instance_id'])]
+        else:
+            base_tag, index = _find_tag_index(base)
+            base_len = len(base_tag)
+            rp = [EXTENDED_SYMBOL,
+                  pack_usint(base_len),
+                  base_tag]
+            if base_len % 2:
+                rp.append(b'\x00')
+            if index is None:
+                return None
+            else:
+                rp += index
+
+        for attr in attrs:
+            attr, index = _find_tag_index(attr)
+            tag_length = len(attr)
+            # Create the request path
+            attr_path = [EXTENDED_SYMBOL,
+                         pack_usint(tag_length),
+                         attr]
+            # Add pad byte because total length of Request path must be word-aligned
+            if tag_length % 2:
+                attr_path.append(b'\x00')
+            # Add any index
+            if index is None:
+                return None
+            else:
+                attr_path += index
+            rp += attr_path
+
+        # At this point the Request Path is completed,
+        request_path = b''.join(rp)
+        request_path = bytes([len(request_path) // 2]) + request_path
+
+        return request_path
+
+    return None
+
+
+def _find_tag_index(tag):
+    if '[' in tag:  # Check if is an array tag
+        t = tag[:len(tag) - 1]  # Remove the last square bracket
+        inside_value = t[t.find('[') + 1:]  # Isolate the value inside bracket
+        index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
+        tag = t[:t.find('[')]  # Get only the tag part
+    else:
+        index = []
+    return tag.encode(), _encode_tag_index(index)
+
+
+def _encode_tag_index(index):
+        path = []
+        for idx in index:
+            val = int(idx)
+            if val <= 0xff:
+                path += [ELEMENT_ID["8-bit"], pack_usint(val)]
+            elif val <= 0xffff:
+                path += [ELEMENT_ID["16-bit"], b'\x00', pack_uint(val)]
+            elif val <= 0xfffffffff:
+                path += [ELEMENT_ID["32-bit"], b'\x00', pack_dint(val)]
+            else:
+                return None  # Cannot create a valid request packet
+        return path

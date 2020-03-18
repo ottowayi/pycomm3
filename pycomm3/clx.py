@@ -98,7 +98,7 @@ class LogixDriver:
             .. note::
 
                 Initializing the controller info will enable/disable the use of *Symbol Instance Addressing* in
-                the meth:`.read` and :meth:`.write` methods.  If you disable this option and are using an older firmware
+                the :meth:`.read` and :meth:`.write` methods.  If you disable this option and are using an older firmware
                 (below v21), you will need to set ``plc.use_instance_ids`` to False or the reads and writes will fail.
 
         :param init_tags: if True, uploads all controller-scoped tag definitions on connect
@@ -201,7 +201,7 @@ class LogixDriver:
         """
         Read-Only Property to check whether or not a connection is open.
 
-        :return: True is a connection is open, False otherwise
+        :return: True if a connection is open, False otherwise
         """
         return self._connection_opened
 
@@ -283,9 +283,6 @@ class LogixDriver:
 
     def get_module_info(self, slot):
         try:
-            if not self._forward_open():
-                self.__log.warning("Target did not connected. get_plc_name will not be executed.")
-                raise DataError("Target did not connected. get_plc_name will not be executed.")
             request = self.new_request('send_rr_data')
             request.add(
                 # unnconnected send portion
@@ -919,59 +916,6 @@ class LogixDriver:
 
         return self._cache['id:udt'][instance_id]
 
-    def _create_tag_rp(self, tag):
-        """
-
-        It returns the request packed wrapped around the tag passed.
-        If any error it returns none
-        """
-        tags = tag.split('.')
-        if tags:
-            base, *attrs = tags
-
-            if self.use_instance_ids and base in self.tags:
-                rp = [CLASS_ID['8-bit'],
-                      CLASS_CODE['Symbol Object'],
-                      INSTANCE_ID['16-bit'], b'\x00',
-                      pack_uint(self.tags[base]['instance_id'])]
-            else:
-                base_tag, index = _find_tag_index(base)
-                base_len = len(base_tag)
-                rp = [EXTENDED_SYMBOL,
-                      pack_usint(base_len),
-                      base_tag]
-                if base_len % 2:
-                    rp.append( b'\x00')
-                if index is None:
-                    return None
-                else:
-                    rp += index
-
-            for attr in attrs:
-                attr, index = _find_tag_index(attr)
-                tag_length = len(attr)
-                # Create the request path
-                attr_path = [EXTENDED_SYMBOL,
-                             pack_usint(tag_length),
-                             attr]
-                # Add pad byte because total length of Request path must be word-aligned
-                if tag_length % 2:
-                    attr_path.append(b'\x00')
-                # Add any index
-                if index is None:
-                    return None
-                else:
-                    attr_path += index
-                rp += attr_path
-
-            # At this point the Request Path is completed,
-            request_path = b''.join(rp)
-            request_path = bytes([len(request_path) // 2]) + request_path
-
-            return request_path
-
-        return None
-
     @with_forward_open
     def read(self, *tags: str) -> Union[Tag, List[Tag]]:
         """
@@ -1116,7 +1060,6 @@ class LogixDriver:
             return results
         else:
             return results[0]
-
 
     def _write_build_requests(self, parsed_tags):
         bit_writes = {}
@@ -1388,32 +1331,6 @@ def _parse_identity_object(reply):
         'status': status,
         'state': STATES.get(state, 'UNKNOWN'),
     }
-
-
-def _find_tag_index(tag):
-    if '[' in tag:  # Check if is an array tag
-        t = tag[:len(tag) - 1]  # Remove the last square bracket
-        inside_value = t[t.find('[') + 1:]  # Isolate the value inside bracket
-        index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
-        tag = t[:t.find('[')]  # Get only the tag part
-    else:
-        index = []
-    return tag.encode(), _encode_tag_index(index)
-
-
-def _encode_tag_index(index):
-        path = []
-        for idx in index:
-            val = int(idx)
-            if val <= 0xff:
-                path += [ELEMENT_ID["8-bit"], pack_usint(val)]
-            elif val <= 0xffff:
-                path += [ELEMENT_ID["16-bit"], b'\x00', pack_uint(val)]
-            elif val <= 0xfffffffff:
-                path += [ELEMENT_ID["32-bit"], b'\x00', pack_dint(val)]
-            else:
-                return None  # Cannot create a valid request packet
-        return path
 
 
 def _parse_structure_makeup_attributes(response):
