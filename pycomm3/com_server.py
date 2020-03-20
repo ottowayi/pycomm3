@@ -24,47 +24,56 @@
 # SOFTWARE.
 #
 
+raise NotImplementedError('COMServer implementation is incomplete')
+
 
 import pythoncom
-from .clx import LogixDriver
+from pycomm3 import LogixDriver, Tag
 
 CLSID = '{7038d3a1-1ac4-4522-97d5-4c5a08a29906}'
 
 
-class LogixDriverCOMServer(LogixDriver):
+class COMTag(Tag):
+    _public_attrs_ = ['name', 'value', 'type', 'error']
+    _readonly_attrs_ = _public_attrs_
+
+
+class LogixDriverCOMServer:
     _reg_clsctx_ = pythoncom.CLSCTX_LOCAL_SERVER
-    _public_methods_ = ['open', 'close', 'read_tag', 'write_tag', 'read_string', 'write_string',
-                        'read_array', 'write_array', 'get_plc_info', 'get_plc_name', 'get_tag_list']
-    _readonly_attrs_ = ['tags', 'info', 'name']
-    _public_attrs_ = ['ip_address', 'slot', 'large_packets', ] + _readonly_attrs_
+    _public_methods_ = ['open', 'close', 'read_tag', 'write', ] #'get_plc_info', 'get_plc_name', 'get_tag_list']
+    _readonlu_attrs_ = []
+    _public_attrs_ = []
+    # _readonly_attrs_ = ['tags', 'info', 'name']
+    # _public_attrs_ = ['path', 'large_packets', 'init_tags', 'init_program_tags' ] + _readonly_attrs_
 
     _reg_clsid_ = CLSID
     _reg_desc_ = 'Pycomm3 - Python Ethernet/IP ControlLogix Library COM Server'
     _reg_progid_ = 'Pycomm3.COMServer'
 
     def __init__(self):
-        super().__init__(ip_address="0.0.0.0", init_info=False, init_tags=False)
+        self.plc: LogixDriver = None
 
-    @property
-    def ip_address(self):
-        return self.attribs.get('ip address')
+    def open(self, path, init_tags=True, init_program_tags=False, init_info=True):
+        self.plc = LogixDriver(path, init_tags=init_tags, init_program_tags=init_program_tags, init_info=init_info)
+        self.plc.open()
 
-    @ip_address.setter
-    def ip_address(self, value):
-        self.attribs['ip address'] = value
+    def close(self):
+        self.plc.close()
 
-    @property
-    def slot(self):
-        return self.attribs.get('cpu slot')
+    def read(self, tag):
+        result = self.plc.read(tag)
+        return result.value if result else None
 
-    @slot.setter
-    def slot(self, value):
-        self.attribs['cpu slot'] = value
+    def write(self, *tag_values):
+        return self.plc.write(*tag_values)
 
-    @property
-    def large_packets(self):
-        return self['extended forward open']
 
-    @large_packets.setter
-    def large_packets(self, value):
-        self['extended forward open'] = value
+def register_COM_server():
+    import sys
+    if '--register' in sys.argv or '--unregister' in sys.argv:
+        import win32com.server.register
+        win32com.server.register.UseCommandLine(LogixDriverCOMServer)
+
+
+if __name__ == '__main__':
+    register_COM_server()
