@@ -212,37 +212,6 @@ Tag Information Collected::
     by turning off the init_* args and setting ``plc2._tags = plc1.tags``.
 
 
-COM Usage
----------
-
-.. Note::
-
-    This is only implemented for a few methods and not the newer ``read``/``write`` methods.  If this feature is useful,
-    it will be expanded in the future.
-
-
-For Windows clients, a COM server is also available.  This way ``pycomm3`` can be used from VBA in Excel like RSLinx.
-
-To register, run the following command: ``python -m pycomm3 --register``
-
-VBA Example:
-::
-
-    Sub Test()
-
-        Dim plc As Object: Set plc = CreateObject("Pycomm3.COMServer")
-
-        plc.ip_address = "10.20.30.100"
-        plc.slot = 1
-
-        plc.Open
-        Debug.Print plc.read_tag("Tag1")
-        Debug.Print plc.get_plc_name  # also stores the name in plc.name
-        Debug.Print plc.name
-        plc.Close
-
-    End Sub
-
 Unit Testing
 ------------
 
