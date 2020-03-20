@@ -26,6 +26,7 @@
 #
 
 import socket
+import logging
 from functools import wraps
 from os import urandom
 from typing import Union, List, Sequence, Tuple, Optional
@@ -53,7 +54,18 @@ def with_forward_open(func):
 
     @wraps(func)
     def wrapped(self, *args, **kwargs):
+        opened = False
         if not self._forward_open():
+            if self.attribs['extended forward open']:
+                logger = logging.getLogger('LogixDriver')
+                logger.info('Extended Forward Open failed, attempting standard Forward Open.')
+                self.attribs['extended forward open'] = False
+                if self._forward_open():
+                    opened = True
+        else:
+            opened = True
+
+        if not opened:
             msg = f'Target did not connected. {func.__name__} will not be executed.'
             raise DataError(msg)
         return func(self, *args, **kwargs)
@@ -125,7 +137,6 @@ class LogixDriver:
         self._target_cid = None
         self._target_is_connected = False
         self._info = {}
-        self.connection_size = 500
         ip, _path = _parse_connection_path(path, micro800)
 
         self.attribs = {
@@ -148,7 +159,6 @@ class LogixDriver:
         self._program_names = set()
         self._tags = {}
 
-        self.connection_size = 4000 if large_packets else 500
         self.use_instance_ids = True
 
         if init_tags or init_info:
@@ -232,6 +242,10 @@ class LogixDriver:
         :return: name of PLC program
         """
         return self._info.get('name')
+
+    @property
+    def connection_size(self):
+        return 4000 if self.attribs['extended forward open'] else 500
 
     def new_request(self, command: str) -> RequestPacket:
         """
