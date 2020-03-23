@@ -380,7 +380,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
 
     def add_read(self, tag, elements=1, tag_info=None):
 
-        request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
+        request_path = _create_tag_rp(tag, self._plc.tags, self._plc.use_instance_ids)
         if request_path is not None:
 
             request_path = bytes([TAG_SERVICES_REQUEST['Read Tag']]) + request_path + pack_uint(elements)
@@ -397,7 +397,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
             raise RequestError('Failed to create request path')
 
     def add_write(self, tag, value, elements=1, tag_info=None, bits_write=None):
-        request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
+        request_path = _create_tag_rp(tag, self._plc.tags, self._plc.use_instance_ids)
         if request_path is not None:
             if bits_write:
                 data_type = tag_info['data_type']
