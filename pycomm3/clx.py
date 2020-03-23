@@ -102,10 +102,10 @@ class LogixDriver:
 
                 *Extended Forward Open* allows the used of 4KBs of service data in each request.
                 The standard *Forward Open* is limited to 500 bytes.  Not all hardware supports the large packet size,
-                like ENET or ENBT modules or ControlLogix version 19 or lower.  You may need to disable this option
-                if forward open requests fail.
+                like ENET or ENBT modules or ControlLogix version 19 or lower.  **This argument is no longer required
+                as of 0.5.1, since it will automatically try a standard Forward Open if the extended one fails**
 
-        :param init_info:  if True, initializes controller info (name, revision, etc) on connect
+        :param init_info:  if True (default), initializes controller info (name, revision, etc) on connect
 
             .. note::
 
@@ -113,7 +113,7 @@ class LogixDriver:
                 the :meth:`.read` and :meth:`.write` methods.  If you disable this option and are using an older firmware
                 (below v21), you will need to set ``plc.use_instance_ids`` to False or the reads and writes will fail.
 
-        :param init_tags: if True, uploads all controller-scoped tag definitions on connect
+        :param init_tags: if True (default), uploads all controller-scoped tag definitions on connect
         :param init_program_tags: if True, uploads all program-scoped tag definitions on connect
         :param debug:  enables certain debugging features, like printing the raw bytes for each packet sent/received
         :param micro800: set to True if connecting to a Micro800 series PLC, it will disable unsupported features
@@ -165,8 +165,9 @@ class LogixDriver:
             self.open()
             if init_info:
                 self.get_plc_info()
-                self.use_instance_ids = self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS
-                self.get_plc_name()
+                self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not micro800
+                if not micro800:
+                    self.get_plc_name()
 
             if init_tags:
                 self.get_tag_list(program='*' if init_program_tags else None)
@@ -227,7 +228,7 @@ class LogixDriver:
         - *product_code* - code identifying the product type
         - *version_major* - numeric value of major firmware version, e.g. ``28``
         - *version_minor* - numeric value of minor firmware version, e.g ``13``
-        - *revision* - string value of firmware major and minor version, e.g. ``'28.13'``\
+        - *revision* - string value of firmware major and minor version, e.g. ``'28.13'``
         - *serial* - hex string of PLC serial number, e.g. ``'FFFFFFFF'``
         - *device_type* - string value for PLC device type, e.g. ``'1756-L83E/B'``
         - *keyswitch* - string value representing the current keyswitch position, e.g. ``'REMOTE RUN'``
