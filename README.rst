@@ -137,7 +137,7 @@ Examples::
         plc.read('string_tag')  # read a string tag and get a string
 
         # writes require a sequence of tuples of [(tag name, value), ... ]
-        plc.write(('tag1, 0), ('tag2', 1), ('tag3', 2))  # write multiple tags
+        plc.write(('tag1', 0), ('tag2', 1), ('tag3', 2))  # write multiple tags
         plc.write(('array{5}', [1, 2, 3, 4, 5]))  # write 5 elements to an array starting at the 0 element
         plc.write(('array[10]{5}', [1, 2, 3, 4, 5]))  # write 5 elements to an array starting at element 10
         plc.write(('string_tag', 'Hello World!'))  # write to a string tag with a string
