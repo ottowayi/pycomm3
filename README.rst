@@ -51,6 +51,12 @@ PIP:
 
     pip install pycomm3
 
+Documentation
+-------------
+
+This README covers a basic overview of the library, full documentation can be found on
+`Read the Docs <https://pycomm3.readthedocs.io/en/latest/>`_
+
 
 Basic Usage
 -----------

@@ -75,9 +75,13 @@ tag_type
     - ``'struct'`` complex data types like STRING, TIMER, PID, etc as well as UDTs and AOIs.
 
 .. _data_type:
+
 data_type
     - ``'DINT'``/``'REAL'``/etc name of data type for atomic types
     - ``{data type definition}`` for structures, detailed in `Structure Definitions`_
+
+string
+    **Optional** string size if the tag is a STRING type (or custom string)
 
 external_access
     ``'Read/Write'``/``'Read Only'``/``'None'`` matches the External Access tag property in the PLC
@@ -129,6 +133,9 @@ internal_tags
     data_type
         Same as `Tag Structure`_
 
+    string
+        Same as `Tag Structure`_
+
     offset
         Position of this tag in the response data this tag.
 
@@ -144,3 +151,123 @@ Reading/Writing Tags
 
 All reading and writing is handled by the :meth:`~LogixDriver.read` and :meth:`~LogixDriver.write` methods.  The original
 pycomm and other similar libraries will have different methods for handling different types like strings and arrays.
+Both methods accept any number of tags, they will automatically use the *Multiple Service Packet (0x0A)* service and track
+the request/return data size making sure to stay below the connection size.  If there is a tag value that cannot fit
+within the request/reply packet, it will automatically handle that tag independently using the *Read Tag Fragmented (0x52)*
+or *Write Tag Fragmented (0x53)* requests.
+
+
+Response Tag
+^^^^^^^^^^^^
+
+Both read/write methods return ``Tag`` objects with the results of the operation.
+
+.. code-block:: python
+
+    class Tag(NamedTuple):
+        tag: str
+        value: Any
+        type: Optional[str] = None
+        error: Optional[str] = None
+
+
+**Attributes:**
+
+    tag
+        tag name
+
+    value
+        will contain the value of tag read, or the value written.  May be ``None`` on error.
+
+    type
+        data type of tag, will include ``[<len>]`` multiple array elements requested
+
+    error
+        ``None`` if successful, else the CIP error or exception thrown
+
+
+Reading Tags
+^^^^^^^^^^^^
+
+:meth:`LogixDriver.read` accepts any number of tags, all that is required is the tag names. To read an array,
+add ``{<# elements>}`` suffix to the tag name.  Reading of entire structures is support as long as none of the
+attributes have an external access of None. To read a structure, just request the base name.  The ``value`` for
+the ``Tag`` object will a a dict of ``{attribute: value}``
+
+Read an atomic tag
+
+>>> plc.read('dint_tag')
+Tag(tag='dint_tag', value=0, type='DINT', error=None)
+
+Read multiple tags
+
+>>> plc.read('tag_1', 'tag_2', 'tag_3')
+[Tag(tag='tag_1', value=100, type='INT', error=None), Tag(tag='tag_2', value=True, type='BOOL', error=None), ...]
+
+Read a structure
+
+>>> plc.read('simple_udt')
+Tag(tag='simple_udt', value={'attr1': 0, 'attr2': False, 'attr3': 1.234}, type='SimpleUDT', error=None)
+
+Read arrays
+
+>>> plc.read('dint_array{5}')  # starts at index 0
+Tag(tag='dint_array', value=[1, 2, 3, 4, 5], type='DINT[5]', error=None)
+>>> plc.read('dint_array[20]{3}') # read 3 elements starting at index 20
+Tag(tag='dint_array[20]', value=[20, 21, 22], type='DINT[3]', error=None)
+
+Verify all reads were successful
+
+>>> tag_list = ['tag1', 'tag2', ...]
+>>> results = plc.read(*tag_list)
+>>> if all(results):
+...     print('All tags read successfully')
+All tags read successfully
+
+Writing Tags
+^^^^^^^^^^^^
+
+:meth:`LogixDriver.write` method accepts any number of tag-value pairs of the tag name and value to be written.
+To write arrays, include ``{<# elements>}`` suffix to the tag name and the value should be a list of the values to write.
+A ``RequestError`` will be raised if the value list is too short, else it will be truncated if too long.  Writing of full
+structures is not supported.
+
+Write a tag
+
+>>> plc.write(('dint_tag', 100))
+Tag(tag='dint_tag', value=100, type='DINT', error=None)
+
+Write many tags
+
+>>> plc.write(('tag_1', 1), ('tag_2', True), ('tag_3', 1.234))
+[Tag(tag='tag_1', value=1, type='INT', error=None), Tag(tag='tag_2', value=True, type='BOOL', error=None), ...]
+
+Write arrays
+
+>>> plc.write(('dint_array{10}', list(range(10))))  # starts at index 0
+Tag(tag='dint_array', value=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], type='DINT[10]', error=None)
+>>> plc.write(('dint_array[10]{3}', [10, 11, 12]))  # write 3 elements starting at index 10
+Tag(tag='dint_array[10]', value=[10, 11, 12], type='DINT[3]', error=None)
+
+Check if all writes were successful
+
+>>> tag_values = [('tag1', 10), ('tag2', True), ('tag3', 12.34)]
+>>> results = plc.write(*tag_values)
+>>> if all(results):
+...     print('All tags written successfully')
+All tags written successfully
+
+String Tags
+^^^^^^^^^^^
+
+Strings are technically structures within the PLC, but are treated as atomic types in this library.  There is no need
+to handle the ``LEN`` and ``DATA`` attributes, the structure is converted to/from Python ``str`` objects transparently.
+Any structures that contain only a DINT-``LEN`` and a SINT[]-``DATA`` attributes will be automatically treated as string tags.
+This allows the builtin STRING types plus custom strings to be handled automatically.  When writing, values large than
+the length will be truncated.
+
+>>> plc.read('string_tag')
+Tag(tag='string_tag', value='Hello World!', type='STRING', error=None)
+>>> plc.write(('short_string_tag', 'Test Write'))
+Tag(tag='short_string_tag', value='Test Write', type='STRING20', error=None)
+
