@@ -57,7 +57,7 @@ def with_forward_open(func):
         opened = False
         if not self._forward_open():
             if self.attribs['extended forward open']:
-                logger = logging.getLogger('LogixDriver')
+                logger = logging.getLogger('pycomm3.clx.LogixDriver')
                 logger.info('Extended Forward Open failed, attempting standard Forward Open.')
                 self.attribs['extended forward open'] = False
                 if self._forward_open():
