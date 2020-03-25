@@ -302,10 +302,10 @@ REPLY_INFO = {
 
 
 EXTERNAL_ACCESS = {
-    0: 'Full Access',
+    0: 'Read/Write',
     1: 'Reserved',
     2: 'Read Only',
-    3: 'No Access',
+    3: 'None',
 }
 
 
