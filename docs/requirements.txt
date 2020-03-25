@@ -22,8 +22,6 @@ Pygments==2.5.2
 pyparsing==2.4.6
 pytest==5.3.5
 pytz==2019.3
-pywin32==227
-pywin32-ctypes==0.2.0
 readme-renderer==24.0
 requests==2.23.0
 requests-toolbelt==0.9.1
