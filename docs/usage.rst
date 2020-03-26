@@ -137,7 +137,7 @@ internal_tags
         Same as `Tag Structure`_
 
     offset
-        Position of this tag in the response data this tag.
+        Location/Byte offset of this tag's data in the response data.
 
     bit
         **Optional** BOOL tags are aliased to internal hidden integer tags, this indicates which bit it is aliased to.
