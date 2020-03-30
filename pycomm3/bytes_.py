@@ -159,6 +159,15 @@ def print_bytes_msg(msg, info=''):
     return out
 
 
+def _short_string_encode(string):
+    def _char(char):
+        unsigned = ord(char)
+        return pack_sint(unsigned - 256 if unsigned > 127 else unsigned)
+
+    encoded = pack_usint(len(string)) + b''.join([_char(x) for x in string])
+    return encoded
+
+
 PACK_DATA_FUNCTION = {
     'BOOL': pack_sint,
     'SINT': pack_sint,    # Signed 8-bit integer
@@ -171,8 +180,14 @@ PACK_DATA_FUNCTION = {
     'BYTE': pack_sint,     # byte string 8-bits
     'WORD': pack_uint,     # byte string 16-bits
     'DWORD': pack_udint,    # byte string 32-bits
-    'LWORD': pack_ulint    # byte string 64-bits
+    'LWORD': pack_ulint,    # byte string 64-bits
+    'SHORT_STRING': _short_string_encode,  # + b'\x00' * (MICRO800_STRING_LEN - len(x))
 }
+
+
+def _short_string_decode(str_data):
+    string = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data[1:])
+    return string
 
 
 UNPACK_DATA_FUNCTION = {
@@ -187,7 +202,8 @@ UNPACK_DATA_FUNCTION = {
     'BYTE': unpack_sint,     # byte string 8-bits
     'WORD': unpack_uint,     # byte string 16-bits
     'DWORD': unpack_udint,    # byte string 32-bits
-    'LWORD': unpack_ulint    # byte string 64-bits
+    'LWORD': unpack_ulint,    # byte string 64-bits
+    'SHORT_STRING': _short_string_decode,
 }
 
 

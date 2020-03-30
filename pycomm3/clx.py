@@ -394,7 +394,8 @@ class LogixDriver:
         if self._session == 0:
             raise CommError("A Session Not Registered Before forward_open.")
 
-        init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
+        init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)  # CIP Vol 1 - 3-5.5.1.1
+
         if self.attribs['extended forward open']:
             net_params = pack_udint((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
