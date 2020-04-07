@@ -1,9 +1,3 @@
-.. pycomm3 documentation master file, created by
-   sphinx-quickstart on Fri Mar 13 09:59:18 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-
 :mod:`pycomm3` - A Python Ethernet/IP library for communicating with Allen-Bradley PLCs.
 ========================================================================================
 
@@ -87,3 +81,4 @@ Contents
 
    usage
    logixdriver
+   examples
