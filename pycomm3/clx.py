@@ -1038,7 +1038,7 @@ class LogixDriver:
         return None
 
     @with_forward_open
-    def write(self, *tags_values: Sequence[Tuple[str, Union[int, float, str, bool]]]) -> Union[Tag, List[Tag]]:
+    def write(self, *tags_values: Tuple[str, Union[int, float, str, bool]]) -> Union[Tag, List[Tag]]:
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 
