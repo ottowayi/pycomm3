@@ -24,8 +24,6 @@
 # SOFTWARE.
 #
 
-from .bytes_ import unpack_usint, unpack_dint, unpack_uint
-
 
 HEADER_SIZE = 24
 
@@ -60,6 +58,7 @@ TIMEOUT_TICKS = b'\x05'
 TIMEOUT_MULTIPLIER = b'\x07'
 TRANSPORT_CLASS = b'\xa3'
 BASE_TAG_BIT = 1 << 26
+
 
 TEMPLATE_MEMBER_INFO_LEN = 8  # 2B bit/array len, 2B datatype, 4B offset
 STRUCTURE_READ_REPLY = b'\xa0\x02'
@@ -233,7 +232,8 @@ DATA_TYPE_SIZE = {
     'DINT': 4,
     'REAL': 4,
     'DWORD': 4,
-    'LINT': 8
+    'LINT': 8,
+    'SHORT_STRING': 84,
 }
 
 BITS_PER_INT_TYPE = {
@@ -408,10 +408,6 @@ SERVICE_STATUS = {
 }
 
 
-def get_service_status(status):
-    return SERVICE_STATUS.get(status, f'Unknown Error ({status:0>2x})')
-
-
 EXTEND_CODES = {
     0x01: {
         0x0100: "Connection in use",
@@ -480,35 +476,6 @@ EXTEND_CODES = {
 
     }
 }
-
-
-def get_extended_status(msg, start):
-    status = unpack_usint(msg[start:start + 1])
-    # send_rr_data
-    # 42 General Status
-    # 43 Size of additional status
-    # 44..n additional status
-
-    # send_unit_data
-    # 48 General Status
-    # 49 Size of additional status
-    # 50..n additional status
-    extended_status_size = (unpack_usint(msg[start + 1:start + 2])) * 2
-    extended_status = 0
-    if extended_status_size != 0:
-        # There is an additional status
-        if extended_status_size == 1:
-            extended_status = unpack_usint(msg[start + 2:start + 3])
-        elif extended_status_size == 2:
-            extended_status = unpack_uint(msg[start + 2:start + 4])
-        elif extended_status_size == 4:
-            extended_status = unpack_dint(msg[start + 2:start + 6])
-        else:
-            return 'Extended Status Size Unknown'
-    try:
-        return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
-    except LookupError:
-        return "Extended status info not present"
 
 
 PCCC_DATA_TYPE = {

@@ -41,8 +41,8 @@ from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGME
                     INSTANCE_ID, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
                     TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
 from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
-                    KEYSWITCH, get_service_status, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE)
-from .packets import REQUEST_MAP, RequestPacket
+                    KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE)
+from .packets import REQUEST_MAP, RequestPacket, get_service_status
 from .socket_ import Socket
 
 
@@ -394,7 +394,8 @@ class LogixDriver:
         if self._session == 0:
             raise CommError("A Session Not Registered Before forward_open.")
 
-        init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)
+        init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)  # CIP Vol 1 - 3-5.5.1.1
+
         if self.attribs['extended forward open']:
             net_params = pack_udint((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
@@ -1037,7 +1038,7 @@ class LogixDriver:
         return None
 
     @with_forward_open
-    def write(self, *tags_values: Sequence[Tuple[str, Union[int, float, str, bool]]]) -> Union[Tag, List[Tag]]:
+    def write(self, *tags_values: Tuple[str, Union[int, float, str, bool]]) -> Union[Tag, List[Tag]]:
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 

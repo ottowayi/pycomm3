@@ -35,7 +35,8 @@ class Packet:
 from .responses import (ResponsePacket, SendUnitDataResponsePacket, SendRRDataResponsePacket, ListIdentityResponsePacket,
                         RegisterSessionResponsePacket, UnRegisterSessionResponsePacket, ReadTagServiceResponsePacket,
                         MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket,
-                        WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket)
+                        WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket,
+                        get_extended_status, get_service_status)
 
 from .requests import (RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket, ListIdentityRequestPacket,
                        RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket,
