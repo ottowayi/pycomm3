@@ -34,6 +34,7 @@ MULTISERVICE_WRITE_OVERHEAD = 3
 
 MIN_VER_INSTANCE_IDS = 21  # using Symbol Instance Addressing not supported below version 21
 MIN_VER_LARGE_CONNECTIONS = 20  # >500 byte connections not supported below logix v20
+MIN_VER_EXTERNAL_ACCESS = 18  # ExternalAccess attributed added in v18
 
 EXTENDED_SYMBOL = b'\x91'
 BOOL_ONE = 0xff

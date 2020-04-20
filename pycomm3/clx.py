@@ -41,7 +41,7 @@ from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGME
                     INSTANCE_ID, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
                     TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
 from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
-                    KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE)
+                    KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE, MIN_VER_EXTERNAL_ACCESS)
 from .packets import REQUEST_MAP, RequestPacket, get_service_status
 from .socket_ import Socket
 
@@ -653,19 +653,26 @@ class LogixDriver:
                 path = b''.join(path)
                 path_size = pack_usint(len(path) // 2)
                 request = self.new_request('send_unit_data')
-                request.add(
-                    bytes([TAG_SERVICES_REQUEST['Get Instance Attributes List']]),
-                    path_size,
-                    path,
-                    # Request Data
-                    b'\x07\x00',  # Number of attributes to retrieve
+
+                attributes = [
                     b'\x01\x00',  # Attr. 1: Symbol name
                     b'\x02\x00',  # Attr. 2 : Symbol Type
                     b'\x03\x00',  # Attr. 3 : Symbol Address
                     b'\x05\x00',  # Attr. 5 : Symbol Object Address
                     b'\x06\x00',  # Attr. 6 : ? - Not documented (Software Control?)
-                    b'\x0a\x00',  # Attr. 10 : external access
                     b'\x08\x00'  # Attr. 8 : array dimensions [1,2,3]
+                ]
+
+                if self.info['version_major'] >= MIN_VER_EXTERNAL_ACCESS:
+                    attributes.append(b'\x0a\x00')  # Attr. 10 : external access
+
+                request.add(
+                    bytes([TAG_SERVICES_REQUEST['Get Instance Attributes List']]),
+                    path_size,
+                    path,
+                    pack_uint(len(attributes)),
+                    *attributes
+
                 )
                 response = request.send()
                 if not response:
@@ -700,14 +707,19 @@ class LogixDriver:
                 idx += 4
                 software_control = unpack_udint(tags_returned[idx:idx + 4])
                 idx += 4
-                access = tags_returned[idx] & 0b_0011
-                idx += 1
+
                 dim1 = unpack_udint(tags_returned[idx:idx + 4])
                 idx += 4
                 dim2 = unpack_udint(tags_returned[idx:idx + 4])
                 idx += 4
                 dim3 = unpack_udint(tags_returned[idx:idx + 4])
                 idx += 4
+
+                if self.info['version_major'] >= MIN_VER_EXTERNAL_ACCESS:
+                    access = tags_returned[idx] & 0b_0011
+                    idx += 1
+                else:
+                    access = None
 
                 tag_list.append({'instance_id': instance,
                                  'tag_name': tag_name,
