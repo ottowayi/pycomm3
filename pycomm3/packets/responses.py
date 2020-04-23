@@ -136,7 +136,10 @@ class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.value, self.data_type = parse_read_reply(self.data, self.tag_info, self.elements)
+            if self.is_valid():
+                self.value, self.data_type = parse_read_reply(self.data, self.tag_info, self.elements)
+            else:
+                self.value, self.data_type = None, None
         except Exception as err:
             self.__log.exception('Failed parsing reply data')
             self.value = None
@@ -170,8 +173,11 @@ class ReadTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
 
     def parse_bytes(self):
         try:
-            self.value, self.data_type = parse_read_reply(self._data_type + self.bytes_,
+            if self.is_valid():
+                self.value, self.data_type = parse_read_reply(self._data_type + self.bytes_,
                                                           self.tag_info, self.elements)
+            else:
+                self.value, self.data_type = None, None
         except Exception as err:
             self.__log.exception('Failed parsing reply data')
             self.value = None
