@@ -751,6 +751,7 @@ class LogixDriver:
         try:
             user_tags = []
             for tag in all_tags:
+                io_tag = False
                 name = tag['tag_name'].decode()
 
                 if name.startswith('Program:'):
@@ -778,6 +779,7 @@ class LogixDriver:
                 # I/O module tags
                 # Logix 5000 Controllers I/O and Tag Data, page 17  (1756-pm004_-en-p.pdf)
                 if any(x in name for x in (':I', ':O', ':C', ':S')):
+                    io_tag = True
                     mod = name.split(':')
                     mod_name = mod[0]
                     if mod_name not in self._info['modules']:
@@ -796,10 +798,9 @@ class LogixDriver:
                         if '__UNKNOWN__' not in self._info['modules'][mod_name]:
                             self._info['modules'][mod_name]['__UNKNOWN__'] = []
                         self._info['modules'][mod_name]['__UNKNOWN__'].append(':'.join(mod[1:]))
-                    continue
 
                 # other system or junk tags
-                if ':' in name or '__' in name:
+                if (not io_tag and ':' in name) or name.startswith('__'):
                     continue
                 if tag['symbol_type'] & 0b0001_0000_0000_0000:
                     continue
