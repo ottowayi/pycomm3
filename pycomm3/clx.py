@@ -36,14 +36,16 @@ from autologging import logged
 from . import DataError, CommError
 from . import Tag, RequestError
 from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, )
-from .bytes_ import (unpack_dint, pack_sint, PACK_DATA_FUNCTION)
-from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_ID, CLASS_CODE, CLASS_ID,
-                    INSTANCE_ID, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
-                    TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
+from .bytes_ import (unpack_dint, pack_sint, PACK_DATA_FUNCTION, UNPACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
+from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_TYPE, CLASS_CODE, CLASS_TYPE,
+                    INSTANCE_TYPE, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
+                    TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
+                    MICRO800_PREFIX)
 from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
                     KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE, MIN_VER_EXTERNAL_ACCESS)
-from .packets import REQUEST_MAP, RequestPacket, get_service_status
+from .packets import REQUEST_MAP, RequestPacket, get_service_status, T_DATA_FORMAT
 from .socket_ import Socket
+
 
 
 # re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
@@ -79,7 +81,7 @@ class LogixDriver:
     An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
     """
 
-    def __init__(self, path: str, *args,  large_packets: bool = True, debug: bool = False, micro800: bool = False,
+    def __init__(self, path: str, *args,  large_packets: bool = True, micro800: bool = False,
                  init_info: bool = True, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
         """
         :param path: CIP path to intended target
@@ -115,8 +117,7 @@ class LogixDriver:
 
         :param init_tags: if True (default), uploads all controller-scoped tag definitions on connect
         :param init_program_tags: if True, uploads all program-scoped tag definitions on connect
-        :param debug:  enables certain debugging features, like printing the raw bytes for each packet sent/received
-        :param micro800: set to True if connecting to a Micro800 series PLC, it will disable unsupported features
+        :param micro800: set to True if connecting to a Micro800 series PLC with ``init_info`` disabled, it will disable unsupported features
 
         .. tip::
 
@@ -130,8 +131,7 @@ class LogixDriver:
         self._sequence_number = 1
         self._sock = None
         # self.__direct_connections = direct_connection
-        self.debug = debug
-        self._micro800 = micro800
+
         self._session = 0
         self._connection_opened = False
         self._target_cid = None
@@ -165,12 +165,15 @@ class LogixDriver:
             self.open()
             if init_info:
                 self.get_plc_info()
+                micro800 = self.info['device_type'].startswith(MICRO800_PREFIX)
                 self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not micro800
                 if not micro800:
                     self.get_plc_name()
 
             if init_tags:
                 self.get_tag_list(program='*' if init_program_tags else None)
+
+        self._micro800 = micro800
 
     def __enter__(self):
         self.open()
@@ -248,7 +251,7 @@ class LogixDriver:
     def connection_size(self):
         return 4000 if self.attribs['extended forward open'] else 500
 
-    def new_request(self, command: str) -> RequestPacket:
+    def new_request(self, command: str, *args, **kwargs) -> RequestPacket:
         """
         Creates a new request packet for the given command.
         If the command is invalid, a base :class:`RequestPacket` is created.
@@ -269,7 +272,7 @@ class LogixDriver:
         :return: a new request for the command
         """
         cls = REQUEST_MAP[command]
-        return cls(self)
+        return cls(self, *args, **kwargs)
 
     @property
     def _sequence(self) -> int:
@@ -303,9 +306,9 @@ class LogixDriver:
                 # unnconnected send portion
                 UNCONNECTED_SEND,
                 b'\x02',
-                CLASS_ID['8-bit'],
+                CLASS_TYPE['8-bit'],
                 b'\x06',  # class
-                INSTANCE_ID["8-bit"],
+                INSTANCE_TYPE["8-bit"],
                 b'\x01',
                 b'\x0A',  # priority
                 b'\x0e\x06\x00',
@@ -313,9 +316,9 @@ class LogixDriver:
                 # Identity request portion
                 b'\x01',  # Service
                 b'\x02',
-                CLASS_ID['8-bit'],
+                CLASS_TYPE['8-bit'],
                 CLASS_CODE['Identity Object'],
-                INSTANCE_ID["8-bit"],
+                INSTANCE_TYPE["8-bit"],
                 b'\x01',  # Instance 1
                 b'\x01\x00',
                 b'\x01',  # backplane
@@ -373,9 +376,7 @@ class LogixDriver:
         response = request.send()
         if response:
             self._session = response.session
-
-            if self.debug:
-                self.__log.debug(f"Session = {response.session} has been registered.")
+            self.__log.debug(f"Session = {response.session} has been registered.")
             return self._session
 
         self.__log.warning('Session has not been registered.')
@@ -404,9 +405,9 @@ class LogixDriver:
         forward_open_msg = [
             FORWARD_OPEN if not self.attribs['extended forward open'] else LARGE_FORWARD_OPEN,
             b'\x02',  # CIP Path size
-            CLASS_ID["8-bit"],  # class type
+            CLASS_TYPE["8-bit"],  # class type
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
-            INSTANCE_ID["8-bit"],
+            INSTANCE_TYPE["8-bit"],
             CONNECTION_MANAGER_INSTANCE['Open Request'],
             PRIORITY,
             TIMEOUT_TICKS,
@@ -489,9 +490,9 @@ class LogixDriver:
         forward_close_msg = [
             FORWARD_CLOSE,
             b'\x02',
-            CLASS_ID["8-bit"],
+            CLASS_TYPE["8-bit"],
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
-            INSTANCE_ID["8-bit"],
+            INSTANCE_TYPE["8-bit"],
             CONNECTION_MANAGER_INSTANCE['Open Request'],
             PRIORITY,
             TIMEOUT_TICKS,
@@ -524,10 +525,9 @@ class LogixDriver:
             request.add(
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
                 REQUEST_PATH_SIZE,
-                CLASS_ID['8-bit'],
+                CLASS_TYPE['8-bit'],
                 CLASS_CODE['Program Name'],
-                INSTANCE_ID["16-bit"],
-                b'\x00',
+                INSTANCE_TYPE["16-bit"],
                 b'\x01\x00',  # Instance 1
                 b'\x01\x00',  # Number of Attributes
                 b'\x01\x00'  # Attribute 1 - program name
@@ -554,13 +554,22 @@ class LogixDriver:
             request.add(
                 b'\x01',  # Service
                 REQUEST_PATH_SIZE,
-                CLASS_ID['8-bit'],
+                CLASS_TYPE['8-bit'],
                 CLASS_CODE['Identity Object'],
-                INSTANCE_ID["16-bit"],
-                b'\x00',
+                INSTANCE_TYPE["16-bit"],
                 b'\x01\x00',  # Instance 1
             )
+            print(request.message)
             response = request.send()
+
+            tmp = self.generic_read(class_code=CLASS_CODE['Identity Object'], instance=b'\x01\x00',
+                                    service=b'\x01',
+                                    data_format=[
+                                        ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
+                                        ('major_fw', 'SINT'), ('minor_fw', 'SINT'), ('keyswitch', 2),
+                                        ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
+                                    ])
+            # print(tmp)
 
             if response:
                 info = _parse_plc_info(response.data)
@@ -644,10 +653,9 @@ class LogixDriver:
 
                 path += [
                     # Request Path ( 20 6B 25 00 Instance )
-                    CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
+                    CLASS_TYPE["8-bit"],  # Class id = 20 from spec 0x20
                     CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
-                    INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                    b'\x00',
+                    INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     pack_uint(last_instance),  # The instance
                 ]
                 path = b''.join(path)
@@ -802,11 +810,10 @@ class LogixDriver:
             request = self.new_request('send_unit_data')
             request.add(
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                b'\x03',  # Request Path ( 20 6B 25 00 Instance )
-                CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
+                b'\x03',  # path size
+                CLASS_TYPE["8-bit"],  # Class id = 20 from spec 0x20
                 CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                b'\x00',
+                INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                 pack_uint(instance_id),
                 b'\x04\x00',  # Number of attributes
                 b'\x04\x00',  # Template Object Definition Size UDINT
@@ -837,10 +844,9 @@ class LogixDriver:
                 request.add(
                     bytes([TAG_SERVICES_REQUEST['Read Tag']]),
                     b'\x03',  # Request Path ( 20 6B 25 00 Instance )
-                    CLASS_ID["8-bit"],  # Class id = 20 from spec
+                    CLASS_TYPE["8-bit"],  # Class id = 20 from spec
                     CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                    INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                    b'\x00',
+                    INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     pack_uint(instance_id),
                     pack_dint(offset),  # Offset
                     pack_uint(((object_definition_size * 4) - 21) - offset)
@@ -1158,7 +1164,7 @@ class LogixDriver:
 
             if not _bit_request(parsed_tag, bit_writes):
                 parsed_tag['write_value'] = writable_value(parsed_tag['value'], parsed_tag['elements'],
-                                                         parsed_tag['tag_info']['data_type'])
+                                                           parsed_tag['tag_info']['data_type'])
                 if len(parsed_tag['write_value']) > self.connection_size:
                     request = self.new_request('write_tag_fragmented')
                 else:
@@ -1297,6 +1303,19 @@ class LogixDriver:
                                                          tag.get('error', 'Unknown Service Error'))
         return results
 
+    def get_plc_time(self):
+        ...
+
+    @with_forward_open
+    def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
+                     data_format: T_DATA_FORMAT = None, name: str = 'generic',
+                     service=TAG_SERVICES_REQUEST['Get Attributes']):
+
+        request = self.new_request('generic_read', class_code, instance, request_data, data_format, service)
+        response = request.send()
+
+        return Tag(name, response.value, error=response.error)
+
 
 def _parse_plc_name(response):
     if response.service_status != SUCCESS:
@@ -1316,7 +1335,7 @@ def _parse_plc_info(data):
     major_fw = int(data[6])
     minor_fw = int(data[7])
     keyswitch = KEYSWITCH.get(int(data[8]), {}).get(int(data[9]), 'UNKNOWN')
-    serial_number = f'{unpack_udint(data[10:14]):0{8}x}'
+    serial_number = f'{unpack_udint(data[10:14]):08x}'
     device_type_len = int(data[14])
     device_type = data[15:15 + device_type_len].decode()
 
@@ -1533,9 +1552,9 @@ def _parse_connection_path(path, micro800):
                 _path.extend([pack_usint(port), pack_usint(dest)])
 
     _path += [
-        CLASS_ID['8-bit'],
+        CLASS_TYPE['8-bit'],
         CLASS_CODE['Message Router'],
-        INSTANCE_ID['8-bit'],
+        INSTANCE_TYPE['8-bit'],
         b'\x01'
     ]
 

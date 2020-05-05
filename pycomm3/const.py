@@ -35,6 +35,7 @@ MULTISERVICE_WRITE_OVERHEAD = 3
 MIN_VER_INSTANCE_IDS = 21  # using Symbol Instance Addressing not supported below version 21
 MIN_VER_LARGE_CONNECTIONS = 20  # >500 byte connections not supported below logix v20
 MIN_VER_EXTERNAL_ACCESS = 18  # ExternalAccess attributed added in v18
+MICRO800_PREFIX = '2080'  # catalog number prefix for Micro800 PLCs
 
 EXTENDED_SYMBOL = b'\x91'
 BOOL_ONE = 0xff
@@ -64,25 +65,29 @@ BASE_TAG_BIT = 1 << 26
 TEMPLATE_MEMBER_INFO_LEN = 8  # 2B bit/array len, 2B datatype, 4B offset
 STRUCTURE_READ_REPLY = b'\xa0\x02'
 
-ELEMENT_ID = {
+ELEMENT_TYPE = {
     "8-bit": b'\x28',
-    "16-bit": b'\x29',
-    "32-bit": b'\x2a'
+    "16-bit": b'\x29\x00',
+    "32-bit": b'\x2a\x00\x00\x00'
 }
 
-CLASS_ID = {
+CLASS_TYPE = {
     "8-bit": b'\x20',
-    "16-bit": b'\x21',
+    "16-bit": b'\x21\x00',
+    1: b'\x20',  # length of code
+    2: b'\x21\x00'
 }
 
-INSTANCE_ID = {
+INSTANCE_TYPE = {
     "8-bit": b'\x24',
-    "16-bit": b'\x25',
+    "16-bit": b'\x25\x00',
+    1: b'\x24',  # length of code
+    2: b'\x25\x00'
 }
 
-ATTRIBUTE_ID = {
+ATTRIBUTE_TYPE = {
     "8-bit": b'\x30',
-    "16-bit": b'\x31',
+    "16-bit": b'\x31\x00',
 }
 
 PATH_SEGMENTS = {

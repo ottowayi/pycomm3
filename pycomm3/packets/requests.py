@@ -25,16 +25,17 @@
 #
 
 from autologging import logged
+import reprlib
 
-from . import Packet
+from . import Packet, T_DATA_FORMAT
 from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceResponsePacket, RegisterSessionResponsePacket,
                UnRegisterSessionResponsePacket, ListIdentityResponsePacket, SendRRDataResponsePacket,
                MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, WriteTagServiceResponsePacket,
-               WriteTagFragmentedServiceResponsePacket)
+               WriteTagFragmentedServiceResponsePacket, GenericReadResponsePacket)
 from .. import CommError, RequestError
 from ..bytes_ import pack_uint, pack_udint, pack_dint, print_bytes_msg, pack_usint, PACK_DATA_FUNCTION
-from ..const import (ENCAPSULATION_COMMAND, INSUFFICIENT_PACKETS, DATA_ITEM, ADDRESS_ITEM, EXTENDED_SYMBOL, ELEMENT_ID,
-                     TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_ID, INSTANCE_ID, DATA_TYPE, DATA_TYPE_SIZE)
+from ..const import (ENCAPSULATION_COMMAND, INSUFFICIENT_PACKETS, DATA_ITEM, ADDRESS_ITEM, EXTENDED_SYMBOL, ELEMENT_TYPE,
+                     TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_TYPE, INSTANCE_TYPE, DATA_TYPE, DATA_TYPE_SIZE)
 
 
 @logged
@@ -43,6 +44,7 @@ class RequestPacket(Packet):
     _address_type = None
     _timeout = b'\x0a\x00'  # 10
     type_ = None
+    VERBOSE_DEBUG = False
 
     def __init__(self, plc):
         super().__init__()
@@ -97,7 +99,7 @@ class RequestPacket(Packet):
                 :return: true if no error otherwise false
                 """
         try:
-            if self._plc.debug:
+            if self.VERBOSE_DEBUG:
                 self.__log.debug(print_bytes_msg(message, '>>> SEND >>>'))
             self._plc._sock.send(message)
         except Exception as e:
@@ -113,12 +115,17 @@ class RequestPacket(Packet):
         except Exception as e:
             raise CommError(e)
         else:
-            if self._plc.debug:
+            if self.VERBOSE_DEBUG:
                 self.__log.debug(print_bytes_msg(reply, '<<< RECEIVE <<<'))
             return reply
 
     def send(self) -> ResponsePacket:
         ...
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}()'
+
+    __str__ = __repr__
 
 
 @logged
@@ -139,6 +146,46 @@ class SendUnitDataRequestPacket(RequestPacket):
         self._send(self._build_request())
         reply = self._receive()
         return SendUnitDataResponsePacket(reply)
+
+
+@logged
+class GenericReadRequestPacket(SendUnitDataRequestPacket):
+
+    def __init__(self, plc, class_code: bytes, instance: bytes, request_data: bytes = None,
+                 data_format: T_DATA_FORMAT = None, service=TAG_SERVICES_REQUEST['Get Attributes']):
+        super().__init__(plc)
+        self.data_format = data_format
+        self.class_code = class_code
+        self.instance = instance
+        self.service = service
+        self.request_data = request_data
+        class_type = CLASS_TYPE.get(len(class_code))
+
+        if class_type is None:
+            raise RequestError(f'Invalid Class Code Length ({len(class_code)}), must be 1 or 2 bytes')
+
+        instance_type = INSTANCE_TYPE.get(len(instance))
+        if instance_type is None:
+            raise RequestError(f'Invalid Instance Length ({len(instance)}), must be 1 or 2 bytes')
+
+        request_path = b''.join((class_type, class_code, instance_type, instance))
+        request_path_len = bytes([len(request_path) // 2])
+        self.add(service, request_path_len, request_path)
+
+        if request_data is not None:
+            self.add(request_data)
+
+    def send(self):
+        self._send(self._build_request())
+        self.__log.debug(f'Sent: {self!r}')
+        reply = self._receive()
+        response = GenericReadResponsePacket(reply, data_format=self.data_format)
+        self.__log.debug(f'Received: {response!r}')
+        return response
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(service={self.service!r}, class_code={self.class_code!r}, ' \
+                                         f'instance={self.instance!r}, request_data={self.request_data!r})'
 
 
 @logged
@@ -169,13 +216,17 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
     def send(self):
         if not self.error:
             self._send(self._build_request())
+            self.__log.debug(f'Sent: {self!r}')
             reply = self._receive()
-            return ReadTagServiceResponsePacket(reply, elements=self.elements, tag_info=self.tag_info, tag=self.tag)
+            response = ReadTagServiceResponsePacket(reply, elements=self.elements, tag_info=self.tag_info, tag=self.tag)
         else:
             response = ReadTagServiceResponsePacket(tag=self.tag)
             response._error = self.error
-
+        self.__log.debug(f'Received: {response!r}')
         return response
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(tag={self.tag!r}, elements={self.elements!r})'
 
 
 @logged
@@ -208,8 +259,10 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                                  pack_uint(self.elements),
                                  pack_dint(offset)])
                 self._send(self._build_request())
+                self.__log.debug(f'Sent: {self!r} (offset={offset})')
                 reply = self._receive()
                 response = ReadTagFragmentedServiceResponsePacket(reply, self.tag_info, self.elements)
+                self.__log.debug(f'Received: {response!r}')
                 responses.append(response)
                 if response.service_status == INSUFFICIENT_PACKETS:
                     offset += len(response.bytes_)
@@ -220,11 +273,16 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                 final_response = responses[-1]
                 final_response.bytes_ = b''.join(resp.bytes_ for resp in responses)
                 final_response.parse_bytes()
+                self.__log.debug(f'Reassembled Response: {final_response!r}')
                 return final_response
 
         failed_response = ReadTagServiceResponsePacket()
         failed_response._error = self.error or 'One or more fragment responses failed'
+        self.__log.debug(f'Reassembled Response: {failed_response!r}')
         return failed_response
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(tag={self.tag!r}, elements={self.elements!r})'
 
 
 @logged
@@ -321,6 +379,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
 
             offset = 0
             elements_packed = pack_uint(self.elements)
+
             for segment in segments:
                 segment_bytes = b''.join(pack_func(s) for s in segment) if not isinstance(segment, bytes) else segment
                 self._msg.extend((
@@ -333,18 +392,22 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                 ))
 
                 self._send(self._build_request())
+                self.__log.debug(f'Sent: {self!r} (offset={offset})')
                 reply = self._receive()
                 response = WriteTagFragmentedServiceResponsePacket(reply)
+                self.__log.debug(f'Received: {response!r}')
                 responses.append(response)
                 offset += len(segment_bytes)
                 self._msg = [pack_uint(self._plc._sequence), ]
 
             if all(responses):
                 final_response = responses[-1]
+                self.__log.debug(f'Reassembled Response: {final_response!r}')
                 return final_response
 
         failed_response = WriteTagFragmentedServiceResponsePacket()
         failed_response._error = self.error or 'One or more fragment responses failed'
+        self.__log.debug(f'Reassembled Response: {failed_response!r}')
         return failed_response
 
 
@@ -359,9 +422,9 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         self._msg.extend((
             bytes([TAG_SERVICES_REQUEST["Multiple Service Packet"]]),  # the Request Service
             pack_usint(2),  # the Request Path Size length in word
-            CLASS_ID["8-bit"],
+            CLASS_TYPE["8-bit"],
             CLASS_CODE["Message Router"],
-            INSTANCE_ID["8-bit"],
+            INSTANCE_TYPE["8-bit"],
             b'\x01',  # Instance 1
         ))
         self._message = None
@@ -546,9 +609,9 @@ def _create_tag_rp(tag, tag_cache, use_instance_ids):
         base, *attrs = tags
 
         if use_instance_ids and base in tag_cache:
-            rp = [CLASS_ID['8-bit'],
+            rp = [CLASS_TYPE['8-bit'],
                   CLASS_CODE['Symbol Object'],
-                  INSTANCE_ID['16-bit'], b'\x00',
+                  INSTANCE_TYPE['16-bit'],
                   pack_uint(tag_cache[base]['instance_id'])]
         else:
             base_tag, index = _find_tag_index(base)
@@ -605,11 +668,11 @@ def _encode_tag_index(index):
         for idx in index:
             val = int(idx)
             if val <= 0xff:
-                path += [ELEMENT_ID["8-bit"], pack_usint(val)]
+                path += [ELEMENT_TYPE["8-bit"], pack_usint(val)]
             elif val <= 0xffff:
-                path += [ELEMENT_ID["16-bit"], b'\x00', pack_uint(val)]
+                path += [ELEMENT_TYPE["16-bit"], pack_uint(val)]
             elif val <= 0xfffffffff:
-                path += [ELEMENT_ID["32-bit"], b'\x00', pack_dint(val)]
+                path += [ELEMENT_TYPE["32-bit"], pack_dint(val)]
             else:
                 return None  # Cannot create a valid request packet
         return path
