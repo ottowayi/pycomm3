@@ -94,7 +94,7 @@ class ResponsePacket(Packet):
         return 'Unknown Error'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(service={self.service!r}, command={self.command!r}, error={self.error!r})'
+        return f'{self.__class__.__name__}(service={bytes([self.service])!r}, command={self.command!r}, error={self.error!r})'
 
     __str__ = __repr__
 
@@ -128,6 +128,7 @@ class SendUnitDataResponsePacket(ResponsePacket):
         return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 48)}'
 
 
+@logged
 class GenericReadResponsePacket(SendUnitDataResponsePacket):
     def __init__(self,  *args, data_format: T_DATA_FORMAT = None, **kwargs):
         self.data_format = data_format
@@ -135,29 +136,32 @@ class GenericReadResponsePacket(SendUnitDataResponsePacket):
 
     def _parse_reply(self):
         super()._parse_reply()
-        try:
-            values = {}
-            start = 0
-            for name, typ in self.data_format:
-                if isinstance(typ, int):
-                    value = self.data[start: start + typ]
-                    start += typ
-                else:
-                    unpack_func = UNPACK_DATA_FUNCTION[typ]
-                    value = unpack_func(self.data[start:])
-                    if typ == 'SHORT_STRING':
-                        data_size = len(value) + 1
-                    else:
-                        data_size = DATA_FUNCTION_SIZE[typ]
-                    start += data_size
-
-                if name:
-                    values[name] = value
-        except Exception as err:
-            self._error = f'Failed to parse reply - {err}'
-            self.value = None
+        if self.data_format is None:
+            self.value = self.data
         else:
-            self.value = values
+            try:
+                values = {}
+                start = 0
+                for name, typ in self.data_format:
+                    if isinstance(typ, int):
+                        value = self.data[start: start + typ]
+                        start += typ
+                    else:
+                        unpack_func = UNPACK_DATA_FUNCTION[typ]
+                        value = unpack_func(self.data[start:])
+                        if typ == 'SHORT_STRING':
+                            data_size = len(value) + 1
+                        else:
+                            data_size = DATA_FUNCTION_SIZE[typ]
+                        start += data_size
+
+                    if name:
+                        values[name] = value
+            except Exception as err:
+                self._error = f'Failed to parse reply - {err}'
+                self.value = None
+            else:
+                self.value = values
 
     def __repr__(self):
         return f'{self.__class__.__name__}(value={_r(self.value)}, error={self.error!r})'
@@ -237,6 +241,11 @@ class WriteTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
 
 
 @logged
+class GenericWriteResponsePacket(SendUnitDataResponsePacket):
+    ...
+
+
+@logged
 class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
     def __init__(self, raw_data: bytes = None, tags=None, *args, **kwargs):
@@ -305,9 +314,6 @@ class SendRRDataResponsePacket(ResponsePacket):
     def service_extended_status(self):
         return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 42)}'
 
-    def __repr__(self):
-        return f'{self.__class__.__name__}(service={self.service!r}, error={self.error!r})'
-
 
 @logged
 class RegisterSessionResponsePacket(ResponsePacket):
@@ -341,6 +347,9 @@ class UnRegisterSessionResponsePacket(ResponsePacket):
 
     def is_valid(self):
         return True
+
+    def __repr__(self):
+        return 'UnRegisterSessionResponsePacket()'
 
 
 @logged
