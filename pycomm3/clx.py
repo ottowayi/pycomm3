@@ -158,7 +158,6 @@ class LogixDriver:
             'extended forward open': large_packets}
         self._cache = None
         self._data_types = {}
-        self._program_names = set()
         self._tags = {}
 
         self.use_instance_ids = True
@@ -598,9 +597,14 @@ class LogixDriver:
             'id:udt': {}
         }
 
+        if program in ('*', None):
+            self._info['programs'] = {}
+            self._info['tasks'] = {}
+            self._info['modules'] = {}
+
         if program == '*':
             tags = self._get_tag_list()
-            for prog in self._program_names:
+            for prog in self._info['programs']:
                 tags += self._get_tag_list(prog)
         else:
             tags = self._get_tag_list(program)
@@ -614,7 +618,7 @@ class LogixDriver:
 
     def _get_tag_list(self, program=None):
         all_tags = self._get_instance_attribute_list_service(program)
-        user_tags = self._isolating_user_tag(all_tags, program)
+        user_tags = self._isolate_user_tags(all_tags, program)
         for tag in user_tags:
             if tag['tag_type'] == 'struct':
                 tag['data_type'] = self._get_data_type(tag['template_instance_id'])
@@ -740,15 +744,60 @@ class LogixDriver:
 
         return last_instance
 
-    def _isolating_user_tag(self, all_tags, program=None):
+    def _isolate_user_tags(self, all_tags, program=None):
         try:
             user_tags = []
             for tag in all_tags:
+                io_tag = False
                 name = tag['tag_name'].decode()
-                if 'Program:' in name:
-                    self._program_names.add(name.replace('Program:', ''))
+
+                if name.startswith('Program:'):
+                    prog_name = name.replace('Program:', '')
+                    self._info['programs'][prog_name] = {'instance_id': tag['instance_id'], 'routines': []}
                     continue
-                if ':' in name or '__' in name:
+
+                if name.startswith('Routine:'):
+                    rtn_name = name.replace('Routine:', '')
+                    _program = self._info['programs'].get(program)
+                    if _program is None:
+                        self.__log.error(f'Program {program} not defined in tag list')
+                    else:
+                        _program['routines'].append(rtn_name)
+                    continue
+
+                if name.startswith('Task:'):
+                    self._info['tasks'][name.replace('Task:', '')] = {'instance_id': tag['instance_id']}
+                    continue
+
+                # system tags that may interfere w/ finding I/O modules
+                if 'Map:' in name or 'Cxn:' in name:
+                    continue
+
+                # I/O module tags
+                # Logix 5000 Controllers I/O and Tag Data, page 17  (1756-pm004_-en-p.pdf)
+                if any(x in name for x in (':I', ':O', ':C', ':S')):
+                    io_tag = True
+                    mod = name.split(':')
+                    mod_name = mod[0]
+                    if mod_name not in self._info['modules']:
+                        self._info['modules'][mod_name] = {'slots': {}}
+                    if len(mod) == 3 and mod[1].isdigit():
+                        mod_slot = int(mod[1])
+                        if mod_slot not in self._info['modules'][mod_name]:
+                            self._info['modules'][mod_name]['slots'][mod_slot] = {'types': []}
+                        self._info['modules'][mod_name]['slots'][mod_slot]['types'].append(mod[2])
+                    elif len(mod) == 2:
+                        if 'types' not in self._info['modules'][mod_name]:
+                            self._info['modules'][mod_name]['types'] = []
+                        self._info['modules'][mod_name]['types'].append(mod[1])
+                    # Not sure if this branch will ever be hit, but added to see if above branches may need additional work
+                    else:
+                        if '__UNKNOWN__' not in self._info['modules'][mod_name]:
+                            self._info['modules'][mod_name]['__UNKNOWN__'] = []
+                        self._info['modules'][mod_name]['__UNKNOWN__'].append(':'.join(mod[1:]))
+
+                # other system or junk tags
+                if (not io_tag and ':' in name) or name.startswith('__'):
                     continue
                 if tag['symbol_type'] & 0b0001_0000_0000_0000:
                     continue
@@ -758,30 +807,7 @@ class LogixDriver:
 
                 self._cache['tag_name:id'][name] = tag['instance_id']
 
-                new_tag = {
-                    'tag_name': name,
-                    'dim': (tag['symbol_type'] & 0b0110000000000000) >> 13,  # bit 13 & 14, number of array dims
-                    'instance_id': tag['instance_id'],
-                    'symbol_address': tag['symbol_address'],
-                    'symbol_object_address': tag['symbol_object_address'],
-                    'software_control': tag['software_control'],
-                    'alias': False if tag['software_control'] & BASE_TAG_BIT else True,
-                    'external_access': tag['external_access'],
-                    'dimensions': tag['dimensions']
-                }
-
-                if tag['symbol_type'] & 0b_1000_0000_0000_0000:  # bit 15, 1 = struct, 0 = atomic
-                    template_instance_id = tag['symbol_type'] & 0b_0000_1111_1111_1111
-                    new_tag['tag_type'] = 'struct'
-                    new_tag['template_instance_id'] = template_instance_id
-                else:
-                    new_tag['tag_type'] = 'atomic'
-                    datatype = tag['symbol_type'] & 0b_0000_0000_1111_1111
-                    new_tag['data_type'] = DATA_TYPE[datatype]
-                    if datatype == DATA_TYPE['BOOL']:
-                        new_tag['bit_position'] = (tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
-
-                user_tags.append(new_tag)
+                user_tags.append(_create_tag(name, tag))
 
             return user_tags
         except Exception as e:
@@ -1579,3 +1605,31 @@ def _parse_path_segment(segment: str):
                     raise ValueError('Invalid IP Address Segment', segment)
     except Exception:
         raise ValueError(f'Failed to parse path segment', segment)
+
+
+def _create_tag(name, raw_tag):
+
+    new_tag = {
+        'tag_name': name,
+        'dim': (raw_tag['symbol_type'] & 0b0110000000000000) >> 13,  # bit 13 & 14, number of array dims
+        'instance_id': raw_tag['instance_id'],
+        'symbol_address': raw_tag['symbol_address'],
+        'symbol_object_address': raw_tag['symbol_object_address'],
+        'software_control': raw_tag['software_control'],
+        'alias': False if raw_tag['software_control'] & BASE_TAG_BIT else True,
+        'external_access': raw_tag['external_access'],
+        'dimensions': raw_tag['dimensions']
+    }
+
+    if raw_tag['symbol_type'] & 0b_1000_0000_0000_0000:  # bit 15, 1 = struct, 0 = atomic
+        template_instance_id = raw_tag['symbol_type'] & 0b_0000_1111_1111_1111
+        new_tag['tag_type'] = 'struct'
+        new_tag['template_instance_id'] = template_instance_id
+    else:
+        new_tag['tag_type'] = 'atomic'
+        datatype = raw_tag['symbol_type'] & 0b_0000_0000_1111_1111
+        new_tag['data_type'] = DATA_TYPE[datatype]
+        if datatype == DATA_TYPE['BOOL']:
+            new_tag['bit_position'] = (raw_tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
+
+    return new_tag
