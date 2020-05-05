@@ -61,6 +61,8 @@ TIMEOUT_MULTIPLIER = b'\x07'
 TRANSPORT_CLASS = b'\xa3'
 BASE_TAG_BIT = 1 << 26
 
+SEC_TO_US = 1_000_000  # seconds to microseconds
+
 
 TEMPLATE_MEMBER_INFO_LEN = 8  # 2B bit/array len, 2B datatype, 4B offset
 STRUCTURE_READ_REPLY = b'\xa0\x02'
