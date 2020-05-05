@@ -286,37 +286,47 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         self.tag_info = None
         self.request_path = None
         self.data_type = None
+        self.segment_size = None
 
     def add(self, tag, value, elements=1, tag_info=None):
-        if tag_info['tag_type'] != 'atomic':
-            raise RequestError('Fragmented write of structures is not supported')
+        try:
+            if tag_info['tag_type'] == 'struct':
+                self._packed_type = b'\xA0\x02' + pack_uint(tag_info['data_type']['template']['structure_handle'])
+                dt_size = tag_info['data_type']['template']['structure_size']
+                self.data_type = tag_info['data_type']['name']
+            else:
+                self._packed_type = pack_uint(DATA_TYPE[self.data_type])
+                dt_size = DATA_TYPE_SIZE[self.data_type]
+                self.data_type = tag_info['data_type']
+            self.segment_size = self._plc.connection_size // (dt_size + 4)
 
-        self.tag = tag
-        self.value = value
-        self.elements = elements
-        self.data_type = tag_info['data_type']
-        self.tag_info = tag_info
-        self.request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
-        if self.request_path is None:
-            self.error = 'Invalid Tag Request Path'
+            self.tag = tag
+            self.value = value
+            self.elements = elements
+            self.tag_info = tag_info
+            self.request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
+            if self.request_path is None:
+                self.error = 'Invalid Tag Request Path'
+        except Exception as err:
+            self.__log.exception('Failed adding request')
+            self.error = err
 
     def send(self):
         if not self.error:
             responses = []
-            segment_size = self._plc.connection_size // (DATA_TYPE_SIZE[self.data_type] + 4)
-            pack_func = PACK_DATA_FUNCTION[self.data_type]
-            segments = (self.value[i:i+segment_size]
-                        for i in range(0, len(self.value), segment_size))
+
+            pack_func = PACK_DATA_FUNCTION[self.data_type] if self.tag_info['tag_type'] == 'atomic' else lambda x: x
+            segments = (self.value[i:i+self.segment_size]
+                        for i in range(0, len(self.value), self.segment_size))
 
             offset = 0
             elements_packed = pack_uint(self.elements)
-            data_type_packed = pack_uint(DATA_TYPE[self.data_type])
             for segment in segments:
-                segment_bytes = b''.join(pack_func(s) for s in segment)
+                segment_bytes = b''.join(pack_func(s) for s in segment) if not isinstance(segment, bytes) else segment
                 self._msg.extend((
                     bytes([TAG_SERVICES_REQUEST["Write Tag Fragmented"]]),
                     self.request_path,
-                    data_type_packed,
+                    self._packed_type,
                     elements_packed,
                     pack_dint(offset),
                     segment_bytes
@@ -333,7 +343,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                 final_response = responses[-1]
                 return final_response
 
-        failed_response = ReadTagServiceResponsePacket()
+        failed_response = WriteTagFragmentedServiceResponsePacket()
         failed_response._error = self.error or 'One or more fragment responses failed'
         return failed_response
 
