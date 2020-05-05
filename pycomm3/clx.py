@@ -27,6 +27,8 @@
 
 import socket
 import logging
+import datetime
+import time
 from functools import wraps
 from os import urandom
 from typing import Union, List, Sequence, Tuple, Optional
@@ -35,13 +37,13 @@ from autologging import logged
 
 from . import DataError, CommError
 from . import Tag, RequestError
-from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, )
+from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, pack_ulint)
 from .bytes_ import (unpack_dint, pack_sint, PACK_DATA_FUNCTION, UNPACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
 from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_TYPE, CLASS_CODE, CLASS_TYPE,
                     INSTANCE_TYPE, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
                     TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
                     MICRO800_PREFIX)
-from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
+from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE, SEC_TO_US,
                     KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE, MIN_VER_EXTERNAL_ACCESS)
 from .packets import REQUEST_MAP, RequestPacket, get_service_status, T_DATA_FORMAT
 from .socket_ import Socket
@@ -550,29 +552,16 @@ class LogixDriver:
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
         """
         try:
-            request = self.new_request('send_unit_data')
-            request.add(
-                b'\x01',  # Service
-                REQUEST_PATH_SIZE,
-                CLASS_TYPE['8-bit'],
-                CLASS_CODE['Identity Object'],
-                INSTANCE_TYPE["16-bit"],
-                b'\x01\x00',  # Instance 1
-            )
-            print(request.message)
-            response = request.send()
-
-            tmp = self.generic_read(class_code=CLASS_CODE['Identity Object'], instance=b'\x01\x00',
-                                    service=b'\x01',
-                                    data_format=[
-                                        ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
-                                        ('major_fw', 'SINT'), ('minor_fw', 'SINT'), ('keyswitch', 2),
-                                        ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
-                                    ])
-            # print(tmp)
+            response = self.generic_read(class_code=CLASS_CODE['Identity Object'], instance=b'\x01\x00',
+                                         service=b'\x01',
+                                         data_format=[
+                                            ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
+                                            ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
+                                            ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
+                                         ])
 
             if response:
-                info = _parse_plc_info(response.data)
+                info = _parse_plc_info(response.value)
                 self._info = {**self._info, **info}
                 return info
             else:
@@ -1303,18 +1292,39 @@ class LogixDriver:
                                                          tag.get('error', 'Unknown Service Error'))
         return results
 
-    def get_plc_time(self):
-        ...
+    def get_plc_time(self, format='%A, %B %d, %Y %I:%M:%S %p'):
+        tag = self.generic_read(class_code=b'\x8B', instance=b'\x01', request_data=b'\x01\x00\x0B\x00',
+                                data_format=[(None, 6), ('us', 'ULINT'), ])
+        time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
+        value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(format)}
+        return Tag('__GET_PLC_TIME__', value, error=tag.error)
+
+    def set_plc_time(self, microseconds=None):
+        if microseconds is None:
+            microseconds = int(time.time() * SEC_TO_US)
+
+        request_data = b''.join([
+            b'\x01\x00',  # attribute count
+            b'\x06\x00',  # attribute
+            pack_ulint(microseconds),
+        ])
+        return self.generic_write(b'\x04', b'\x8B', b'\x01', request_data=request_data, name='__SET_PLC_TIME__')
+
 
     @with_forward_open
     def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
                      data_format: T_DATA_FORMAT = None, name: str = 'generic',
-                     service=TAG_SERVICES_REQUEST['Get Attributes']):
+                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']])):
 
-        request = self.new_request('generic_read', class_code, instance, request_data, data_format, service)
+        request = self.new_request('generic_read', service, class_code, instance, request_data, data_format)
         response = request.send()
 
         return Tag(name, response.value, error=response.error)
+
+    def generic_write(self, service, class_code, instance, request_data: bytes = None, name: str = 'generic'):
+        request = self.new_request('generic_write', service, class_code, instance, request_data)
+        response = request.send()
+        return Tag(name, None, error=response.error)
 
 
 def _parse_plc_name(response):
@@ -1329,27 +1339,14 @@ def _parse_plc_name(response):
 
 
 def _parse_plc_info(data):
-    vendor = unpack_uint(data[0:2])
-    product_type = unpack_uint(data[2:4])
-    product_code = unpack_uint(data[4:6])
-    major_fw = int(data[6])
-    minor_fw = int(data[7])
-    keyswitch = KEYSWITCH.get(int(data[8]), {}).get(int(data[9]), 'UNKNOWN')
-    serial_number = f'{unpack_udint(data[10:14]):08x}'
-    device_type_len = int(data[14])
-    device_type = data[15:15 + device_type_len].decode()
+    parsed = {k: v for k, v in data.items() if not k.startswith('_')}
+    parsed['vendor'] = VENDORS.get(parsed['vendor'], 'UNKNOWN')
+    parsed['product_type'] = PRODUCT_TYPES.get(parsed['product_type'], 'UNKNOWN')
+    parsed['revision'] = f"{parsed['version_major']}.{parsed['version_minor']}"
+    parsed['serial'] = f"{parsed['serial']:08x}"
+    parsed['keyswitch'] = KEYSWITCH.get(data['_keyswitch'][0], {}).get(data['_keyswitch'][1], 'UNKNOWN')
 
-    return {
-        'vendor': VENDORS.get(vendor, 'UNKNOWN'),
-        'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
-        'product_code': product_code,
-        'version_major': major_fw,
-        'version_minor': minor_fw,
-        'revision': f'{major_fw}.{minor_fw}',
-        'serial': serial_number,
-        'device_type': device_type,
-        'keyswitch': keyswitch
-    }
+    return parsed
 
 
 def _parse_identity_object(reply):
