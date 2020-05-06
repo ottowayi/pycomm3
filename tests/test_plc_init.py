@@ -18,12 +18,11 @@ def test_connect_init_info():
         # assert plc.name == 'PLCA'
         assert plc.info['vendor'] == 'Rockwell Automation/Allen-Bradley'
         assert plc.info['keyswitch'] == 'REMOTE RUN'
-        # assert plc.info['name'] == 'testing'
-        # assert plc.name == 'testing'
 
 
 def test_connect_init_tags():
-    with LogixDriver(PATH, init_info=False, init_tags=True) as plc:
+    with LogixDriver(PATH) as plc:
         assert len(plc.tags) > 0
         assert isinstance(plc.tags, dict)
+        assert 'Pycomm3_Testing' in plc.info['programs']
 

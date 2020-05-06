@@ -271,3 +271,62 @@ Tag(tag='string_tag', value='Hello World!', type='STRING', error=None)
 >>> plc.write(('short_string_tag', 'Test Write'))
 Tag(tag='short_string_tag', value='Test Write', type='STRING20', error=None)
 
+
+Logging
+-------
+
+This library uses the standard Python `logging`_ module.  You may configure the logging module as needed.  The ``DEBUG``
+level will log every sent/received packed and other diagnostic data.  Set the level to higher than ``DEBUG`` if you only
+wish to see errors, exceptions, etc.
+
+.. code-block::
+
+    # by default, a NullHandler has been added to the 'pycomm3' logger, so the force arg is required
+    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout, force=True)
+
+Produces output similar to::
+
+    DEBUG:pycomm3.packets.requests.RequestPacket:Sent: RegisterSessionRequestPacket()
+    DEBUG:pycomm3.packets.requests.RequestPacket:Received: RegisterSessionResponsePacket(session=659398, error=None)
+    DEBUG:pycomm3.clx.LogixDriver:Session = 659398 has been registered.
+    DEBUG:pycomm3.packets.requests.RequestPacket:Sent: SendRRDataRequestPacket()
+    DEBUG:pycomm3.packets.requests.RequestPacket:Received: SendRRDataResponsePacket(service=b'\xdb', command=b'o\x00', error=None)
+    DEBUG:pycomm3.packets.requests.GenericReadRequestPacket:Sent: GenericReadRequestPacket(service=b'\x01', class_code=b'\x01', instance=b'\x01\x00', request_data=None)
+    DEBUG:pycomm3.packets.requests.GenericReadRequestPacket:Received: GenericReadResponsePacket(value={'_keyswitch': b'`1', 'device_type': '1756-L73/A LOGIX5573', 'product_code': 94, 'product_type': 14, ...}, error=None)
+
+
+A separate ``VERBOSE_DEBUG`` option is available to print out the raw bytes contents of the sent/received packets to aid
+in development and debugging.
+
+.. code-block::
+
+    from pycomm3.packets.requests import RequestPacket
+    RequestPacket.VERBOSE_DEBUG = True
+
+Verbose output::
+
+    DEBUG:pycomm3.packets.requests.RequestPacket:>>> SEND >>>
+    (0000) 65 00 04 00 00 00 00 00 00 00
+    (0010) 00 00 5f 70 79 63 6f 6d 6d 5f
+    (0020) 00 00 00 00 01 00 00 00
+    DEBUG:pycomm3.packets.requests.RequestPacket:Sent: RegisterSessionRequestPacket()
+    DEBUG:pycomm3.packets.requests.RequestPacket:<<< RECEIVE <<<
+    (0000) 65 00 04 00 de 0f 6f 00 00 00
+    (0010) 00 00 5f 70 79 63 6f 6d 6d 5f
+    (0020) 00 00 00 00 01 00 00 00
+    DEBUG:pycomm3.packets.requests.RequestPacket:Received: RegisterSessionResponsePacket(session=7278558, error=None)
+    DEBUG:pycomm3.clx.LogixDriver:Session = 7278558 has been registered.
+    DEBUG:pycomm3.packets.requests.RequestPacket:>>> SEND >>>
+    (0000) 6f 00 44 00 de 0f 6f 00 00 00
+    (0010) 00 00 5f 70 79 63 6f 6d 6d 5f
+    (0020) 00 00 00 00 00 00 00 00 0a 00
+    (0030) 02 00 00 00 00 00 b2 00 34 00
+    (0040) 5b 02 20 06 24 01 0a 05 00 00
+    (0050) 00 00 45 d7 99 a1 27 04 09 10
+    (0060) 56 45 45 60 07 00 00 00 01 40
+    (0070) 20 00 a0 0f 00 42 01 40 20 00
+    (0080) a0 0f 00 42 a3 03 01 0a 20 02
+    (0090) 24 01
+    DEBUG:pycomm3.packets.requests.RequestPacket:Sent: SendRRDataRequestPacket()
+
+.. _logging: https://docs.python.org/3/library/logging.html

@@ -31,7 +31,7 @@ from typing import NamedTuple, Any, Optional
 import logging
 from reprlib import repr as _r
 
-logger = logging.getLogger()
+logger = logging.getLogger('pycomm3')
 logger.addHandler(logging.NullHandler())
 
 

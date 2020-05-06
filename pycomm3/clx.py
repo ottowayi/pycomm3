@@ -49,7 +49,6 @@ from .packets import REQUEST_MAP, RequestPacket, get_service_status, T_DATA_FORM
 from .socket_ import Socket
 
 
-
 # re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
 
 
@@ -237,7 +236,11 @@ class LogixDriver:
         - *device_type* - string value for PLC device type, e.g. ``'1756-L83E/B'``
         - *keyswitch* - string value representing the current keyswitch position, e.g. ``'REMOTE RUN'``
         - *name* - string value of the current PLC program name, e.g. ``'PLCA'``
+        **The following fields are added from calling** :meth:`.get_tag_list`
 
+        - *programs* - dict of all Programs in the PLC and their routines, ``{program: {'routines': [routine, ...}...}``
+        - *tasks* - dict of all Tasks in the PLC, ``{task: {'instance_id': ...}...}``
+        - *modules* - dict of I/O modules in the PLC, ``{module: {'slots': {1: {'types': ['O,' 'I', 'C']}, ...}, 'types':[...]}...}``
         """
         return self._info
 
@@ -250,6 +253,7 @@ class LogixDriver:
 
     @property
     def connection_size(self):
+        """CIP connection size, ``4000`` if using Extended Forward Open else ``500``"""
         return 4000 if self.attribs['extended forward open'] else 500
 
     def new_request(self, command: str, *args, **kwargs) -> RequestPacket:
@@ -268,6 +272,8 @@ class LogixDriver:
             - `read_tag_fragmented`
             - `write_tag`
             - `write_tag_fragmented`
+            - `generic_read`
+            - `generic_write`
 
         :param command: the service for which a request will be created
         :return: a new request for the command
@@ -1318,14 +1324,28 @@ class LogixDriver:
                                                          tag.get('error', 'Unknown Service Error'))
         return results
 
-    def get_plc_time(self, format='%A, %B %d, %Y %I:%M:%S %p'):
+    def get_plc_time(self, fmt: str='%A, %B %d, %Y %I:%M:%S%p') -> Tag:
+        """
+        Gets the current time of the PLC system clock. The ``value`` attribute will be a dict containing the time in
+        3 different forms, *datetime* is a Python datetime.datetime object, *microseconds* is the integer value epoch time,
+        and *string* is the *datetime* formatted using ``strftime`` and the ``fmt`` parameter.
+
+        :param fmt: format string for converting the time to a string
+        :return: a Tag object with the current time
+        """
         tag = self.generic_read(class_code=b'\x8B', instance=b'\x01', request_data=b'\x01\x00\x0B\x00',
                                 data_format=[(None, 6), ('us', 'ULINT'), ])
         time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
-        value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(format)}
+        value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(fmt)}
         return Tag('__GET_PLC_TIME__', value, error=tag.error)
 
-    def set_plc_time(self, microseconds=None):
+    def set_plc_time(self, microseconds: Optional[int] = None) -> Tag:
+        """
+        Set the time of the PLC system clock.
+
+        :param microseconds: None to use client PC clock, else timestamp in microseconds to set the PLC clock to
+        :return: Tag with status of request
+        """
         if microseconds is None:
             microseconds = int(time.time() * SEC_TO_US)
 
@@ -1335,7 +1355,6 @@ class LogixDriver:
             pack_ulint(microseconds),
         ])
         return self.generic_write(b'\x04', b'\x8B', b'\x01', request_data=request_data, name='__SET_PLC_TIME__')
-
 
     @with_forward_open
     def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
