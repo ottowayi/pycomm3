@@ -140,7 +140,7 @@ class RequestPacket(Packet):
         return response
 
     def __repr__(self):
-        return f'{self.__class__.__name__}()'
+        return f'{self.__class__.__name__}(message={_r(self._msg)})'
 
     __str__ = __repr__
 
@@ -227,6 +227,10 @@ class GenericWriteRequestPacket(SendUnitDataRequestPacket):
 
         if request_data is not None:
             self.add(request_data)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(service={self.service!r}, class_code={self.class_code!r}, ' \
+                                         f'instance={self.instance!r}, request_data={self.request_data!r})'
 
 
 @logged
@@ -424,8 +428,6 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                     pack_dint(offset),
                     segment_bytes
                 ))
-
-                print(len(self.message))
 
                 self._send(self._build_request())
                 self.__log.debug(f'Sent: {self!r} (part={i} offset={offset})')
