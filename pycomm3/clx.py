@@ -239,11 +239,13 @@ class LogixDriver:
         - *device_type* - string value for PLC device type, e.g. ``'1756-L83E/B'``
         - *keyswitch* - string value representing the current keyswitch position, e.g. ``'REMOTE RUN'``
         - *name* - string value of the current PLC program name, e.g. ``'PLCA'``
+
         **The following fields are added from calling** :meth:`.get_tag_list`
 
         - *programs* - dict of all Programs in the PLC and their routines, ``{program: {'routines': [routine, ...}...}``
         - *tasks* - dict of all Tasks in the PLC, ``{task: {'instance_id': ...}...}``
         - *modules* - dict of I/O modules in the PLC, ``{module: {'slots': {1: {'types': ['O,' 'I', 'C']}, ...}, 'types':[...]}...}``
+
         """
         return self._info
 

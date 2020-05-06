@@ -145,6 +145,8 @@ internal_tags
     array
         **Optional** Length of the array if this tag is an array, ``0`` if not an array,
 
+.. note:: ``attributes`` and ``internal_tags`` do **NOT** include InOut parameters.
+
 
 Reading/Writing Tags
 --------------------
