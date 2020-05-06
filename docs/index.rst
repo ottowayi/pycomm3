@@ -13,7 +13,29 @@
 
 .. image:: https://img.shields.io/pypi/pyversions/pycomm3.svg?style=for-the-badge
    :target: https://pypi.python.org/pypi/pycomm3
-   :alt: License
+   :alt: Python Versions
+
+.. image:: https://img.shields.io/pypi/dm/pycomm3?style=for-the-badge
+   :target: https://pypi.python.org/pypi/pycomm3
+   :alt: Downloads
+
+.. image:: https://img.shields.io/github/watchers/ottowayi/pycomm3?style=social
+    :target: https://github.com/ottowayi/pycomm3
+    :alt: Watchers
+
+.. image:: https://img.shields.io/github/stars/ottowayi/pycomm3?style=social
+    :target: https://github.com/ottowayi/pycomm3
+    :alt: Stars
+
+.. image:: https://img.shields.io/github/forks/ottowayi/pycomm3?style=social
+    :target: https://github.com/ottowayi/pycomm3
+    :alt: Forks
+
+
+
+
+
+
 
 
 ``pycomm3`` is a Python 3 fork of `pycomm`_, which is a native python library for communicating
