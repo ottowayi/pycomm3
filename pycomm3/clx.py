@@ -45,9 +45,12 @@ from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGME
                     MICRO800_PREFIX)
 from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE, SEC_TO_US,
                     KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE, MIN_VER_EXTERNAL_ACCESS)
-from .packets import REQUEST_MAP, RequestPacket, get_service_status, T_DATA_FORMAT
+from .packets import REQUEST_MAP, RequestPacket, get_service_status, DataFormatType
 from .socket_ import Socket
 
+AtomicType = Union[int, float, bool, str]
+TagType = Union[AtomicType, List[AtomicType]]
+ReturnType = Union[Tag, List[Tag]]
 
 # re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
 
@@ -972,7 +975,7 @@ class LogixDriver:
         return self._cache['id:udt'][instance_id]
 
     @with_forward_open
-    def read(self, *tags: str) -> Union[Tag, List[Tag]]:
+    def read(self, *tags: str) -> ReturnType:
         """
 
         :param tags: one or many tags to read
@@ -1077,7 +1080,7 @@ class LogixDriver:
         return None
 
     @with_forward_open
-    def write(self, *tags_values: Tuple[str, Union[int, float, str, bool]]) -> Union[Tag, List[Tag]]:
+    def write(self, *tags_values: Tuple[str, TagType]) -> ReturnType:
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 
@@ -1358,15 +1361,15 @@ class LogixDriver:
 
     @with_forward_open
     def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
-                     data_format: T_DATA_FORMAT = None, name: str = 'generic',
-                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']])):
+                     data_format: DataFormatType = None, name: str = 'generic',
+                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']])) -> Tag:
 
         request = self.new_request('generic_read', service, class_code, instance, request_data, data_format)
         response = request.send()
 
         return Tag(name, response.value, error=response.error)
 
-    def generic_write(self, service, class_code, instance, request_data: bytes = None, name: str = 'generic'):
+    def generic_write(self, service, class_code, instance, request_data: bytes = None, name: str = 'generic') -> Tag:
         request = self.new_request('generic_write', service, class_code, instance, request_data)
         response = request.send()
         return Tag(name, None, error=response.error)

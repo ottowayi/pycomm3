@@ -27,7 +27,7 @@
 from autologging import logged
 from reprlib import repr as _r
 
-from . import Packet, T_DATA_FORMAT
+from . import Packet, DataFormatType
 from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceResponsePacket, RegisterSessionResponsePacket,
                UnRegisterSessionResponsePacket, ListIdentityResponsePacket, SendRRDataResponsePacket,
                MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, WriteTagServiceResponsePacket,
@@ -162,7 +162,7 @@ class GenericReadRequestPacket(SendUnitDataRequestPacket):
     _response_class = GenericReadResponsePacket
 
     def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None,
-                 data_format: T_DATA_FORMAT = None):
+                 data_format: DataFormatType = None):
         super().__init__(plc)
         self.data_format = data_format
         self.class_code = class_code

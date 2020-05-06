@@ -28,7 +28,7 @@ from itertools import tee, zip_longest, chain
 
 from autologging import logged
 
-from . import Packet, T_DATA_FORMAT
+from . import Packet, DataFormatType
 from ..bytes_ import unpack_uint, unpack_usint, unpack_dint, UNPACK_DATA_FUNCTION, DATA_FUNCTION_SIZE
 from ..const import (SUCCESS, INSUFFICIENT_PACKETS, TAG_SERVICES_REPLY, SERVICE_STATUS,EXTEND_CODES,
                      MULTI_PACKET_SERVICES, REPLY_START, STRUCTURE_READ_REPLY,
@@ -130,7 +130,7 @@ class SendUnitDataResponsePacket(ResponsePacket):
 
 @logged
 class GenericReadResponsePacket(SendUnitDataResponsePacket):
-    def __init__(self,  *args, data_format: T_DATA_FORMAT = None, **kwargs):
+    def __init__(self, *args, data_format: DataFormatType = None, **kwargs):
         self.data_format = data_format
         super().__init__(*args, **kwargs)
 

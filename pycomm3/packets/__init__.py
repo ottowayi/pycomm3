@@ -27,7 +27,7 @@
 from autologging import logged
 from typing import List, Tuple, Optional, Union
 
-T_DATA_FORMAT = List[Tuple[Optional[str], Union[str, int]]]
+DataFormatType = List[Tuple[Optional[str], Union[str, int]]]
 
 
 @logged
