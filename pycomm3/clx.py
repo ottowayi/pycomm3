@@ -1287,8 +1287,7 @@ class LogixDriver:
             # something went wrong parsing the tag path
             raise RequestError('Failed to parse tag request', tag)
 
-    @staticmethod
-    def _send_requests(requests):
+    def _send_requests(self, requests):
 
         def _mkkey(t=None, r=None):
             if t is not None:
@@ -1302,6 +1301,7 @@ class LogixDriver:
             try:
                 response = request.send()
             except Exception as err:
+                self.__log.exception('Error sending request')
                 if request.type_ != 'multi':
                     results[_mkkey(r=request)] = Tag(request.tag, None, None, str(err))
                 else:

@@ -389,7 +389,6 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                 self._packed_type = pack_uint(DATA_TYPE[self.data_type])
                 dt_size = DATA_TYPE_SIZE[self.data_type]
                 self.data_type = tag_info['data_type']
-            self.segment_size = self._plc.connection_size // (dt_size + 4)
 
             self.tag = tag
             self.value = value
@@ -405,15 +404,17 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
     def send(self):
         if not self.error:
             responses = []
+            segment_size = self._plc.connection_size - (len(self.request_path) + len(self._packed_type)
+                                                        + 9)  # 9 = len of other stuff in the path
 
             pack_func = PACK_DATA_FUNCTION[self.data_type] if self.tag_info['tag_type'] == 'atomic' else lambda x: x
-            segments = (self.value[i:i+self.segment_size]
-                        for i in range(0, len(self.value), self.segment_size))
+            segments = (self.value[i:i+segment_size]
+                        for i in range(0, len(self.value), segment_size))
 
             offset = 0
             elements_packed = pack_uint(self.elements)
 
-            for segment in segments:
+            for i, segment in enumerate(segments, start=1):
                 segment_bytes = b''.join(pack_func(s) for s in segment) if not isinstance(segment, bytes) else segment
                 self._msg.extend((
                     bytes([TAG_SERVICES_REQUEST["Write Tag Fragmented"]]),
@@ -424,8 +425,10 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                     segment_bytes
                 ))
 
+                print(len(self.message))
+
                 self._send(self._build_request())
-                self.__log.debug(f'Sent: {self!r} (offset={offset})')
+                self.__log.debug(f'Sent: {self!r} (part={i} offset={offset})')
                 reply = self._receive()
                 response = WriteTagFragmentedServiceResponsePacket(reply)
                 self.__log.debug(f'Received: {response!r}')
