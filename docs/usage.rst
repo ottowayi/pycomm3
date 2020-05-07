@@ -55,6 +55,8 @@ True
 >>> plc3.tags == plc4.tags
 True
 
+.. _tag-def:
+
 Tag Structure
 ^^^^^^^^^^^^^
 
@@ -100,6 +102,7 @@ alias
     .. note:: This is not documented, but an educated guess found through trial and error.
 
 
+.. _struct-def:
 
 Structure Definitions
 ^^^^^^^^^^^^^^^^^^^^^
