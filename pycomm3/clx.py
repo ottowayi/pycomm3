@@ -127,7 +127,7 @@ class LogixDriver:
 
             Initialization of tags is required for the :meth:`.read` and :meth:`.write` to work.  This is because
             they require information about the data type and structure of the tags inside the controller.  If opening
-            multiple connections to the same controller, you may disable tag initialization is all but the first connection
+            multiple connections to the same controller, you may disable tag initialization in all but the first connection
             and set ``plc2._tags = plc1.tags`` to prevent needing to upload the tag definitions multiple times.
 
         """
@@ -829,10 +829,6 @@ class LogixDriver:
         get the structure makeup for a specific structure
         """
         if instance_id not in self._cache['id:struct']:
-            if not self._target_is_connected:
-                if not self._forward_open():
-                    self.__log.warning("Target did not connected. get_tag_list will not be executed.")
-                    raise DataError("Target did not connected. get_tag_list will not be executed.")
             request = self.new_request('send_unit_data')
             request.add(
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
