@@ -1338,7 +1338,7 @@ class LogixDriver:
         :param fmt: format string for converting the time to a string
         :return: a Tag object with the current time
         """
-        tag = self.generic_read(class_code=b'\x8B', instance=b'\x01', request_data=b'\x01\x00\x0B\x00',
+        tag = self.generic_read(class_code=CLASS_CODE['Wall-Clock Time'], instance=b'\x01', request_data=b'\x01\x00\x0B\x00',
                                 data_format=[(None, 6), ('us', 'ULINT'), ])
         time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
         value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(fmt)}
@@ -1359,7 +1359,8 @@ class LogixDriver:
             b'\x06\x00',  # attribute
             pack_ulint(microseconds),
         ])
-        return self.generic_write(b'\x04', b'\x8B', b'\x01', request_data=request_data, name='__SET_PLC_TIME__')
+        return self.generic_write(b'\x04', CLASS_CODE['Wall-Clock Time'], b'\x01',
+                                  request_data=request_data, name='__SET_PLC_TIME__')
 
     @with_forward_open
     def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,

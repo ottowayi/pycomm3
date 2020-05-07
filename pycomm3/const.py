@@ -130,6 +130,10 @@ CLASS_CODE = {
     'Template Object': b'\x6c',
     'Connection Manager': b'\x06',  # Volume 1: 3-5
     'Program Name': b'\x64',  # Rockwell KB# 23341
+    'Wall-Clock Time': b'\x8b',  # Micro800 CIP client messaging quick start
+    'TCP/IP': b'\xf5',
+    'Ethernet Link': b'\xf6',
+    'Modbus Serial Link': b'\x46',
 }
 
 CONNECTION_MANAGER_INSTANCE = {
