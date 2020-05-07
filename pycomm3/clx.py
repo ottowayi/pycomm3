@@ -1372,10 +1372,10 @@ class LogixDriver:
 
         return Tag(name, response.value, error=response.error)
 
-    def generic_write(self, service, class_code, instance, request_data: bytes = None, name: str = 'generic') -> Tag:
+    def generic_write(self, service, class_code, instance, request_data: bytes, name: str = 'generic') -> Tag:
         request = self.new_request('generic_write', service, class_code, instance, request_data)
         response = request.send()
-        return Tag(name, None, error=response.error)
+        return Tag(name, request_data, error=response.error)
 
 
 def _parse_plc_name(response):
