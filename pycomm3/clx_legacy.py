@@ -7,8 +7,8 @@ from .bytes_ import (pack_dint, pack_uint, pack_udint, pack_usint, unpack_usint,
                      UNPACK_DATA_FUNCTION, PACK_DATA_FUNCTION, DATA_FUNCTION_SIZE, print_bytes_msg)
 from .clx import LogixDriver
 from .const import (SUCCESS, EXTENDED_SYMBOL, ENCAPSULATION_COMMAND, DATA_TYPE, BITS_PER_INT_TYPE,
-                    REPLY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_ID, DATA_ITEM, ADDRESS_ITEM,
-                    CLASS_ID, CLASS_CODE, INSTANCE_ID, INSUFFICIENT_PACKETS, REPLY_START, MULTISERVICE_READ_OVERHEAD,
+                    REPLY_INFO, TAG_SERVICES_REQUEST, PADDING_BYTE, ELEMENT_TYPE, DATA_ITEM, ADDRESS_ITEM,
+                    CLASS_TYPE, CLASS_CODE, INSTANCE_TYPE, INSUFFICIENT_PACKETS, REPLY_START, MULTISERVICE_READ_OVERHEAD,
                     MULTISERVICE_WRITE_OVERHEAD, TAG_SERVICES_REPLY, get_service_status, get_extended_status)
 
 
@@ -51,9 +51,9 @@ class LogixDriverLegacy(LogixDriver):
             base, *attrs = tags
 
             if self.use_instance_ids and base in self.tags:
-                rp = [CLASS_ID['8-bit'],
+                rp = [CLASS_TYPE['8-bit'],
                       CLASS_CODE['Symbol Object'],
-                      INSTANCE_ID['16-bit'], b'\x00',
+                      INSTANCE_TYPE['16-bit'], b'\x00',
                       pack_uint(self.tags[base]['instance_id'])]
             else:
                 base_tag, index = self._find_tag_index(base)
@@ -747,13 +747,13 @@ class LogixDriverLegacy(LogixDriver):
                 for idx in index:
                     val = int(idx)
                     if val <= 0xff:
-                        rp.append(ELEMENT_ID["8-bit"])
+                        rp.append(ELEMENT_TYPE["8-bit"])
                         rp.append(pack_usint(val))
                     elif val <= 0xffff:
-                        rp.append(ELEMENT_ID["16-bit"] + PADDING_BYTE)
+                        rp.append(ELEMENT_TYPE["16-bit"])
                         rp.append(pack_uint(val))
                     elif val <= 0xfffffffff:
-                        rp.append(ELEMENT_ID["32-bit"] + PADDING_BYTE)
+                        rp.append(ELEMENT_TYPE["32-bit"])
                         rp.append(pack_dint(val))
                     else:
                         # Cannot create a valid request packet
@@ -792,9 +792,9 @@ class LogixDriverLegacy(LogixDriver):
         mr = [
             bytes([TAG_SERVICES_REQUEST["Multiple Service Packet"]]),  # the Request Service
             pack_usint(2),  # the Request Path Size length in word
-            CLASS_ID["8-bit"],
+            CLASS_TYPE["8-bit"],
             CLASS_CODE["Message Router"],
-            INSTANCE_ID["8-bit"],
+            INSTANCE_TYPE["8-bit"],
             b'\x01',  # Instance 1
             pack_uint(len(rp_list))  # Number of service contained in the request
         ]

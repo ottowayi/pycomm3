@@ -27,6 +27,8 @@
 
 import socket
 import logging
+import datetime
+import time
 from functools import wraps
 from os import urandom
 from typing import Union, List, Sequence, Tuple, Optional
@@ -35,16 +37,20 @@ from autologging import logged
 
 from . import DataError, CommError
 from . import Tag, RequestError
-from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, )
-from .bytes_ import (unpack_dint, pack_sint, PACK_DATA_FUNCTION)
-from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_ID, CLASS_CODE, CLASS_ID,
-                    INSTANCE_ID, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
-                    TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES)
-from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE,
+from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, pack_ulint)
+from .bytes_ import (unpack_dint, pack_sint, PACK_DATA_FUNCTION, UNPACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
+from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_TYPE, CLASS_CODE, CLASS_TYPE,
+                    INSTANCE_TYPE, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
+                    TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
+                    MICRO800_PREFIX)
+from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE, SEC_TO_US,
                     KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE, MIN_VER_EXTERNAL_ACCESS)
-from .packets import REQUEST_MAP, RequestPacket, get_service_status
+from .packets import REQUEST_MAP, RequestPacket, get_service_status, DataFormatType
 from .socket_ import Socket
 
+AtomicType = Union[int, float, bool, str]
+TagType = Union[AtomicType, List[AtomicType]]
+ReturnType = Union[Tag, List[Tag]]
 
 # re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
 
@@ -79,7 +85,7 @@ class LogixDriver:
     An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
     """
 
-    def __init__(self, path: str, *args,  large_packets: bool = True, debug: bool = False, micro800: bool = False,
+    def __init__(self, path: str, *args,  large_packets: bool = True, micro800: bool = False,
                  init_info: bool = True, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
         """
         :param path: CIP path to intended target
@@ -115,14 +121,13 @@ class LogixDriver:
 
         :param init_tags: if True (default), uploads all controller-scoped tag definitions on connect
         :param init_program_tags: if True, uploads all program-scoped tag definitions on connect
-        :param debug:  enables certain debugging features, like printing the raw bytes for each packet sent/received
-        :param micro800: set to True if connecting to a Micro800 series PLC, it will disable unsupported features
+        :param micro800: set to True if connecting to a Micro800 series PLC with ``init_info`` disabled, it will disable unsupported features
 
         .. tip::
 
             Initialization of tags is required for the :meth:`.read` and :meth:`.write` to work.  This is because
             they require information about the data type and structure of the tags inside the controller.  If opening
-            multiple connections to the same controller, you may disable tag initialization is all but the first connection
+            multiple connections to the same controller, you may disable tag initialization in all but the first connection
             and set ``plc2._tags = plc1.tags`` to prevent needing to upload the tag definitions multiple times.
 
         """
@@ -130,8 +135,7 @@ class LogixDriver:
         self._sequence_number = 1
         self._sock = None
         # self.__direct_connections = direct_connection
-        self.debug = debug
-        self._micro800 = micro800
+
         self._session = 0
         self._connection_opened = False
         self._target_cid = None
@@ -156,7 +160,6 @@ class LogixDriver:
             'extended forward open': large_packets}
         self._cache = None
         self._data_types = {}
-        self._program_names = set()
         self._tags = {}
 
         self.use_instance_ids = True
@@ -165,12 +168,15 @@ class LogixDriver:
             self.open()
             if init_info:
                 self.get_plc_info()
+                micro800 = self.info['device_type'].startswith(MICRO800_PREFIX)
                 self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not micro800
                 if not micro800:
                     self.get_plc_name()
 
             if init_tags:
                 self.get_tag_list(program='*' if init_program_tags else None)
+
+        self._micro800 = micro800
 
     def __enter__(self):
         self.open()
@@ -234,6 +240,12 @@ class LogixDriver:
         - *keyswitch* - string value representing the current keyswitch position, e.g. ``'REMOTE RUN'``
         - *name* - string value of the current PLC program name, e.g. ``'PLCA'``
 
+        **The following fields are added from calling** :meth:`.get_tag_list`
+
+        - *programs* - dict of all Programs in the PLC and their routines, ``{program: {'routines': [routine, ...}...}``
+        - *tasks* - dict of all Tasks in the PLC, ``{task: {'instance_id': ...}...}``
+        - *modules* - dict of I/O modules in the PLC, ``{module: {'slots': {1: {'types': ['O,' 'I', 'C']}, ...}, 'types':[...]}...}``
+
         """
         return self._info
 
@@ -246,9 +258,10 @@ class LogixDriver:
 
     @property
     def connection_size(self):
+        """CIP connection size, ``4000`` if using Extended Forward Open else ``500``"""
         return 4000 if self.attribs['extended forward open'] else 500
 
-    def new_request(self, command: str) -> RequestPacket:
+    def new_request(self, command: str, *args, **kwargs) -> RequestPacket:
         """
         Creates a new request packet for the given command.
         If the command is invalid, a base :class:`RequestPacket` is created.
@@ -264,12 +277,14 @@ class LogixDriver:
             - `read_tag_fragmented`
             - `write_tag`
             - `write_tag_fragmented`
+            - `generic_read`
+            - `generic_write`
 
         :param command: the service for which a request will be created
         :return: a new request for the command
         """
         cls = REQUEST_MAP[command]
-        return cls(self)
+        return cls(self, *args, **kwargs)
 
     @property
     def _sequence(self) -> int:
@@ -303,9 +318,9 @@ class LogixDriver:
                 # unnconnected send portion
                 UNCONNECTED_SEND,
                 b'\x02',
-                CLASS_ID['8-bit'],
+                CLASS_TYPE['8-bit'],
                 b'\x06',  # class
-                INSTANCE_ID["8-bit"],
+                INSTANCE_TYPE["8-bit"],
                 b'\x01',
                 b'\x0A',  # priority
                 b'\x0e\x06\x00',
@@ -313,9 +328,9 @@ class LogixDriver:
                 # Identity request portion
                 b'\x01',  # Service
                 b'\x02',
-                CLASS_ID['8-bit'],
+                CLASS_TYPE['8-bit'],
                 CLASS_CODE['Identity Object'],
-                INSTANCE_ID["8-bit"],
+                INSTANCE_TYPE["8-bit"],
                 b'\x01',  # Instance 1
                 b'\x01\x00',
                 b'\x01',  # backplane
@@ -373,9 +388,7 @@ class LogixDriver:
         response = request.send()
         if response:
             self._session = response.session
-
-            if self.debug:
-                self.__log.debug(f"Session = {response.session} has been registered.")
+            self.__log.debug(f"Session = {response.session} has been registered.")
             return self._session
 
         self.__log.warning('Session has not been registered.')
@@ -404,9 +417,9 @@ class LogixDriver:
         forward_open_msg = [
             FORWARD_OPEN if not self.attribs['extended forward open'] else LARGE_FORWARD_OPEN,
             b'\x02',  # CIP Path size
-            CLASS_ID["8-bit"],  # class type
+            CLASS_TYPE["8-bit"],  # class type
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
-            INSTANCE_ID["8-bit"],
+            INSTANCE_TYPE["8-bit"],
             CONNECTION_MANAGER_INSTANCE['Open Request'],
             PRIORITY,
             TIMEOUT_TICKS,
@@ -489,9 +502,9 @@ class LogixDriver:
         forward_close_msg = [
             FORWARD_CLOSE,
             b'\x02',
-            CLASS_ID["8-bit"],
+            CLASS_TYPE["8-bit"],
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
-            INSTANCE_ID["8-bit"],
+            INSTANCE_TYPE["8-bit"],
             CONNECTION_MANAGER_INSTANCE['Open Request'],
             PRIORITY,
             TIMEOUT_TICKS,
@@ -524,10 +537,9 @@ class LogixDriver:
             request.add(
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
                 REQUEST_PATH_SIZE,
-                CLASS_ID['8-bit'],
+                CLASS_TYPE['8-bit'],
                 CLASS_CODE['Program Name'],
-                INSTANCE_ID["16-bit"],
-                b'\x00',
+                INSTANCE_TYPE["16-bit"],
                 b'\x01\x00',  # Instance 1
                 b'\x01\x00',  # Number of Attributes
                 b'\x01\x00'  # Attribute 1 - program name
@@ -550,20 +562,16 @@ class LogixDriver:
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
         """
         try:
-            request = self.new_request('send_unit_data')
-            request.add(
-                b'\x01',  # Service
-                REQUEST_PATH_SIZE,
-                CLASS_ID['8-bit'],
-                CLASS_CODE['Identity Object'],
-                INSTANCE_ID["16-bit"],
-                b'\x00',
-                b'\x01\x00',  # Instance 1
-            )
-            response = request.send()
+            response = self.generic_read(class_code=CLASS_CODE['Identity Object'], instance=b'\x01\x00',
+                                         service=b'\x01',
+                                         data_format=[
+                                            ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
+                                            ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
+                                            ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
+                                         ])
 
             if response:
-                info = _parse_plc_info(response.data)
+                info = _parse_plc_info(response.value)
                 self._info = {**self._info, **info}
                 return info
             else:
@@ -600,9 +608,14 @@ class LogixDriver:
             'id:udt': {}
         }
 
+        if program in ('*', None):
+            self._info['programs'] = {}
+            self._info['tasks'] = {}
+            self._info['modules'] = {}
+
         if program == '*':
             tags = self._get_tag_list()
-            for prog in self._program_names:
+            for prog in self._info['programs']:
                 tags += self._get_tag_list(prog)
         else:
             tags = self._get_tag_list(program)
@@ -616,7 +629,7 @@ class LogixDriver:
 
     def _get_tag_list(self, program=None):
         all_tags = self._get_instance_attribute_list_service(program)
-        user_tags = self._isolating_user_tag(all_tags, program)
+        user_tags = self._isolate_user_tags(all_tags, program)
         for tag in user_tags:
             if tag['tag_type'] == 'struct':
                 tag['data_type'] = self._get_data_type(tag['template_instance_id'])
@@ -644,10 +657,9 @@ class LogixDriver:
 
                 path += [
                     # Request Path ( 20 6B 25 00 Instance )
-                    CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
+                    CLASS_TYPE["8-bit"],  # Class id = 20 from spec 0x20
                     CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
-                    INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                    b'\x00',
+                    INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     pack_uint(last_instance),  # The instance
                 ]
                 path = b''.join(path)
@@ -743,15 +755,60 @@ class LogixDriver:
 
         return last_instance
 
-    def _isolating_user_tag(self, all_tags, program=None):
+    def _isolate_user_tags(self, all_tags, program=None):
         try:
             user_tags = []
             for tag in all_tags:
+                io_tag = False
                 name = tag['tag_name'].decode()
-                if 'Program:' in name:
-                    self._program_names.add(name.replace('Program:', ''))
+
+                if name.startswith('Program:'):
+                    prog_name = name.replace('Program:', '')
+                    self._info['programs'][prog_name] = {'instance_id': tag['instance_id'], 'routines': []}
                     continue
-                if ':' in name or '__' in name:
+
+                if name.startswith('Routine:'):
+                    rtn_name = name.replace('Routine:', '')
+                    _program = self._info['programs'].get(program)
+                    if _program is None:
+                        self.__log.error(f'Program {program} not defined in tag list')
+                    else:
+                        _program['routines'].append(rtn_name)
+                    continue
+
+                if name.startswith('Task:'):
+                    self._info['tasks'][name.replace('Task:', '')] = {'instance_id': tag['instance_id']}
+                    continue
+
+                # system tags that may interfere w/ finding I/O modules
+                if 'Map:' in name or 'Cxn:' in name:
+                    continue
+
+                # I/O module tags
+                # Logix 5000 Controllers I/O and Tag Data, page 17  (1756-pm004_-en-p.pdf)
+                if any(x in name for x in (':I', ':O', ':C', ':S')):
+                    io_tag = True
+                    mod = name.split(':')
+                    mod_name = mod[0]
+                    if mod_name not in self._info['modules']:
+                        self._info['modules'][mod_name] = {'slots': {}}
+                    if len(mod) == 3 and mod[1].isdigit():
+                        mod_slot = int(mod[1])
+                        if mod_slot not in self._info['modules'][mod_name]:
+                            self._info['modules'][mod_name]['slots'][mod_slot] = {'types': []}
+                        self._info['modules'][mod_name]['slots'][mod_slot]['types'].append(mod[2])
+                    elif len(mod) == 2:
+                        if 'types' not in self._info['modules'][mod_name]:
+                            self._info['modules'][mod_name]['types'] = []
+                        self._info['modules'][mod_name]['types'].append(mod[1])
+                    # Not sure if this branch will ever be hit, but added to see if above branches may need additional work
+                    else:
+                        if '__UNKNOWN__' not in self._info['modules'][mod_name]:
+                            self._info['modules'][mod_name]['__UNKNOWN__'] = []
+                        self._info['modules'][mod_name]['__UNKNOWN__'].append(':'.join(mod[1:]))
+
+                # other system or junk tags
+                if (not io_tag and ':' in name) or name.startswith('__'):
                     continue
                 if tag['symbol_type'] & 0b0001_0000_0000_0000:
                     continue
@@ -761,30 +818,7 @@ class LogixDriver:
 
                 self._cache['tag_name:id'][name] = tag['instance_id']
 
-                new_tag = {
-                    'tag_name': name,
-                    'dim': (tag['symbol_type'] & 0b0110000000000000) >> 13,  # bit 13 & 14, number of array dims
-                    'instance_id': tag['instance_id'],
-                    'symbol_address': tag['symbol_address'],
-                    'symbol_object_address': tag['symbol_object_address'],
-                    'software_control': tag['software_control'],
-                    'alias': False if tag['software_control'] & BASE_TAG_BIT else True,
-                    'external_access': tag['external_access'],
-                    'dimensions': tag['dimensions']
-                }
-
-                if tag['symbol_type'] & 0b_1000_0000_0000_0000:  # bit 15, 1 = struct, 0 = atomic
-                    template_instance_id = tag['symbol_type'] & 0b_0000_1111_1111_1111
-                    new_tag['tag_type'] = 'struct'
-                    new_tag['template_instance_id'] = template_instance_id
-                else:
-                    new_tag['tag_type'] = 'atomic'
-                    datatype = tag['symbol_type'] & 0b_0000_0000_1111_1111
-                    new_tag['data_type'] = DATA_TYPE[datatype]
-                    if datatype == DATA_TYPE['BOOL']:
-                        new_tag['bit_position'] = (tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
-
-                user_tags.append(new_tag)
+                user_tags.append(_create_tag(name, tag))
 
             return user_tags
         except Exception as e:
@@ -795,18 +829,13 @@ class LogixDriver:
         get the structure makeup for a specific structure
         """
         if instance_id not in self._cache['id:struct']:
-            if not self._target_is_connected:
-                if not self._forward_open():
-                    self.__log.warning("Target did not connected. get_tag_list will not be executed.")
-                    raise DataError("Target did not connected. get_tag_list will not be executed.")
             request = self.new_request('send_unit_data')
             request.add(
                 bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                b'\x03',  # Request Path ( 20 6B 25 00 Instance )
-                CLASS_ID["8-bit"],  # Class id = 20 from spec 0x20
+                b'\x03',  # path size
+                CLASS_TYPE["8-bit"],  # Class id = 20 from spec 0x20
                 CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                b'\x00',
+                INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                 pack_uint(instance_id),
                 b'\x04\x00',  # Number of attributes
                 b'\x04\x00',  # Template Object Definition Size UDINT
@@ -837,10 +866,9 @@ class LogixDriver:
                 request.add(
                     bytes([TAG_SERVICES_REQUEST['Read Tag']]),
                     b'\x03',  # Request Path ( 20 6B 25 00 Instance )
-                    CLASS_ID["8-bit"],  # Class id = 20 from spec
+                    CLASS_TYPE["8-bit"],  # Class id = 20 from spec
                     CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                    INSTANCE_ID["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                    b'\x00',
+                    INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     pack_uint(instance_id),
                     pack_dint(offset),  # Offset
                     pack_uint(((object_definition_size * 4) - 21) - offset)
@@ -945,7 +973,7 @@ class LogixDriver:
         return self._cache['id:udt'][instance_id]
 
     @with_forward_open
-    def read(self, *tags: str) -> Union[Tag, List[Tag]]:
+    def read(self, *tags: str) -> ReturnType:
         """
 
         :param tags: one or many tags to read
@@ -1050,7 +1078,7 @@ class LogixDriver:
         return None
 
     @with_forward_open
-    def write(self, *tags_values: Tuple[str, Union[int, float, str, bool]]) -> Union[Tag, List[Tag]]:
+    def write(self, *tags_values: Tuple[str, TagType]) -> ReturnType:
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 
@@ -1158,7 +1186,7 @@ class LogixDriver:
 
             if not _bit_request(parsed_tag, bit_writes):
                 parsed_tag['write_value'] = writable_value(parsed_tag['value'], parsed_tag['elements'],
-                                                         parsed_tag['tag_info']['data_type'])
+                                                           parsed_tag['tag_info']['data_type'])
                 if len(parsed_tag['write_value']) > self.connection_size:
                     request = self.new_request('write_tag_fragmented')
                 else:
@@ -1260,8 +1288,7 @@ class LogixDriver:
             # something went wrong parsing the tag path
             raise RequestError('Failed to parse tag request', tag)
 
-    @staticmethod
-    def _send_requests(requests):
+    def _send_requests(self, requests):
 
         def _mkkey(t=None, r=None):
             if t is not None:
@@ -1275,6 +1302,7 @@ class LogixDriver:
             try:
                 response = request.send()
             except Exception as err:
+                self.__log.exception('Error sending request')
                 if request.type_ != 'multi':
                     results[_mkkey(r=request)] = Tag(request.tag, None, None, str(err))
                 else:
@@ -1297,6 +1325,54 @@ class LogixDriver:
                                                          tag.get('error', 'Unknown Service Error'))
         return results
 
+    def get_plc_time(self, fmt: str='%A, %B %d, %Y %I:%M:%S%p') -> Tag:
+        """
+        Gets the current time of the PLC system clock. The ``value`` attribute will be a dict containing the time in
+        3 different forms, *datetime* is a Python datetime.datetime object, *microseconds* is the integer value epoch time,
+        and *string* is the *datetime* formatted using ``strftime`` and the ``fmt`` parameter.
+
+        :param fmt: format string for converting the time to a string
+        :return: a Tag object with the current time
+        """
+        tag = self.generic_read(class_code=CLASS_CODE['Wall-Clock Time'], instance=b'\x01', request_data=b'\x01\x00\x0B\x00',
+                                data_format=[(None, 6), ('us', 'ULINT'), ])
+        time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
+        value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(fmt)}
+        return Tag('__GET_PLC_TIME__', value, error=tag.error)
+
+    def set_plc_time(self, microseconds: Optional[int] = None) -> Tag:
+        """
+        Set the time of the PLC system clock.
+
+        :param microseconds: None to use client PC clock, else timestamp in microseconds to set the PLC clock to
+        :return: Tag with status of request
+        """
+        if microseconds is None:
+            microseconds = int(time.time() * SEC_TO_US)
+
+        request_data = b''.join([
+            b'\x01\x00',  # attribute count
+            b'\x06\x00',  # attribute
+            pack_ulint(microseconds),
+        ])
+        return self.generic_write(b'\x04', CLASS_CODE['Wall-Clock Time'], b'\x01',
+                                  request_data=request_data, name='__SET_PLC_TIME__')
+
+    @with_forward_open
+    def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
+                     data_format: DataFormatType = None, name: str = 'generic',
+                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']])) -> Tag:
+
+        request = self.new_request('generic_read', service, class_code, instance, request_data, data_format)
+        response = request.send()
+
+        return Tag(name, response.value, error=response.error)
+
+    def generic_write(self, service, class_code, instance, request_data: bytes, name: str = 'generic') -> Tag:
+        request = self.new_request('generic_write', service, class_code, instance, request_data)
+        response = request.send()
+        return Tag(name, request_data, error=response.error)
+
 
 def _parse_plc_name(response):
     if response.service_status != SUCCESS:
@@ -1310,27 +1386,14 @@ def _parse_plc_name(response):
 
 
 def _parse_plc_info(data):
-    vendor = unpack_uint(data[0:2])
-    product_type = unpack_uint(data[2:4])
-    product_code = unpack_uint(data[4:6])
-    major_fw = int(data[6])
-    minor_fw = int(data[7])
-    keyswitch = KEYSWITCH.get(int(data[8]), {}).get(int(data[9]), 'UNKNOWN')
-    serial_number = f'{unpack_udint(data[10:14]):0{8}x}'
-    device_type_len = int(data[14])
-    device_type = data[15:15 + device_type_len].decode()
+    parsed = {k: v for k, v in data.items() if not k.startswith('_')}
+    parsed['vendor'] = VENDORS.get(parsed['vendor'], 'UNKNOWN')
+    parsed['product_type'] = PRODUCT_TYPES.get(parsed['product_type'], 'UNKNOWN')
+    parsed['revision'] = f"{parsed['version_major']}.{parsed['version_minor']}"
+    parsed['serial'] = f"{parsed['serial']:08x}"
+    parsed['keyswitch'] = KEYSWITCH.get(data['_keyswitch'][0], {}).get(data['_keyswitch'][1], 'UNKNOWN')
 
-    return {
-        'vendor': VENDORS.get(vendor, 'UNKNOWN'),
-        'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
-        'product_code': product_code,
-        'version_major': major_fw,
-        'version_minor': minor_fw,
-        'revision': f'{major_fw}.{minor_fw}',
-        'serial': serial_number,
-        'device_type': device_type,
-        'keyswitch': keyswitch
-    }
+    return parsed
 
 
 def _parse_identity_object(reply):
@@ -1533,9 +1596,9 @@ def _parse_connection_path(path, micro800):
                 _path.extend([pack_usint(port), pack_usint(dest)])
 
     _path += [
-        CLASS_ID['8-bit'],
+        CLASS_TYPE['8-bit'],
         CLASS_CODE['Message Router'],
-        INSTANCE_ID['8-bit'],
+        INSTANCE_TYPE['8-bit'],
         b'\x01'
     ]
 
@@ -1563,3 +1626,31 @@ def _parse_path_segment(segment: str):
                     raise ValueError('Invalid IP Address Segment', segment)
     except Exception:
         raise ValueError(f'Failed to parse path segment', segment)
+
+
+def _create_tag(name, raw_tag):
+
+    new_tag = {
+        'tag_name': name,
+        'dim': (raw_tag['symbol_type'] & 0b0110000000000000) >> 13,  # bit 13 & 14, number of array dims
+        'instance_id': raw_tag['instance_id'],
+        'symbol_address': raw_tag['symbol_address'],
+        'symbol_object_address': raw_tag['symbol_object_address'],
+        'software_control': raw_tag['software_control'],
+        'alias': False if raw_tag['software_control'] & BASE_TAG_BIT else True,
+        'external_access': raw_tag['external_access'],
+        'dimensions': raw_tag['dimensions']
+    }
+
+    if raw_tag['symbol_type'] & 0b_1000_0000_0000_0000:  # bit 15, 1 = struct, 0 = atomic
+        template_instance_id = raw_tag['symbol_type'] & 0b_0000_1111_1111_1111
+        new_tag['tag_type'] = 'struct'
+        new_tag['template_instance_id'] = template_instance_id
+    else:
+        new_tag['tag_type'] = 'atomic'
+        datatype = raw_tag['symbol_type'] & 0b_0000_0000_1111_1111
+        new_tag['data_type'] = DATA_TYPE[datatype]
+        if datatype == DATA_TYPE['BOOL']:
+            new_tag['bit_position'] = (raw_tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
+
+    return new_tag

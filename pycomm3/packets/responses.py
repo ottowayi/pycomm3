@@ -23,13 +23,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-
+from reprlib import repr as _r
 from itertools import tee, zip_longest, chain
 
 from autologging import logged
 
-from . import Packet
-from ..bytes_ import unpack_uint, unpack_usint, unpack_dint, UNPACK_DATA_FUNCTION
+from . import Packet, DataFormatType
+from ..bytes_ import unpack_uint, unpack_usint, unpack_dint, UNPACK_DATA_FUNCTION, DATA_FUNCTION_SIZE
 from ..const import (SUCCESS, INSUFFICIENT_PACKETS, TAG_SERVICES_REPLY, SERVICE_STATUS,EXTEND_CODES,
                      MULTI_PACKET_SERVICES, REPLY_START, STRUCTURE_READ_REPLY,
                      DATA_TYPE, DATA_TYPE_SIZE)
@@ -93,6 +93,11 @@ class ResponsePacket(Packet):
     def service_extended_status(self):
         return 'Unknown Error'
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(service={bytes([self.service])!r}, command={self.command!r}, error={self.error!r})'
+
+    __str__ = __repr__
+
 
 @logged
 class SendUnitDataResponsePacket(ResponsePacket):
@@ -124,6 +129,45 @@ class SendUnitDataResponsePacket(ResponsePacket):
 
 
 @logged
+class GenericReadResponsePacket(SendUnitDataResponsePacket):
+    def __init__(self, *args, data_format: DataFormatType = None, **kwargs):
+        self.data_format = data_format
+        super().__init__(*args, **kwargs)
+
+    def _parse_reply(self):
+        super()._parse_reply()
+        if self.data_format is None:
+            self.value = self.data
+        else:
+            try:
+                values = {}
+                start = 0
+                for name, typ in self.data_format:
+                    if isinstance(typ, int):
+                        value = self.data[start: start + typ]
+                        start += typ
+                    else:
+                        unpack_func = UNPACK_DATA_FUNCTION[typ]
+                        value = unpack_func(self.data[start:])
+                        if typ == 'SHORT_STRING':
+                            data_size = len(value) + 1
+                        else:
+                            data_size = DATA_FUNCTION_SIZE[typ]
+                        start += data_size
+
+                    if name:
+                        values[name] = value
+            except Exception as err:
+                self._error = f'Failed to parse reply - {err}'
+                self.value = None
+            else:
+                self.value = values
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(value={_r(self.value)}, error={self.error!r})'
+
+
+@logged
 class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
     def __init__(self, raw_data: bytes = None, tag_info=None, elements=1, tag=None, *args,  **kwargs):
         self.value = None
@@ -145,11 +189,8 @@ class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
             self.value = None
             self._error = f'Failed to parse reply - {err}'
 
-    def __str__(self):
-        return f'{self.__class__.__name__}({self.data_type}, {self.value}, {self.service_status})'
-
     def __repr__(self):
-        return self.__str__()
+        return f'{self.__class__.__name__}({self.data_type!r}, {_r(self.value)}, {self.service_status!r})'
 
 
 @logged
@@ -183,6 +224,11 @@ class ReadTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
             self.value = None
             self._error = f'Failed to parse reply - {err}'
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(raw_data={_r(self.raw)})'
+
+    __str__ = __repr__
+
 
 @logged
 class WriteTagServiceResponsePacket(SendUnitDataResponsePacket):
@@ -191,6 +237,11 @@ class WriteTagServiceResponsePacket(SendUnitDataResponsePacket):
 
 @logged
 class WriteTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
+    ...
+
+
+@logged
+class GenericWriteResponsePacket(SendUnitDataResponsePacket):
     ...
 
 
@@ -231,6 +282,9 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
                 tag['data_type'] = dt
 
         self.values = values
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(values={_r(self.values)}, error={self.error!r})'
 
 
 @logged
@@ -281,6 +335,9 @@ class RegisterSessionResponsePacket(ResponsePacket):
             self.session is not None
         ))
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(session={self.session!r}, error={self.error!r})'
+
 
 @logged
 class UnRegisterSessionResponsePacket(ResponsePacket):
@@ -290,6 +347,9 @@ class UnRegisterSessionResponsePacket(ResponsePacket):
 
     def is_valid(self):
         return True
+
+    def __repr__(self):
+        return 'UnRegisterSessionResponsePacket()'
 
 
 @logged
@@ -311,6 +371,9 @@ class ListIdentityResponsePacket(ResponsePacket):
             super().is_valid(),
             self.identity is not None
         ))
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(session={self.identity!r}, error={self.error!r})'
 
 
 def parse_read_reply(data, data_type, elements):
@@ -438,4 +501,4 @@ def get_extended_status(msg, start):
     try:
         return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
     except LookupError:
-        return "Extended status info not present"
+        return "No Extended Status"

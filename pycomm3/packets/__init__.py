@@ -25,6 +25,9 @@
 #
 
 from autologging import logged
+from typing import List, Tuple, Optional, Union
+
+DataFormatType = List[Tuple[Optional[str], Union[str, int]]]
 
 
 @logged
@@ -34,14 +37,14 @@ class Packet:
 
 from .responses import (ResponsePacket, SendUnitDataResponsePacket, SendRRDataResponsePacket, ListIdentityResponsePacket,
                         RegisterSessionResponsePacket, UnRegisterSessionResponsePacket, ReadTagServiceResponsePacket,
-                        MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket,
-                        WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket,
+                        MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, GenericReadResponsePacket,
+                        WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket, GenericWriteResponsePacket,
                         get_extended_status, get_service_status)
 
 from .requests import (RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket, ListIdentityRequestPacket,
                        RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket,
                        MultiServiceRequestPacket, ReadTagFragmentedServiceRequestPacket, WriteTagServiceRequestPacket,
-                       WriteTagFragmentedServiceRequestPacket)
+                       WriteTagFragmentedServiceRequestPacket, GenericReadRequestPacket, GenericWriteRequestPacket)
 
 from collections import defaultdict
 
@@ -58,4 +61,6 @@ REQUEST_MAP = defaultdict(RequestPacket,
     'read_tag_fragmented': ReadTagFragmentedServiceRequestPacket,
     'write_tag': WriteTagServiceRequestPacket,
     'write_tag_fragmented': WriteTagFragmentedServiceRequestPacket,
+    'generic_read': GenericReadRequestPacket,
+    'generic_write': GenericWriteRequestPacket,
 })

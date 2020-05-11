@@ -136,7 +136,7 @@ def unpack_ulong(st):
 def print_bytes_line(msg):
     out = ''
     for ch in msg:
-        out += "{:0>2x}".format(ch)
+        out += f"{ch:0>2x}"
     return out
 
 
@@ -150,7 +150,7 @@ def print_bytes_msg(msg, info=''):
             out += "\n({:0>4d}) ".format(line * 10)
             new_line = False
         out += "{:0>2x} ".format(ch)
-        if column == 15:
+        if column == 9:
             new_line = True
             column = 0
             line += 1
@@ -175,6 +175,8 @@ PACK_DATA_FUNCTION = {
     'UINT': pack_uint,    # Unsigned 16-bit integer
     'USINT': pack_usint,  # Unsigned Byte Integer
     'DINT': pack_dint,    # Signed 32-bit integer
+    'LINT': pack_lint,
+    'ULINT': pack_ulint,
     'REAL': pack_real,    # 32-bit floating point
     'LINT': pack_lint,
     'BYTE': pack_sint,     # byte string 8-bits
@@ -197,8 +199,9 @@ UNPACK_DATA_FUNCTION = {
     'UINT': unpack_uint,    # Unsigned 16-bit integer
     'USINT': unpack_usint,  # Unsigned Byte Integer
     'DINT': unpack_dint,    # Signed 32-bit integer
-    'REAL': unpack_real,    # 32-bit floating point,
     'LINT': unpack_lint,
+    'ULINT': unpack_ulint,
+    'REAL': unpack_real,    # 32-bit floating point,
     'BYTE': unpack_sint,     # byte string 8-bits
     'WORD': unpack_uint,     # byte string 16-bits
     'DWORD': unpack_udint,    # byte string 32-bits
@@ -214,6 +217,8 @@ DATA_FUNCTION_SIZE = {
     'INT': 2,     # Signed 16-bit integer
     'UINT': 2,    # Unsigned 16-bit integer
     'DINT': 4,    # Signed 32-bit integer
+    'LINT': 8,
+    'ULINT': 8,
     'REAL': 4,    # 32-bit floating point
     'LINT': 8,
     'BYTE': 1,     # byte string 8-bits

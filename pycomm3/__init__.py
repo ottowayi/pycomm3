@@ -24,10 +24,15 @@
 # SOFTWARE.
 #
 
-__version_info__ = (0, 5, 5)
+__version_info__ = (0, 6, 0)
 __version__ = '.'.join(f'{x}' for x in __version_info__)
 
-from typing import NamedTuple, Any, Union, Optional
+from typing import NamedTuple, Any, Optional
+import logging
+from reprlib import repr as _r
+
+logger = logging.getLogger('pycomm3')
+logger.addHandler(logging.NullHandler())
 
 
 class PycommError(Exception):
@@ -46,11 +51,6 @@ class RequestError(PycommError):
     ...
 
 
-def _mkstr(value):
-    """If value is a string, return it wrapped in quotes, else just return the value (like for repr's)"""
-    return f"'{value}'" if isinstance(value, str) else value
-
-
 class Tag(NamedTuple):
     tag: str
     value: Any
@@ -61,11 +61,10 @@ class Tag(NamedTuple):
         return self.value is not None and self.error is None
 
     def __str__(self):
-        return f'{self.tag}, {self.value}, {self.type}, {self.error}'
+        return f'{self.tag}, {_r(self.value)}, {self.type}, {self.error}'
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(tag={_mkstr(self.tag)}, value={_mkstr(self.value)}, " \
-               f"type={_mkstr(self.type)}, error={_mkstr(self.error)})"
+        return f"{self.__class__.__name__}(tag={self.tag!r}, value={self.value!r}, type={self.type!r}, error={self.error!r})"
 
 
 from .clx import LogixDriver
