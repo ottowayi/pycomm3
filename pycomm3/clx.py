@@ -1056,7 +1056,7 @@ class LogixDriver:
                 self.__log.error(f'Skipping making request for {tag}, error: {tag_data.get("error")}')
                 continue
 
-        return requests
+        return (r for r in requests if (r.type_ == 'multi' and r.tags) or r.type_ == 'read')
 
     def _read_build_single_request(self, parsed_tag):
         """
@@ -1175,7 +1175,7 @@ class LogixDriver:
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
                     continue
 
-        return requests
+        return (r for r in requests if (r.type_ == 'multi' and r.tags) or r.type_ == 'write')
 
     def _write_build_single_request(self, parsed_tag, bit_writes):
         if parsed_tag.get('error') is None:
