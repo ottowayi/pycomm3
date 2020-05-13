@@ -94,10 +94,10 @@ dim
     - ``1-3`` - a 1 to 3 dimension array tag
 
 dimensions
-    length of each dimension defined, ``0`` if dimension is does not exist.  ``[dim0, dim1, dim2]``
+    length of each dimension defined, ``0`` if dimension does not exist.  ``[dim0, dim1, dim2]``
 
 alias
-    ``True``/``False`` if tag is an alias to another.
+    ``True``/``False`` if the tag is an alias to another.
 
     .. note:: This is not documented, but an educated guess found through trial and error.
 
