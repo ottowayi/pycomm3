@@ -13,6 +13,9 @@ atomic_tests = [  # (tag name, data type, value)
     ('BOOL3', 'BOOL', False),
     ('BOOL4', 'BOOL', True),
     ('STRING3', 'STRING', 'A test for writing to a string'),
+    ('Program:Pycomm3_Testing._dint2', 'DINT', 111),
+    ('Program:Pycomm3_Testing._real2', 'REAL', 222.22),
+    ('Program:Pycomm3_Testing._string2', 'STRING', 'Hello World!'),
 
     # arrays
     ('SINT_ARY2{3}', 'SINT[3]', [1, 2, 3]),
@@ -41,6 +44,8 @@ atomic_tests = [  # (tag name, data type, value)
     ('TestAOI2_1._counters[1].PRE', 'DINT', 1000),
     ('TestAOI2_1._strings[0]', 'STRING20', 'Hello World!'),
     ('TestAOI2_1._bools[0]', 'BOOL', True),
+    ('Program:Pycomm3_Testing._udt2.bool', 'BOOL', True),
+    ('Program:Pycomm3_Testing._udt2.dint', 'DINT', 11),
 ]
 
 
