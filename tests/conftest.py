@@ -8,5 +8,5 @@ PATH = os.environ['PLCPATH']
 
 @pytest.fixture(scope='module', autouse=True)
 def plc():
-    with LogixDriver(PATH) as plc_:
+    with LogixDriver(PATH, init_program_tags=True) as plc_:
         yield plc_

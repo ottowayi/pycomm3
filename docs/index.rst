@@ -33,11 +33,6 @@
 
 
 
-
-
-
-
-
 ``pycomm3`` is a Python 3 fork of `pycomm`_, which is a native python library for communicating
 with PLCs using Ethernet/IP.  The initial Python 3 translation was done in this fork_, this library
 seeks to continue and expand upon the great work done by the original ``pycomm`` developers.  This library supports

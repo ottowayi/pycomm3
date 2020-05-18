@@ -12,6 +12,8 @@ atomic_tests = [  # (tag name, data type, value)
     ('INT1', 'INT', 256),
     ('REAL1', 'REAL', 100.001),
     ('BOOL1', 'BOOL', False),
+    ('Program:Pycomm3_Testing._dint1', 'DINT', 111),
+    ('Program:Pycomm3_Testing._real1', 'REAL', 222.22),
 
     # bits of integers
     ('DINT1.0', 'BOOL', False),
@@ -44,6 +46,9 @@ atomic_tests = [  # (tag name, data type, value)
     ('SimpleUDT1_1.sint', 'SINT', 100),
     ('SimpleUDT1_1.int', 'INT', -32768),
     ('SimpleUDT1_1.dint', 'DINT', -1),
+    ('Program:Pycomm3_Testing._udt1.sint', 'SINT', 1),
+    ('Program:Pycomm3_Testing._udt1.int', 'INT', 2),
+    ('Program:Pycomm3_Testing._udt1.dint', 'DINT', 3),
 
     # boolean array tests
     ('bool_ary1[0]', 'BOOL', True),
@@ -59,7 +64,9 @@ atomic_tests = [  # (tag name, data type, value)
     ('STRING20_1', 'STRING20', 'x'*20),
     ('LongString1', 'STR_480', 'A 480 char string.'),
     ('STRING_ARY1{5}', 'STRING[5]', 'first Second THIRD FoUrTh 5th'.split()),
-    ('STRING20_ARY1{10}', 'STRING20[10]', [f'{i}' * 20 for i in range(10)])
+    ('STRING20_ARY1{10}', 'STRING20[10]', [f'{i}' * 20 for i in range(10)]),
+    ('Program:Pycomm3_Testing._string1', 'STRING', 'A program scoped string'),
+
 ]
 
 
