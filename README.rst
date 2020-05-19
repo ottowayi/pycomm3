@@ -214,6 +214,7 @@ TODO
 - *(wip)* - improve documentation and include more real-world example scripts
 - *(not started)* - make API case insensitive
 - *(not started)* - support full structure writing
+- *(not started)* - multi-dimension array read/write support (extended current {x} format to {x, y, z})
 
 
 License
