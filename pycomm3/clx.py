@@ -94,7 +94,7 @@ class LogixDriver:
 
             - IP Address Only (``10.20.30.100``) - Use for a ControlLogix PLC is in slot 0 or if connecting to a CompactLogix or Micro800 PLC.
             - IP Address/Slot (``10.20.30.100/1``) - (ControlLogix) if PLC is not in slot 0
-            - CIP Routing Path (``1.2.3.4/backplane/2/enet/6.7.8.9/backplane/0``) - Use if needing to route thru a backplane
+            - CIP Routing Path (``1.2.3.4/backplane/2/enet/6.7.8.9/backplane/0``) - Use for more complex routing.
 
             .. note::
 

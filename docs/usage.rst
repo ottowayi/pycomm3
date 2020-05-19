@@ -29,6 +29,18 @@ and stores that information, making it accessible from the :attr:`~LogixDriver.i
 will return the name of the program running in the PLC and store it in :attr:`~LogixDriver.info['name']`.
 See :attr:`~LogixDriver.info` for details on the specific fields.
 
+Symbol Instance Addressing is a feature that allows more requests to be sent in a single packet by using a short identifier
+for a tag instead of needing to encode the full tag name in the request.  These instance ids are uploaded with the tag definitions.
+But, this feature is only available on v21+ firmwares. If the PLC is on a firmware lower than that, getting the controller info
+will automatically disable that feature. If you disable ``init_info`` and are using a controller on a version lower than 21,
+set the ``plc.use_instance_ids`` attribute to false or your reads/writes will fail.
+
+Default behavior is to use the *Extended Forward Open* service when opening a connection.  This allows the use of ~4KB of data for
+each request, standard is only 500B.  Although this requires the communications module to be an EN2T or newer and the PLC
+firmware to be version 20 or newer.  Upon opening a connection, the ``LogixDriver`` will attempt an *Extended Forward Open*,
+if that fails it will then try using the standard *Forward Open*. To use standard the Forward Open service directly,
+set the ``large_packets`` kwarg to False.
+
 
 Tags and Data Types
 -------------------
