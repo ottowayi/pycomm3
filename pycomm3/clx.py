@@ -1135,6 +1135,12 @@ class LogixDriver:
             if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements']) not in tags_in_requests:
                 tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
 
+                if tag_data['elements'] > 1 and len(tag_data['value']) < tag_data['elements']:
+                    raise RequestError('Value too short for requested elements')
+
+                if 1 < tag_data['elements'] < len(tag_data['value']):
+                    tag_data['value'] = tag_data['value'][:tag_data['elements']]
+
                 string = _make_string_bytes(tag_data)
                 if string is not None:
                     tag_data['value'] = string
@@ -1179,6 +1185,11 @@ class LogixDriver:
 
     def _write_build_single_request(self, parsed_tag, bit_writes):
         if parsed_tag.get('error') is None:
+            if parsed_tag['elements'] > 1 and len(parsed_tag['value']) < parsed_tag['elements']:
+                raise RequestError('Value too short for requested elements')
+
+            if 1 < parsed_tag['elements'] < len(parsed_tag['value']):
+                parsed_tag['value'] = parsed_tag['value'][:parsed_tag['elements']]
 
             string = _make_string_bytes(parsed_tag)
             if string is not None:
@@ -1526,6 +1537,8 @@ def _string_to_sint_array(string, string_len):
 def _make_string_bytes(tag_data):
     if tag_data['tag_info']['tag_type'] == 'struct':
         string_length = tag_data['tag_info']['data_type'].get('string')
+        if string_length is None:
+            return None
     else:
         return None
 
