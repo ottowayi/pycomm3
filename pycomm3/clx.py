@@ -279,6 +279,8 @@ class LogixDriver:
             - `write_tag_fragmented`
             - `generic_read`
             - `generic_write`
+            - `generic_read_unconnected`
+            - `generic_write_unconnected`
 
         :param command: the service for which a request will be created
         :return: a new request for the command
@@ -300,15 +302,18 @@ class LogixDriver:
 
         return self._sequence_number
 
-    def list_identity(self) -> Optional[str]:
+    @classmethod
+    def list_identity(cls, path) -> Optional[str]:
         """
         Uses the ListIdentity service to identify the target
 
         :return: device identity if reply contains valid response else None
         """
-
-        request = self.new_request('list_identity')
+        plc = cls(path, init_tags=False, init_info=False)
+        plc.open()
+        request = plc.new_request('list_identity')
         response = request.send()
+        plc.close()
         return response.identity
 
     def get_module_info(self, slot):
@@ -407,7 +412,7 @@ class LogixDriver:
         if self._session == 0:
             raise CommError("A Session Not Registered Before forward_open.")
 
-        init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)  # CIP Vol 1 - 3-5.5.1.1
+        init_net_params = 0b_0100_0010_0000_0000  # CIP Vol 1 - 3-5.5.1.1
 
         if self.attribs['extended forward open']:
             net_params = pack_udint((self.connection_size & 0xFFFF) | init_net_params << 16)
@@ -556,7 +561,6 @@ class LogixDriver:
         except Exception as err:
             raise DataError(err)
 
-    @with_forward_open
     def get_plc_info(self) -> dict:
         """
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
@@ -568,7 +572,8 @@ class LogixDriver:
                                             ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
                                             ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
                                             ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
-                                         ])
+                                         ],
+                                         connected=False)
 
             if response:
                 info = _parse_plc_info(response.value)
@@ -1372,18 +1377,30 @@ class LogixDriver:
         return self.generic_write(b'\x04', CLASS_CODE['Wall-Clock Time'], b'\x01',
                                   request_data=request_data, name='__SET_PLC_TIME__')
 
-    @with_forward_open
     def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
                      data_format: DataFormatType = None, name: str = 'generic',
-                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']])) -> Tag:
+                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
+                     connected=True) -> Tag:
 
-        request = self.new_request('generic_read', service, class_code, instance, request_data, data_format)
+        _req = 'generic_read' if connected else 'generic_read_unconnected'
+
+        if connected:
+            with_forward_open(lambda _: None)(self)
+
+        request = self.new_request(_req, service, class_code, instance, request_data, data_format)
         response = request.send()
 
         return Tag(name, response.value, error=response.error)
 
-    def generic_write(self, service, class_code, instance, request_data: bytes, name: str = 'generic') -> Tag:
-        request = self.new_request('generic_write', service, class_code, instance, request_data)
+    def generic_write(self, service, class_code, instance, request_data: bytes, name: str = 'generic',
+                      connected=True) -> Tag:
+
+        _req = 'generic_write' if connected else 'generic_write_unconnected'
+
+        if connected:
+            with_forward_open(lambda _: None)(self)
+
+        request = self.new_request(_req, service, class_code, instance, request_data)
         response = request.send()
         return Tag(name, request_data, error=response.error)
 

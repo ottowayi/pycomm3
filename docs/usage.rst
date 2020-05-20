@@ -298,8 +298,7 @@ wish to see errors, exceptions, etc.
 
 .. code-block::
 
-    # by default, a NullHandler has been added to the 'pycomm3' logger, so the force arg is required
-    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout, force=True)
+    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
 Produces output similar to::
 
