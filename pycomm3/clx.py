@@ -1347,8 +1347,11 @@ class LogixDriver:
         """
         tag = self.generic_read(class_code=CLASS_CODE['Wall-Clock Time'], instance=b'\x01', request_data=b'\x01\x00\x0B\x00',
                                 data_format=[(None, 6), ('us', 'ULINT'), ])
-        time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
-        value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(fmt)}
+        if tag:
+            time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
+            value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(fmt)}
+        else:
+            value = None
         return Tag('__GET_PLC_TIME__', value, error=tag.error)
 
     def set_plc_time(self, microseconds: Optional[int] = None) -> Tag:
