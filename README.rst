@@ -87,7 +87,7 @@ Highlighted Features
 
     - Extended Forward Open (EN2T or newer and v20+)
     - Symbol Instance Addressing (Logix v21+)
-    - PLC name retrieval ( not Micro800)
+    - detection of Micro800 and disables unsupported features (CIP Path, Ex. Forward Open, Instance Addressing, etc)
 
 - additional methods for:
 
