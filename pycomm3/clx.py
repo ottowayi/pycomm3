@@ -37,8 +37,8 @@ from autologging import logged
 
 from . import DataError, CommError
 from . import Tag, RequestError
-from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, pack_ulint)
-from .bytes_ import (unpack_dint, pack_sint, PACK_DATA_FUNCTION, UNPACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
+from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, pack_ulint, pack_char,
+                     unpack_dint, pack_sint, PACK_DATA_FUNCTION)
 from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_TYPE, CLASS_CODE, CLASS_TYPE,
                     INSTANCE_TYPE, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
                     TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
@@ -1141,21 +1141,10 @@ class LogixDriver:
             if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements']) not in tags_in_requests:
                 tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
 
-                if tag_data['elements'] > 1 and len(tag_data['value']) < tag_data['elements']:
-                    raise RequestError('Value too short for requested elements')
-
-                if 1 < tag_data['elements'] < len(tag_data['value']):
-                    tag_data['value'] = tag_data['value'][:tag_data['elements']]
-
-                string = _make_string_bytes(tag_data)
-                if string is not None:
-                    tag_data['value'] = string
-
                 if _bit_request(tag_data, bit_writes):
                     continue
 
-                tag_data['write_value'] = writable_value(tag_data['value'], tag_data['elements'],
-                                                         tag_data['tag_info']['data_type'])
+                tag_data['write_value'] = writable_value(tag_data)
 
                 if len(tag_data['write_value']) > self.connection_size:
                     _request = self.new_request('write_tag_fragmented')
@@ -1191,19 +1180,8 @@ class LogixDriver:
 
     def _write_build_single_request(self, parsed_tag, bit_writes):
         if parsed_tag.get('error') is None:
-            if parsed_tag['elements'] > 1 and len(parsed_tag['value']) < parsed_tag['elements']:
-                raise RequestError('Value too short for requested elements')
-
-            if 1 < parsed_tag['elements'] < len(parsed_tag['value']):
-                parsed_tag['value'] = parsed_tag['value'][:parsed_tag['elements']]
-
-            string = _make_string_bytes(parsed_tag)
-            if string is not None:
-                parsed_tag['value'] = string
-
             if not _bit_request(parsed_tag, bit_writes):
-                parsed_tag['write_value'] = writable_value(parsed_tag['value'], parsed_tag['elements'],
-                                                           parsed_tag['tag_info']['data_type'])
+                parsed_tag['write_value'] = writable_value(parsed_tag)
                 if len(parsed_tag['write_value']) > self.connection_size:
                     request = self.new_request('write_tag_fragmented')
                 else:
@@ -1504,16 +1482,30 @@ def _parse_structure_makeup_attributes(response):
             raise DataError(e)
 
 
-def writable_value(value, elements, data_type):
-    if isinstance(value, bytes):
-        return value
+def writable_value(parsed_tag):
+    if isinstance(parsed_tag['value'], bytes):
+        return parsed_tag['value']
 
     try:
-        pack_func = PACK_DATA_FUNCTION[data_type]
+        value = parsed_tag['value']
+        elements = parsed_tag['elements']
+        data_type = parsed_tag['tag_info']['data_type']
+
         if elements > 1:
-            return b''.join(pack_func(value[i]) for i in range(elements))
+            if len(value) < elements:
+                raise RequestError('Insufficient data for requested elements')
+            if len(value) > elements:
+                value = value[:elements]
+
+        if parsed_tag['tag_info']['tag_type'] == 'struct':
+            return _writable_value_structure(value, elements, data_type)
         else:
-            return pack_func(value)
+            pack_func = PACK_DATA_FUNCTION[data_type]
+
+            if elements > 1:
+                return b''.join(pack_func(value[i]) for i in range(elements))
+            else:
+                return pack_func(value)
     except Exception as err:
         raise RequestError('Unable to create a writable value', err)
 
@@ -1543,37 +1535,34 @@ def _tag_return_size(tag_info):
     return size + 12  # account for service overhead
 
 
-def _string_to_sint_array(string, string_len):
+def _writable_value_structure(value, elements, data_type):
+    if elements > 1:
+        return b''.join(_pack_structure(val, data_type) for val in value)
+    else:
+        return _pack_structure(value, data_type)
+
+
+def _pack_string(value, string_len):
     sint_array = [b'\x00' for _ in range(string_len)]
-    if len(string) > string_len:
-        string = string[:string_len]
+    if len(value) > string_len:
+        value = value[:string_len]
+    for i, s in enumerate(value):
+        sint_array[i] = pack_char(s)
 
-    for i, s in enumerate(string):
-        unsigned = ord(s)
-        sint_array[i] = pack_sint(unsigned - 256 if unsigned > 127 else unsigned)
-
-    return b''.join(sint_array)
+    return pack_dint(len(value)) + b''.join(sint_array)
 
 
-def _make_string_bytes(tag_data):
-    if tag_data['tag_info']['tag_type'] == 'struct':
-        string_length = tag_data['tag_info']['data_type'].get('string')
-        if string_length is None:
-            return None
+def _pack_structure(val, data_type):
+    string_len = data_type.get('string')
+    if string_len is None:
+        raise NotImplementedError('Writing of structures besides strings is not supported')
+
+    if string_len:
+        packed_bytes = _pack_string(val, string_len)
     else:
-        return None
+        packed_bytes = b''  # TODO: support for structure writing here
 
-    if tag_data['elements'] > 1:
-        string_bytes = b''
-        for val in tag_data['value']:
-            str_data = _string_to_sint_array(val, string_length)
-            str_bytes = pack_dint(len(val)) + str_data
-            string_bytes += str_bytes + b'\x00' * (len(str_bytes) % 4)  # pad data to 4-byte boundaries
-    else:
-        str_data = _string_to_sint_array(tag_data['value'], string_length)
-        string_bytes = pack_dint(len(tag_data['value'])) + str_data
-
-    return string_bytes + b'\x00' * (len(string_bytes) % 4)  # pad data to 4-byte boundaries
+    return packed_bytes + b'\x00' * (len(packed_bytes) % 4)  # pad data to 4-byte boundaries
 
 
 def _bit_request(tag_data, bit_requests):
