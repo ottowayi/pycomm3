@@ -37,14 +37,14 @@ class Packet:
 
 from .responses import (ResponsePacket, SendUnitDataResponsePacket, SendRRDataResponsePacket, ListIdentityResponsePacket,
                         RegisterSessionResponsePacket, UnRegisterSessionResponsePacket, ReadTagServiceResponsePacket,
-                        MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, GenericReadResponsePacket,
-                        WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket, GenericWriteResponsePacket,
+                        MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, generic_read_response,
+                        WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket, generic_write_response,
                         get_extended_status, get_service_status)
 
 from .requests import (RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket, ListIdentityRequestPacket,
                        RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket,
                        MultiServiceRequestPacket, ReadTagFragmentedServiceRequestPacket, WriteTagServiceRequestPacket,
-                       WriteTagFragmentedServiceRequestPacket, GenericReadRequestPacket, GenericWriteRequestPacket)
+                       WriteTagFragmentedServiceRequestPacket, generic_read_request, generic_write_request)
 
 from collections import defaultdict
 
@@ -61,6 +61,8 @@ REQUEST_MAP = defaultdict(RequestPacket,
     'read_tag_fragmented': ReadTagFragmentedServiceRequestPacket,
     'write_tag': WriteTagServiceRequestPacket,
     'write_tag_fragmented': WriteTagFragmentedServiceRequestPacket,
-    'generic_read': GenericReadRequestPacket,
-    'generic_write': GenericWriteRequestPacket,
+    'generic_read': generic_read_request(connected=True),
+    'generic_read_unconnected': generic_read_request(connected=False),
+    'generic_write': generic_write_request(connected=True),
+    'generic_write_unconnected': generic_write_request(connected=False),
 })

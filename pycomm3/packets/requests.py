@@ -31,7 +31,7 @@ from . import Packet, DataFormatType
 from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceResponsePacket, RegisterSessionResponsePacket,
                UnRegisterSessionResponsePacket, ListIdentityResponsePacket, SendRRDataResponsePacket,
                MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, WriteTagServiceResponsePacket,
-               WriteTagFragmentedServiceResponsePacket, GenericReadResponsePacket, GenericWriteResponsePacket)
+               WriteTagFragmentedServiceResponsePacket, generic_read_response, generic_write_response)
 from .. import CommError, RequestError
 from ..bytes_ import pack_uint, pack_udint, pack_dint, print_bytes_msg, pack_usint, PACK_DATA_FUNCTION
 from ..const import (ENCAPSULATION_COMMAND, INSUFFICIENT_PACKETS, DATA_ITEM, ADDRESS_ITEM, EXTENDED_SYMBOL, ELEMENT_TYPE,
@@ -155,82 +155,6 @@ class SendUnitDataRequestPacket(RequestPacket):
     def __init__(self, plc):
         super().__init__(plc)
         self._msg = [pack_uint(plc._sequence), ]
-
-
-@logged
-class GenericReadRequestPacket(SendUnitDataRequestPacket):
-    _response_class = GenericReadResponsePacket
-
-    def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None,
-                 data_format: DataFormatType = None):
-        super().__init__(plc)
-        self.data_format = data_format
-        self.class_code = class_code
-        self.instance = instance
-        self.service = service
-        self.request_data = request_data
-        class_type = CLASS_TYPE.get(len(class_code))
-
-        if class_type is None:
-            raise RequestError(f'Invalid Class Code Length ({len(class_code)}), must be 1 or 2 bytes')
-
-        instance_type = INSTANCE_TYPE.get(len(instance))
-        if instance_type is None:
-            raise RequestError(f'Invalid Instance Length ({len(instance)}), must be 1 or 2 bytes')
-
-        request_path = b''.join((class_type, class_code, instance_type, instance))
-        request_path_len = bytes([len(request_path) // 2])
-        self.add(service, request_path_len, request_path)
-
-        if request_data is not None:
-            self.add(request_data)
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}(service={self.service!r}, class_code={self.class_code!r}, ' \
-                                         f'instance={self.instance!r}, request_data={self.request_data!r})'
-
-    def send(self):
-        if not self.error:
-            self._send(self._build_request())
-            self.__log.debug(f'Sent: {self!r}')
-            reply = self._receive()
-            response = self._response_class(reply, data_format=self.data_format)
-        else:
-            response = self._response_class()
-            response._error = self.error
-        self.__log.debug(f'Received: {response!r}')
-        return response
-
-
-@logged
-class GenericWriteRequestPacket(SendUnitDataRequestPacket):
-    _response_class = GenericWriteResponsePacket
-
-    def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None,):
-        super().__init__(plc)
-        self.class_code = class_code
-        self.instance = instance
-        self.service = service
-        self.request_data = request_data
-        class_type = CLASS_TYPE.get(len(class_code))
-
-        if class_type is None:
-            raise RequestError(f'Invalid Class Code Length ({len(class_code)}), must be 1 or 2 bytes')
-
-        instance_type = INSTANCE_TYPE.get(len(instance))
-        if instance_type is None:
-            raise RequestError(f'Invalid Instance Length ({len(instance)}), must be 1 or 2 bytes')
-
-        request_path = b''.join((class_type, class_code, instance_type, instance))
-        request_path_len = bytes([len(request_path) // 2])
-        self.add(service, request_path_len, request_path)
-
-        if request_data is not None:
-            self.add(request_data)
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}(service={self.service!r}, class_code={self.class_code!r}, ' \
-                                         f'instance={self.instance!r}, request_data={self.request_data!r})'
 
 
 @logged
@@ -706,3 +630,90 @@ def _encode_tag_index(index):
             else:
                 return None  # Cannot create a valid request packet
         return path
+
+
+def generic_read_request(connected=True):
+
+    base_class = SendUnitDataRequestPacket if connected else SendRRDataRequestPacket
+
+    @logged
+    class GenericReadRequestPacket(base_class):
+        _response_class = generic_read_response(connected)
+
+        def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None,
+                     data_format: DataFormatType = None):
+            super().__init__(plc)
+            self.data_format = data_format
+            self.class_code = class_code
+            self.instance = instance
+            self.service = service
+            self.request_data = request_data
+            class_type = CLASS_TYPE.get(len(class_code))
+
+            if class_type is None:
+                raise RequestError(f'Invalid Class Code Length ({len(class_code)}), must be 1 or 2 bytes')
+
+            instance_type = INSTANCE_TYPE.get(len(instance))
+            if instance_type is None:
+                raise RequestError(f'Invalid Instance Length ({len(instance)}), must be 1 or 2 bytes')
+
+            request_path = b''.join((class_type, class_code, instance_type, instance))
+            request_path_len = bytes([len(request_path) // 2])
+            self.add(service, request_path_len, request_path)
+
+            if request_data is not None:
+                self.add(request_data)
+
+        def __repr__(self):
+            return f'{self.__class__.__name__}(service={self.service!r}, class_code={self.class_code!r}, ' \
+                   f'instance={self.instance!r}, request_data={self.request_data!r})'
+
+        def send(self):
+            if not self.error:
+                self._send(self._build_request())
+                self.__log.debug(f'Sent: {self!r}')
+                reply = self._receive()
+                response = self._response_class(reply, data_format=self.data_format)
+            else:
+                response = self._response_class()
+                response._error = self.error
+            self.__log.debug(f'Received: {response!r}')
+            return response
+
+    return GenericReadRequestPacket
+
+
+def generic_write_request(connected=True):
+    base_class = SendUnitDataRequestPacket if connected else SendRRDataRequestPacket
+
+    @logged
+    class GenericWriteRequestPacket(base_class):
+        _response_class = generic_write_response(connected)
+
+        def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None, ):
+            super().__init__(plc)
+            self.class_code = class_code
+            self.instance = instance
+            self.service = service
+            self.request_data = request_data
+            class_type = CLASS_TYPE.get(len(class_code))
+
+            if class_type is None:
+                raise RequestError(f'Invalid Class Code Length ({len(class_code)}), must be 1 or 2 bytes')
+
+            instance_type = INSTANCE_TYPE.get(len(instance))
+            if instance_type is None:
+                raise RequestError(f'Invalid Instance Length ({len(instance)}), must be 1 or 2 bytes')
+
+            request_path = b''.join((class_type, class_code, instance_type, instance))
+            request_path_len = bytes([len(request_path) // 2])
+            self.add(service, request_path_len, request_path)
+
+            if request_data is not None:
+                self.add(request_data)
+
+        def __repr__(self):
+            return f'{self.__class__.__name__}(service={self.service!r}, class_code={self.class_code!r}, ' \
+                   f'instance={self.instance!r}, request_data={self.request_data!r})'
+
+    return GenericWriteRequestPacket

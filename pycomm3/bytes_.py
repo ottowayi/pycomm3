@@ -159,12 +159,13 @@ def print_bytes_msg(msg, info=''):
     return out
 
 
-def _short_string_encode(string):
-    def _char(char):
-        unsigned = ord(char)
-        return pack_sint(unsigned - 256 if unsigned > 127 else unsigned)
+def pack_char(char):
+    unsigned = ord(char)
+    return pack_sint(unsigned - 256 if unsigned > 127 else unsigned)
 
-    encoded = pack_usint(len(string)) + b''.join([_char(x) for x in string])
+
+def _short_string_encode(string):
+    encoded = pack_usint(len(string)) + b''.join([pack_char(x) for x in string])
     return encoded
 
 
@@ -188,7 +189,8 @@ PACK_DATA_FUNCTION = {
 
 
 def _short_string_decode(str_data):
-    string = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data[1:])
+    string_len = str_data[0]
+    string = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data[1:string_len+1])
     return string
 
 

@@ -37,8 +37,8 @@ from autologging import logged
 
 from . import DataError, CommError
 from . import Tag, RequestError
-from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, pack_ulint)
-from .bytes_ import (unpack_dint, pack_sint, PACK_DATA_FUNCTION, UNPACK_DATA_FUNCTION, DATA_FUNCTION_SIZE)
+from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, pack_ulint, pack_char,
+                     unpack_dint, pack_sint, PACK_DATA_FUNCTION)
 from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_TYPE, CLASS_CODE, CLASS_TYPE,
                     INSTANCE_TYPE, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
                     TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
@@ -161,22 +161,23 @@ class LogixDriver:
         self._cache = None
         self._data_types = {}
         self._tags = {}
-
+        self._micro800 = micro800
         self.use_instance_ids = True
 
         if init_tags or init_info:
             self.open()
             if init_info:
                 self.get_plc_info()
-                micro800 = self.info['device_type'].startswith(MICRO800_PREFIX)
-                self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not micro800
-                if not micro800:
+                self._micro800 = self.info['device_type'].startswith(MICRO800_PREFIX)
+                _, _path = _parse_connection_path(path, self._micro800)  # need to update path if using a Micro800
+                self.attribs['cip_path'] = _path
+                self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
+                if not self._micro800:
                     self.get_plc_name()
 
             if init_tags:
                 self.get_tag_list(program='*' if init_program_tags else None)
 
-        self._micro800 = micro800
 
     def __enter__(self):
         self.open()
@@ -279,6 +280,8 @@ class LogixDriver:
             - `write_tag_fragmented`
             - `generic_read`
             - `generic_write`
+            - `generic_read_unconnected`
+            - `generic_write_unconnected`
 
         :param command: the service for which a request will be created
         :return: a new request for the command
@@ -300,15 +303,18 @@ class LogixDriver:
 
         return self._sequence_number
 
-    def list_identity(self) -> Optional[str]:
+    @classmethod
+    def list_identity(cls, path) -> Optional[str]:
         """
         Uses the ListIdentity service to identify the target
 
         :return: device identity if reply contains valid response else None
         """
-
-        request = self.new_request('list_identity')
+        plc = cls(path, init_tags=False, init_info=False)
+        plc.open()
+        request = plc.new_request('list_identity')
         response = request.send()
+        plc.close()
         return response.identity
 
     def get_module_info(self, slot):
@@ -407,7 +413,7 @@ class LogixDriver:
         if self._session == 0:
             raise CommError("A Session Not Registered Before forward_open.")
 
-        init_net_params = (True << 9) | (0 << 10) | (2 << 13) | (False << 15)  # CIP Vol 1 - 3-5.5.1.1
+        init_net_params = 0b_0100_0010_0000_0000  # CIP Vol 1 - 3-5.5.1.1
 
         if self.attribs['extended forward open']:
             net_params = pack_udint((self.connection_size & 0xFFFF) | init_net_params << 16)
@@ -556,7 +562,6 @@ class LogixDriver:
         except Exception as err:
             raise DataError(err)
 
-    @with_forward_open
     def get_plc_info(self) -> dict:
         """
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
@@ -568,7 +573,8 @@ class LogixDriver:
                                             ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
                                             ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
                                             ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
-                                         ])
+                                         ],
+                                         connected=False)
 
             if response:
                 info = _parse_plc_info(response.value)
@@ -1135,15 +1141,10 @@ class LogixDriver:
             if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements']) not in tags_in_requests:
                 tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
 
-                string = _make_string_bytes(tag_data)
-                if string is not None:
-                    tag_data['value'] = string
-
                 if _bit_request(tag_data, bit_writes):
                     continue
 
-                tag_data['write_value'] = writable_value(tag_data['value'], tag_data['elements'],
-                                                         tag_data['tag_info']['data_type'])
+                tag_data['write_value'] = writable_value(tag_data)
 
                 if len(tag_data['write_value']) > self.connection_size:
                     _request = self.new_request('write_tag_fragmented')
@@ -1179,14 +1180,8 @@ class LogixDriver:
 
     def _write_build_single_request(self, parsed_tag, bit_writes):
         if parsed_tag.get('error') is None:
-
-            string = _make_string_bytes(parsed_tag)
-            if string is not None:
-                parsed_tag['value'] = string
-
             if not _bit_request(parsed_tag, bit_writes):
-                parsed_tag['write_value'] = writable_value(parsed_tag['value'], parsed_tag['elements'],
-                                                           parsed_tag['tag_info']['data_type'])
+                parsed_tag['write_value'] = writable_value(parsed_tag)
                 if len(parsed_tag['write_value']) > self.connection_size:
                     request = self.new_request('write_tag_fragmented')
                 else:
@@ -1336,8 +1331,11 @@ class LogixDriver:
         """
         tag = self.generic_read(class_code=CLASS_CODE['Wall-Clock Time'], instance=b'\x01', request_data=b'\x01\x00\x0B\x00',
                                 data_format=[(None, 6), ('us', 'ULINT'), ])
-        time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
-        value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(fmt)}
+        if tag:
+            time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
+            value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(fmt)}
+        else:
+            value = None
         return Tag('__GET_PLC_TIME__', value, error=tag.error)
 
     def set_plc_time(self, microseconds: Optional[int] = None) -> Tag:
@@ -1358,18 +1356,30 @@ class LogixDriver:
         return self.generic_write(b'\x04', CLASS_CODE['Wall-Clock Time'], b'\x01',
                                   request_data=request_data, name='__SET_PLC_TIME__')
 
-    @with_forward_open
     def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
                      data_format: DataFormatType = None, name: str = 'generic',
-                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']])) -> Tag:
+                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
+                     connected=True) -> Tag:
 
-        request = self.new_request('generic_read', service, class_code, instance, request_data, data_format)
+        _req = 'generic_read' if connected else 'generic_read_unconnected'
+
+        if connected:
+            with_forward_open(lambda _: None)(self)
+
+        request = self.new_request(_req, service, class_code, instance, request_data, data_format)
         response = request.send()
 
         return Tag(name, response.value, error=response.error)
 
-    def generic_write(self, service, class_code, instance, request_data: bytes, name: str = 'generic') -> Tag:
-        request = self.new_request('generic_write', service, class_code, instance, request_data)
+    def generic_write(self, service, class_code, instance, request_data: bytes, name: str = 'generic',
+                      connected=True) -> Tag:
+
+        _req = 'generic_write' if connected else 'generic_write_unconnected'
+
+        if connected:
+            with_forward_open(lambda _: None)(self)
+
+        request = self.new_request(_req, service, class_code, instance, request_data)
         response = request.send()
         return Tag(name, request_data, error=response.error)
 
@@ -1472,16 +1482,30 @@ def _parse_structure_makeup_attributes(response):
             raise DataError(e)
 
 
-def writable_value(value, elements, data_type):
-    if isinstance(value, bytes):
-        return value
+def writable_value(parsed_tag):
+    if isinstance(parsed_tag['value'], bytes):
+        return parsed_tag['value']
 
     try:
-        pack_func = PACK_DATA_FUNCTION[data_type]
+        value = parsed_tag['value']
+        elements = parsed_tag['elements']
+        data_type = parsed_tag['tag_info']['data_type']
+
         if elements > 1:
-            return b''.join(pack_func(value[i]) for i in range(elements))
+            if len(value) < elements:
+                raise RequestError('Insufficient data for requested elements')
+            if len(value) > elements:
+                value = value[:elements]
+
+        if parsed_tag['tag_info']['tag_type'] == 'struct':
+            return _writable_value_structure(value, elements, data_type)
         else:
-            return pack_func(value)
+            pack_func = PACK_DATA_FUNCTION[data_type]
+
+            if elements > 1:
+                return b''.join(pack_func(value[i]) for i in range(elements))
+            else:
+                return pack_func(value)
     except Exception as err:
         raise RequestError('Unable to create a writable value', err)
 
@@ -1511,35 +1535,34 @@ def _tag_return_size(tag_info):
     return size + 12  # account for service overhead
 
 
-def _string_to_sint_array(string, string_len):
+def _writable_value_structure(value, elements, data_type):
+    if elements > 1:
+        return b''.join(_pack_structure(val, data_type) for val in value)
+    else:
+        return _pack_structure(value, data_type)
+
+
+def _pack_string(value, string_len):
     sint_array = [b'\x00' for _ in range(string_len)]
-    if len(string) > string_len:
-        string = string[:string_len]
+    if len(value) > string_len:
+        value = value[:string_len]
+    for i, s in enumerate(value):
+        sint_array[i] = pack_char(s)
 
-    for i, s in enumerate(string):
-        unsigned = ord(s)
-        sint_array[i] = pack_sint(unsigned - 256 if unsigned > 127 else unsigned)
-
-    return b''.join(sint_array)
+    return pack_dint(len(value)) + b''.join(sint_array)
 
 
-def _make_string_bytes(tag_data):
-    if tag_data['tag_info']['tag_type'] == 'struct':
-        string_length = tag_data['tag_info']['data_type'].get('string')
+def _pack_structure(val, data_type):
+    string_len = data_type.get('string')
+    if string_len is None:
+        raise NotImplementedError('Writing of structures besides strings is not supported')
+
+    if string_len:
+        packed_bytes = _pack_string(val, string_len)
     else:
-        return None
+        packed_bytes = b''  # TODO: support for structure writing here
 
-    if tag_data['elements'] > 1:
-        string_bytes = b''
-        for val in tag_data['value']:
-            str_data = _string_to_sint_array(val, string_length)
-            str_bytes = pack_dint(len(val)) + str_data
-            string_bytes += str_bytes + b'\x00' * (len(str_bytes) % 4)  # pad data to 4-byte boundaries
-    else:
-        str_data = _string_to_sint_array(tag_data['value'], string_length)
-        string_bytes = pack_dint(len(tag_data['value'])) + str_data
-
-    return string_bytes + b'\x00' * (len(string_bytes) % 4)  # pad data to 4-byte boundaries
+    return packed_bytes + b'\x00' * (len(packed_bytes) % 4)  # pad data to 4-byte boundaries
 
 
 def _bit_request(tag_data, bit_requests):
