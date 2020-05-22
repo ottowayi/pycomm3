@@ -161,22 +161,23 @@ class LogixDriver:
         self._cache = None
         self._data_types = {}
         self._tags = {}
-
+        self._micro800 = micro800
         self.use_instance_ids = True
 
         if init_tags or init_info:
             self.open()
             if init_info:
                 self.get_plc_info()
-                micro800 = self.info['device_type'].startswith(MICRO800_PREFIX)
-                self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not micro800
-                if not micro800:
+                self._micro800 = self.info['device_type'].startswith(MICRO800_PREFIX)
+                _, _path = _parse_connection_path(path, self._micro800)  # need to update path if using a Micro800
+                self.attribs['cip_path'] = _path
+                self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
+                if not self._micro800:
                     self.get_plc_name()
 
             if init_tags:
                 self.get_tag_list(program='*' if init_program_tags else None)
 
-        self._micro800 = micro800
 
     def __enter__(self):
         self.open()
