@@ -42,7 +42,7 @@ from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, 
 from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_TYPE, CLASS_CODE, CLASS_TYPE,
                     INSTANCE_TYPE, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
                     TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
-                    MICRO800_PREFIX)
+                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD)
 from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE, SEC_TO_US,
                     KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE, MIN_VER_EXTERNAL_ACCESS)
 from .packets import REQUEST_MAP, RequestPacket, get_service_status, DataFormatType
@@ -1028,20 +1028,21 @@ class LogixDriver:
         creates a list of multi-request packets
         """
         requests = []
-        response_size = 0
+        response_size = MULTISERVICE_READ_OVERHEAD
         current_request = self.new_request('multi_request')
         requests.append(current_request)
         tags_in_requests = set()
         for tag, tag_data in parsed_tags.items():
             if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements']) not in tags_in_requests:
                 tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
-                return_size = _tag_return_size(tag_data['tag_info']) * tag_data['elements']
+                return_size = _tag_return_size(tag_data)
                 if return_size > self.connection_size:
                     _request = self.new_request('read_tag_fragmented')
                     _request.add(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'])
                     requests.append(_request)
                 else:
                     try:
+                        return_size += 2  # add 2 bytes for offset list in reply
                         if response_size + return_size < self.connection_size:
                             if current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info']):
                                 response_size += return_size
@@ -1070,7 +1071,7 @@ class LogixDriver:
         """
 
         if parsed_tag.get('error') is None:
-            return_size = _tag_return_size(parsed_tag['tag_info']) * parsed_tag['elements']
+            return_size = _tag_return_size(parsed_tag)
             if return_size > self.connection_size:
                 request = self.new_request('read_tag_fragmented')
             else:
@@ -1526,13 +1527,16 @@ def _get_array_index(tag):
     return tag, idx
 
 
-def _tag_return_size(tag_info):
+def _tag_return_size(tag_data):
+    tag_info = tag_data['tag_info']
     if tag_info['tag_type'] == 'atomic':
         size = DATA_TYPE_SIZE[tag_info['data_type']]
     else:
         size = tag_info['data_type']['template']['structure_size']
 
-    return size + 12  # account for service overhead
+    size = (size * tag_data['elements']) + READ_RESPONSE_OVERHEAD  # account for service overhead
+
+    return size
 
 
 def _writable_value_structure(value, elements, data_type):
