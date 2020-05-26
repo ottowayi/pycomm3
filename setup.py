@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 from pycomm3 import __version__
 import os
 
@@ -16,7 +16,7 @@ setup(
     description="A Python Ethernet/IP library for communicating with Allen-Bradley PLCs.",
     long_description=read('README.rst'),
     license="MIT",
-    packages=find_packages(),
+    packages=['pycomm3', 'pycomm3.packets'],
     python_requires='>=3.6',
     install_requires=['autologging',
                       'pywin32;platform_system=="Windows"'],
