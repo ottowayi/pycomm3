@@ -1047,12 +1047,12 @@ class LogixDriver:
                             if current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info']):
                                 response_size += return_size
                             else:
-                                response_size = return_size
+                                response_size = return_size + MULTISERVICE_READ_OVERHEAD
                                 current_request = self.new_request('multi_request')
                                 current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'])
                                 requests.append(current_request)
                         else:
-                            response_size = return_size
+                            response_size = return_size + MULTISERVICE_READ_OVERHEAD
                             current_request = self.new_request('multi_request')
                             current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'])
                             requests.append(current_request)
