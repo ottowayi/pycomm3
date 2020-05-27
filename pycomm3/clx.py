@@ -178,7 +178,6 @@ class LogixDriver:
             if init_tags:
                 self.get_tag_list(program='*' if init_program_tags else None)
 
-
     def __enter__(self):
         self.open()
         return self
@@ -327,9 +326,10 @@ class LogixDriver:
                 CLASS_TYPE['8-bit'],
                 b'\x06',  # class
                 INSTANCE_TYPE["8-bit"],
-                b'\x01',
+                b'\x01',  # instance
                 b'\x0A',  # priority
-                b'\x0e\x06\x00',
+                b'\x0e',  # timeout ticks
+                b'\x06\x00',  # service size
 
                 # Identity request portion
                 b'\x01',  # Service
@@ -567,14 +567,17 @@ class LogixDriver:
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
         """
         try:
-            response = self.generic_read(class_code=CLASS_CODE['Identity Object'], instance=b'\x01\x00',
-                                         service=b'\x01',
+            route = self.attribs['cip_path'][1:-4]  # trim to just the route
+            route_len = pack_uint(len(route) // 2)
+            request_data = route_len + route
+            response = self.generic_read(class_code=CLASS_CODE['Identity Object'], instance=b'\x01',
+                                         service=b'\x01', request_data=request_data,
                                          data_format=[
                                             ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
                                             ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
                                             ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
                                          ],
-                                         connected=False)
+                                         connected=False, unconnected_send=True)
 
             if response:
                 info = _parse_plc_info(response.value)
@@ -681,7 +684,7 @@ class LogixDriver:
                     b'\x08\x00'  # Attr. 8 : array dimensions [1,2,3]
                 ]
 
-                if self.info['version_major'] >= MIN_VER_EXTERNAL_ACCESS:
+                if self.info.get('version_major', 0) >= MIN_VER_EXTERNAL_ACCESS:
                     attributes.append(b'\x0a\x00')  # Attr. 10 : external access
 
                 request.add(
@@ -733,7 +736,7 @@ class LogixDriver:
                 dim3 = unpack_udint(tags_returned[idx:idx + 4])
                 idx += 4
 
-                if self.info['version_major'] >= MIN_VER_EXTERNAL_ACCESS:
+                if self.info.get('version_major', 0) >= MIN_VER_EXTERNAL_ACCESS:
                     access = tags_returned[idx] & 0b_0011
                     idx += 1
                 else:
@@ -1360,27 +1363,27 @@ class LogixDriver:
     def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
                      data_format: DataFormatType = None, name: str = 'generic',
                      service=bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                     connected=True) -> Tag:
+                     connected=True, unconnected_send=False) -> Tag:
 
         _req = 'generic_read' if connected else 'generic_read_unconnected'
 
         if connected:
             with_forward_open(lambda _: None)(self)
 
-        request = self.new_request(_req, service, class_code, instance, request_data, data_format)
+        request = self.new_request(_req, service, class_code, instance, request_data, data_format, unconnected_send)
         response = request.send()
 
         return Tag(name, response.value, error=response.error)
 
     def generic_write(self, service, class_code, instance, request_data: bytes, name: str = 'generic',
-                      connected=True) -> Tag:
+                      connected=True, unconnected_send=False) -> Tag:
 
         _req = 'generic_write' if connected else 'generic_write_unconnected'
 
         if connected:
             with_forward_open(lambda _: None)(self)
 
-        request = self.new_request(_req, service, class_code, instance, request_data)
+        request = self.new_request(_req, service, class_code, instance, request_data, unconnected_send)
         response = request.send()
         return Tag(name, request_data, error=response.error)
 
