@@ -35,7 +35,7 @@ from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceRespons
 from .. import CommError, RequestError
 from ..bytes_ import pack_uint, pack_udint, pack_dint, print_bytes_msg, pack_usint, PACK_DATA_FUNCTION
 from ..const import (ENCAPSULATION_COMMAND, INSUFFICIENT_PACKETS, DATA_ITEM, ADDRESS_ITEM, EXTENDED_SYMBOL, ELEMENT_TYPE,
-                     TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_TYPE, INSTANCE_TYPE, DATA_TYPE, DATA_TYPE_SIZE)
+                     TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_TYPE, INSTANCE_TYPE, DATA_TYPE, DATA_TYPE_SIZE, UNCONNECTED_SEND)
 
 
 @logged
@@ -641,7 +641,7 @@ def generic_read_request(connected=True):
         _response_class = generic_read_response(connected)
 
         def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None,
-                     data_format: DataFormatType = None):
+                     data_format: DataFormatType = None, unconnected_send=False):
             super().__init__(plc)
             self.data_format = data_format
             self.class_code = class_code
@@ -656,6 +656,9 @@ def generic_read_request(connected=True):
             instance_type = INSTANCE_TYPE.get(len(instance))
             if instance_type is None:
                 raise RequestError(f'Invalid Instance Length ({len(instance)}), must be 1 or 2 bytes')
+
+            if unconnected_send:
+                self.add(_unconnected_send())
 
             request_path = b''.join((class_type, class_code, instance_type, instance))
             request_path_len = bytes([len(request_path) // 2])
@@ -690,7 +693,8 @@ def generic_write_request(connected=True):
     class GenericWriteRequestPacket(base_class):
         _response_class = generic_write_response(connected)
 
-        def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None, ):
+        def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None,
+                     unconnected_send=False):
             super().__init__(plc)
             self.class_code = class_code
             self.instance = instance
@@ -705,6 +709,9 @@ def generic_write_request(connected=True):
             if instance_type is None:
                 raise RequestError(f'Invalid Instance Length ({len(instance)}), must be 1 or 2 bytes')
 
+            if unconnected_send:
+                self.add(_unconnected_send())
+
             request_path = b''.join((class_type, class_code, instance_type, instance))
             request_path_len = bytes([len(request_path) // 2])
             self.add(service, request_path_len, request_path)
@@ -717,3 +724,18 @@ def generic_write_request(connected=True):
                    f'instance={self.instance!r}, request_data={self.request_data!r})'
 
     return GenericWriteRequestPacket
+
+
+def _unconnected_send():
+    return b''.join((
+    UNCONNECTED_SEND,
+    b'\x02',
+    CLASS_TYPE['8-bit'],
+    b'\x06',  # class
+    INSTANCE_TYPE["8-bit"],
+    b'\x01',  # instance
+    b'\x0A',  # priority
+    b'\x0e',  # timeout ticks
+    b'\x06\x00',  # service size
+))
+
