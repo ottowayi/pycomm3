@@ -135,13 +135,14 @@ def generic_read_response(connected=True):
     class GenericReadResponsePacket(base_class):
         def __init__(self, *args, data_format: DataFormatType = None, **kwargs):
             self.data_format = data_format
+            self.value = None
             super().__init__(*args, **kwargs)
 
         def _parse_reply(self):
             super()._parse_reply()
             if self.data_format is None:
                 self.value = self.data
-            else:
+            elif self.is_valid():
                 try:
                     values = {}
                     start = 0
@@ -386,7 +387,7 @@ class ListIdentityResponsePacket(ResponsePacket):
         ))
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(session={self.identity!r}, error={self.error!r})'
+        return f'{self.__class__.__name__}(identity={self.identity!r}, error={self.error!r})'
 
 
 def parse_read_reply(data, data_type, elements):

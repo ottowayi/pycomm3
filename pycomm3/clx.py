@@ -167,8 +167,9 @@ class LogixDriver:
         if init_tags or init_info:
             self.open()
             if init_info:
+                self._micro800 = self._list_identity().startswith(MICRO800_PREFIX)
                 self.get_plc_info()
-                self._micro800 = self.info['device_type'].startswith(MICRO800_PREFIX)
+                # self._micro800 = self.info['device_type'].startswith(MICRO800_PREFIX)
                 _, _path = _parse_connection_path(path, self._micro800)  # need to update path if using a Micro800
                 self.attribs['cip_path'] = _path
                 self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
@@ -311,9 +312,13 @@ class LogixDriver:
         """
         plc = cls(path, init_tags=False, init_info=False)
         plc.open()
-        request = plc.new_request('list_identity')
-        response = request.send()
+        identity = plc._list_identity()
         plc.close()
+        return identity
+
+    def _list_identity(self):
+        request = self.new_request('list_identity')
+        response = request.send()
         return response.identity
 
     def get_module_info(self, slot):
@@ -577,14 +582,14 @@ class LogixDriver:
                                             ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
                                             ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
                                          ],
-                                         connected=False, unconnected_send=True)
+                                         connected=False, unconnected_send=not self._micro800)
 
             if response:
                 info = _parse_plc_info(response.value)
                 self._info = {**self._info, **info}
                 return info
             else:
-                raise DataError(f'send_unit_data did not return valid data - {response.error}')
+                raise DataError(f'get_plc_info did not return valid data - {response.error}')
 
         except Exception as err:
             raise DataError(err)
