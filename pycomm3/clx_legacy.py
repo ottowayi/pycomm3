@@ -280,10 +280,9 @@ class LogixDriverLegacy(LogixDriver):
         :return: None is returned in case of error otherwise the tag list is returned
         """
 
-        if not self._target_is_connected:
-            if not self._forward_open():
-                self.__log.warning("Target did not connected. read_tag will not be executed.")
-                raise DataError("Target did not connected. read_tag will not be executed.")
+        if not self._target_is_connected and not self._forward_open():
+            self.__log.warning("Target did not connected. read_tag will not be executed.")
+            raise DataError("Target did not connected. read_tag will not be executed.")
 
         offset = 0
         last_idx = 0
@@ -545,10 +544,9 @@ class LogixDriverLegacy(LogixDriver):
         :return: None is returned in case of error otherwise the tag list is returned
         """
 
-        if not self._target_is_connected:
-            if not self._forward_open():
-                self.__log.warning("Target did not connected. write_tag will not be executed.")
-                raise DataError("Target did not connected. write_tag will not be executed.")
+        if not self._target_is_connected and not self._forward_open():
+            self.__log.warning("Target did not connected. write_tag will not be executed.")
+            raise DataError("Target did not connected. write_tag will not be executed.")
 
         if isinstance(tag, (list, tuple, GeneratorType)):
             return self._write_tag_multi_write(tag)
@@ -573,10 +571,9 @@ class LogixDriverLegacy(LogixDriver):
             self.__log.warning("A list of tags must be passed to write_array.")
             raise DataError("A list of tags must be passed to write_array.")
 
-        if not self._target_is_connected:
-            if not self._forward_open():
-                self.__log.warning("Target did not connected. write_array will not be executed.")
-                raise DataError("Target did not connected. write_array will not be executed.")
+        if not self._target_is_connected and not self._forward_open():
+            self.__log.warning("Target did not connected. write_array will not be executed.")
+            raise DataError("Target did not connected. write_array will not be executed.")
 
         array_of_values = b''
         byte_size = 0

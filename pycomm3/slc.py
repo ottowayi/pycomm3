@@ -47,16 +47,18 @@ def parse_tag(tag):
     t = re.search(r"(?P<file_type>[CT])(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,3})"
                   r"(.)(?P<sub_element>ACC|PRE|EN|DN|TT|CU|CD|DN|OV|UN|UA)", tag, flags=re.IGNORECASE)
-    if t:
-        if (1 <= int(t.group('file_number')) <= 255) \
-                and (0 <= int(t.group('element_number')) <= 255):
-            return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                      'file_number': t.group('file_number'),
-                                      'element_number': t.group('element_number'),
-                                      'sub_element': PCCC_CT[t.group('sub_element').upper()],
-                                      'read_func': b'\xa2',
-                                      'write_func': b'\xab',
-                                      'address_field': 3}
+    if (
+        t
+        and (1 <= int(t.group('file_number')) <= 255)
+        and (0 <= int(t.group('element_number')) <= 255)
+    ):
+        return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                  'file_number': t.group('file_number'),
+                                  'element_number': t.group('element_number'),
+                                  'sub_element': PCCC_CT[t.group('sub_element').upper()],
+                                  'read_func': b'\xa2',
+                                  'write_func': b'\xab',
+                                  'address_field': 3}
 
     t = re.search(r"(?P<file_type>[LFBN])(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,3})"
@@ -141,19 +143,21 @@ def parse_tag(tag):
     t = re.search(r"(?P<file_type>B)(?P<file_number>\d{1,3})"
                   r"(/)(?P<element_number>\d{1,4})",
                   tag, flags=re.IGNORECASE)
-    if t:
-        if (1 <= int(t.group('file_number')) <= 255) \
-                and (0 <= int(t.group('element_number')) <= 4095):
-            bit_position = int(t.group('element_number'))
-            element_number = bit_position / 16
-            sub_element = bit_position - (element_number * 16)
-            return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                      'file_number': t.group('file_number'),
-                                      'element_number': element_number,
-                                      'sub_element': sub_element,
-                                      'read_func': b'\xa2',
-                                      'write_func': b'\xab',
-                                      'address_field': 3}
+    if (
+        t
+        and (1 <= int(t.group('file_number')) <= 255)
+        and (0 <= int(t.group('element_number')) <= 4095)
+    ):
+        bit_position = int(t.group('element_number'))
+        element_number = bit_position / 16
+        sub_element = bit_position - (element_number * 16)
+        return True, t.group(0), {'file_type': t.group('file_type').upper(),
+                                  'file_number': t.group('file_number'),
+                                  'element_number': element_number,
+                                  'sub_element': sub_element,
+                                  'read_func': b'\xa2',
+                                  'write_func': b'\xab',
+                                  'address_field': 3}
 
     return False, tag
 
@@ -255,17 +259,14 @@ class SLCDriver(Base):
         ]
 
         if self.send_unit_data(
-            build_common_packet_format(
-                DATA_ITEM['Connected'],
-                b''.join(message_request),
-                ADDRESS_ITEM['Connection Based'],
-                addr_data=self._target_cid,)):
+                build_common_packet_format(
+                    DATA_ITEM['Connected'],
+                    b''.join(message_request),
+                    ADDRESS_ITEM['Connection Based'],
+                    addr_data=self._target_cid,)):
 
             sts = int(unpack_uint(self._reply[2:4]))
-            if sts == 146:
-                return True
-            else:
-                return False
+            return sts == 146
         else:
             raise DataError("read_queue [send_unit_data] returned not valid data")
 
@@ -320,18 +321,17 @@ class SLCDriver(Base):
         """ read the queue
 
         """
-        if not self._target_is_connected:
-            if not self.forward_open():
-                self._status = (5, "Target did not connected. is_queue_available will not be executed.")
-                logger.warning(self._status)
-                raise DataError("Target did not connected. is_queue_available will not be executed.")
+        if not self._target_is_connected and not self.forward_open():
+            self._status = (5, "Target did not connected. is_queue_available will not be executed.")
+            logger.warning(self._status)
+            raise DataError("Target did not connected. is_queue_available will not be executed.")
 
         if self.__queue_data_available(queue_number):
             logger.debug("SLC read_queue: Queue {0} has data".format(queue_number))
             self.__save_record(file_name)
             size = self.__get_queue_size(queue_number)
             if size > 0:
-                for i in range(0, size):
+                for _ in range(size):
                     if self.__queue_data_available(queue_number):
                         self.__save_record(file_name)
 
@@ -362,17 +362,16 @@ class SLCDriver(Base):
             bit_read = True
             bit_position = int(res[2]['sub_element'])
 
-        if not self._target_is_connected:
-            if not self.forward_open():
-                self._status = (5, "Target did not connected. read_tag will not be executed.")
-                logger.warning(self._status)
-                raise DataError("Target did not connected. read_tag will not be executed.")
+        if not self._target_is_connected and not self.forward_open():
+            self._status = (5, "Target did not connected. read_tag will not be executed.")
+            logger.warning(self._status)
+            raise DataError("Target did not connected. read_tag will not be executed.")
 
         data_size = PCCC_DATA_SIZE[res[2]['file_type']]
 
         # Creating the Message Request Packet
         self._last_sequence = pack_uint(self._sequence)
-        
+
         message_request = [
             self._last_sequence,
             b'\x4b',
@@ -396,11 +395,11 @@ class SLCDriver(Base):
 
         logger.debug("SLC read_tag({0},{1})".format(tag, n))
         if self.send_unit_data(
-            build_common_packet_format(
-                DATA_ITEM['Connected'],
-                b''.join(message_request),
-                ADDRESS_ITEM['Connection Based'],
-                addr_data=self._target_cid,)):
+                build_common_packet_format(
+                    DATA_ITEM['Connected'],
+                    b''.join(message_request),
+                    ADDRESS_ITEM['Connection Based'],
+                    addr_data=self._target_cid,)):
             sts = int(self._reply[58])
             try:
                 if sts != 0:
@@ -411,7 +410,7 @@ class SLCDriver(Base):
 
                 new_value = 61
                 if bit_read:
-                    if res[2]['file_type'] == 'T' or res[2]['file_type'] == 'C':
+                    if res[2]['file_type'] in ['T', 'C']:
                         if bit_position == PCCC_CT['PRE']:
                             return UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](
                                 self._reply[new_value+2:new_value+2+data_size])
@@ -429,7 +428,7 @@ class SLCDriver(Base):
                         values_list.append(
                             UNPACK_PCCC_DATA_FUNCTION[res[2]['file_type']](self._reply[new_value:new_value+data_size])
                         )
-                        new_value = new_value+data_size
+                        new_value += data_size
 
                     if len(values_list) > 1:
                         return values_list
@@ -485,11 +484,10 @@ class SLCDriver(Base):
         if isinstance(value, list):
             multi_requests = True
 
-        if not self._target_is_connected:
-            if not self.forward_open():
-                self._status = (1000, "Target did not connected. write_tag will not be executed.")
-                logger.warning(self._status)
-                raise DataError("Target did not connected. write_tag will not be executed.")
+        if not self._target_is_connected and not self.forward_open():
+            self._status = (1000, "Target did not connected. write_tag will not be executed.")
+            logger.warning(self._status)
+            raise DataError("Target did not connected. write_tag will not be executed.")
 
         try:
             n = 0
@@ -503,8 +501,10 @@ class SLCDriver(Base):
                 if bit_field:
                     data_size = 2
 
-                    if (res[2]['file_type'] == 'T' or res[2]['file_type'] == 'C') \
-                            and (bit_position == PCCC_CT['PRE'] or bit_position == PCCC_CT['ACC']):
+                    if res[2]['file_type'] in ['T', 'C'] and bit_position in [
+                        PCCC_CT['PRE'],
+                        PCCC_CT['ACC'],
+                    ]:
                         sub_element = bit_position
                         values_list = '\xff\xff' + PACK_PCCC_DATA_FUNCTION[res[2]['file_type']](value)
                     else:

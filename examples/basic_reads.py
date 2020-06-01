@@ -7,8 +7,8 @@ def read_single():
 
 
 def read_multiple():
-    tags = ['DINT1', 'SINT1', 'REAL1']
     with LogixDriver('10.61.50.4/10') as plc:
+        tags = ['DINT1', 'SINT1', 'REAL1']
         return plc.read(*tags)
 
 

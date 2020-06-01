@@ -350,8 +350,7 @@ class LogixDriver:
             response = request.send()
 
             if response:
-                info = _parse_identity_object(response.data)
-                return info
+                return _parse_identity_object(response.data)
             else:
                 raise DataError(f'send_rr_data did not return valid data - {response.error}')
 
@@ -365,20 +364,21 @@ class LogixDriver:
         :return: True if successful, False otherwise
         """
         # handle the socket layer
-        if not self._connection_opened:
-            try:
-                if self._sock is None:
-                    self._sock = Socket()
-                self._sock.connect(self.attribs['ip address'], self.attribs['port'])
-                self._connection_opened = True
-                self.attribs['cid'] = urandom(4)
-                self.attribs['vsn'] = urandom(4)
-                if self._register_session() is None:
-                    self.__log.warning("Session not registered")
-                    return False
-                return True
-            except Exception as e:
-                raise CommError(e)
+        if self._connection_opened:
+            return
+        try:
+            if self._sock is None:
+                self._sock = Socket()
+            self._sock.connect(self.attribs['ip address'], self.attribs['port'])
+            self._connection_opened = True
+            self.attribs['cid'] = urandom(4)
+            self.attribs['vsn'] = urandom(4)
+            if self._register_session() is None:
+                self.__log.warning("Session not registered")
+                return False
+            return True
+        except Exception as e:
+            raise CommError(e)
 
     def _register_session(self) -> Optional[int]:
         """
@@ -935,7 +935,7 @@ class LogixDriver:
         }
 
         for member, info in zip(member_names, member_data):
-            if not member.startswith('ZZZZZZZZZZ') and not member.startswith('__'):
+            if not (member.startswith('ZZZZZZZZZZ') or member.startswith('__')):
                 template['attributes'].append(member)
             template['internal_tags'][member] = info
 
@@ -1009,10 +1009,7 @@ class LogixDriver:
                 else:
                     if result:
                         typ, bit = request_data['bit']
-                        if typ == 'bit':
-                            val = bool(result.value & (1 << bit))
-                        else:
-                            val = result.value[bit % 32]
+                        val = bool(result.value & 1 << bit) if typ == 'bit' else result.value[bit % 32]
                         results.append(Tag(tag, val, 'BOOL'))
                     else:
                         results.append(Tag(tag, None, None, result.error))
@@ -1398,8 +1395,7 @@ def _parse_plc_name(response):
         raise DataError(f'get_plc_name returned status {get_service_status(response.error)}')
     try:
         name_len = unpack_uint(response.data[6:8])
-        name = response.data[8: 8 + name_len].decode()
-        return name
+        return response.data[8: 8 + name_len].decode()
     except Exception as err:
         raise DataError(err)
 

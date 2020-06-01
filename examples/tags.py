@@ -30,10 +30,12 @@ def find_pids():
 
         for tag, _def in plc.tags.items():
             # PIDs are structures, the data_type attribute will be a dict with data type definition.
-            # For tag types of 'atomic' the data type will a string, we need to skip those first.
-            # Then we can just look for tags whose data type name matches 'PID'
-            if _def['tag_type'] == 'struct':
-                if _def['data_type']['name'] == 'PID':
-                    pid_tags.append(tag)
+                        # For tag types of 'atomic' the data type will a string, we need to skip those first.
+                        # Then we can just look for tags whose data type name matches 'PID'
+            if (
+                _def['tag_type'] == 'struct'
+                and _def['data_type']['name'] == 'PID'
+            ):
+                pid_tags.append(tag)
 
         print(pid_tags)

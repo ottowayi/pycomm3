@@ -79,7 +79,7 @@ def pack_ulong(l):
 
 
 def unpack_bool(st):
-    return not st[0] == 0
+    return st[0] != 0
 
 
 def unpack_sint(st):
@@ -165,8 +165,7 @@ def pack_char(char):
 
 
 def _short_string_encode(string):
-    encoded = pack_usint(len(string)) + b''.join([pack_char(x) for x in string])
-    return encoded
+    return pack_usint(len(string)) + b''.join([pack_char(x) for x in string])
 
 
 PACK_DATA_FUNCTION = {
@@ -190,8 +189,9 @@ PACK_DATA_FUNCTION = {
 
 def _short_string_decode(str_data):
     string_len = str_data[0]
-    string = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data[1:string_len+1])
-    return string
+    return ''.join(
+        chr(v + 256) if v < 0 else chr(v) for v in str_data[1 : string_len + 1]
+    )
 
 
 UNPACK_DATA_FUNCTION = {

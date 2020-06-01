@@ -27,17 +27,6 @@
 raise NotImplementedError('COMServer implementation is incomplete')
 
 
-import pythoncom
-from pycomm3 import LogixDriver, Tag
-
-CLSID = '{7038d3a1-1ac4-4522-97d5-4c5a08a29906}'
-
-
-class COMTag(Tag):
-    _public_attrs_ = ['name', 'value', 'type', 'error']
-    _readonly_attrs_ = _public_attrs_
-
-
 class LogixDriverCOMServer:
     _reg_clsctx_ = pythoncom.CLSCTX_LOCAL_SERVER
     _public_methods_ = ['open', 'close', 'read_tag', 'write', ] #'get_plc_info', 'get_plc_name', 'get_tag_list']
