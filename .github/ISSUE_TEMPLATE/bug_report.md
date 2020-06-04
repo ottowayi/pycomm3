@@ -13,7 +13,7 @@ assignees: ''
 - [ ] consulted the [docs](https://pycomm3.readthedocs.io/en/latest/) 
 
 **Description**
-A clear and concise description of what the bug is.
+_A clear and concise description of what the bug is._
 
 **Target PLC**
 Model:  [e.g. 1756-L83E]
@@ -27,6 +27,6 @@ _Minimal reproduceable code sample_
 ```
 
 **Additional context**
- - if reading/writing a tag, describe it's type/structure/etc
- - attach any relevant L5X or data files
- - paste/attach logging output
+ - _if reading/writing a tag, describe it's type/structure/etc_
+ - _attach any relevant L5X or data files_
+ - _paste/attach logging output_
