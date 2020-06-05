@@ -29,6 +29,7 @@ import socket
 import logging
 import datetime
 import time
+import itertools
 from functools import wraps
 from os import urandom
 from typing import Union, List, Sequence, Tuple, Optional
@@ -169,7 +170,6 @@ class LogixDriver:
             if init_info:
                 self._micro800 = self._list_identity().startswith(MICRO800_PREFIX)
                 self.get_plc_info()
-                # self._micro800 = self.info['device_type'].startswith(MICRO800_PREFIX)
                 _, _path = _parse_connection_path(path, self._micro800)  # need to update path if using a Micro800
                 self.attribs['cip_path'] = _path
                 self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
@@ -1554,8 +1554,8 @@ def _writable_value_structure(value, elements, data_type):
         return _pack_structure(value, data_type)
 
 
-def _pack_string(value, string_len):
-    sint_array = [b'\x00' for _ in range(string_len)]
+def _pack_string(value, string_len, struct_size):
+    sint_array = [b'\x00' for _ in range(struct_size-4)]  # 4 for .LEN
     if len(value) > string_len:
         value = value[:string_len]
     for i, s in enumerate(value):
@@ -1564,17 +1564,53 @@ def _pack_string(value, string_len):
     return pack_dint(len(value)) + b''.join(sint_array)
 
 
-def _pack_structure(val, data_type):
+def _pack_structure(value, data_type):
     string_len = data_type.get('string')
-    if string_len is None:
-        raise NotImplementedError('Writing of structures besides strings is not supported')
+    # if string_len is None:
+    #     raise NotImplementedError('Writing of structures besides strings is not supported')
 
     if string_len:
-        packed_bytes = _pack_string(val, string_len)
+        data = _pack_string(value, string_len, data_type['template']['structure_size'])
     else:
-        packed_bytes = b''  # TODO: support for structure writing here
+        data = [0 for _ in range(data_type['template']['structure_size'])]
+        try:
+            # NOTE:  start with bytes(object-definition-size) , then replace sections with offset + data len
+            for val, attr in zip(value, data_type['attributes']):
+                dtype = data_type['internal_tags'][attr]
+                offset = dtype['offset']
 
-    return packed_bytes + b'\x00' * (len(packed_bytes) % 4)  # pad data to 4-byte boundaries
+                ary = dtype.get('array')
+                if dtype['tag_type'] == 'struct':
+                    if ary:
+                        value_bytes = [_pack_structure(val[i], dtype['data_type']) for i in range(ary)]
+                    else:
+                        value_bytes = [_pack_structure(val, dtype['data_type']), ]
+                else:
+                    pack_func = PACK_DATA_FUNCTION[dtype['data_type']]
+                    bit = dtype.get('bit')
+                    if bit is not None:
+                        if val:
+                            data[offset] |= 1 << bit
+                        else:
+                            data[offset] &= ~(1 << bit)
+                        continue
+
+                    if ary:
+                        value_bytes = [pack_func(val[i]) for i in range(ary)]
+                    else:
+                        value_bytes = [pack_func(val), ]
+
+                val_bytes = list(itertools.chain.from_iterable(value_bytes))
+                data[offset:offset+len(val_bytes)] = val_bytes
+
+        except Exception as err:
+            raise RequestError('Value Invalid for Structure', err)
+
+    return bytes(data)
+
+
+def _pad(data):
+    return data + b'\x00' * (len(data) % 4)  # pad data to 4-byte boundaries
 
 
 def _bit_request(tag_data, bit_requests):
