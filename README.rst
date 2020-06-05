@@ -220,7 +220,6 @@ TODO
 
 - *(wip)* - improve documentation and include more real-world example scripts
 - *(not started)* - make API case insensitive
-- *(not started)* - support full structure writing
 
 
 License
