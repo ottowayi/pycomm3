@@ -460,12 +460,13 @@ def parse_read_reply_struct(data, data_type):
             else:
                 values[tag] = parse_string(data[offset:offset + str_size])
         else:
+            struct_size = datatype['template']['structure_size']
             if array:
-                ary_data = data[offset:offset + (size * array)]
-                values[tag] = [parse_read_reply_struct(ary_data[i:i + size], datatype) for i in
-                               range(0, len(ary_data), size)]
+                ary_data = data[offset:offset + (struct_size * array)]
+                values[tag] = [parse_read_reply_struct(ary_data[i:i + struct_size], datatype) for i in
+                               range(0, len(ary_data), struct_size)]
             else:
-                values[tag] = parse_read_reply_struct(data[offset:offset + size], datatype)
+                values[tag] = parse_read_reply_struct(data[offset:offset + struct_size], datatype)
 
     return {k: v for k, v in values.items() if k in data_type['attributes']}
 
