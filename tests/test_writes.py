@@ -2,6 +2,7 @@ from math import isclose
 import pytest
 from itertools import chain
 from . import tag_only
+import time
 
 atomic_tests = [  # (tag name, data type, value)
 
@@ -56,3 +57,31 @@ def test_atomic_writes(plc, tag_name, data_type, value):
     assert result.error is None
     assert result.tag == tag_only(tag_name)
     assert result.type == data_type
+
+
+def test_struct_write(plc):
+    values = (
+        1, [2, 3, 4], 'Hello World!!!', True, 123.45, True,
+        [True, 1, 2, 3, 4, 5],
+        [
+            [True, 1, 1, 1, 1, 1],
+            [True, 2, 2, 2, 2, 2],
+            [True, 3, 3, 3, 3, 3]
+        ]
+    )
+
+    plc.write(('TestStructWrite', 1))
+    time.sleep(1)  # in case scan rate is too slow to for FAL to complete before write
+    plc.write(('TestUDT1_1', values))
+    tag = plc.read('TestUDT1_1')
+
+    assert tag.value['bool1'] is True
+    assert tag.value['bool2'] is True
+    assert tag.value['dint'] == 1
+    assert tag.value['ints'] == [2, 3, 4]
+    assert isclose(tag.value['real'], 123.45, rel_tol=1e-4)
+    assert tag.value['string'] == 'Hello World!!!'
+    assert tag.value['udt'] == {'bool': True, 'dint': 3, 'int': 2, 'real': 4.0, 'sint': 1}
+    assert tag.value['udts'] == [{'bool': True, 'dint': 1, 'int': 1, 'real': 1.0, 'sint': 1},
+                                 {'bool': True, 'dint': 2, 'int': 2, 'real': 2.0, 'sint': 2},
+                                 {'bool': True, 'dint': 3, 'int': 3, 'real': 3.0, 'sint': 3}]

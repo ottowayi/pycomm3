@@ -1606,7 +1606,6 @@ def _pack_structure(value, data_type):
         except Exception as err:
             raise RequestError('Value Invalid for Structure', err)
 
-    print('DATA:  ', data)
     return bytes(data)
 
 
