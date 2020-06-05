@@ -72,6 +72,13 @@ Highlighted Features
     - does not require reading of each attribute separately
     - returns a value dict ``{attribute: value}``
 
+- **New** - ``write`` supports full structure writing
+   
+    - Experimental support added in v0.7.0
+    - value should be a list/tuple of values for each attribute, nested for arrays and other structures
+    - not recommended for built-in types (TIMER, CONTROL, COUNTER, etc)
+    - all or nothing, does not update only parts of a struct
+    
 - simplified data types
 
     - strings use normal Python ``str`` objects, does not require reading/writing of the ``LEN`` and ``DATA`` attributes
