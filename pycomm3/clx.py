@@ -1554,14 +1554,14 @@ def _writable_value_structure(value, elements, data_type):
         return _pack_structure(value, data_type)
 
 
-def _pack_string(value, string_len):
-    sint_array = [b'\x00' for _ in range(string_len)]
+def _pack_string(value, string_len, struct_size):
+    sint_array = [b'\x00' for _ in range(struct_size-4)]  # 4 for .LEN
     if len(value) > string_len:
         value = value[:string_len]
     for i, s in enumerate(value):
         sint_array[i] = pack_char(s)
 
-    return _pad(pack_dint(len(value)) + b''.join(sint_array))
+    return pack_dint(len(value)) + b''.join(sint_array)
 
 
 def _pack_structure(value, data_type):
@@ -1570,7 +1570,7 @@ def _pack_structure(value, data_type):
     #     raise NotImplementedError('Writing of structures besides strings is not supported')
 
     if string_len:
-        data = _pack_string(value, string_len)
+        data = _pack_string(value, string_len, data_type['template']['structure_size'])
     else:
         data = [0 for _ in range(data_type['template']['structure_size'])]
         try:
