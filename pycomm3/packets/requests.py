@@ -500,15 +500,13 @@ def _make_write_data_bit(tag_info, value, request_path):
         raise RequestError(f'Invalid data type {tag_info["data_type"]} for writing bits')
 
     or_mask, and_mask = value
-    request_path = b''.join((
-        bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]]),
-        request_path,
-        pack_uint(mask_size),
-        pack_udint(or_mask)[:mask_size],
-        pack_udint(and_mask)[:mask_size]
-    ))
-
-    return request_path
+    return b''.join((
+            bytes([TAG_SERVICES_REQUEST["Read Modify Write Tag"]]),
+            request_path,
+            pack_uint(mask_size),
+            pack_udint(or_mask)[:mask_size],
+            pack_udint(and_mask)[:mask_size]
+        ))
 
 
 @logged
