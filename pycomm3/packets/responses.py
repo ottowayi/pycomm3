@@ -474,8 +474,7 @@ def parse_read_reply_struct(data, data_type):
 def parse_string(data):
     str_len = unpack_dint(data)
     str_data = data[4:4+str_len]
-    string = ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
-    return string
+    return ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
 
 
 def dword_to_bool_array(dword):
