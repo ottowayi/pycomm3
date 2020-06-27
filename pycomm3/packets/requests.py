@@ -556,27 +556,28 @@ def _create_tag_rp(tag, tag_cache, use_instance_ids):
     It returns the request packed wrapped around the tag passed.
     If any error it returns none
     """
+
     tags = tag.split('.')
     if tags:
         base, *attrs = tags
-
-        if use_instance_ids and base in tag_cache:
+        base_tag, index = _find_tag_index(base)
+        if use_instance_ids and base_tag in tag_cache:
             rp = [CLASS_TYPE['8-bit'],
                   CLASS_CODE['Symbol Object'],
                   INSTANCE_TYPE['16-bit'],
-                  pack_uint(tag_cache[base]['instance_id'])]
+                  pack_uint(tag_cache[base_tag]['instance_id'])]
         else:
-            base_tag, index = _find_tag_index(base)
+            print('symbolic', base)
             base_len = len(base_tag)
             rp = [EXTENDED_SYMBOL,
                   pack_usint(base_len),
-                  base_tag]
+                  base_tag.encode()]
             if base_len % 2:
                 rp.append(b'\x00')
-            if index is None:
-                return None
-            else:
-                rp += index
+        if index is None:
+            return None
+        else:
+            rp += _encode_tag_index(index)
 
         for attr in attrs:
             attr, index = _find_tag_index(attr)
@@ -584,7 +585,7 @@ def _create_tag_rp(tag, tag_cache, use_instance_ids):
             # Create the request path
             attr_path = [EXTENDED_SYMBOL,
                          pack_usint(tag_length),
-                         attr]
+                         attr.encode()]
             # Add pad byte because total length of Request path must be word-aligned
             if tag_length % 2:
                 attr_path.append(b'\x00')
@@ -592,7 +593,7 @@ def _create_tag_rp(tag, tag_cache, use_instance_ids):
             if index is None:
                 return None
             else:
-                attr_path += index
+                attr_path += _encode_tag_index(index)
             rp += attr_path
 
         # At this point the Request Path is completed,
@@ -612,7 +613,7 @@ def _find_tag_index(tag):
         tag = t[:t.find('[')]  # Get only the tag part
     else:
         index = []
-    return tag.encode(), _encode_tag_index(index)
+    return tag, index
 
 
 def _encode_tag_index(index):
