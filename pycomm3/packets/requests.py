@@ -567,7 +567,6 @@ def _create_tag_rp(tag, tag_cache, use_instance_ids):
                   INSTANCE_TYPE['16-bit'],
                   pack_uint(tag_cache[base_tag]['instance_id'])]
         else:
-            print('symbolic', base)
             base_len = len(base_tag)
             rp = [EXTENDED_SYMBOL,
                   pack_usint(base_len),
