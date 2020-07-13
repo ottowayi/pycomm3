@@ -29,10 +29,9 @@ from itertools import tee, zip_longest, chain
 from autologging import logged
 
 from . import Packet, DataFormatType
-from ..bytes_ import unpack_uint, unpack_usint, unpack_dint, UNPACK_DATA_FUNCTION, DATA_FUNCTION_SIZE
-from ..const import (SUCCESS, INSUFFICIENT_PACKETS, TAG_SERVICES_REPLY, SERVICE_STATUS,EXTEND_CODES,
-                     MULTI_PACKET_SERVICES, REPLY_START, STRUCTURE_READ_REPLY,
-                     DATA_TYPE, DATA_TYPE_SIZE)
+from ..bytes_ import Unpack
+from ..const import (SUCCESS, INSUFFICIENT_PACKETS, TagService, SERVICE_STATUS, EXTEND_CODES, MULTI_PACKET_SERVICES,
+                     DataType, REPLY_START, STRUCTURE_READ_REPLY, DataTypeSize)
 
 
 @logged
@@ -83,7 +82,7 @@ class ResponsePacket(Packet):
                 self._error = 'No Reply From PLC'
             else:
                 self.command = self.raw[:2]
-                self.command_status = unpack_dint(self.raw[8:12])  # encapsulation status check
+                self.command_status = Unpack.dint(self.raw[8:12])  # encapsulation status check
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
 
@@ -94,7 +93,7 @@ class ResponsePacket(Packet):
         return 'Unknown Error'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(service={bytes([self.service]) if self.service else None!r}, command={self.command!r}, error={self.error!r})'
+        return f'{self.__class__.__name__}(service={self.service if self.service else None!r}, command={self.command!r}, error={self.error!r})'
 
     __str__ = __repr__
 
@@ -107,8 +106,8 @@ class SendUnitDataResponsePacket(ResponsePacket):
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.service = self.raw[46]
-            self.service_status = unpack_usint(self.raw[48:49])
+            self.service = TagService.get(TagService.from_reply(self.raw[46:47]))
+            self.service_status = Unpack.usint(self.raw[48:49])
             self.data = self.raw[REPLY_START:]
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
@@ -151,12 +150,12 @@ def generic_read_response(connected=True):
                             value = self.data[start: start + typ]
                             start += typ
                         else:
-                            unpack_func = UNPACK_DATA_FUNCTION[typ]
+                            unpack_func = Unpack[typ]
                             value = unpack_func(self.data[start:])
                             if typ == 'SHORT_STRING':
                                 data_size = len(value) + 1
                             else:
-                                data_size = DATA_FUNCTION_SIZE[typ]
+                                data_size = DataTypeSize[typ]
                             start += data_size
 
                         if name:
@@ -267,22 +266,22 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
     def _parse_reply(self):
         super()._parse_reply()
-        num_replies = unpack_uint(self.data)
+        num_replies = Unpack.uint(self.data)
         offset_data = self.data[2:2 + 2 * num_replies]
-        offsets = (unpack_uint(offset_data[i:i+2]) for i in range(0, len(offset_data), 2))
+        offsets = (Unpack.uint(offset_data[i:i+2]) for i in range(0, len(offset_data), 2))
         start, end = tee(offsets)  # split offsets into start/end indexes
         next(end)   # advance end by 1 so 2nd item is the end index for the first item
         reply_data = [self.data[i:j] for i, j in zip_longest(start, end)]
         values = []
 
         for data, tag in zip(reply_data, self.tags):
-            service = unpack_uint(data)
+            service = data[0:1]
             service_status = data[2]
             tag['service_status'] = service_status
             if service_status != SUCCESS:
                 tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
 
-            if service == TAG_SERVICES_REPLY['Read Tag']:
+            if TagService.get(TagService.from_reply(service)) == TagService.read_tag:
                 if service_status == SUCCESS:
                     value, dt = parse_read_reply(data[4:], tag['tag_info'], tag['elements'])
                 else:
@@ -291,6 +290,9 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
                 values.append(value)
                 tag['value'] = value
                 tag['data_type'] = dt
+            else:
+                tag['value'] = None
+                tag['data_type'] = None
 
         self.values = values
 
@@ -308,7 +310,7 @@ class SendRRDataResponsePacket(ResponsePacket):
         try:
             super()._parse_reply()
             self.service = self.raw[40]
-            self.service_status = unpack_usint(self.raw[42:43])
+            self.service_status = Unpack.usint(self.raw[42:43])
             self.data = self.raw[44:]
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
@@ -336,7 +338,7 @@ class RegisterSessionResponsePacket(ResponsePacket):
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.session = unpack_dint(self.raw[4:8])
+            self.session = Unpack.dint(self.raw[4:8])
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
 
@@ -398,17 +400,17 @@ def parse_read_reply(data, data_type, elements):
         else:
             value = parse_read_reply_struct(data, data_type['data_type'])
     else:
-        datatype = DATA_TYPE[unpack_uint(data[:2])]
+        datatype = DataType[Unpack.uint(data[:2])]
         dt_name = datatype
         if elements > 1:
-            func = UNPACK_DATA_FUNCTION[datatype]
-            size = DATA_TYPE_SIZE[datatype]
+            func = Unpack[datatype]
+            size = DataTypeSize[datatype]
             data = data[2:]
             value = [func(data[i:i + size]) for i in range(0, len(data), size)]
             if datatype == 'DWORD':
                 value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
         else:
-            value = UNPACK_DATA_FUNCTION[datatype](data[2:])
+            value = Unpack[datatype](data[2:])
             if datatype == 'DWORD':
                 value = dword_to_bool_array(value)
 
@@ -422,7 +424,6 @@ def parse_read_reply(data, data_type, elements):
 
 def parse_read_reply_struct(data, data_type):
     values = {}
-    size = data_type['template']['structure_size']
 
     if data_type.get('string'):
         return parse_string(data)
@@ -432,8 +433,8 @@ def parse_read_reply_struct(data, data_type):
         array = type_def.get('array')
         offset = type_def['offset']
         if type_def['tag_type'] == 'atomic':
-            dt_len = DATA_TYPE_SIZE[datatype]
-            func = UNPACK_DATA_FUNCTION[datatype]
+            dt_len = DataTypeSize[datatype]
+            func = Unpack[datatype]
             if array:
                 ary_data = data[offset:offset + (dt_len * array)]
                 value = [func(ary_data[i:i + dt_len]) for i in range(0, array * dt_len, dt_len)]
@@ -469,7 +470,7 @@ def parse_read_reply_struct(data, data_type):
 
 
 def parse_string(data):
-    str_len = unpack_dint(data)
+    str_len = Unpack.dint(data)
     str_data = data[4:4+str_len]
     return ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
 
@@ -486,7 +487,7 @@ def get_service_status(status):
 
 
 def get_extended_status(msg, start):
-    status = unpack_usint(msg[start:start + 1])
+    status = Unpack.usint(msg[start:start + 1])
     # send_rr_data
     # 42 General Status
     # 43 Size of additional status
@@ -496,16 +497,16 @@ def get_extended_status(msg, start):
     # 48 General Status
     # 49 Size of additional status
     # 50..n additional status
-    extended_status_size = (unpack_usint(msg[start + 1:start + 2])) * 2
+    extended_status_size = (Unpack.usint(msg[start + 1:start + 2])) * 2
     extended_status = 0
     if extended_status_size != 0:
         # There is an additional status
         if extended_status_size == 1:
-            extended_status = unpack_usint(msg[start + 2:start + 3])
+            extended_status = Unpack.usint(msg[start + 2:start + 3])
         elif extended_status_size == 2:
-            extended_status = unpack_uint(msg[start + 2:start + 4])
+            extended_status = Unpack.uint(msg[start + 2:start + 4])
         elif extended_status_size == 4:
-            extended_status = unpack_dint(msg[start + 2:start + 6])
+            extended_status = Unpack.dint(msg[start + 2:start + 6])
         else:
             return 'Extended Status Size Unknown'
     try:
