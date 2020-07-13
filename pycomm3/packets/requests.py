@@ -33,7 +33,7 @@ from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceRespons
                MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, WriteTagServiceResponsePacket,
                WriteTagFragmentedServiceResponsePacket, generic_read_response, generic_write_response)
 from .. import CommError, RequestError
-from ..bytes_ import pack_uint, pack_udint, pack_dint, print_bytes_msg, pack_usint, PACK_DATA_FUNCTION
+from ..bytes_ import pack_uint, pack_udint, pack_dint, print_bytes_msg, pack_usint, PACK_DATA_FUNCTION, pack_epath
 from ..const import (ENCAPSULATION_COMMAND, INSUFFICIENT_PACKETS, DATA_ITEM, ADDRESS_ITEM, EXTENDED_SYMBOL, ELEMENT_TYPE,
                      TAG_SERVICES_REQUEST, CLASS_CODE, CLASS_TYPE, INSTANCE_TYPE, DATA_TYPE, DATA_TYPE_SIZE, UNCONNECTED_SEND)
 
@@ -638,8 +638,8 @@ def generic_read_request(connected=True):
     class GenericReadRequestPacket(base_class):
         _response_class = generic_read_response(connected)
 
-        def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None,
-                     data_format: DataFormatType = None, unconnected_send=False):
+        def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, route_path=None,
+                     request_data: bytes = None, data_format: DataFormatType = None, unconnected_send=False):
             super().__init__(plc)
             self.data_format = data_format
             self.class_code = class_code
@@ -659,8 +659,10 @@ def generic_read_request(connected=True):
                 self.add(_unconnected_send())
 
             request_path = b''.join((class_type, class_code, instance_type, instance))
-            request_path_len = bytes([len(request_path) // 2])
-            self.add(service, request_path_len, request_path)
+            self.add(service, pack_epath(request_path))
+
+            if route_path:
+                self.add(pack_epath(route_path, pad_len=not connected))
 
             if request_data is not None:
                 self.add(request_data)
@@ -691,8 +693,8 @@ def generic_write_request(connected=True):
     class GenericWriteRequestPacket(base_class):
         _response_class = generic_write_response(connected)
 
-        def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None,
-                     unconnected_send=False):
+        def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, route_path=None,
+                     request_data: bytes = None, unconnected_send=False):
             super().__init__(plc)
             self.class_code = class_code
             self.instance = instance
@@ -710,9 +712,10 @@ def generic_write_request(connected=True):
             if unconnected_send:
                 self.add(_unconnected_send())
 
-            request_path = b''.join((class_type, class_code, instance_type, instance))
-            request_path_len = bytes([len(request_path) // 2])
-            self.add(service, request_path_len, request_path)
+            self.add(service, pack_epath(b''.join((class_type, class_code, instance_type, instance))))
+
+            if route_path:
+                self.add(pack_epath(route_path, pad_len=not connected))
 
             if request_data is not None:
                 self.add(request_data)

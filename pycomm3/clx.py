@@ -39,11 +39,11 @@ from autologging import logged
 from . import DataError, CommError
 from . import Tag, RequestError
 from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, pack_ulint, pack_char,
-                     unpack_dint, pack_sint, PACK_DATA_FUNCTION)
+                     unpack_dint, pack_sint, PACK_DATA_FUNCTION, pack_epath)
 from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_TYPE, CLASS_CODE, CLASS_TYPE,
                     INSTANCE_TYPE, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
                     TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
-                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD)
+                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD, MSG_ROUTER_PATH)
 from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE, SEC_TO_US,
                     KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE, MIN_VER_EXTERNAL_ACCESS)
 from .packets import REQUEST_MAP, RequestPacket, get_service_status, DataFormatType
@@ -135,14 +135,12 @@ class LogixDriver:
 
         self._sequence_number = 1
         self._sock = None
-        # self.__direct_connections = direct_connection
-
         self._session = 0
         self._connection_opened = False
         self._target_cid = None
         self._target_is_connected = False
         self._info = {}
-        ip, _path = _parse_connection_path(path, micro800)
+        ip, _path = _parse_connection_path(path)
 
         self.attribs = {
             'context': b'_pycomm_',
@@ -151,13 +149,14 @@ class LogixDriver:
             'port': 0xAF12,  # 44818
             'timeout': 10,
             'ip address': ip,
-            'cip_path': _path,
+            # is cip_path the right term?  or request_path? or something else?
+            'cip_path': _path[1:],  # leave out the len, we sometimes add to the path later
             'option': 0,
             'cid': b'\x27\x04\x19\x71',
             'csn': b'\x27\x04',
             'vid': b'\x09\x10',
             'vsn': b'\x09\x10\x19\x71',
-            'name': 'Base',
+            'name': 'LogixDriver',
             'extended forward open': large_packets}
         self._cache = None
         self._data_types = {}
@@ -167,17 +166,19 @@ class LogixDriver:
 
         if init_tags or init_info:
             self.open()
-            if init_info:
-                self._micro800 = self._list_identity().startswith(MICRO800_PREFIX)
-                self.get_plc_info()
-                _, _path = _parse_connection_path(path, self._micro800)  # need to update path if using a Micro800
-                self.attribs['cip_path'] = _path
-                self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
-                if not self._micro800:
-                    self.get_plc_name()
 
-            if init_tags:
-                self.get_tag_list(program='*' if init_program_tags else None)
+        if init_info:
+            self._micro800 = self._list_identity().startswith(MICRO800_PREFIX)
+            self.get_plc_info()
+            if self._micro800:  # strip off backplane/0 from path, not used for these processors
+                _path = pack_epath(self.attribs['cip_path'][:-2])
+                self.attribs['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
+            self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
+            if not self._micro800:
+                self.get_plc_name()
+
+        if init_tags:
+            self.get_tag_list(program='*' if init_program_tags else None)
 
     def __enter__(self):
         self.open()
@@ -425,9 +426,11 @@ class LogixDriver:
         else:
             net_params = pack_uint((self.connection_size & 0x01FF) | init_net_params)
 
+        _path = pack_epath(self.attribs['cip_path'] + MSG_ROUTER_PATH)
+
         forward_open_msg = [
             FORWARD_OPEN if not self.attribs['extended forward open'] else LARGE_FORWARD_OPEN,
-            b'\x02',  # CIP Path size
+            b'\x02',  # request Path size
             CLASS_TYPE["8-bit"],  # class type
             CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
             INSTANCE_TYPE["8-bit"],
@@ -446,7 +449,7 @@ class LogixDriver:
             b'\x01\x40\x20\x00',
             net_params,
             TRANSPORT_CLASS,
-            self.attribs['cip_path']
+            _path
         ]
         request = self.new_request('send_rr_data')
         request.add(*forward_open_msg)
@@ -508,7 +511,7 @@ class LogixDriver:
             raise CommError("A session need to be registered before to call forward_close.")
         request = self.new_request('send_rr_data')
 
-        path_size, *path = self.attribs['cip_path']  # for some reason we need to add a 0x00 between these? CIP Vol 1
+        _path = pack_epath(self.attribs['cip_path'] + MSG_ROUTER_PATH, pad_len=True)
 
         forward_close_msg = [
             FORWARD_CLOSE,
@@ -522,7 +525,7 @@ class LogixDriver:
             self.attribs['csn'],
             self.attribs['vid'],
             self.attribs['vsn'],
-            bytes([path_size, 0, *path])
+            _path
         ]
 
         request.add(*forward_close_msg)
@@ -544,22 +547,14 @@ class LogixDriver:
         :return:  the controller program name
         """
         try:
-            request = self.new_request('send_unit_data')
-            request.add(
-                bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                REQUEST_PATH_SIZE,
-                CLASS_TYPE['8-bit'],
-                CLASS_CODE['Program Name'],
-                INSTANCE_TYPE["16-bit"],
-                b'\x01\x00',  # Instance 1
-                b'\x01\x00',  # Number of Attributes
-                b'\x01\x00'  # Attribute 1 - program name
+            response = self.generic_read(
+                service=bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
+                class_code=CLASS_CODE['Program Name'],
+                instance=b'\x01\x00',  # instance 1
+                request_data=b'\x01\x00\x01\x00',  # num attributes, attribute 1 (program name)
             )
-
-            response = request.send()
-
             if response:
-                self._info['name'] = _parse_plc_name(response)
+                self._info['name'] = _parse_plc_name(response.value)
                 return self._info['name']
             else:
                 raise DataError(f'send_unit_data did not return valid data - {response.error}')
@@ -572,17 +567,15 @@ class LogixDriver:
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
         """
         try:
-            route = self.attribs['cip_path'][1:-4]  # trim to just the route
-            route_len = pack_uint(len(route) // 2)
-            request_data = route_len + route
-            response = self.generic_read(class_code=CLASS_CODE['Identity Object'], instance=b'\x01',
-                                         service=b'\x01', request_data=request_data,
-                                         data_format=[
-                                            ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
-                                            ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
-                                            ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
-                                         ],
-                                         connected=False, unconnected_send=not self._micro800)
+            response = self.generic_read(
+                class_code=CLASS_CODE['Identity Object'], instance=b'\x01',
+                service=b'\x01',
+                data_format=[
+                    ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
+                    ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
+                    ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
+                ],
+                connected=False, unconnected_send=not self._micro800)
 
             if response:
                 info = _parse_plc_info(response.value)
@@ -592,7 +585,7 @@ class LogixDriver:
                 raise DataError(f'get_plc_info did not return valid data - {response.error}')
 
         except Exception as err:
-            raise DataError(err)
+            raise DataError('Failed to get PLC info') from err
 
     @with_forward_open
     def get_tag_list(self, program: str = None, cache: bool = True) -> List[dict]:
@@ -1358,16 +1351,32 @@ class LogixDriver:
                                   request_data=request_data, name='__SET_PLC_TIME__')
 
     def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
-                     data_format: DataFormatType = None, name: str = 'generic',
-                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                     connected=True, unconnected_send=False) -> Tag:
+                     data_format: DataFormatType = None,
+                     name: str = 'generic',
+                     service: bytes = bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
+                     connected: bool = True, unconnected_send: bool = False) -> Tag:
+        """
+
+        :param class_code:
+        :param instance:
+        :param request_data:
+        :param data_format:
+        :param name: .tag attribute of returned Tag object
+        :param service:
+        :param connected:
+        :param unconnected_send: usually only required for end-point devices (Micro800, drives, no 'backplane' in path)
+        :return:
+        """
 
         _req = 'generic_read' if connected else 'generic_read_unconnected'
 
         if connected:
             with_forward_open(lambda _: None)(self)
+            route_path = b''  # no need to add the route if we're using a CIP connection
+        else:
+            route_path = self.attribs['cip_path']
 
-        request = self.new_request(_req, service, class_code, instance, request_data, data_format, unconnected_send)
+        request = self.new_request(_req, service, class_code, instance, route_path, request_data, data_format, unconnected_send)
         response = request.send()
 
         return Tag(name, response.value, error=response.error)
@@ -1379,20 +1388,21 @@ class LogixDriver:
 
         if connected:
             with_forward_open(lambda _: None)(self)
+            route_path = b''  # no need to add the route if we're using a CIP connection
+        else:
+            route_path = self.attribs['cip_path']
 
-        request = self.new_request(_req, service, class_code, instance, request_data, unconnected_send)
+        request = self.new_request(_req, service, class_code, instance, route_path, request_data, unconnected_send)
         response = request.send()
         return Tag(name, request_data, error=response.error)
 
 
-def _parse_plc_name(response):
-    if response.service_status != SUCCESS:
-        raise DataError(f'get_plc_name returned status {get_service_status(response.error)}')
+def _parse_plc_name(data):
     try:
-        name_len = unpack_uint(response.data[6:8])
-        return response.data[8: 8 + name_len].decode()
+        name_len = unpack_uint(data[6:8])
+        return data[8: 8 + name_len].decode()
     except Exception as err:
-        raise DataError(err)
+        raise DataError('failed parsing plc name') from err
 
 
 def _parse_plc_info(data):
@@ -1629,19 +1639,16 @@ def _bit_request(tag_data, bit_requests):
     return True
 
 
-def _parse_connection_path(path, micro800):
+def _parse_connection_path(path):
     ip, *segments = path.split('/')
     try:
         socket.inet_aton(ip)
     except OSError:
         raise ValueError('Invalid IP Address', ip)
-    segments = [_parse_path_segment(s) for s in segments]
+    segments = [_parse_cip_path_segment(s) for s in segments]
 
     if not segments:
-        if not micro800:
-            _path = [pack_usint(PATH_SEGMENTS['backplane']), b'\x00']  # default backplane/0
-        else:
-            _path = []
+        _path = [pack_usint(PATH_SEGMENTS['backplane']), b'\x00']  # [] if micro800 else
     elif len(segments) == 1:
         _path = [pack_usint(PATH_SEGMENTS['backplane']), pack_usint(segments[0])]
     else:
@@ -1657,22 +1664,10 @@ def _parse_connection_path(path, micro800):
             else:
                 _path.extend([pack_usint(port), pack_usint(dest)])
 
-    _path += [
-        CLASS_TYPE['8-bit'],
-        CLASS_CODE['Message Router'],
-        INSTANCE_TYPE['8-bit'],
-        b'\x01'
-    ]
-
-    _path_bytes = b''.join(_path)
-
-    if len(_path_bytes) % 2:
-        _path_bytes += b'\x00'
-
-    return ip, pack_usint(len(_path_bytes) // 2) + _path_bytes
+    return ip, pack_epath(b''.join(_path))
 
 
-def _parse_path_segment(segment: str):
+def _parse_cip_path_segment(segment: str):
     try:
         if segment.isnumeric():
             return int(segment)

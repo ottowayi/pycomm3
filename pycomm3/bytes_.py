@@ -78,6 +78,17 @@ def pack_ulong(l):
     return struct.pack('<L', l)
 
 
+def pack_epath(path, pad_len=False):
+    if len(path) % 2:
+        path += b'\x00'
+
+    _len = pack_usint(len(path)//2)
+    if pad_len:
+        _len += b'\x00'
+
+    return _len + path
+
+
 def unpack_bool(st):
     return st[0] != 0
 

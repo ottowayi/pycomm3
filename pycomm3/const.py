@@ -136,6 +136,8 @@ CLASS_CODE = {
     'Modbus Serial Link': b'\x46',
 }
 
+MSG_ROUTER_PATH = b''.join([CLASS_TYPE['8-bit'], CLASS_CODE['Message Router'], INSTANCE_TYPE['8-bit'], b'\x01'])
+
 CONNECTION_MANAGER_INSTANCE = {
     'Open Request': b'\x01',
     'Open Format Rejected': b'\x02',

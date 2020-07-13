@@ -256,9 +256,6 @@ class WriteTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
     ...
 
 
-
-
-
 @logged
 class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
