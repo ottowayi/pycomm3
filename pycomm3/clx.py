@@ -958,9 +958,14 @@ class LogixDriver:
     @with_forward_open
     def read(self, *tags: str) -> ReturnType:
         """
+        Read the value of tag(s).  Automatically will split tags into multiple requests by tracking the request and
+        response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
+        use fragmented read requests if the response size will not fit in a single packet.  Supports arrays (specify element
+        count in using curly braces (array{10}).  Also supports full structure reading (when possible), return value
+        will be a dict of {attribute name: value}.
 
         :param tags: one or many tags to read
-        :return: one or many ``Tag`` objects
+        :return: a single or list of ``Tag`` objects
         """
 
         parsed_requests = self._parse_requested_tags(tags)
@@ -1060,6 +1065,16 @@ class LogixDriver:
 
     @with_forward_open
     def write(self, *tags_values: Tuple[str, TagType]) -> ReturnType:
+        """
+        Write to tag(s). Automatically will split tags into multiple requests by tracking the request and
+        response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
+        use fragmented read requests if the response size will not fit in a single packet.  Supports arrays (specify element
+        count in using curly braces (array{10}).  Also supports full structure writing (when possible), value must be a
+        sequence of values matching the exact structure of the destination tag.
+
+        :param tags_values: one or many 2-element tuples (tag name, value)
+        :return: a single or list of ``Tag`` objects.
+        """
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 
@@ -1340,11 +1355,32 @@ class LogixDriver:
                         instance: bytes,
                         attribute: Optional[bytes] = b'',
                         request_data: Optional[bytes] = b'',
-                        data_format: Optional[DataFormatType] = None,  # for reads only
+                        data_format: Optional[DataFormatType] = None,
                         name: str = 'generic',
                         connected: bool = True,
                         unconnected_send: bool = False,
                         route_path: Union[bool, bytes] = True) -> Tag:
+        """
+        Perform a generic CIP message.  Similar to how MSG instructions work in Logix.
+
+        :param request_type: ``'r'`` for reads, ``'w'`` for writes
+        :param service: service code for the request (single byte)
+        :param class_code: request object class ID
+        :param instance: instance ID of the class
+        :param attribute: (optional) attribute ID for the service/class/instance
+        :param request_data: (optional) any additional data required for the request
+        :param data_format: (reads only) If provided, a read response will automatically be unpacked into the attributes
+                            defined, must be a sequence of tuples, (attribute name, data_type).
+                            If name is ``None`` or an empty string, it will be ignored. If data-type is an ``int`` it will
+                            not be unpacked, but left as ``bytes``.  Data will be returned as a ``dict``.
+                            If ``None``, response data will be returned as just ``bytes``.
+        :param name:  return ``Tag.tag`` value, arbitrary but can be used for tracking returned Tags
+        :param connected: ``True`` if service required a CIP connection (forward open), ``False`` to use UCMM
+        :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service
+        :param route_path: (Unconnected Only) ``True`` to use current connection route to destination, ``False`` to ignore,
+                           Or provide a packed EPATH (``bytes``) route to use.
+        :return: a Tag with the result of the request. (Tag.value for writes will be the request_data)
+        """
 
         if connected:
             with_forward_open(lambda _: None)(self)
@@ -1543,8 +1579,6 @@ def _pack_string(value, string_len, struct_size):
 
 def _pack_structure(value, data_type):
     string_len = data_type.get('string')
-    # if string_len is None:
-    #     raise NotImplementedError('Writing of structures besides strings is not supported')
 
     if string_len:
         data = _pack_string(value, string_len, data_type['template']['structure_size'])
