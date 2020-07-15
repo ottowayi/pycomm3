@@ -66,5 +66,6 @@ class Tag(NamedTuple):
     def __repr__(self):
         return f"{self.__class__.__name__}(tag={self.tag!r}, value={self.value!r}, type={self.type!r}, error={self.error!r})"
 
-
 from .clx import LogixDriver
+from .const import CommonService, ClassCode, TagService, DataType
+from .bytes_ import Pack, Unpack

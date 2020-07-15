@@ -31,7 +31,7 @@ from autologging import logged
 from . import Packet, DataFormatType
 from ..bytes_ import Unpack
 from ..const import (SUCCESS, INSUFFICIENT_PACKETS, TagService, SERVICE_STATUS, EXTEND_CODES, MULTI_PACKET_SERVICES,
-                     DataType, REPLY_START, STRUCTURE_READ_REPLY, DataTypeSize)
+                     DataType, STRUCTURE_READ_REPLY, DataTypeSize)
 
 
 @logged
@@ -108,7 +108,7 @@ class SendUnitDataResponsePacket(ResponsePacket):
             super()._parse_reply()
             self.service = TagService.get(TagService.from_reply(self.raw[46:47]))
             self.service_status = Unpack.usint(self.raw[48:49])
-            self.data = self.raw[REPLY_START:]
+            self.data = self.raw[50:]
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
 
@@ -127,59 +127,107 @@ class SendUnitDataResponsePacket(ResponsePacket):
         return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 48)}'
 
 
-def generic_read_response(connected=True):
-    base_class = SendUnitDataResponsePacket if connected else SendRRDataResponsePacket
+@logged
+class SendRRDataResponsePacket(ResponsePacket):
 
-    @logged
-    class GenericReadResponsePacket(base_class):
-        def __init__(self, *args, data_format: DataFormatType = None, **kwargs):
-            self.data_format = data_format
-            self.value = None
-            super().__init__(*args, **kwargs)
+    def __init__(self, raw_data: bytes = None, *args, **kwargs):
+        super().__init__(raw_data)
 
-        def _parse_reply(self):
+    def _parse_reply(self):
+        try:
             super()._parse_reply()
-            if self.data_format is None:
-                self.value = self.data
-            elif self.is_valid():
-                try:
-                    values = {}
-                    start = 0
-                    for name, typ in self.data_format:
-                        if isinstance(typ, int):
-                            value = self.data[start: start + typ]
-                            start += typ
-                        else:
-                            unpack_func = Unpack[typ]
-                            value = unpack_func(self.data[start:])
-                            if typ == 'SHORT_STRING':
-                                data_size = len(value) + 1
-                            else:
-                                data_size = DataTypeSize[typ]
-                            start += data_size
+            self.service = TagService.get(TagService.from_reply(self.raw[40:41]))
+            self.service_status = Unpack.usint(self.raw[42:43])
+            self.data = self.raw[44:]
+        except Exception as err:
+            self._error = f'Failed to parse reply - {err}'
 
-                        if name:
-                            values[name] = value
-                except Exception as err:
-                    self._error = f'Failed to parse reply - {err}'
-                    self.value = None
-                else:
-                    self.value = values
+    def is_valid(self):
+        return all((
+            super().is_valid(),
+            self.service_status == SUCCESS
+        ))
 
-        def __repr__(self):
+    def command_extended_status(self):
+        return f'{get_service_status(self.command_status)} - {get_extended_status(self.raw, 42)}'
+
+    def service_extended_status(self):
+        return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 42)}'
+
+
+@logged
+class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
+    def __init__(self,  *args, request_type, data_format: DataFormatType, **kwargs):
+        self.request_type = request_type
+        self.data_format = data_format
+        self.value = None
+        super().__init__(*args, **kwargs)
+
+    def _parse_reply(self):
+        super()._parse_reply()
+        if self.request_type == 'w':
+            return
+
+        if self.data_format is None:
+            self.value = self.data
+        elif self.is_valid():
+            try:
+                self.value = _parse_data(self.data, self.data_format)
+            except Exception as err:
+                self._error = f'Failed to parse reply - {err}'
+                self.value = None
+
+    def __repr__(self):
+        if self.request_type == 'r':
             return f'{self.__class__.__name__}(value={_r(self.value)}, error={self.error!r})'
+        return super().__repr__()
 
-    return GenericReadResponsePacket
+
+@logged
+class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
+    def __init__(self,  *args, request_type, data_format: DataFormatType, **kwargs):
+        self.request_type = request_type
+        self.data_format = data_format
+        self.value = None
+        super().__init__(*args, **kwargs)
+
+    def _parse_reply(self):
+        super()._parse_reply()
+        if self.request_type == 'w':
+            return
+
+        if self.data_format is None:
+            self.value = self.data
+        elif self.is_valid():
+            try:
+                self.value = _parse_data(self.data, self.data_format)
+            except Exception as err:
+                self._error = f'Failed to parse reply - {err}'
+                self.value = None
+
+    def __repr__(self):
+        if self.request_type == 'r':
+            return f'{self.__class__.__name__}(value={_r(self.value)}, error={self.error!r})'
+        return super().__repr__()
 
 
-def generic_write_response(connected=True):
-    base_class = SendUnitDataResponsePacket if connected else SendRRDataResponsePacket
+def _parse_data(data, fmt):
+    values = {}
+    start = 0
+    for name, typ in fmt:
+        if isinstance(typ, int):
+            value = data[start: start + typ]
+            start += typ
+        else:
+            unpack_func = Unpack[typ]
+            value = unpack_func(data[start:])
+            data_size = len(value) + 1 if typ == 'SHORT_STRING' else DataTypeSize[typ]
+            start += data_size
 
-    @logged
-    class GenericWriteResponsePacket(base_class):
-        ...
+        if name:
+            values[name] = value
 
-    return GenericWriteResponsePacket
+    return values
 
 
 @logged
@@ -298,34 +346,6 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
     def __repr__(self):
         return f'{self.__class__.__name__}(values={_r(self.values)}, error={self.error!r})'
-
-
-@logged
-class SendRRDataResponsePacket(ResponsePacket):
-
-    def __init__(self, raw_data: bytes = None, *args, **kwargs):
-        super().__init__(raw_data)
-
-    def _parse_reply(self):
-        try:
-            super()._parse_reply()
-            self.service = self.raw[40]
-            self.service_status = Unpack.usint(self.raw[42:43])
-            self.data = self.raw[44:]
-        except Exception as err:
-            self._error = f'Failed to parse reply - {err}'
-
-    def is_valid(self):
-        return all((
-            super().is_valid(),
-            self.service_status == SUCCESS
-        ))
-
-    def command_extended_status(self):
-        return f'{get_service_status(self.command_status)} - {get_extended_status(self.raw, 42)}'
-
-    def service_extended_status(self):
-        return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 42)}'
 
 
 @logged

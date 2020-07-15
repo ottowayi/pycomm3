@@ -27,7 +27,6 @@ class MapMeta(type):
         _only_caps = enumcls.__dict__.get('_return_caps_only_')
         enumcls._return_caps_only_ = _only_caps
 
-
         return enumcls
 
     def __getitem__(self, item):

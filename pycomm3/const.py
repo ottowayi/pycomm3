@@ -44,7 +44,6 @@ EXTENDED_SYMBOL = b'\x91'
 SUCCESS = 0
 INSUFFICIENT_PACKETS = 6
 OFFSET_MESSAGE_REQUEST = 40
-REPLY_START = 50  # start of data in response packet
 PAD = b'\x00'
 PRIORITY = b'\x0a'
 TIMEOUT_TICKS = b'\x05'
@@ -80,6 +79,8 @@ INSTANCE_TYPE = {
 ATTRIBUTE_TYPE = {
     "8-bit": b'\x30',
     "16-bit": b'\x31\x00',
+    1: b'\x30',
+    2: b'\x31\x00',
 }
 
 PATH_SEGMENTS = {
@@ -128,7 +129,7 @@ class CommonService(EnumMap):
     delete = b'\x09'
     multiple_service_request = b'\x0A'
     apply_attributes = b'\x0D'
-    get_attribute_single =b'\x0E'
+    get_attribute_single = b'\x0E'
     set_attribute_single = b'\x10'
     find_next_object_instance = b'\x11'
     error_response = b'\x14'

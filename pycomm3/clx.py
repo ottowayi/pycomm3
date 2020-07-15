@@ -32,7 +32,7 @@ import socket
 import time
 from functools import wraps
 from os import urandom
-from typing import Union, List, Tuple, Optional
+from typing import Union, List, Tuple, Optional, Literal
 
 from autologging import logged
 
@@ -46,7 +46,7 @@ from .const import (TagService, EXTENDED_SYMBOL, PATH_SEGMENTS, CLASS_TYPE,
                     ConnectionManagerService, CommonService, SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT,
                     MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS,
                     DataTypeSize, MIN_VER_EXTERNAL_ACCESS)
-from .packets import REQUEST_MAP, RequestPacket, DataFormatType
+from .packets import REQUEST_MAP, RequestPacket, DataFormatType, request_path
 from .socket_ import Socket
 
 AtomicType = Union[int, float, bool, str]
@@ -279,10 +279,8 @@ class LogixDriver:
             - `read_tag_fragmented`
             - `write_tag`
             - `write_tag_fragmented`
-            - `generic_read`
-            - `generic_write`
-            - `generic_read_unconnected`
-            - `generic_write_unconnected`
+            - `generic_connected`
+            - `generic_unconnected`
 
         :param command: the service for which a request will be created
         :return: a new request for the command
@@ -324,11 +322,12 @@ class LogixDriver:
 
     def get_module_info(self, slot):
         try:
-            response = self.generic_read(
+            response = self.generic_message(
+                request_type='r',
                 service=CommonService.get_attributes_all,
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 connected=False, unconnected_send=True,
-                route_path=b'\x01' + Pack.sint(slot)
+                route_path=PATH_SEGMENTS['bp'] + Pack.sint(slot)
             )
 
             if response:
@@ -407,18 +406,14 @@ class LogixDriver:
         else:
             net_params = Pack.uint((self.connection_size & 0x01FF) | init_net_params)
 
-        _path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH)
+        route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH)
+        service = ConnectionManagerService.forward_open if not self.attribs['extended forward open'] else ConnectionManagerService.large_forward_open
+        req_path = request_path(class_code=ClassCode.connection_manager,
+                                instance=ConnectionManagerInstance.open_request)
 
         forward_open_msg = [
-            ConnectionManagerService.forward_open
-            if not self.attribs['extended forward open']
-            else ConnectionManagerService.large_forward_open,
-
-            b'\x02',  # request Path size
-            CLASS_TYPE["8-bit"],  # class type
-            ClassCode.connection_manager,  # Volume 1: 5-1
-            INSTANCE_TYPE["8-bit"],
-            ConnectionManagerInstance.open_request,
+            service,
+            req_path,
             PRIORITY,
             TIMEOUT_TICKS,
             b'\x00\x00\x00\x00',
@@ -433,7 +428,7 @@ class LogixDriver:
             b'\x01\x40\x20\x00',
             net_params,
             TRANSPORT_CLASS,
-            _path
+            route_path
         ]
         request = self.new_request('send_rr_data')
         request.add(*forward_open_msg)
@@ -495,21 +490,19 @@ class LogixDriver:
             raise CommError("A session need to be registered before to call forward_close.")
         request = self.new_request('send_rr_data')
 
-        _path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH, pad_len=True)
+        route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH, pad_len=True)
+        req_path = request_path(class_code=ClassCode.connection_manager,
+                                instance=ConnectionManagerInstance.open_request)
 
         forward_close_msg = [
             ConnectionManagerService.forward_close,
-            b'\x02',
-            CLASS_TYPE["8-bit"],
-            ClassCode.connection_manager,  # Volume 1: 5-1
-            INSTANCE_TYPE["8-bit"],
-            ConnectionManagerInstance.open_request,
+            req_path,
             PRIORITY,
             TIMEOUT_TICKS,
             self.attribs['csn'],
             self.attribs['vid'],
             self.attribs['vsn'],
-            _path
+            route_path
         ]
 
         request.add(*forward_close_msg)
@@ -531,7 +524,8 @@ class LogixDriver:
         :return:  the controller program name
         """
         try:
-            response = self.generic_read(
+            response = self.generic_message(
+                request_type='r',
                 service=CommonService.get_attribute_list,
                 class_code=ClassCode.program_name,
                 instance=b'\x01\x00',  # instance 1
@@ -551,7 +545,8 @@ class LogixDriver:
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
         """
         try:
-            response = self.generic_read(
+            response = self.generic_message(
+                request_type='r',
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 service=b'\x01',
                 data_format=[
@@ -646,6 +641,7 @@ class LogixDriver:
                     if len(program) % 2:
                         path.append(b'\x00')
 
+                # just manually build the request path b/c there my be the extended symbol portion
                 path += [
                     # Request Path ( 20 6B 25 00 Instance )
                     CLASS_TYPE["8-bit"],  # Class id = 20 from spec 0x20
@@ -821,13 +817,12 @@ class LogixDriver:
         """
         if instance_id not in self._cache['id:struct']:
             request = self.new_request('send_unit_data')
+            req_path = request_path(ClassCode.template_object, Pack.uint(instance_id))
             request.add(
                 CommonService.get_attribute_list,
-                b'\x03',  # path size
-                CLASS_TYPE["8-bit"],  # Class id = 20 from spec 0x20
-                ClassCode.template_object,  # Logical segment: Template Object 0x6C
-                INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                Pack.uint(instance_id),
+                req_path,
+
+                # service data:
                 b'\x04\x00',  # Number of attributes
                 b'\x04\x00',  # Template Object Definition Size UDINT
                 b'\x05\x00',  # Template Structure Size UDINT
@@ -854,14 +849,12 @@ class LogixDriver:
         try:
             while True:
                 request = self.new_request('send_unit_data')
+                req_path = request_path(ClassCode.template_object, instance=Pack.uint(instance_id))
                 request.add(
                     TagService.read_tag,
-                    b'\x03',  # Request Path ( 20 6B 25 00 Instance )
-                    CLASS_TYPE["8-bit"],  # Class id = 20 from spec
-                    ClassCode.template_object,  # Logical segment: Template Object 0x6C
-                    INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                    Pack.uint(instance_id),
-                    Pack.dint(offset),  # Offset
+                    req_path,
+                    # service data:
+                    Pack.dint(offset),
                     Pack.uint(((object_definition_size * 4) - 21) - offset)
                 )
                 response = request.send()
@@ -1306,14 +1299,15 @@ class LogixDriver:
         :param fmt: format string for converting the time to a string
         :return: a Tag object with the current time
         """
-        tag = self.generic_read(service=CommonService.get_attribute_list,
-                                class_code=ClassCode.wall_clock_time,
-                                instance=b'\x01',
-                                request_data=b'\x01\x00\x0B\x00',
-                                data_format=[(None, 6), ('us', 'ULINT'), ])
+        tag = self.generic_message(request_type='r',
+                                   service=CommonService.get_attribute_list,
+                                   class_code=ClassCode.wall_clock_time,
+                                   instance=b'\x01',
+                                   request_data=b'\x01\x00\x0B\x00',
+                                   data_format=[(None, 6), ('us', 'ULINT'), ])
         if tag:
-            time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
-            value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(fmt)}
+            _time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
+            value = {'datetime': _time, 'microseconds': tag.value['us'], 'string': _time.strftime(fmt)}
         else:
             value = None
         return Tag('__GET_PLC_TIME__', value, error=tag.error)
@@ -1333,55 +1327,50 @@ class LogixDriver:
             b'\x06\x00',  # attribute
             Pack.ulint(microseconds),
         ])
-        return self.generic_write(b'\x04', ClassCode.wall_clock_time, b'\x01',
-                                  request_data=request_data, name='__SET_PLC_TIME__')
+        return self.generic_message(request_type='w',
+                                    service=CommonService.set_attribute_list,
+                                    class_code=ClassCode.wall_clock_time,
+                                    instance=b'\x01',
+                                    request_data=request_data, name='__SET_PLC_TIME__')
 
-    def generic_read(self, service: bytes, class_code: bytes, instance: bytes, request_data: bytes = None,
-                     data_format: DataFormatType = None,
-                     name: str = 'generic',
-                     connected: bool = True, unconnected_send: bool = False,
-                     route_path=True) -> Tag:
-        """
-
-        :param class_code:
-        :param instance:
-        :param request_data:
-        :param data_format:
-        :param name: .tag attribute of returned Tag object
-        :param service:
-        :param connected:
-        :param unconnected_send: usually only required for end-point devices (Micro800, drives, no 'backplane' in path)
-        :param route_path: True to use cip_path, False to exclude,
-                           else bytes to use for path (only for non-connected requests)
-        :return:
-        """
-
-        _req = 'generic_read' if connected else 'generic_read_unconnected'
+    def generic_message(self,
+                        request_type: Literal['r', 'w'],
+                        service: bytes,
+                        class_code: bytes,
+                        instance: bytes,
+                        attribute: Optional[bytes] = b'',
+                        request_data: Optional[bytes] = b'',
+                        data_format: Optional[DataFormatType] = None,  # for reads only
+                        name: str = 'generic',
+                        connected: bool = True,
+                        unconnected_send: bool = False,
+                        route_path: Union[bool, bytes] = True) -> Tag:
 
         if connected:
             with_forward_open(lambda _: None)(self)
-            rp = b''  # no need to add the route if we're using a CIP connection
-        else:
-            rp = Pack.epath(self.attribs['cip_path'] if route_path is True else route_path, pad_len=True)
-        request = self.new_request(_req, service, class_code, instance, rp, request_data, data_format, unconnected_send)
+
+        _kwargs = {
+            'request_type': 'r',
+            'service': service,
+            'class_code': class_code,
+            'instance': instance,
+            'attribute': attribute,
+            'request_data': request_data,
+        }
+        if request_type == 'r':
+            _kwargs['data_format'] = data_format
+
+        if not connected:
+            _kwargs['route_path'] = Pack.epath(self.attribs['cip_path'] if route_path is True else route_path,
+                                               pad_len=True)
+            _kwargs['unconnected_send'] = unconnected_send
+        request = self.new_request('generic_connected' if connected else 'generic_unconnected')
+
+        request.build(**_kwargs)
+
         response = request.send()
 
-        return Tag(name, response.value, error=response.error)
-
-    def generic_write(self, service, class_code, instance, request_data: bytes, name: str = 'generic',
-                      connected=True, unconnected_send=False, route_path=True) -> Tag:
-
-        _req = 'generic_write' if connected else 'generic_write_unconnected'
-
-        if connected:
-            with_forward_open(lambda _: None)(self)
-            rp = b''  # no need to add the route if we're using a CIP connection
-        else:
-            rp = Pack.epath(self.attribs['cip_path'] if route_path is True else route_path, pad_len=True)
-
-        request = self.new_request(_req, service, class_code, instance, rp, request_data, unconnected_send)
-        response = request.send()
-        return Tag(name, request_data, error=response.error)
+        return Tag(name, response.value if request_type == 'r' else request_data, error=response.error)
 
 
 def _parse_plc_name(data):
