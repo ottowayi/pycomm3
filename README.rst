@@ -72,12 +72,18 @@ Highlighted Features
     - does not require reading of each attribute separately
     - returns a value dict ``{attribute: value}``
 
-- **New** - ``write`` supports full structure writing
+- ``write`` supports full structure writing
    
     - Experimental support added in v0.7.0
     - value should be a list/tuple of values for each attribute, nested for arrays and other structures
     - not recommended for built-in types (TIMER, CONTROL, COUNTER, etc)
     - all or nothing, does not update only parts of a struct
+    
+- ``generic_message`` for extra functionality not directly implemented
+  
+    - working similar to the MSG instruction in Logix, arguments similar to the MESSAGE properties
+    - tested getting/setting drive parameters (see under examples in docs)
+    - used internally to implement some of the other methods (get/set_plc_time, forward open/close, etc)
     
 - simplified data types
 
@@ -96,10 +102,6 @@ Highlighted Features
     - Symbol Instance Addressing (Logix v21+)
     - detection of Micro800 and disables unsupported features (CIP Path, Ex. Forward Open, Instance Addressing, etc)
 
-- additional methods for:
-
-    - getting/setting the PLC WallClockTime
-    - separate generic read/write methods that work similar to the MSG instruction in Logix
 
 Basic Usage
 -----------
