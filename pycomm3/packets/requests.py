@@ -641,7 +641,6 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
         self.request_data = None
 
     def build(self,
-              request_type: Literal['r', 'w'],
               service: bytes,
               class_code: bytes,
               instance: bytes,
@@ -649,7 +648,7 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
               request_data: bytes = b'',
               data_format: DataFormatType = None):
 
-        self._response_kwargs = {'request_type': request_type, 'data_format': data_format}
+        self._response_kwargs = {'data_format': data_format}
         self.class_code = class_code
         self.instance = instance
         self.attribute = attribute
@@ -672,7 +671,6 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
         self.request_data = None
 
     def build(self,
-              request_type: Literal['r', 'w'],
               service: bytes,
               class_code: bytes,
               instance: bytes,
@@ -681,7 +679,7 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
               route_path: bytes = b'',
               unconnected_send: bool = False,
               data_format: DataFormatType = None):
-        self._response_kwargs = {'request_type': request_type, 'data_format': data_format}
+        self._response_kwargs = {'data_format': data_format}
         self.class_code = class_code
         self.instance = instance
         self.attribute = attribute
@@ -693,84 +691,6 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
             self.add(wrap_unconnected_send(b''.join((service, req_path, request_data)), route_path))
         else:
             self.add(service, req_path, request_data, route_path)
-
-
-def generic_read_request(connected=True):
-
-    base_class = SendUnitDataRequestPacket if connected else SendRRDataRequestPacket
-
-    class GenericReadRequestPacket(base_class):
-        _response_class = generic_read_response(connected)
-
-        def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, attribute: bytes = b'',
-                     request_data: bytes = b'', route_path: bytes = b'',
-                     data_format: DataFormatType = None, unconnected_send=False):
-            super().__init__(plc)
-            self._response_args = (data_format, )
-            self.class_code = class_code
-            self.instance = instance
-            self.service = service
-            self.request_data = request_data
-
-            req_path = request_path(class_code, instance, attribute)
-
-            if unconnected_send:
-                self.add(wrap_unconnected_send(b''.join((service, req_path, request_data)), route_path))
-            else:
-                self.add(service, req_path, request_data, route_path)
-
-        def __repr__(self):
-            return f'{self.__class__.__name__}(service={self.service!r}, class_code={self.class_code!r}, ' \
-                   f'instance={self.instance!r}, request_data={self.request_data!r})'
-
-        # def send(self):
-        #     if not self.error:
-        #         self._send(self._build_request())
-        #         self.__log.debug(f'Sent: {self!r}')
-        #         reply = self._receive()
-        #         response = self._response_class(reply, data_format=self.data_format)
-        #     else:
-        #         response = self._response_class()
-        #         response._error = self.error
-        #     self.__log.debug(f'Received: {response!r}')
-        #     return response
-
-    return GenericReadRequestPacket
-#
-#
-# def generic_write_request(connected=True):
-#     base_class = SendUnitDataRequestPacket if connected else SendRRDataRequestPacket
-#
-#     @logged
-#     class GenericWriteRequestPacket(base_class):
-#         _response_class = generic_write_response(connected)
-#
-#         def __init__(self, plc, service: bytes, class_code: bytes, instance: bytes, route_path=None,
-#                      request_data: bytes = None, unconnected_send=False):
-#             super().__init__(plc)
-#             self.class_code = class_code
-#             self.instance = instance
-#             self.service = service
-#             self.request_data = request_data
-#
-#             req_path = request_path(class_code, instance)
-#
-#             if unconnected_send:
-#                 self.add(_unconnected_send())
-#
-#             self.add(service, req_path)
-#
-#             if route_path:
-#                 self.add(route_path)
-#
-#             if request_data is not None:
-#                 self.add(request_data)
-#
-#         def __repr__(self):
-#             return f'{self.__class__.__name__}(service={self.service!r}, class_code={self.class_code!r}, ' \
-#                    f'instance={self.instance!r}, request_data={self.request_data!r})'
-#
-#     return GenericWriteRequestPacket
 
 
 def wrap_unconnected_send(message, route_path):

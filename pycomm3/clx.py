@@ -323,7 +323,6 @@ class LogixDriver:
     def get_module_info(self, slot):
         try:
             response = self.generic_message(
-                request_type='r',
                 service=CommonService.get_attributes_all,
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 connected=False, unconnected_send=True,
@@ -408,12 +407,8 @@ class LogixDriver:
 
         route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH)
         service = ConnectionManagerService.forward_open if not self.attribs['extended forward open'] else ConnectionManagerService.large_forward_open
-        req_path = request_path(class_code=ClassCode.connection_manager,
-                                instance=ConnectionManagerInstance.open_request)
 
         forward_open_msg = [
-            service,
-            req_path,
             PRIORITY,
             TIMEOUT_TICKS,
             b'\x00\x00\x00\x00',
@@ -428,13 +423,20 @@ class LogixDriver:
             b'\x01\x40\x20\x00',
             net_params,
             TRANSPORT_CLASS,
-            route_path
         ]
-        request = self.new_request('send_rr_data')
-        request.add(*forward_open_msg)
-        response = request.send()
+
+        response = self.generic_message(
+            service=service,
+            class_code=ClassCode.connection_manager,
+            instance=ConnectionManagerInstance.open_request,
+            request_data=b''.join(forward_open_msg),
+            route_path=route_path,
+            connected=False,
+            name='__FORWARD_OPEN__'
+        )
+
         if response:
-            self._target_cid = response.data[:4]
+            self._target_cid = response.value[:4]
             self._target_is_connected = True
             return True
         self.__log.warning(f"forward_open failed - {response.error}")
@@ -488,25 +490,26 @@ class LogixDriver:
 
         if self._session == 0:
             raise CommError("A session need to be registered before to call forward_close.")
-        request = self.new_request('send_rr_data')
 
         route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH, pad_len=True)
-        req_path = request_path(class_code=ClassCode.connection_manager,
-                                instance=ConnectionManagerInstance.open_request)
 
         forward_close_msg = [
-            ConnectionManagerService.forward_close,
-            req_path,
             PRIORITY,
             TIMEOUT_TICKS,
             self.attribs['csn'],
             self.attribs['vid'],
             self.attribs['vsn'],
-            route_path
         ]
 
-        request.add(*forward_close_msg)
-        response = request.send()
+        response = self.generic_message(
+            service=ConnectionManagerService.forward_close,
+            class_code=ClassCode.connection_manager,
+            instance=ConnectionManagerInstance.open_request,
+            connected=False,
+            route_path=route_path,
+            request_data=b''.join(forward_close_msg),
+            name='__FORWARD_CLOSE__'
+        )
         if response:
             self._target_is_connected = False
             return True
@@ -525,7 +528,6 @@ class LogixDriver:
         """
         try:
             response = self.generic_message(
-                request_type='r',
                 service=CommonService.get_attribute_list,
                 class_code=ClassCode.program_name,
                 instance=b'\x01\x00',  # instance 1
@@ -546,7 +548,6 @@ class LogixDriver:
         """
         try:
             response = self.generic_message(
-                request_type='r',
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 service=b'\x01',
                 data_format=[
@@ -1314,12 +1315,13 @@ class LogixDriver:
         :param fmt: format string for converting the time to a string
         :return: a Tag object with the current time
         """
-        tag = self.generic_message(request_type='r',
-                                   service=CommonService.get_attribute_list,
-                                   class_code=ClassCode.wall_clock_time,
-                                   instance=b'\x01',
-                                   request_data=b'\x01\x00\x0B\x00',
-                                   data_format=[(None, 6), ('us', 'ULINT'), ])
+        tag = self.generic_message(
+            service=CommonService.get_attribute_list,
+            class_code=ClassCode.wall_clock_time,
+            instance=b'\x01',
+            request_data=b'\x01\x00\x0B\x00',
+            data_format=[(None, 6), ('us', 'ULINT'), ]
+        )
         if tag:
             _time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
             value = {'datetime': _time, 'microseconds': tag.value['us'], 'string': _time.strftime(fmt)}
@@ -1342,14 +1344,14 @@ class LogixDriver:
             b'\x06\x00',  # attribute
             Pack.ulint(microseconds),
         ])
-        return self.generic_message(request_type='w',
-                                    service=CommonService.set_attribute_list,
-                                    class_code=ClassCode.wall_clock_time,
-                                    instance=b'\x01',
-                                    request_data=request_data, name='__SET_PLC_TIME__')
+        return self.generic_message(
+            service=CommonService.set_attribute_list,
+            class_code=ClassCode.wall_clock_time,
+            instance=b'\x01',
+            request_data=request_data, name='__SET_PLC_TIME__'
+        )
 
     def generic_message(self,
-                        request_type: Literal['r', 'w'],
                         service: bytes,
                         class_code: bytes,
                         instance: bytes,
@@ -1363,7 +1365,6 @@ class LogixDriver:
         """
         Perform a generic CIP message.  Similar to how MSG instructions work in Logix.
 
-        :param request_type: ``'r'`` for reads, ``'w'`` for writes
         :param service: service code for the request (single byte)
         :param class_code: request object class ID
         :param instance: instance ID of the class
@@ -1386,27 +1387,29 @@ class LogixDriver:
             with_forward_open(lambda _: None)(self)
 
         _kwargs = {
-            'request_type': 'r',
             'service': service,
             'class_code': class_code,
             'instance': instance,
             'attribute': attribute,
             'request_data': request_data,
+            'data_format': data_format,
         }
-        if request_type == 'r':
-            _kwargs['data_format'] = data_format
 
         if not connected:
-            _kwargs['route_path'] = Pack.epath(self.attribs['cip_path'] if route_path is True else route_path,
-                                               pad_len=True)
+            if route_path is True:
+                _kwargs['route_path'] = Pack.epath(self.attribs['cip_path'], pad_len=True)
+            elif route_path:
+                _kwargs['route_path'] = route_path
+
             _kwargs['unconnected_send'] = unconnected_send
+
         request = self.new_request('generic_connected' if connected else 'generic_unconnected')
 
         request.build(**_kwargs)
 
         response = request.send()
 
-        return Tag(name, response.value if request_type == 'r' else request_data, error=response.error)
+        return Tag(name, response.value, error=response.error)
 
 
 def _parse_plc_name(data):

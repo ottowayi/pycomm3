@@ -157,16 +157,13 @@ class SendRRDataResponsePacket(ResponsePacket):
 
 @logged
 class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
-    def __init__(self,  *args, request_type, data_format: DataFormatType, **kwargs):
-        self.request_type = request_type
+    def __init__(self,  *args, data_format: DataFormatType, **kwargs):
         self.data_format = data_format
         self.value = None
         super().__init__(*args, **kwargs)
 
     def _parse_reply(self):
         super()._parse_reply()
-        if self.request_type == 'w':
-            return
 
         if self.data_format is None:
             self.value = self.data
@@ -176,25 +173,17 @@ class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
             except Exception as err:
                 self._error = f'Failed to parse reply - {err}'
                 self.value = None
-
-    def __repr__(self):
-        if self.request_type == 'r':
-            return f'{self.__class__.__name__}(value={_r(self.value)}, error={self.error!r})'
-        return super().__repr__()
 
 
 @logged
 class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
-    def __init__(self,  *args, request_type, data_format: DataFormatType, **kwargs):
-        self.request_type = request_type
+    def __init__(self,  *args, data_format: DataFormatType, **kwargs):
         self.data_format = data_format
         self.value = None
         super().__init__(*args, **kwargs)
 
     def _parse_reply(self):
         super()._parse_reply()
-        if self.request_type == 'w':
-            return
 
         if self.data_format is None:
             self.value = self.data
@@ -204,11 +193,6 @@ class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
             except Exception as err:
                 self._error = f'Failed to parse reply - {err}'
                 self.value = None
-
-    def __repr__(self):
-        if self.request_type == 'r':
-            return f'{self.__class__.__name__}(value={_r(self.value)}, error={self.error!r})'
-        return super().__repr__()
 
 
 def _parse_data(data, fmt):
