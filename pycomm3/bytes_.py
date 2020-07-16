@@ -41,7 +41,7 @@ def _pack_epath(path, pad_len=False):
 
 def _pack_char(char):
     unsigned = ord(char)
-    return Pack.usint(unsigned - 256 if unsigned > 127 else unsigned)
+    return Pack.sint(unsigned - 256 if unsigned > 127 else unsigned)
 
 
 def _short_string_encode(string):
