@@ -80,3 +80,27 @@ Writing multiple tags will return a list of Tag objects.
 
     >>> write_multiple()
     [Tag(tag='REAL2', value=25.2, type='REAL', error=None), Tag(tag='STRING3', value='A test for writing to a string.', type='STRING', error=None)]
+
+Writing a whole structure is possible too.  As with reading, all attributes are required to NOT have an External Access of None.
+Also, when writing a structure your value must match the structure exactly and provide data for all attributes. The value
+should be a list of values, nesting lists for arrays or other structures with the target.  This example shows a simple
+recipe UDT:
+
++-------------------+---------------+
+| Attribute         |  Data Type    |
++===================+===============+
+| Enabled           |  BOOL         |
++-------------------+---------------+
+| OpCodes           |  DINT[10]     |
++-------------------+---------------+
+| Target            |  REAL[10]     |
++-------------------+---------------+
+| StepDescriptions  |  STRING[10]   |
++-------------------+---------------+
+| TargetUnits       |  STRING8[10]  |
++-------------------+---------------+
+| Name              |  STRING       |
++-------------------+---------------+
+
+    .. literalinclude:: ../examples/basic_writes.py
+        :pyobject: write_structure
