@@ -59,7 +59,7 @@ atomic_tests = [  # (tag name, data type, value)
                                             (False for i in range(63)), (True,)))),
 
     # strings, technically structures, but value is similar to atomic types
-    ('STRING1', 'STRING', 'A Test String'),
+    ('STRING1', 'STRING', 'A Test String °'),
     ('STRING2', 'STRING', ''),
     ('STRING20_1', 'STRING20', 'x'*20),
     ('LongString1', 'STR_480', 'A 480 char string.'),

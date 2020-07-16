@@ -13,7 +13,7 @@ atomic_tests = [  # (tag name, data type, value)
     ('REAL2', 'REAL', 25.2),
     ('BOOL3', 'BOOL', False),
     ('BOOL4', 'BOOL', True),
-    ('STRING3', 'STRING', 'A test for writing to a string'),
+    ('STRING3', 'STRING', 'A test for writing to a string °'),
     ('Program:Pycomm3_Testing._dint2', 'DINT', 111),
     ('Program:Pycomm3_Testing._real2', 'REAL', 222.22),
     ('Program:Pycomm3_Testing._string2', 'STRING', 'Hello World!'),
