@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="24.02" TargetName="Pycomm3_Testing" TargetType="Program" ContainsContext="true" Owner="Tricore" ExportDate="Fri Jun 05 14:25:38 2020" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="24.02" TargetName="Pycomm3_Testing" TargetType="Program" ContainsContext="true" Owner="Tricore" ExportDate="Thu Jul 16 15:48:50 2020" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="PLCA">
 <DataTypes Use="Context">
 <DataType Name="STR_480" Family="StringFamily" Class="User">
@@ -561,14 +561,14 @@
 </Data>
 </Tag>
 <Tag Name="STRING3" TagType="Base" DataType="STRING" Constant="false" ExternalAccess="Read/Write">
-<Data>1E 00 00 00 41 20 74 65 73 74 20 66 6F 72 20 77 
+<Data>20 00 00 00 41 20 74 65 73 74 20 66 6F 72 20 77 
 72 69 74 69 6E 67 20 74 6F 20 61 20 73 74 72 69 
-6E 67 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+6E 67 20 B0 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00</Data>
-<Data Format="String" Length="30">
-<![CDATA['A test for writing to a string']]>
+<Data Format="String" Length="32">
+<![CDATA['A test for writing to a string $B0']]>
 </Data>
 </Tag>
 <Tag Name="DINT3" TagType="Base" DataType="DINT" Radix="Binary" Constant="false" ExternalAccess="Read/Write">
@@ -1056,14 +1056,14 @@ E7 FB 2F 41 32 A5 0A 49 00 00 00 00</Data>
 </Data>
 </Tag>
 <Tag Name="STRING1" TagType="Base" DataType="STRING" Constant="false" ExternalAccess="Read/Write">
-<Data>0D 00 00 00 41 20 54 65 73 74 20 53 74 72 69 6E 
-67 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+<Data>0F 00 00 00 41 20 54 65 73 74 20 53 74 72 69 6E 
+67 20 B0 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00</Data>
-<Data Format="String" Length="13">
-<![CDATA['A Test String']]>
+<Data Format="String" Length="15">
+<![CDATA['A Test String $B0']]>
 </Data>
 </Tag>
 <Tag Name="BOOL1" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
