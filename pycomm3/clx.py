@@ -1568,12 +1568,14 @@ def _writable_value_structure(value, elements, data_type):
 
 
 def _pack_string(value, string_len, struct_size):
-    sint_array = [b'\x00' for _ in range(struct_size-4)]  # 4 for .LEN
-    if len(value) > string_len:
-        value = value[:string_len]
-    for i, s in enumerate(value):
-        sint_array[i] = Pack.char(s)
-
+    try:
+        sint_array = [b'\x00' for _ in range(struct_size-4)]  # 4 for .LEN
+        if len(value) > string_len:
+            value = value[:string_len]
+        for i, s in enumerate(value):
+            sint_array[i] = Pack.char(s)
+    except Exception as err:
+        raise RequestError('Failed to pack string') from err
     return Pack.dint(len(value)) + b''.join(sint_array)
 
 
@@ -1615,7 +1617,7 @@ def _pack_structure(value, data_type):
                 data[offset:offset+len(val_bytes)] = val_bytes
 
         except Exception as err:
-            raise RequestError('Value Invalid for Structure', err)
+            raise RequestError('Value Invalid for Structure') from err
 
     return bytes(data)
 
