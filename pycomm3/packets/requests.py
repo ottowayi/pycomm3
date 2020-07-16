@@ -24,16 +24,16 @@
 # SOFTWARE.
 #
 
-import logging
-from autologging import logged
 from reprlib import repr as _r
-from typing import Literal
+
+from autologging import logged
 
 from . import Packet, DataFormatType
 from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceResponsePacket, RegisterSessionResponsePacket,
                UnRegisterSessionResponsePacket, ListIdentityResponsePacket, SendRRDataResponsePacket,
                MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, WriteTagServiceResponsePacket,
-               WriteTagFragmentedServiceResponsePacket, GenericUnconnectedResponsePacket, GenericConnectedResponsePacket)
+               WriteTagFragmentedServiceResponsePacket, GenericUnconnectedResponsePacket,
+               GenericConnectedResponsePacket)
 from .. import CommError, RequestError
 from ..bytes_ import Pack, print_bytes_msg
 from ..const import (EncapsulationCommand, INSUFFICIENT_PACKETS, DataItem, AddressItem, EXTENDED_SYMBOL, ELEMENT_TYPE,

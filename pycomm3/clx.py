@@ -23,7 +23,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-#
 
 import datetime
 import itertools
@@ -32,7 +31,7 @@ import socket
 import time
 from functools import wraps
 from os import urandom
-from typing import Union, List, Tuple, Optional, Literal
+from typing import Union, List, Tuple, Optional
 
 from autologging import logged
 
@@ -985,7 +984,7 @@ class LogixDriver:
                     if result:
                         typ, bit = request_data['bit']
                         val = bool(result.value & 1 << bit) if typ == 'bit' else result.value[bit % 32]
-                        results.append(Tag(tag, val, 'BOOL'))
+                        results.append(Tag(tag, val, 'BOOL', None))
                     else:
                         results.append(Tag(tag, None, None, result.error))
             except Exception as err:
@@ -1294,13 +1293,14 @@ class LogixDriver:
                     if response:
                         results[_mkkey(r=request)] = Tag(request.tag,
                                                          response.value if request.type_ == 'read' else request.value,
-                                                         response.data_type if request.type_ == 'read' else request.data_type)
+                                                         response.data_type if request.type_ == 'read' else request.data_type,
+                                                         response.error)
                     else:
                         results[_mkkey(r=request)] = Tag(request.tag, None, None, response.error)
                 else:
                     for tag in response.tags:
                         if tag['service_status'] == SUCCESS:
-                            results[_mkkey(t=tag)] = Tag(tag['tag'], tag['value'], tag['data_type'])
+                            results[_mkkey(t=tag)] = Tag(tag['tag'], tag['value'], tag['data_type'], None)
                         else:
                             results[_mkkey(t=tag)] = Tag(tag['tag'], None, None,
                                                          tag.get('error', 'Unknown Service Error'))
@@ -1327,7 +1327,7 @@ class LogixDriver:
             value = {'datetime': _time, 'microseconds': tag.value['us'], 'string': _time.strftime(fmt)}
         else:
             value = None
-        return Tag('__GET_PLC_TIME__', value, error=tag.error)
+        return Tag('__GET_PLC_TIME__', value, None, error=tag.error)
 
     def set_plc_time(self, microseconds: Optional[int] = None) -> Tag:
         """
@@ -1409,7 +1409,7 @@ class LogixDriver:
 
         response = request.send()
 
-        return Tag(name, response.value, error=response.error)
+        return Tag(name, response.value, None, error=response.error)
 
 
 def _parse_plc_name(data):
