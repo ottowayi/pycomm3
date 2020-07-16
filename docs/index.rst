@@ -99,3 +99,4 @@ Contents
    usage
    logixdriver
    examples
+   cip_constants

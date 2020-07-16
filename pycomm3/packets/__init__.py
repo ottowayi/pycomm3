@@ -24,8 +24,9 @@
 # SOFTWARE.
 #
 
-from autologging import logged
 from typing import List, Tuple, Optional, Union
+
+from autologging import logged
 
 DataFormatType = List[Tuple[Optional[str], Union[str, int]]]
 
@@ -37,14 +38,15 @@ class Packet:
 
 from .responses import (ResponsePacket, SendUnitDataResponsePacket, SendRRDataResponsePacket, ListIdentityResponsePacket,
                         RegisterSessionResponsePacket, UnRegisterSessionResponsePacket, ReadTagServiceResponsePacket,
-                        MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, generic_read_response,
-                        WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket, generic_write_response,
+                        MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, GenericConnectedResponsePacket,
+                        WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket, GenericUnconnectedResponsePacket,
                         get_extended_status, get_service_status)
 
 from .requests import (RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket, ListIdentityRequestPacket,
                        RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket,
                        MultiServiceRequestPacket, ReadTagFragmentedServiceRequestPacket, WriteTagServiceRequestPacket,
-                       WriteTagFragmentedServiceRequestPacket, generic_read_request, generic_write_request)
+                       WriteTagFragmentedServiceRequestPacket, GenericConnectedRequestPacket, GenericUnconnectedRequestPacket,
+                       request_path)
 
 from collections import defaultdict
 
@@ -61,8 +63,6 @@ REQUEST_MAP = defaultdict(RequestPacket,
     'read_tag_fragmented': ReadTagFragmentedServiceRequestPacket,
     'write_tag': WriteTagServiceRequestPacket,
     'write_tag_fragmented': WriteTagFragmentedServiceRequestPacket,
-    'generic_read': generic_read_request(connected=True),
-    'generic_read_unconnected': generic_read_request(connected=False),
-    'generic_write': generic_write_request(connected=True),
-    'generic_write_unconnected': generic_write_request(connected=False),
+    'generic_connected': GenericConnectedRequestPacket,
+    'generic_unconnected': GenericUnconnectedRequestPacket,
 })

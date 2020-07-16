@@ -25,28 +25,28 @@
 #
 #
 
-import socket
-import logging
 import datetime
-import time
 import itertools
+import logging
+import socket
+import time
 from functools import wraps
 from os import urandom
-from typing import Union, List, Sequence, Tuple, Optional
+from typing import Union, List, Tuple, Optional, Literal
 
 from autologging import logged
 
 from . import DataError, CommError
 from . import Tag, RequestError
-from .bytes_ import (pack_usint, pack_udint, pack_uint, pack_dint, unpack_uint, unpack_udint, pack_ulint, pack_char,
-                     unpack_dint, pack_sint, PACK_DATA_FUNCTION)
-from .const import (DATA_TYPE, TAG_SERVICES_REQUEST, EXTENDED_SYMBOL, PATH_SEGMENTS, ELEMENT_TYPE, CLASS_CODE, CLASS_TYPE,
-                    INSTANCE_TYPE, FORWARD_CLOSE, FORWARD_OPEN, LARGE_FORWARD_OPEN, CONNECTION_MANAGER_INSTANCE, PRIORITY,
-                    TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, UNCONNECTED_SEND, PRODUCT_TYPES, VENDORS, STATES,
-                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD)
-from .const import (SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, REQUEST_PATH_SIZE, SEC_TO_US,
-                    KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DATA_TYPE_SIZE, MIN_VER_EXTERNAL_ACCESS)
-from .packets import REQUEST_MAP, RequestPacket, get_service_status, DataFormatType
+from .bytes_ import Pack, Unpack
+from .const import (TagService, EXTENDED_SYMBOL, PATH_SEGMENTS, CLASS_TYPE,
+                    INSTANCE_TYPE, ConnectionManagerInstance, PRIORITY, ClassCode, DataType,
+                    TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES,
+                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD, MSG_ROUTER_PATH,
+                    ConnectionManagerService, CommonService, SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT,
+                    MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS,
+                    DataTypeSize, MIN_VER_EXTERNAL_ACCESS)
+from .packets import REQUEST_MAP, RequestPacket, DataFormatType, request_path
 from .socket_ import Socket
 
 AtomicType = Union[int, float, bool, str]
@@ -135,14 +135,12 @@ class LogixDriver:
 
         self._sequence_number = 1
         self._sock = None
-        # self.__direct_connections = direct_connection
-
         self._session = 0
         self._connection_opened = False
         self._target_cid = None
         self._target_is_connected = False
         self._info = {}
-        ip, _path = _parse_connection_path(path, micro800)
+        ip, _path = _parse_connection_path(path)
 
         self.attribs = {
             'context': b'_pycomm_',
@@ -151,13 +149,14 @@ class LogixDriver:
             'port': 0xAF12,  # 44818
             'timeout': 10,
             'ip address': ip,
-            'cip_path': _path,
+            # is cip_path the right term?  or request_path? or something else?
+            'cip_path': _path[1:],  # leave out the len, we sometimes add to the path later
             'option': 0,
             'cid': b'\x27\x04\x19\x71',
             'csn': b'\x27\x04',
             'vid': b'\x09\x10',
             'vsn': b'\x09\x10\x19\x71',
-            'name': 'Base',
+            'name': 'LogixDriver',
             'extended forward open': large_packets}
         self._cache = None
         self._data_types = {}
@@ -167,17 +166,19 @@ class LogixDriver:
 
         if init_tags or init_info:
             self.open()
-            if init_info:
-                self._micro800 = self._list_identity().startswith(MICRO800_PREFIX)
-                self.get_plc_info()
-                _, _path = _parse_connection_path(path, self._micro800)  # need to update path if using a Micro800
-                self.attribs['cip_path'] = _path
-                self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
-                if not self._micro800:
-                    self.get_plc_name()
 
-            if init_tags:
-                self.get_tag_list(program='*' if init_program_tags else None)
+        if init_info:
+            self._micro800 = self._list_identity().startswith(MICRO800_PREFIX)
+            self.get_plc_info()
+            if self._micro800:  # strip off backplane/0 from path, not used for these processors
+                _path = Pack.epath(self.attribs['cip_path'][:-2])
+                self.attribs['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
+            self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
+            if not self._micro800:
+                self.get_plc_name()
+
+        if init_tags:
+            self.get_tag_list(program='*' if init_program_tags else None)
 
     def __enter__(self):
         self.open()
@@ -278,10 +279,8 @@ class LogixDriver:
             - `read_tag_fragmented`
             - `write_tag`
             - `write_tag_fragmented`
-            - `generic_read`
-            - `generic_write`
-            - `generic_read_unconnected`
-            - `generic_write_unconnected`
+            - `generic_connected`
+            - `generic_unconnected`
 
         :param command: the service for which a request will be created
         :return: a new request for the command
@@ -323,39 +322,20 @@ class LogixDriver:
 
     def get_module_info(self, slot):
         try:
-            request = self.new_request('send_rr_data')
-            request.add(
-                # unnconnected send portion
-                UNCONNECTED_SEND,
-                b'\x02',
-                CLASS_TYPE['8-bit'],
-                b'\x06',  # class
-                INSTANCE_TYPE["8-bit"],
-                b'\x01',  # instance
-                b'\x0A',  # priority
-                b'\x0e',  # timeout ticks
-                b'\x06\x00',  # service size
-
-                # Identity request portion
-                b'\x01',  # Service
-                b'\x02',
-                CLASS_TYPE['8-bit'],
-                CLASS_CODE['Identity Object'],
-                INSTANCE_TYPE["8-bit"],
-                b'\x01',  # Instance 1
-                b'\x01\x00',
-                b'\x01',  # backplane
-                pack_usint(slot),
+            response = self.generic_message(
+                service=CommonService.get_attributes_all,
+                class_code=ClassCode.identity_object, instance=b'\x01',
+                connected=False, unconnected_send=True,
+                route_path=PATH_SEGMENTS['bp'] + Pack.sint(slot)
             )
-            response = request.send()
 
             if response:
-                return _parse_identity_object(response.data)
+                return _parse_identity_object(response.value)
             else:
                 raise DataError(f'send_rr_data did not return valid data - {response.error}')
 
         except Exception as err:
-            raise DataError(err)
+            raise DataError('error sending request') from err
 
     def open(self):
         """
@@ -421,17 +401,14 @@ class LogixDriver:
         init_net_params = 0b_0100_0010_0000_0000  # CIP Vol 1 - 3-5.5.1.1
 
         if self.attribs['extended forward open']:
-            net_params = pack_udint((self.connection_size & 0xFFFF) | init_net_params << 16)
+            net_params = Pack.udint((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
-            net_params = pack_uint((self.connection_size & 0x01FF) | init_net_params)
+            net_params = Pack.uint((self.connection_size & 0x01FF) | init_net_params)
+
+        route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH)
+        service = ConnectionManagerService.forward_open if not self.attribs['extended forward open'] else ConnectionManagerService.large_forward_open
 
         forward_open_msg = [
-            FORWARD_OPEN if not self.attribs['extended forward open'] else LARGE_FORWARD_OPEN,
-            b'\x02',  # CIP Path size
-            CLASS_TYPE["8-bit"],  # class type
-            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
-            INSTANCE_TYPE["8-bit"],
-            CONNECTION_MANAGER_INSTANCE['Open Request'],
             PRIORITY,
             TIMEOUT_TICKS,
             b'\x00\x00\x00\x00',
@@ -446,13 +423,20 @@ class LogixDriver:
             b'\x01\x40\x20\x00',
             net_params,
             TRANSPORT_CLASS,
-            self.attribs['cip_path']
         ]
-        request = self.new_request('send_rr_data')
-        request.add(*forward_open_msg)
-        response = request.send()
+
+        response = self.generic_message(
+            service=service,
+            class_code=ClassCode.connection_manager,
+            instance=ConnectionManagerInstance.open_request,
+            request_data=b''.join(forward_open_msg),
+            route_path=route_path,
+            connected=False,
+            name='__FORWARD_OPEN__'
+        )
+
         if response:
-            self._target_cid = response.data[:4]
+            self._target_cid = response.value[:4]
             self._target_is_connected = True
             return True
         self.__log.warning(f"forward_open failed - {response.error}")
@@ -506,27 +490,26 @@ class LogixDriver:
 
         if self._session == 0:
             raise CommError("A session need to be registered before to call forward_close.")
-        request = self.new_request('send_rr_data')
 
-        path_size, *path = self.attribs['cip_path']  # for some reason we need to add a 0x00 between these? CIP Vol 1
+        route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH, pad_len=True)
 
         forward_close_msg = [
-            FORWARD_CLOSE,
-            b'\x02',
-            CLASS_TYPE["8-bit"],
-            CLASS_CODE["Connection Manager"],  # Volume 1: 5-1
-            INSTANCE_TYPE["8-bit"],
-            CONNECTION_MANAGER_INSTANCE['Open Request'],
             PRIORITY,
             TIMEOUT_TICKS,
             self.attribs['csn'],
             self.attribs['vid'],
             self.attribs['vsn'],
-            bytes([path_size, 0, *path])
         ]
 
-        request.add(*forward_close_msg)
-        response = request.send()
+        response = self.generic_message(
+            service=ConnectionManagerService.forward_close,
+            class_code=ClassCode.connection_manager,
+            instance=ConnectionManagerInstance.open_request,
+            connected=False,
+            route_path=route_path,
+            request_data=b''.join(forward_close_msg),
+            name='__FORWARD_CLOSE__'
+        )
         if response:
             self._target_is_connected = False
             return True
@@ -544,22 +527,14 @@ class LogixDriver:
         :return:  the controller program name
         """
         try:
-            request = self.new_request('send_unit_data')
-            request.add(
-                bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                REQUEST_PATH_SIZE,
-                CLASS_TYPE['8-bit'],
-                CLASS_CODE['Program Name'],
-                INSTANCE_TYPE["16-bit"],
-                b'\x01\x00',  # Instance 1
-                b'\x01\x00',  # Number of Attributes
-                b'\x01\x00'  # Attribute 1 - program name
+            response = self.generic_message(
+                service=CommonService.get_attribute_list,
+                class_code=ClassCode.program_name,
+                instance=b'\x01\x00',  # instance 1
+                request_data=b'\x01\x00\x01\x00',  # num attributes, attribute 1 (program name)
             )
-
-            response = request.send()
-
             if response:
-                self._info['name'] = _parse_plc_name(response)
+                self._info['name'] = _parse_plc_name(response.value)
                 return self._info['name']
             else:
                 raise DataError(f'send_unit_data did not return valid data - {response.error}')
@@ -572,17 +547,15 @@ class LogixDriver:
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
         """
         try:
-            route = self.attribs['cip_path'][1:-4]  # trim to just the route
-            route_len = pack_uint(len(route) // 2)
-            request_data = route_len + route
-            response = self.generic_read(class_code=CLASS_CODE['Identity Object'], instance=b'\x01',
-                                         service=b'\x01', request_data=request_data,
-                                         data_format=[
-                                            ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
-                                            ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
-                                            ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
-                                         ],
-                                         connected=False, unconnected_send=not self._micro800)
+            response = self.generic_message(
+                class_code=ClassCode.identity_object, instance=b'\x01',
+                service=b'\x01',
+                data_format=[
+                    ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
+                    ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
+                    ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
+                ],
+                connected=False, unconnected_send=not self._micro800)
 
             if response:
                 info = _parse_plc_info(response.value)
@@ -592,7 +565,7 @@ class LogixDriver:
                 raise DataError(f'get_plc_info did not return valid data - {response.error}')
 
         except Exception as err:
-            raise DataError(err)
+            raise DataError('Failed to get PLC info') from err
 
     @with_forward_open
     def get_tag_list(self, program: str = None, cache: bool = True) -> List[dict]:
@@ -665,19 +638,20 @@ class LogixDriver:
                 if program:
                     if not program.startswith('Program:'):
                         program = f'Program:{program}'
-                    path = [EXTENDED_SYMBOL, pack_usint(len(program)), program.encode('utf-8')]
+                    path = [EXTENDED_SYMBOL, Pack.usint(len(program)), program.encode('utf-8')]
                     if len(program) % 2:
                         path.append(b'\x00')
 
+                # just manually build the request path b/c there my be the extended symbol portion
                 path += [
                     # Request Path ( 20 6B 25 00 Instance )
                     CLASS_TYPE["8-bit"],  # Class id = 20 from spec 0x20
-                    CLASS_CODE["Symbol Object"],  # Logical segment: Symbolic Object 0x6B
+                    ClassCode.symbol_object,  # Logical segment: Symbolic Object 0x6B
                     INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                    pack_uint(last_instance),  # The instance
+                    Pack.uint(last_instance),  # The instance
                 ]
                 path = b''.join(path)
-                path_size = pack_usint(len(path) // 2)
+                path_size = Pack.usint(len(path) // 2)
                 request = self.new_request('send_unit_data')
 
                 attributes = [
@@ -693,10 +667,10 @@ class LogixDriver:
                     attributes.append(b'\x0a\x00')  # Attr. 10 : external access
 
                 request.add(
-                    bytes([TAG_SERVICES_REQUEST['Get Instance Attributes List']]),
+                    TagService.get_instance_attribute_list,
                     path_size,
                     path,
-                    pack_uint(len(attributes)),
+                    Pack.uint(len(attributes)),
                     *attributes
 
                 )
@@ -707,8 +681,8 @@ class LogixDriver:
                 last_instance = self._parse_instance_attribute_list(response, tag_list)
             return tag_list
 
-        except Exception as e:
-            raise DataError(e)
+        except Exception as err:
+            raise DataError('failed to get attribute list') from err
 
     def _parse_instance_attribute_list(self, response, tag_list):
         """ extract the tags list from the message received"""
@@ -718,27 +692,27 @@ class LogixDriver:
         idx = count = instance = 0
         try:
             while idx < tags_returned_length:
-                instance = unpack_dint(tags_returned[idx:idx + 4])
+                instance = Unpack.dint(tags_returned[idx:idx + 4])
                 idx += 4
-                tag_length = unpack_uint(tags_returned[idx:idx + 2])
+                tag_length = Unpack.uint(tags_returned[idx:idx + 2])
                 idx += 2
                 tag_name = tags_returned[idx:idx + tag_length]
                 idx += tag_length
-                symbol_type = unpack_uint(tags_returned[idx:idx + 2])
+                symbol_type = Unpack.uint(tags_returned[idx:idx + 2])
                 idx += 2
                 count += 1
-                symbol_address = unpack_udint(tags_returned[idx:idx + 4])
+                symbol_address = Unpack.udint(tags_returned[idx:idx + 4])
                 idx += 4
-                symbol_object_address = unpack_udint(tags_returned[idx:idx + 4])
+                symbol_object_address = Unpack.udint(tags_returned[idx:idx + 4])
                 idx += 4
-                software_control = unpack_udint(tags_returned[idx:idx + 4])
+                software_control = Unpack.udint(tags_returned[idx:idx + 4])
                 idx += 4
 
-                dim1 = unpack_udint(tags_returned[idx:idx + 4])
+                dim1 = Unpack.udint(tags_returned[idx:idx + 4])
                 idx += 4
-                dim2 = unpack_udint(tags_returned[idx:idx + 4])
+                dim2 = Unpack.udint(tags_returned[idx:idx + 4])
                 idx += 4
-                dim3 = unpack_udint(tags_returned[idx:idx + 4])
+                dim3 = Unpack.udint(tags_returned[idx:idx + 4])
                 idx += 4
 
                 if self.info.get('version_major', 0) >= MIN_VER_EXTERNAL_ACCESS:
@@ -844,13 +818,12 @@ class LogixDriver:
         """
         if instance_id not in self._cache['id:struct']:
             request = self.new_request('send_unit_data')
+            req_path = request_path(ClassCode.template_object, Pack.uint(instance_id))
             request.add(
-                bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                b'\x03',  # path size
-                CLASS_TYPE["8-bit"],  # Class id = 20 from spec 0x20
-                CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                pack_uint(instance_id),
+                CommonService.get_attribute_list,
+                req_path,
+
+                # service data:
                 b'\x04\x00',  # Number of attributes
                 b'\x04\x00',  # Template Object Definition Size UDINT
                 b'\x05\x00',  # Template Structure Size UDINT
@@ -877,15 +850,13 @@ class LogixDriver:
         try:
             while True:
                 request = self.new_request('send_unit_data')
+                req_path = request_path(ClassCode.template_object, instance=Pack.uint(instance_id))
                 request.add(
-                    bytes([TAG_SERVICES_REQUEST['Read Tag']]),
-                    b'\x03',  # Request Path ( 20 6B 25 00 Instance )
-                    CLASS_TYPE["8-bit"],  # Class id = 20 from spec
-                    CLASS_CODE["Template Object"],  # Logical segment: Template Object 0x6C
-                    INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
-                    pack_uint(instance_id),
-                    pack_dint(offset),  # Offset
-                    pack_uint(((object_definition_size * 4) - 21) - offset)
+                    TagService.read_tag,
+                    req_path,
+                    # service data:
+                    Pack.dint(offset),
+                    Pack.uint(((object_definition_size * 4) - 21) - offset)
                 )
                 response = request.send()
 
@@ -947,19 +918,18 @@ class LogixDriver:
         return template
 
     def _parse_template_data_member_info(self, info):
-        type_info = unpack_uint(info[:2])
-        typ = unpack_uint(info[2:4])
-        member = {'offset': unpack_udint(info[4:])}
+        type_info = Unpack.uint(info[:2])
+        typ = Unpack.uint(info[2:4])
+        member = {'offset': Unpack.udint(info[4:])}
         tag_type = 'atomic'
-        if typ in DATA_TYPE:
-            data_type = DATA_TYPE[typ]
-        else:
+
+        data_type = DataType.get(typ)
+        if data_type is None:
             instance_id = typ & 0b0000_1111_1111_1111
-            if instance_id in DATA_TYPE:
-                data_type = DATA_TYPE[instance_id]
-            else:
-                tag_type = 'struct'
-                data_type = self._get_data_type(instance_id)
+            data_type = DataType.get(instance_id)
+        if data_type is None:
+            tag_type = 'struct'
+            data_type = self._get_data_type(instance_id)
 
         member['tag_type'] = tag_type
         member['data_type'] = data_type
@@ -989,9 +959,14 @@ class LogixDriver:
     @with_forward_open
     def read(self, *tags: str) -> ReturnType:
         """
+        Read the value of tag(s).  Automatically will split tags into multiple requests by tracking the request and
+        response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
+        use fragmented read requests if the response size will not fit in a single packet.  Supports arrays (specify element
+        count in using curly braces (array{10}).  Also supports full structure reading (when possible), return value
+        will be a dict of {attribute name: value}.
 
         :param tags: one or many tags to read
-        :return: one or many ``Tag`` objects
+        :return: a single or list of ``Tag`` objects
         """
 
         parsed_requests = self._parse_requested_tags(tags)
@@ -1091,6 +1066,16 @@ class LogixDriver:
 
     @with_forward_open
     def write(self, *tags_values: Tuple[str, TagType]) -> ReturnType:
+        """
+        Write to tag(s). Automatically will split tags into multiple requests by tracking the request and
+        response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
+        use fragmented read requests if the response size will not fit in a single packet.  Supports arrays (specify element
+        count in using curly braces (array{10}).  Also supports full structure writing (when possible), value must be a
+        sequence of values matching the exact structure of the destination tag.
+
+        :param tags_values: one or many 2-element tuples (tag name, value)
+        :return: a single or list of ``Tag`` objects.
+        """
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 
@@ -1330,11 +1315,16 @@ class LogixDriver:
         :param fmt: format string for converting the time to a string
         :return: a Tag object with the current time
         """
-        tag = self.generic_read(class_code=CLASS_CODE['Wall-Clock Time'], instance=b'\x01', request_data=b'\x01\x00\x0B\x00',
-                                data_format=[(None, 6), ('us', 'ULINT'), ])
+        tag = self.generic_message(
+            service=CommonService.get_attribute_list,
+            class_code=ClassCode.wall_clock_time,
+            instance=b'\x01',
+            request_data=b'\x01\x00\x0B\x00',
+            data_format=[(None, 6), ('us', 'ULINT'), ]
+        )
         if tag:
-            time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
-            value = {'datetime': time, 'microseconds': tag.value['us'], 'string': time.strftime(fmt)}
+            _time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
+            value = {'datetime': _time, 'microseconds': tag.value['us'], 'string': _time.strftime(fmt)}
         else:
             value = None
         return Tag('__GET_PLC_TIME__', value, error=tag.error)
@@ -1352,47 +1342,82 @@ class LogixDriver:
         request_data = b''.join([
             b'\x01\x00',  # attribute count
             b'\x06\x00',  # attribute
-            pack_ulint(microseconds),
+            Pack.ulint(microseconds),
         ])
-        return self.generic_write(b'\x04', CLASS_CODE['Wall-Clock Time'], b'\x01',
-                                  request_data=request_data, name='__SET_PLC_TIME__')
+        return self.generic_message(
+            service=CommonService.set_attribute_list,
+            class_code=ClassCode.wall_clock_time,
+            instance=b'\x01',
+            request_data=request_data, name='__SET_PLC_TIME__'
+        )
 
-    def generic_read(self, class_code: bytes, instance: bytes, request_data: bytes = None,
-                     data_format: DataFormatType = None, name: str = 'generic',
-                     service=bytes([TAG_SERVICES_REQUEST['Get Attributes']]),
-                     connected=True, unconnected_send=False) -> Tag:
+    def generic_message(self,
+                        service: bytes,
+                        class_code: bytes,
+                        instance: bytes,
+                        attribute: Optional[bytes] = b'',
+                        request_data: Optional[bytes] = b'',
+                        data_format: Optional[DataFormatType] = None,
+                        name: str = 'generic',
+                        connected: bool = True,
+                        unconnected_send: bool = False,
+                        route_path: Union[bool, bytes] = True) -> Tag:
+        """
+        Perform a generic CIP message.  Similar to how MSG instructions work in Logix.
 
-        _req = 'generic_read' if connected else 'generic_read_unconnected'
+        :param service: service code for the request (single byte)
+        :param class_code: request object class ID
+        :param instance: instance ID of the class
+        :param attribute: (optional) attribute ID for the service/class/instance
+        :param request_data: (optional) any additional data required for the request
+        :param data_format: (reads only) If provided, a read response will automatically be unpacked into the attributes
+                            defined, must be a sequence of tuples, (attribute name, data_type).
+                            If name is ``None`` or an empty string, it will be ignored. If data-type is an ``int`` it will
+                            not be unpacked, but left as ``bytes``.  Data will be returned as a ``dict``.
+                            If ``None``, response data will be returned as just ``bytes``.
+        :param name:  return ``Tag.tag`` value, arbitrary but can be used for tracking returned Tags
+        :param connected: ``True`` if service required a CIP connection (forward open), ``False`` to use UCMM
+        :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service
+        :param route_path: (Unconnected Only) ``True`` to use current connection route to destination, ``False`` to ignore,
+                           Or provide a packed EPATH (``bytes``) route to use.
+        :return: a Tag with the result of the request. (Tag.value for writes will be the request_data)
+        """
 
         if connected:
             with_forward_open(lambda _: None)(self)
 
-        request = self.new_request(_req, service, class_code, instance, request_data, data_format, unconnected_send)
+        _kwargs = {
+            'service': service,
+            'class_code': class_code,
+            'instance': instance,
+            'attribute': attribute,
+            'request_data': request_data,
+            'data_format': data_format,
+        }
+
+        if not connected:
+            if route_path is True:
+                _kwargs['route_path'] = Pack.epath(self.attribs['cip_path'], pad_len=True)
+            elif route_path:
+                _kwargs['route_path'] = route_path
+
+            _kwargs['unconnected_send'] = unconnected_send
+
+        request = self.new_request('generic_connected' if connected else 'generic_unconnected')
+
+        request.build(**_kwargs)
+
         response = request.send()
 
         return Tag(name, response.value, error=response.error)
 
-    def generic_write(self, service, class_code, instance, request_data: bytes, name: str = 'generic',
-                      connected=True, unconnected_send=False) -> Tag:
 
-        _req = 'generic_write' if connected else 'generic_write_unconnected'
-
-        if connected:
-            with_forward_open(lambda _: None)(self)
-
-        request = self.new_request(_req, service, class_code, instance, request_data, unconnected_send)
-        response = request.send()
-        return Tag(name, request_data, error=response.error)
-
-
-def _parse_plc_name(response):
-    if response.service_status != SUCCESS:
-        raise DataError(f'get_plc_name returned status {get_service_status(response.error)}')
+def _parse_plc_name(data):
     try:
-        name_len = unpack_uint(response.data[6:8])
-        return response.data[8: 8 + name_len].decode()
+        name_len = Unpack.uint(data[6:8])
+        return data[8: 8 + name_len].decode()
     except Exception as err:
-        raise DataError(err)
+        raise DataError('failed parsing plc name') from err
 
 
 def _parse_plc_info(data):
@@ -1407,18 +1432,18 @@ def _parse_plc_info(data):
 
 
 def _parse_identity_object(reply):
-    vendor = unpack_uint(reply[:2])
-    product_type = unpack_uint(reply[2:4])
-    product_code = unpack_uint(reply[4:6])
+    vendor = Unpack.uint(reply[:2])
+    product_type = Unpack.uint(reply[2:4])
+    product_code = Unpack.uint(reply[4:6])
     major_fw = int(reply[6])
     minor_fw = int(reply[7])
-    status = f'{unpack_uint(reply[8:10]):0{16}b}'
-    serial_number = f'{unpack_udint(reply[10:14]):0{8}x}'
+    status = f'{Unpack.uint(reply[8:10]):0{16}b}'
+    serial_number = f'{Unpack.udint(reply[10:14]):0{8}x}'
     product_name_len = int(reply[14])
     tmp = 15 + product_name_len
     device_type = reply[15:tmp].decode()
 
-    state = unpack_uint(reply[tmp:tmp + 4]) if reply[tmp:] else -1  # some modules don't return a state
+    state = Unpack.uint(reply[tmp:tmp + 4]) if reply[tmp:] else -1  # some modules don't return a state
 
     return {
         'vendor': VENDORS.get(vendor, 'UNKNOWN'),
@@ -1445,33 +1470,33 @@ def _parse_structure_makeup_attributes(response):
         attribute = response.data
         idx = 4
         try:
-            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+            if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
                 idx += 2
-                structure['object_definition_size'] = unpack_dint(attribute[idx:idx + 4])
+                structure['object_definition_size'] = Unpack.dint(attribute[idx:idx + 4])
             else:
                 structure['Error'] = 'object_definition Error'
                 return structure
 
             idx += 6
-            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+            if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
                 idx += 2
-                structure['structure_size'] = unpack_dint(attribute[idx:idx + 4])
+                structure['structure_size'] = Unpack.dint(attribute[idx:idx + 4])
             else:
                 structure['Error'] = 'structure Error'
                 return structure
 
             idx += 6
-            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+            if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
                 idx += 2
-                structure['member_count'] = unpack_uint(attribute[idx:idx + 2])
+                structure['member_count'] = Unpack.uint(attribute[idx:idx + 2])
             else:
                 structure['Error'] = 'member_count Error'
                 return structure
 
             idx += 4
-            if unpack_uint(attribute[idx:idx + 2]) == SUCCESS:
+            if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
                 idx += 2
-                structure['structure_handle'] = unpack_uint(attribute[idx:idx + 2])
+                structure['structure_handle'] = Unpack.uint(attribute[idx:idx + 2])
             else:
                 structure['Error'] = 'structure_handle Error'
                 return structure
@@ -1500,7 +1525,7 @@ def writable_value(parsed_tag):
         if parsed_tag['tag_info']['tag_type'] == 'struct':
             return _writable_value_structure(value, elements, data_type)
         else:
-            pack_func = PACK_DATA_FUNCTION[data_type]
+            pack_func = Pack[data_type]
 
             if elements > 1:
                 return b''.join(pack_func(value[i]) for i in range(elements))
@@ -1529,7 +1554,7 @@ def _get_array_index(tag):
 def _tag_return_size(tag_data):
     tag_info = tag_data['tag_info']
     if tag_info['tag_type'] == 'atomic':
-        size = DATA_TYPE_SIZE[tag_info['data_type']]
+        size = DataTypeSize[tag_info['data_type']]
     else:
         size = tag_info['data_type']['template']['structure_size']
 
@@ -1546,19 +1571,19 @@ def _writable_value_structure(value, elements, data_type):
 
 
 def _pack_string(value, string_len, struct_size):
-    sint_array = [b'\x00' for _ in range(struct_size-4)]  # 4 for .LEN
-    if len(value) > string_len:
-        value = value[:string_len]
-    for i, s in enumerate(value):
-        sint_array[i] = pack_char(s)
-
-    return pack_dint(len(value)) + b''.join(sint_array)
+    try:
+        sint_array = [b'\x00' for _ in range(struct_size-4)]  # 4 for .LEN
+        if len(value) > string_len:
+            value = value[:string_len]
+        for i, s in enumerate(value):
+            sint_array[i] = Pack.char(s)
+    except Exception as err:
+        raise RequestError('Failed to pack string') from err
+    return Pack.dint(len(value)) + b''.join(sint_array)
 
 
 def _pack_structure(value, data_type):
     string_len = data_type.get('string')
-    # if string_len is None:
-    #     raise NotImplementedError('Writing of structures besides strings is not supported')
 
     if string_len:
         data = _pack_string(value, string_len, data_type['template']['structure_size'])
@@ -1577,7 +1602,7 @@ def _pack_structure(value, data_type):
                     else:
                         value_bytes = [_pack_structure(val, dtype['data_type']), ]
                 else:
-                    pack_func = PACK_DATA_FUNCTION[dtype['data_type']]
+                    pack_func = Pack[dtype['data_type']]
                     bit = dtype.get('bit')
                     if bit is not None:
                         if val:
@@ -1595,7 +1620,7 @@ def _pack_structure(value, data_type):
                 data[offset:offset+len(val_bytes)] = val_bytes
 
         except Exception as err:
-            raise RequestError('Value Invalid for Structure', err)
+            raise RequestError('Value Invalid for Structure') from err
 
     return bytes(data)
 
@@ -1629,21 +1654,18 @@ def _bit_request(tag_data, bit_requests):
     return True
 
 
-def _parse_connection_path(path, micro800):
+def _parse_connection_path(path):
     ip, *segments = path.split('/')
     try:
         socket.inet_aton(ip)
     except OSError:
         raise ValueError('Invalid IP Address', ip)
-    segments = [_parse_path_segment(s) for s in segments]
+    segments = [_parse_cip_path_segment(s) for s in segments]
 
     if not segments:
-        if not micro800:
-            _path = [pack_usint(PATH_SEGMENTS['backplane']), b'\x00']  # default backplane/0
-        else:
-            _path = []
+        _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']  # [] if micro800 else
     elif len(segments) == 1:
-        _path = [pack_usint(PATH_SEGMENTS['backplane']), pack_usint(segments[0])]
+        _path = [Pack.usint(PATH_SEGMENTS['backplane']), Pack.usint(segments[0])]
     else:
         pairs = (segments[i:i + 2] for i in range(0, len(segments), 2))
         _path = []
@@ -1653,26 +1675,14 @@ def _parse_connection_path(path, micro800):
                 dest_len = len(dest)
                 if dest_len % 2:
                     dest += b'\x00'
-                _path.extend([pack_usint(port), pack_usint(dest_len), dest])
+                _path.extend([Pack.usint(port), Pack.usint(dest_len), dest])
             else:
-                _path.extend([pack_usint(port), pack_usint(dest)])
+                _path.extend([Pack.usint(port), Pack.usint(dest)])
 
-    _path += [
-        CLASS_TYPE['8-bit'],
-        CLASS_CODE['Message Router'],
-        INSTANCE_TYPE['8-bit'],
-        b'\x01'
-    ]
-
-    _path_bytes = b''.join(_path)
-
-    if len(_path_bytes) % 2:
-        _path_bytes += b'\x00'
-
-    return ip, pack_usint(len(_path_bytes) // 2) + _path_bytes
+    return ip, Pack.epath(b''.join(_path))
 
 
-def _parse_path_segment(segment: str):
+def _parse_cip_path_segment(segment: str):
     try:
         if segment.isnumeric():
             return int(segment)
@@ -1683,7 +1693,7 @@ def _parse_path_segment(segment: str):
             else:
                 try:
                     socket.inet_aton(segment)
-                    return b''.join(pack_usint(ord(c)) for c in segment)
+                    return b''.join(Pack.usint(ord(c)) for c in segment)
                 except OSError:
                     raise ValueError('Invalid IP Address Segment', segment)
     except Exception:
@@ -1711,8 +1721,8 @@ def _create_tag(name, raw_tag):
     else:
         new_tag['tag_type'] = 'atomic'
         datatype = raw_tag['symbol_type'] & 0b_0000_0000_1111_1111
-        new_tag['data_type'] = DATA_TYPE[datatype]
-        if datatype == DATA_TYPE['BOOL']:
+        new_tag['data_type'] = DataType.get(datatype)
+        if datatype == DataType.bool:
             new_tag['bit_position'] = (raw_tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
 
     return new_tag

@@ -7,3 +7,4 @@ Examples
 
     basic_rw_examples
     tag_examples
+    generic_messaging_examples

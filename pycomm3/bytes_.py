@@ -24,113 +24,78 @@
 # SOFTWARE.
 #
 
-import struct
+from struct import pack, unpack
+from .map import EnumMap
 
 
-def pack_sint(n):
-    return struct.pack('b', n)
+def _pack_epath(path, pad_len=False):
+    if len(path) % 2:
+        path += b'\x00'
+
+    _len = Pack.usint(len(path)//2)
+    if pad_len:
+        _len += b'\x00'
+
+    return _len + path
 
 
-def pack_usint(n):
-    return struct.pack('B', n)
+def _pack_char(char):
+    unsigned = ord(char)
+    return Pack.sint(unsigned - 256 if unsigned > 127 else unsigned)
 
 
-def pack_int(n):
-    """pack 16 bit into 2 bytes little endian"""
-    return struct.pack('<h', n)
+def _short_string_encode(string):
+    return Pack.usint(len(string)) + b''.join([_pack_char(x) for x in string])
 
 
-def pack_uint(n):
-    """pack 16 bit into 2 bytes little endian"""
-    return struct.pack('<H', n)
+def _short_string_decode(str_data):
+    string_len = str_data[0]
+    return ''.join(
+        chr(v + 256) if v < 0 else chr(v) for v in str_data[1:string_len + 1]
+    )
 
 
-def pack_dint(n):
-    """pack 32 bit into 4 bytes little endian"""
-    return struct.pack('<i', n)
+class Pack(EnumMap):
+
+    sint = lambda n: pack('b', n)
+    byte = sint
+    usint = lambda n: pack('B', n)
+    int = lambda n: pack('<h', n)
+    uint = lambda n: pack('<H', n)
+    word = uint
+    dint = lambda n: pack('<i', n)
+    udint = lambda n: pack('<I', n)
+    dword = udint
+    lint = lambda l: pack('<q', l)
+    ulint = lambda l: pack('<Q', l)
+    lword = ulint
+    real = lambda r: pack('<f', r)
+    long = lambda l: pack('<l', l)
+    ulong = lambda l: pack('<L', l)
+    epath = _pack_epath
+    short_string = _short_string_encode
+    char = _pack_char
+    bool = lambda b: b'\xFF' if b else b'\x00'
 
 
-def pack_udint(n):
-    """pack 32 bit into 4 bytes little endian"""
-    return struct.pack('<I', n)
-
-
-def pack_real(r):
-    """unpack 4 bytes little endian to int"""
-    return struct.pack('<f', r)
-
-
-def pack_lint(l):
-    """unpack 4 bytes little endian to int"""
-    return struct.pack('<q', l)
-
-
-def pack_ulint(l):
-    """unpack 4 bytes little endian to int"""
-    return struct.pack('<Q', l)
-
-
-def pack_long(l):
-    return struct.pack('<l', l)
-
-
-def pack_ulong(l):
-    return struct.pack('<L', l)
-
-
-def unpack_bool(st):
-    return st[0] != 0
-
-
-def unpack_sint(st):
-    return int(struct.unpack('b', bytes([st[0]]))[0])
-
-
-def unpack_usint(st):
-    return int(struct.unpack('B', bytes([st[0]]))[0])
-
-
-def unpack_int(st):
-    """unpack 2 bytes little endian to int"""
-    return int(struct.unpack('<h', st[0:2])[0])
-
-
-def unpack_uint(st):
-    """unpack 2 bytes little endian to int"""
-    return int(struct.unpack('<H', st[0:2])[0])
-
-
-def unpack_dint(st):
-    """unpack 4 bytes little endian to int"""
-    return int(struct.unpack('<i', st[0:4])[0])
-
-
-def unpack_udint(st):
-    """unpack 4 bytes little endian to int"""
-    return int(struct.unpack('<I', st[0:4])[0])
-
-
-def unpack_real(st):
-    """unpack 4 bytes little endian to int"""
-    return float(struct.unpack('<f', st[0:4])[0])
-
-
-def unpack_lint(st):
-    """unpack 4 bytes little endian to int"""
-    return int(struct.unpack('<q', st[0:8])[0])
-
-
-def unpack_ulint(st):
-    """unpack 4 bytes little endian to int"""
-    return int(struct.unpack('<Q', st[0:8])[0])
-
-
-def unpack_long(st):
-    return int(struct.unpack('<l', st[0:4])[0])
-
-
-def unpack_ulong(st):
-    return int(struct.unpack('<L', st[0:4])[0])
+class Unpack(EnumMap):
+    bool = lambda st: st[0] != 0
+    sint = lambda st: int(unpack('b', bytes([st[0]]))[0])
+    byte = sint
+    usint = lambda st: int(unpack('B', bytes([st[0]]))[0])
+    int = lambda st: int(unpack('<h', st[0:2])[0])
+    uint = lambda st: int(unpack('<H', st[0:2])[0])
+    word = uint
+    dint = lambda st: int(unpack('<i', st[0:4])[0])
+    udint = lambda st: int(unpack('<I', st[0:4])[0])
+    dword = udint
+    lint = lambda st: int(unpack('<q', st[0:8])[0])
+    ulint = lambda st: int(unpack('<Q', st[0:8])[0])
+    lword = ulint
+    real = lambda st: float(unpack('<f', st[0:4])[0])
+    long = lambda st: int(unpack('<l', st[0:4])[0])
+    ulong = lambda st: int(unpack('<L', st[0:4])[0])
+    short_string = _short_string_decode
 
 
 def print_bytes_line(msg):
@@ -159,100 +124,15 @@ def print_bytes_msg(msg, info=''):
     return out
 
 
-def pack_char(char):
-    unsigned = ord(char)
-    return pack_sint(unsigned - 256 if unsigned > 127 else unsigned)
-
-
-def _short_string_encode(string):
-    return pack_usint(len(string)) + b''.join([pack_char(x) for x in string])
-
-
-PACK_DATA_FUNCTION = {
-    'BOOL': pack_sint,
-    'SINT': pack_sint,    # Signed 8-bit integer
-    'INT': pack_int,     # Signed 16-bit integer
-    'UINT': pack_uint,    # Unsigned 16-bit integer
-    'USINT': pack_usint,  # Unsigned Byte Integer
-    'DINT': pack_dint,    # Signed 32-bit integer
-    'LINT': pack_lint,
-    'ULINT': pack_ulint,
-    'REAL': pack_real,    # 32-bit floating point
-    'LINT': pack_lint,
-    'BYTE': pack_sint,     # byte string 8-bits
-    'WORD': pack_uint,     # byte string 16-bits
-    'DWORD': pack_udint,    # byte string 32-bits
-    'LWORD': pack_ulint,    # byte string 64-bits
-    'SHORT_STRING': _short_string_encode,  # + b'\x00' * (MICRO800_STRING_LEN - len(x))
-}
-
-
-def _short_string_decode(str_data):
-    string_len = str_data[0]
-    return ''.join(
-        chr(v + 256) if v < 0 else chr(v) for v in str_data[1:string_len + 1]
-    )
-
-
-UNPACK_DATA_FUNCTION = {
-    'BOOL': unpack_bool,
-    'SINT': unpack_sint,    # Signed 8-bit integer
-    'INT': unpack_int,     # Signed 16-bit integer
-    'UINT': unpack_uint,    # Unsigned 16-bit integer
-    'USINT': unpack_usint,  # Unsigned Byte Integer
-    'DINT': unpack_dint,    # Signed 32-bit integer
-    'LINT': unpack_lint,
-    'ULINT': unpack_ulint,
-    'REAL': unpack_real,    # 32-bit floating point,
-    'BYTE': unpack_sint,     # byte string 8-bits
-    'WORD': unpack_uint,     # byte string 16-bits
-    'DWORD': unpack_udint,    # byte string 32-bits
-    'LWORD': unpack_ulint,    # byte string 64-bits
-    'SHORT_STRING': _short_string_decode,
-}
-
-
-DATA_FUNCTION_SIZE = {
-    'BOOL': 1,
-    'SINT': 1,    # Signed 8-bit integer
-    'USINT': 1,  # Unisgned 8-bit integer
-    'INT': 2,     # Signed 16-bit integer
-    'UINT': 2,    # Unsigned 16-bit integer
-    'DINT': 4,    # Signed 32-bit integer
-    'LINT': 8,
-    'ULINT': 8,
-    'REAL': 4,    # 32-bit floating point
-    'LINT': 8,
-    'BYTE': 1,     # byte string 8-bits
-    'WORD': 2,     # byte string 16-bits
-    'DWORD': 4,    # byte string 32-bits
-    'LWORD': 8    # byte string 64-bits
-}
-
-
-UNPACK_PCCC_DATA_FUNCTION = {
-    'N': unpack_int,
-    'B': unpack_int,
-    'T': unpack_int,
-    'C': unpack_int,
-    'S': unpack_int,
-    'F': unpack_real,
-    'A': unpack_sint,
-    'R': unpack_dint,
-    'O': unpack_int,
-    'I': unpack_int
-}
-
-
-PACK_PCCC_DATA_FUNCTION = {
-    'N': pack_int,
-    'B': pack_int,
-    'T': pack_int,
-    'C': pack_int,
-    'S': pack_int,
-    'F': pack_real,
-    'A': pack_sint,
-    'R': pack_dint,
-    'O': pack_int,
-    'I': pack_int
+PCCC_DATA_FUNCTION = {
+    'N': 'int',
+    'B': 'int',
+    'T': 'int',
+    'C': 'int',
+    'S': 'int',
+    'F': 'real',
+    'A': 'sint',
+    'R': 'dint',
+    'O': 'int',
+    'I': 'int'
 }

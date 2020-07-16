@@ -24,7 +24,7 @@
 # SOFTWARE.
 #
 
-__version_info__ = (0, 7, 1)
+__version_info__ = (0, 8, 0)
 __version__ = '.'.join(f'{x}' for x in __version_info__)
 
 from typing import NamedTuple, Any, Optional
@@ -66,5 +66,6 @@ class Tag(NamedTuple):
     def __repr__(self):
         return f"{self.__class__.__name__}(tag={self.tag!r}, value={self.value!r}, type={self.type!r}, error={self.error!r})"
 
-
 from .clx import LogixDriver
+from .const import CommonService, ClassCode, TagService, DataType, ConnectionManagerInstance, ConnectionManagerService
+from .bytes_ import Pack, Unpack

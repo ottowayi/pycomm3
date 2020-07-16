@@ -24,6 +24,8 @@
 # SOFTWARE.
 #
 
+from .map import EnumMap
+from .bytes_ import Pack, Unpack
 
 HEADER_SIZE = 24
 
@@ -38,23 +40,11 @@ MIN_VER_EXTERNAL_ACCESS = 18  # ExternalAccess attributed added in v18
 MICRO800_PREFIX = '2080'  # catalog number prefix for Micro800 PLCs
 
 EXTENDED_SYMBOL = b'\x91'
-BOOL_ONE = 0xff
-REQUEST_SERVICE = 0
-REQUEST_PATH_SIZE = b'\x03'
-REQUEST_PATH = 2
+
 SUCCESS = 0
 INSUFFICIENT_PACKETS = 6
 OFFSET_MESSAGE_REQUEST = 40
-REPLY_START = 50
-FORWARD_CLOSE = b'\x4e'
-UNCONNECTED_SEND = b'\x52'
-FORWARD_OPEN = b'\x54'
-LARGE_FORWARD_OPEN = b'\x5b'
-GET_CONNECTION_DATA = b'\x56'
-SEARCH_CONNECTION_DATA = b'\x57'
-GET_CONNECTION_OWNER = b'\x5a'
-MR_SERVICE_SIZE = 2
-PADDING_BYTE = b'\x00'
+PAD = b'\x00'
 PRIORITY = b'\x0a'
 TIMEOUT_TICKS = b'\x05'
 TIMEOUT_MULTIPLIER = b'\x07'
@@ -62,7 +52,6 @@ TRANSPORT_CLASS = b'\xa3'
 BASE_TAG_BIT = 1 << 26
 
 SEC_TO_US = 1_000_000  # seconds to microseconds
-
 
 TEMPLATE_MEMBER_INFO_LEN = 8  # 2B bit/array len, 2B datatype, 4B offset
 STRUCTURE_READ_REPLY = b'\xa0\x02'
@@ -90,6 +79,8 @@ INSTANCE_TYPE = {
 ATTRIBUTE_TYPE = {
     "8-bit": b'\x30',
     "16-bit": b'\x31\x00',
+    1: b'\x30',
+    2: b'\x31\x00',
 }
 
 PATH_SEGMENTS = {
@@ -104,213 +95,168 @@ PATH_SEGMENTS = {
     'dh485-b': 0x03,
 }
 
-ENCAPSULATION_COMMAND = {  # Volume 2: 2-3.2 Command Field UINT 2 byte
-    "nop": b'\x00\x00',
-    "list_targets": b'\x01\x00',
-    "list_services": b'\x04\x00',
-    "list_identity": b'\x63\x00',
-    "list_interfaces": b'\x64\x00',
-    "register_session": b'\x65\x00',
-    "unregister_session": b'\x66\x00',
-    "send_rr_data": b'\x6F\x00',
-    "send_unit_data": b'\x70\x00'
+
+class ConnectionManagerService(EnumMap):
+    forward_close = b'\x4E'
+    unconnected_send = b'\x52'
+    forward_open = b'\x54'
+    get_connection_data = b'\x56'
+    search_connection_data = b'\x57'
+    get_connection_owner = b'\x5A'
+    large_forward_open = b'\x5B'
+
+
+class ConnectionManagerInstance(EnumMap):
+    open_request = b'\x01'
+    open_format_rejected = b'\x02'
+    open_resource_rejected = b'\x03'
+    open_other_rejected = b'\x04'
+    close_request = b'\x05'
+    close_format_request = b'\x06'
+    close_other_request = b'\x07'
+    connection_timeout = b'\x08'
+
+
+class CommonService(EnumMap):
+    get_attributes_all = b'\x01'
+    set_attributes_all = b'\x02'
+    get_attribute_list = b'\x03'
+    set_attribute_list = b'\x04'
+    reset = b'\x05'
+    start = b'\x06'
+    stop = b'\x07'
+    create = b'\x08'
+    delete = b'\x09'
+    multiple_service_request = b'\x0A'
+    apply_attributes = b'\x0D'
+    get_attribute_single = b'\x0E'
+    set_attribute_single = b'\x10'
+    find_next_object_instance = b'\x11'
+    error_response = b'\x14'
+    restore = b'\x15'
+    save = b'\x16'
+    nop = b'\x17'
+    get_member = b'\x18'
+    set_member = b'\x19'
+    insert_member = b'\x1A'
+    remove_member = b'\x1B'
+    group_sync = b'\x1C'
+
+
+class EncapsulationCommand(EnumMap):
+    nop = b'\x00\x00'
+    list_targets = b'\x01\x00'
+    list_services = b'\x04\x00'
+    list_identity = b'\x63\x00'
+    list_interfaces = b'\x64\x00'
+    register_session = b'\x65\x00'
+    unregister_session = b'\x66\x00'
+    send_rr_data = b'\x6F\x00'
+    send_unit_data = b'\x70\x00'
+
+
+class ClassCode(EnumMap):
+    identity_object = b'\x01'
+    message_router = b'\x02'
+    symbol_object = b'\x6b'
+    template_object = b'\x6c'
+    connection_manager = b'\x06'
+    program_name = b'\x64'  # Rockwell KB# 23341
+    wall_clock_time = b'\x8b'  # Micro800 CIP client messaging quick start
+    tcpip = b'\xf5'
+    ethernet_link = b'\xf6'
+    modbus_serial_link = b'\x46'
+
+
+MSG_ROUTER_PATH = b''.join([CLASS_TYPE['8-bit'], ClassCode.message_router, INSTANCE_TYPE['8-bit'], b'\x01'])
+
+
+class TagService(EnumMap):
+    read_tag = b'\x4C'
+    read_tag_fragmented = b'\x52'
+    write_tag = b'\x4D'
+    write_tag_fragmented = b'\x53'
+    read_modify_write = b'\x4E'
+    get_instance_attribute_list = b'\x55'
+
+    @classmethod
+    def from_reply(cls, reply_service):
+        return cls.get(Pack.usint(Unpack.usint(reply_service) - 128))
+
+
+MULTI_PACKET_SERVICES = {
+    TagService.read_tag_fragmented,
+    TagService.write_tag_fragmented,
+    TagService.get_instance_attribute_list,
+    CommonService.multiple_service_request,
+    CommonService.get_attribute_list,
 }
 
-"""
-When a tag is created, an instance of the Symbol Object (Class ID 0x6B) is created
-inside the controller.
 
-When a UDT is created, an instance of the Template object (Class ID 0x6C) is
-created to hold information about the structure makeup.
-"""
-CLASS_CODE = {
-    'Identity Object': b'\x01',
-    'Message Router': b'\x02',  # Volume 1: 5-1
-    'Symbol Object': b'\x6b',
-    'Template Object': b'\x6c',
-    'Connection Manager': b'\x06',  # Volume 1: 3-5
-    'Program Name': b'\x64',  # Rockwell KB# 23341
-    'Wall-Clock Time': b'\x8b',  # Micro800 CIP client messaging quick start
-    'TCP/IP': b'\xf5',
-    'Ethernet Link': b'\xf6',
-    'Modbus Serial Link': b'\x46',
-}
-
-CONNECTION_MANAGER_INSTANCE = {
-    'Open Request': b'\x01',
-    'Open Format Rejected': b'\x02',
-    'Open Resource Rejected': b'\x03',
-    'Open Other Rejected': b'\x04',
-    'Close Request': b'\x05',
-    'Close Format Request': b'\x06',
-    'Close Other Request': b'\x07',
-    'Connection Timeout': b'\x08'
-}
-
-IDENTITY_OBJECT_ATTRIBUTES = {
-    1: ('Vendor ID', 'UINT'),
-    2: ('Device Type', 'UINT'),
-    3: ('Product Code', 'UINT'),
-    4: ('Revision', 'STRUCT'),  # 2 USINT
-    5: ('Status', 'WORD'),
-    6: ('Serial Number', 'UDINT'),
-    7: ('Product Name', 'SHORT_STRING')
-}
-
-TAG_SERVICES_REQUEST = {
-    "Read Tag": 0x4c,
-    "Read Tag Fragmented": 0x52,
-    "Write Tag": 0x4d,
-    "Write Tag Fragmented": 0x53,
-    "Read Modify Write Tag": 0x4e,
-    "Multiple Service Packet": 0x0a,
-    "Get Instance Attributes List": 0x55,
-    "Get Attributes": 0x03,
-}
-
-_TAG_SERVICES_REPLY = {
-    0xcc: "Read Tag",
-    0xd2: "Read Tag Fragmented",
-    0xcd: "Write Tag",
-    0xd3: "Write Tag Fragmented",
-    0xce: "Read Modify Write Tag",
-    0x8a: "Multiple Service Packet",
-    0xd5: "Get Instance Attributes List",
-    0x83: "Get Attributes",
-}
-
-TAG_SERVICES_REPLY = {**_TAG_SERVICES_REPLY, **{v: k for k, v in _TAG_SERVICES_REPLY.items()}}
+class DataItem(EnumMap):
+    connected = b'\xb1\x00'
+    unconnected = b'\xb2\x00'
 
 
-MULTI_PACKET_SERVICES = (
-    TAG_SERVICES_REPLY['Multiple Service Packet'],
-    TAG_SERVICES_REPLY['Read Tag Fragmented'],
-    TAG_SERVICES_REPLY['Write Tag Fragmented'],
-    TAG_SERVICES_REPLY['Get Instance Attributes List'],
-    TAG_SERVICES_REPLY['Get Attributes']
-)
+class AddressItem(EnumMap):
+    connection = b'\xa1\x00'
+    null = b'\x00\x00'
+    uccm = b'\x00\x00'
 
-DATA_ITEM = {
-    'Connected': b'\xb1\x00',
-    'Unconnected': b'\xb2\x00'
-}
 
-ADDRESS_ITEM = {
-    'Connection Based': b'\xa1\x00',
-    'Null': b'\x00\x00',
-    'UCMM': b'\x00\x00'
-}
+class DataTypeSize(EnumMap):
 
-UCMM = {
-    'Interface Handle': 0,
-    'Item Count': 2,
-    'Address Type ID': 0,
-    'Address Length': 0,
-    'Data Type ID': 0x00b2
-}
+    bool = 1
+    sint = 1
+    usint = 1
+    byte = 1
+    int = 2
+    uint = 2
+    word = 2
+    dint = 4
+    udint = 4
+    real = 4
+    dword = 4
+    lint = 8
+    ulint = 8
+    lword = 8
 
-CONNECTION_SIZE = {
-    'Backplane': b'\x03',  # CLX
-    'Direct Network': b'\x02'
-}
+    short_string = 84
 
-CONNECTION_PARAMETER = {
-    'PLC5': 0x4302,
-    'SLC500': 0x4302,
-    'CNET': 0x4320,
-    'DHP': 0x4302,
-    'Default': 0x43f8,
-}
 
-"""
-Atomic Data Type:
+class DataType(EnumMap):
+    _return_caps_only_ = True  # datatype strings always in CAPS
 
-          Bit = BOOL
-     Bit array = DWORD (32-bit boolean array)
- 8-bit integer = SINT
-16-bit integer = UINT
-32-bit integer = DINT
-  32-bit float = REAL
-64-bit integer = LINT
-
-From Rockwell Automation Publication 1756-PM020C-EN-P November 2012:
-When reading a BOOL tag, the values returned for 0 and 1 are 0 and 0xff, respectively.
-"""
-
-DATA_TYPE_SIZE = {
-    'BOOL': 1,
-    'SINT': 1,
-    'INT': 2,
-    'DINT': 4,
-    'REAL': 4,
-    'DWORD': 4,
-    'LINT': 8,
-    'SHORT_STRING': 84,
-}
-
-BITS_PER_INT_TYPE = {
-    'SINT': 8,  # Signed 8-bit integer
-    'INT': 16,  # Signed 16-bit integer
-    'DINT': 32,  # Signed 32-bit integer
-    'LINT': 64,  # Signed 64-bit integer
-    'USINT': 8,  # Unsigned 8-bit integer
-    'UINT': 16,  # Unsigned 16-bit integer
-    'UDINT': 32,  # Unsigned 32-bit integer
-    'ULINT': 64,  # Unsigned 64-bit integer
-    'WORD': 16,  # byte string 16-bits
-    'DWORD': 32,  # byte string 32-bits
-    'LWORD': 64,  # byte string 64-bits
-}
-
-_DATA_TYPES = {
-    'BOOL': 0xc1,
-    'SINT': 0xc2,  # Signed 8-bit integer
-    'INT': 0xc3,  # Signed 16-bit integer
-    'DINT': 0xc4,  # Signed 32-bit integer
-    'LINT': 0xc5,  # Signed 64-bit integer
-    'USINT': 0xc6,  # Unsigned 8-bit integer
-    'UINT': 0xc7,  # Unsigned 16-bit integer
-    'UDINT': 0xc8,  # Unsigned 32-bit integer
-    'ULINT': 0xc9,  # Unsigned 64-bit integer
-    'REAL': 0xca,  # 32-bit floating point
-    'LREAL': 0xcb,  # 64-bit floating point
-    'STIME': 0xcc,  # Synchronous time
-    'DATE': 0xcd,
-    'TIME_OF_DAY': 0xce,
-    'DATE_AND_TIME': 0xcf,
-    'STRING': 0xd0,  # character string (1 byte per character)
-    'BYTE': 0xd1,  # byte string 8-bits
-    'WORD': 0xd2,  # byte string 16-bits
-    'DWORD': 0xd3,  # byte string 32-bits
-    'LWORD': 0xd4,  # byte string 64-bits
-    'STRING2': 0xd5,  # character string (2 byte per character)
-    'FTIME': 0xd6,  # Duration high resolution
-    'LTIME': 0xd7,  # Duration long
-    'ITIME': 0xd8,  # Duration short
-    'STRINGN': 0xd9,  # character string (n byte per character)
-    'SHORT_STRING': 0xda,  # character string (1 byte per character, 1 byte length indicator)
-    'TIME': 0xdb,  # Duration in milliseconds
-    'EPATH': 0xdc,  # CIP Path segment
-    'ENGUNIT': 0xdd,  # Engineering Units
-    'STRINGI': 0xde  # International character string
-}
-
-DATA_TYPE = {**_DATA_TYPES, **{v: k for k, v in _DATA_TYPES.items()}}
-
-REPLY_INFO = {
-    0x4e: 'FORWARD_CLOSE (4E,00)',
-    0x52: 'UNCONNECTED_SEND (52,00)',
-    0x54: 'FORWARD_OPEN (54,00)',
-    0x6f: 'send_rr_data (6F,00)',
-    0x70: 'send_unit_data (70,00)',
-    0x00: 'nop',
-    0x01: 'list_targets',
-    0x04: 'list_services',
-    0x63: 'list_identity',
-    0x64: 'list_interfaces',
-    0x65: 'register_session',
-    0x66: 'unregister_session',
-}
+    bool = 0xc1
+    sint = 0xc2  # signed 8-bit integer
+    int = 0xc3  # signed 16-bit integer
+    dint = 0xc4  # signed 32-bit integer
+    lint = 0xc5  # signed 64-bit integer
+    usint = 0xc6  # unsigned 8-bit integer
+    uint = 0xc7  # unsigned 16-bit integer
+    udint = 0xc8  # unsigned 32-bit integer
+    ulint = 0xc9  # unsigned 64-bit integer
+    real = 0xca  # 32-bit floating point
+    lreal = 0xcb  # 64-bit floating point
+    stime = 0xcc  # synchronous time
+    date = 0xcd
+    time_of_day = 0xce
+    date_and_time = 0xcf
+    string = 0xd0  # character string (1 byte per character)
+    byte = 0xd1  # byte string 8-bits
+    word = 0xd2  # byte string 16-bits
+    dword = 0xd3  # byte string 32-bits
+    lword = 0xd4  # byte string 64-bits
+    string2 = 0xd5  # character string (2 byte per character)
+    ftime = 0xd6  # duration high resolution
+    ltime = 0xd7  # duration long
+    itime = 0xd8  # duration short
+    stringn = 0xd9  # character string (n byte per character)
+    short_string = 0xda  # character string (1 byte per character 1 byte length indicator)
+    time = 0xdb  # duration in milliseconds
+    epath = 0xdc  # cip path segment
+    engunit = 0xdd  # engineering units
+    stringi = 0xde  # international character string
 
 
 EXTERNAL_ACCESS = {
