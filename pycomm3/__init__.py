@@ -24,7 +24,7 @@
 # SOFTWARE.
 #
 
-__version_info__ = (0, 8, 0, 'dev1')
+__version_info__ = (0, 8, 0)
 __version__ = '.'.join(f'{x}' for x in __version_info__)
 
 from typing import NamedTuple, Any, Optional
