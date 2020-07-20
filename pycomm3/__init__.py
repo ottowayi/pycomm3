@@ -25,7 +25,6 @@
 #
 
 
-
 from typing import NamedTuple, Any, Optional
 import logging
 from reprlib import repr as _r
@@ -66,6 +65,7 @@ class Tag(NamedTuple):
         return f"{self.__class__.__name__}(tag={self.tag!r}, value={self.value!r}, type={self.type!r}, error={self.error!r})"
 
 
+from .cip_base import CIPDriver
 from .clx import LogixDriver
 from .const import CommonService, ClassCode, TagService, DataType, ConnectionManagerInstance, ConnectionManagerService
 from .bytes_ import Pack, Unpack

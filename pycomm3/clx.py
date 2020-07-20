@@ -26,11 +26,7 @@
 
 import datetime
 import itertools
-import logging
-import socket
 import time
-from functools import wraps
-from os import urandom
 from typing import Union, List, Tuple, Optional
 
 from autologging import logged
@@ -38,49 +34,20 @@ from autologging import logged
 from . import DataError, CommError
 from . import Tag, RequestError
 from .bytes_ import Pack, Unpack
-from .const import (TagService, EXTENDED_SYMBOL, PATH_SEGMENTS, CLASS_TYPE,
-                    INSTANCE_TYPE, ConnectionManagerInstance, PRIORITY, ClassCode, DataType,
-                    TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES,
-                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD, MSG_ROUTER_PATH,
-                    ConnectionManagerService, CommonService, SUCCESS, INSUFFICIENT_PACKETS, BASE_TAG_BIT,
-                    MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH, TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS,
-                    DataTypeSize, MIN_VER_EXTERNAL_ACCESS)
-from .packets import REQUEST_MAP, RequestPacket, DataFormatType, request_path
-from .socket_ import Socket
+from .cip_base import CIPDriver, with_forward_open
+from .const import (TagService, EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES, VENDORS,
+                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD, CommonService, SUCCESS,
+                    INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH,
+                    TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DataTypeSize, MIN_VER_EXTERNAL_ACCESS)
+from .packets import request_path
 
 AtomicType = Union[int, float, bool, str]
 TagType = Union[AtomicType, List[AtomicType]]
 ReturnType = Union[Tag, List[Tag]]
 
-# re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
-
-
-def with_forward_open(func):
-    """Decorator to ensure a forward open request has been completed with the plc"""
-
-    @wraps(func)
-    def wrapped(self, *args, **kwargs):
-        opened = False
-        if not self._forward_open():
-            if self.attribs['extended forward open']:
-                logger = logging.getLogger('pycomm3.clx.LogixDriver')
-                logger.info('Extended Forward Open failed, attempting standard Forward Open.')
-                self.attribs['extended forward open'] = False
-                if self._forward_open():
-                    opened = True
-        else:
-            opened = True
-
-        if not opened:
-            msg = f'Target did not connected. {func.__name__} will not be executed.'
-            raise DataError(msg)
-        return func(self, *args, **kwargs)
-
-    return wrapped
-
 
 @logged
-class LogixDriver:
+class LogixDriver(CIPDriver):
     """
     An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
     """
@@ -132,31 +99,7 @@ class LogixDriver:
 
         """
 
-        self._sequence_number = 1
-        self._sock = None
-        self._session = 0
-        self._connection_opened = False
-        self._target_cid = None
-        self._target_is_connected = False
-        self._info = {}
-        ip, _path = _parse_connection_path(path)
-
-        self.attribs = {
-            'context': b'_pycomm_',
-            'protocol version': b'\x01\x00',
-            'rpi': 5000,
-            'port': 0xAF12,  # 44818
-            'timeout': 10,
-            'ip address': ip,
-            # is cip_path the right term?  or request_path? or something else?
-            'cip_path': _path[1:],  # leave out the len, we sometimes add to the path later
-            'option': 0,
-            'cid': b'\x27\x04\x19\x71',
-            'csn': b'\x27\x04',
-            'vid': b'\x09\x10',
-            'vsn': b'\x09\x10\x19\x71',
-            'name': 'LogixDriver',
-            'extended forward open': large_packets}
+        super().__init__(path, *args, large_packets=large_packets, **kwargs)
         self._cache = None
         self._data_types = {}
         self._tags = {}
@@ -169,12 +112,14 @@ class LogixDriver:
         if init_info:
             self._micro800 = self._list_identity().startswith(MICRO800_PREFIX)
             self.get_plc_info()
-            if self._micro800:  # strip off backplane/0 from path, not used for these processors
-                _path = Pack.epath(self.attribs['cip_path'][:-2])
-                self.attribs['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
+
             self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
             if not self._micro800:
                 self.get_plc_name()
+
+        if self._micro800:  # strip off backplane/0 from path, not used for these processors
+            _path = Pack.epath(self.attribs['cip_path'][:-2])
+            self.attribs['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
 
         if init_tags:
             self.get_tag_list(program='*' if init_program_tags else None)
@@ -256,265 +201,6 @@ class LogixDriver:
         :return: name of PLC program
         """
         return self._info.get('name')
-
-    @property
-    def connection_size(self):
-        """CIP connection size, ``4000`` if using Extended Forward Open else ``500``"""
-        return 4000 if self.attribs['extended forward open'] else 500
-
-    def new_request(self, command: str, *args, **kwargs) -> RequestPacket:
-        """
-        Creates a new request packet for the given command.
-        If the command is invalid, a base :class:`RequestPacket` is created.
-
-        Commands:
-            - `send_unit_data`
-            - `send_rr_data`
-            - `register_session`
-            - `unregister_session`
-            - `list_identity`
-            - `multi_request`
-            - `read_tag`
-            - `read_tag_fragmented`
-            - `write_tag`
-            - `write_tag_fragmented`
-            - `generic_connected`
-            - `generic_unconnected`
-
-        :param command: the service for which a request will be created
-        :return: a new request for the command
-        """
-        cls = REQUEST_MAP[command]
-        return cls(self, *args, **kwargs)
-
-    @property
-    def _sequence(self) -> int:
-        """
-        Increment and return the sequence id used with connected messages
-
-        :return: The next sequence number
-        """
-        self._sequence_number += 1
-
-        if self._sequence_number >= 65535:
-            self._sequence_number = 1
-
-        return self._sequence_number
-
-    @classmethod
-    def list_identity(cls, path) -> Optional[str]:
-        """
-        Uses the ListIdentity service to identify the target
-
-        :return: device identity if reply contains valid response else None
-        """
-        plc = cls(path, init_tags=False, init_info=False)
-        plc.open()
-        identity = plc._list_identity()
-        plc.close()
-        return identity
-
-    def _list_identity(self):
-        request = self.new_request('list_identity')
-        response = request.send()
-        return response.identity
-
-    def get_module_info(self, slot):
-        try:
-            response = self.generic_message(
-                service=CommonService.get_attributes_all,
-                class_code=ClassCode.identity_object, instance=b'\x01',
-                connected=False, unconnected_send=True,
-                route_path=PATH_SEGMENTS['bp'] + Pack.sint(slot)
-            )
-
-            if response:
-                return _parse_identity_object(response.value)
-            else:
-                raise DataError(f'send_rr_data did not return valid data - {response.error}')
-
-        except Exception as err:
-            raise DataError('error sending request') from err
-
-    def open(self):
-        """
-        Creates a new Ethernet/IP socket connection to target device and registers a CIP session.
-
-        :return: True if successful, False otherwise
-        """
-        # handle the socket layer
-        if self._connection_opened:
-            return
-        try:
-            if self._sock is None:
-                self._sock = Socket()
-            self._sock.connect(self.attribs['ip address'], self.attribs['port'])
-            self._connection_opened = True
-            self.attribs['cid'] = urandom(4)
-            self.attribs['vsn'] = urandom(4)
-            if self._register_session() is None:
-                self.__log.warning("Session not registered")
-                return False
-            return True
-        except Exception as e:
-            raise CommError(e)
-
-    def _register_session(self) -> Optional[int]:
-        """
-        Registers a new CIP session with the target.
-
-        :return: the session id if session registered successfully, else None
-        """
-        if self._session:
-            return self._session
-
-        self._session = 0
-        request = self.new_request('register_session')
-        request.add(
-            self.attribs['protocol version'],
-            b'\x00\x00'
-        )
-
-        response = request.send()
-        if response:
-            self._session = response.session
-            self.__log.debug(f"Session = {response.session} has been registered.")
-            return self._session
-
-        self.__log.warning('Session has not been registered.')
-        return None
-
-    def _forward_open(self):
-        """
-        Opens a new connection with the target PLC using the *Forward Open* or *Extended Forward Open* service.
-
-        :return: True if connection is open or was successfully opened, False otherwise
-        """
-
-        if self._target_is_connected:
-            return True
-
-        if self._session == 0:
-            raise CommError("A Session Not Registered Before forward_open.")
-
-        init_net_params = 0b_0100_0010_0000_0000  # CIP Vol 1 - 3-5.5.1.1
-
-        if self.attribs['extended forward open']:
-            net_params = Pack.udint((self.connection_size & 0xFFFF) | init_net_params << 16)
-        else:
-            net_params = Pack.uint((self.connection_size & 0x01FF) | init_net_params)
-
-        route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH)
-        service = ConnectionManagerService.forward_open if not self.attribs['extended forward open'] else ConnectionManagerService.large_forward_open
-
-        forward_open_msg = [
-            PRIORITY,
-            TIMEOUT_TICKS,
-            b'\x00\x00\x00\x00',
-            self.attribs['cid'],
-            self.attribs['csn'],
-            self.attribs['vid'],
-            self.attribs['vsn'],
-            TIMEOUT_MULTIPLIER,
-            b'\x00\x00\x00',
-            b'\x01\x40\x20\x00',
-            net_params,
-            b'\x01\x40\x20\x00',
-            net_params,
-            TRANSPORT_CLASS,
-        ]
-
-        response = self.generic_message(
-            service=service,
-            class_code=ClassCode.connection_manager,
-            instance=ConnectionManagerInstance.open_request,
-            request_data=b''.join(forward_open_msg),
-            route_path=route_path,
-            connected=False,
-            name='__FORWARD_OPEN__'
-        )
-
-        if response:
-            self._target_cid = response.value[:4]
-            self._target_is_connected = True
-            return True
-        self.__log.warning(f"forward_open failed - {response.error}")
-        return False
-
-    def close(self):
-        """
-        Closes the current connection and un-registers the session.
-        """
-        errs = []
-        try:
-            if self._target_is_connected:
-                self._forward_close()
-            if self._session != 0:
-                self._un_register_session()
-        except Exception as err:
-            errs.append(err)
-            self.__log.warning(f"Error on close() -> session Err: {err}")
-
-        try:
-            if self._sock:
-                self._sock.close()
-        except Exception as err:
-            errs.append(err)
-            self.__log.warning(f"close() -> _sock.close Err: {err}")
-
-        self._sock = None
-        self._target_is_connected = False
-        self._session = 0
-        self._connection_opened = False
-
-        if errs:
-            raise CommError(' - '.join(str(e) for e in errs))
-
-    def _un_register_session(self):
-        """
-        Un-registers the current session with the target.
-        """
-        request = self.new_request('unregister_session')
-        request.send()
-        self._session = None
-
-    def _forward_close(self):
-        """ CIP implementation of the forward close message
-
-        Each connection opened with the forward open message need to be closed.
-        Refer to ODVA documentation Volume 1 3-5.5.3
-
-        :return: False if any error in the replayed message
-        """
-
-        if self._session == 0:
-            raise CommError("A session need to be registered before to call forward_close.")
-
-        route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH, pad_len=True)
-
-        forward_close_msg = [
-            PRIORITY,
-            TIMEOUT_TICKS,
-            self.attribs['csn'],
-            self.attribs['vid'],
-            self.attribs['vsn'],
-        ]
-
-        response = self.generic_message(
-            service=ConnectionManagerService.forward_close,
-            class_code=ClassCode.connection_manager,
-            instance=ConnectionManagerInstance.open_request,
-            connected=False,
-            route_path=route_path,
-            request_data=b''.join(forward_close_msg),
-            name='__FORWARD_CLOSE__'
-        )
-        if response:
-            self._target_is_connected = False
-            return True
-
-        self.__log.warning(f"forward_close failed - {response.error}")
-        return False
 
     @with_forward_open
     def get_plc_name(self) -> str:
@@ -1351,66 +1037,6 @@ class LogixDriver:
             request_data=request_data, name='__SET_PLC_TIME__'
         )
 
-    def generic_message(self,
-                        service: bytes,
-                        class_code: bytes,
-                        instance: bytes,
-                        attribute: Optional[bytes] = b'',
-                        request_data: Optional[bytes] = b'',
-                        data_format: Optional[DataFormatType] = None,
-                        name: str = 'generic',
-                        connected: bool = True,
-                        unconnected_send: bool = False,
-                        route_path: Union[bool, bytes] = True) -> Tag:
-        """
-        Perform a generic CIP message.  Similar to how MSG instructions work in Logix.
-
-        :param service: service code for the request (single byte)
-        :param class_code: request object class ID
-        :param instance: instance ID of the class
-        :param attribute: (optional) attribute ID for the service/class/instance
-        :param request_data: (optional) any additional data required for the request
-        :param data_format: (reads only) If provided, a read response will automatically be unpacked into the attributes
-                            defined, must be a sequence of tuples, (attribute name, data_type).
-                            If name is ``None`` or an empty string, it will be ignored. If data-type is an ``int`` it will
-                            not be unpacked, but left as ``bytes``.  Data will be returned as a ``dict``.
-                            If ``None``, response data will be returned as just ``bytes``.
-        :param name:  return ``Tag.tag`` value, arbitrary but can be used for tracking returned Tags
-        :param connected: ``True`` if service required a CIP connection (forward open), ``False`` to use UCMM
-        :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service
-        :param route_path: (Unconnected Only) ``True`` to use current connection route to destination, ``False`` to ignore,
-                           Or provide a packed EPATH (``bytes``) route to use.
-        :return: a Tag with the result of the request. (Tag.value for writes will be the request_data)
-        """
-
-        if connected:
-            with_forward_open(lambda _: None)(self)
-
-        _kwargs = {
-            'service': service,
-            'class_code': class_code,
-            'instance': instance,
-            'attribute': attribute,
-            'request_data': request_data,
-            'data_format': data_format,
-        }
-
-        if not connected:
-            if route_path is True:
-                _kwargs['route_path'] = Pack.epath(self.attribs['cip_path'], pad_len=True)
-            elif route_path:
-                _kwargs['route_path'] = route_path
-
-            _kwargs['unconnected_send'] = unconnected_send
-
-        request = self.new_request('generic_connected' if connected else 'generic_unconnected')
-
-        request.build(**_kwargs)
-
-        response = request.send()
-
-        return Tag(name, response.value, None, error=response.error)
-
 
 def _parse_plc_name(data):
     try:
@@ -1429,34 +1055,6 @@ def _parse_plc_info(data):
     parsed['keyswitch'] = KEYSWITCH.get(data['_keyswitch'][0], {}).get(data['_keyswitch'][1], 'UNKNOWN')
 
     return parsed
-
-
-def _parse_identity_object(reply):
-    vendor = Unpack.uint(reply[:2])
-    product_type = Unpack.uint(reply[2:4])
-    product_code = Unpack.uint(reply[4:6])
-    major_fw = int(reply[6])
-    minor_fw = int(reply[7])
-    status = f'{Unpack.uint(reply[8:10]):0{16}b}'
-    serial_number = f'{Unpack.udint(reply[10:14]):0{8}x}'
-    product_name_len = int(reply[14])
-    tmp = 15 + product_name_len
-    device_type = reply[15:tmp].decode()
-
-    state = Unpack.uint(reply[tmp:tmp + 4]) if reply[tmp:] else -1  # some modules don't return a state
-
-    return {
-        'vendor': VENDORS.get(vendor, 'UNKNOWN'),
-        'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
-        'product_code': product_code,
-        'version_major': major_fw,
-        'version_minor': minor_fw,
-        'revision': f'{major_fw}.{minor_fw}',
-        'serial': serial_number,
-        'device_type': device_type,
-        'status': status,
-        'state': STATES.get(state, 'UNKNOWN'),
-    }
 
 
 def _parse_structure_makeup_attributes(response):
@@ -1652,52 +1250,6 @@ def _bit_request(tag_data, bit_requests):
         bits_['and_mask'] &= ~(1 << bit)
 
     return True
-
-
-def _parse_connection_path(path):
-    ip, *segments = path.split('/')
-    try:
-        socket.inet_aton(ip)
-    except OSError:
-        raise ValueError('Invalid IP Address', ip)
-    segments = [_parse_cip_path_segment(s) for s in segments]
-
-    if not segments:
-        _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']  # [] if micro800 else
-    elif len(segments) == 1:
-        _path = [Pack.usint(PATH_SEGMENTS['backplane']), Pack.usint(segments[0])]
-    else:
-        pairs = (segments[i:i + 2] for i in range(0, len(segments), 2))
-        _path = []
-        for port, dest in pairs:
-            if isinstance(dest, bytes):
-                port |= 1 << 4  # set Extended Link Address bit, CIP Vol 1 C-1.3
-                dest_len = len(dest)
-                if dest_len % 2:
-                    dest += b'\x00'
-                _path.extend([Pack.usint(port), Pack.usint(dest_len), dest])
-            else:
-                _path.extend([Pack.usint(port), Pack.usint(dest)])
-
-    return ip, Pack.epath(b''.join(_path))
-
-
-def _parse_cip_path_segment(segment: str):
-    try:
-        if segment.isnumeric():
-            return int(segment)
-        else:
-            tmp = PATH_SEGMENTS.get(segment.lower())
-            if tmp:
-                return tmp
-            else:
-                try:
-                    socket.inet_aton(segment)
-                    return b''.join(Pack.usint(ord(c)) for c in segment)
-                except OSError:
-                    raise ValueError('Invalid IP Address Segment', segment)
-    except Exception:
-        raise ValueError(f'Failed to parse path segment', segment)
 
 
 def _create_tag(name, raw_tag):
