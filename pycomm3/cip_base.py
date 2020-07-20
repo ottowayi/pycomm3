@@ -278,7 +278,7 @@ class CIPDriver:
         response = request.send()
         if response:
             self._session = response.session
-            self.__log.debug(f"Session = {response.session} has been registered.")
+            self.__log.info(f"Session = {response.session} has been registered.")
             return self._session
 
         self.__log.warning('Session has not been registered.')
@@ -305,7 +305,9 @@ class CIPDriver:
             net_params = Pack.uint((self.connection_size & 0x01FF) | init_net_params)
 
         route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH)
-        service = ConnectionManagerService.forward_open if not self.attribs['extended forward open'] else ConnectionManagerService.large_forward_open
+        service = (ConnectionManagerService.forward_open
+                   if not self.attribs['extended forward open']
+                   else ConnectionManagerService.large_forward_open)
 
         forward_open_msg = [
             PRIORITY,
@@ -337,6 +339,7 @@ class CIPDriver:
         if response:
             self._target_cid = response.value[:4]
             self._target_is_connected = True
+            self.__log.info(f"{'Extended ' if self.attribs['extended forward open'] else ''}Forward Open succeeded. Target CID={self._target_cid}")
             return True
         self.__log.warning(f"forward_open failed - {response.error}")
         return False
@@ -377,6 +380,7 @@ class CIPDriver:
         request = self.new_request('unregister_session')
         request.send()
         self._session = None
+        self.__log.info('Session Unregistered')
 
     def _forward_close(self):
         """ CIP implementation of the forward close message
@@ -411,6 +415,7 @@ class CIPDriver:
         )
         if response:
             self._target_is_connected = False
+            self.__log.info('Forward Close succeeded.')
             return True
 
         self.__log.warning(f"forward_close failed - {response.error}")
