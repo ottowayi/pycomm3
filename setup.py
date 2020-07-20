@@ -1,6 +1,9 @@
 from setuptools import setup
-from pycomm3 import __version__
 import os
+
+__version__ = '0.0.0'
+with open('pycomm3/_version.py') as f:
+    exec(f.read())
 
 
 def read(file_name):
