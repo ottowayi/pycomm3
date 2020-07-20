@@ -342,7 +342,7 @@ class RegisterSessionResponsePacket(ResponsePacket):
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.session = Unpack.dint(self.raw[4:8])
+            self.session = Unpack.udint(self.raw[4:8])
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
 
