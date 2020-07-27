@@ -110,7 +110,8 @@ class LogixDriver(CIPDriver):
             self.open()
 
         if init_info:
-            self._micro800 = self._list_identity().startswith(MICRO800_PREFIX)
+            target_identity = self._list_identity()
+            self._micro800 = target_identity.get('product_name', '').startswith(MICRO800_PREFIX)
             self.get_plc_info()
 
             self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800

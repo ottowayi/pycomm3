@@ -89,8 +89,8 @@ class RequestPacket(Packet):
                 Pack.udint(self._plc.attribs['option']),  # Option UDINT
             ])
 
-        except Exception as e:
-            raise CommError(e)
+        except Exception as err:
+            raise CommError('Failed to build request header') from err
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
         addr_data = b'\x00\x00' if addr_data is None else Pack.uint(len(addr_data)) + addr_data
