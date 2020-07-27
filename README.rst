@@ -13,6 +13,10 @@ pycomm3
    :target: https://pypi.python.org/pypi/pycomm3
    :alt: Python Versions
 
+.. image:: https://readthedocs.org/projects/pycomm3/badge/?version=latest&style=for-the-badge
+   :target: https://pycomm3.readthedocs.io/en/latest/
+   :alt: Read the Docs
+
 
 ``pycomm3`` is a Python 3 fork of `pycomm`_, which is a native python library for communicating
 with PLCs using Ethernet/IP.  The initial Python 3 translation was done in this fork_, this library

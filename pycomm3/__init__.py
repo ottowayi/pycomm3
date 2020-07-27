@@ -65,6 +65,7 @@ class Tag(NamedTuple):
         return f"{self.__class__.__name__}(tag={self.tag!r}, value={self.value!r}, type={self.type!r}, error={self.error!r})"
 
 
+from ._version import __version__, __version_info__
 from .cip_base import CIPDriver
 from .clx import LogixDriver
 from .const import CommonService, ClassCode, TagService, DataType, ConnectionManagerInstance, ConnectionManagerService
