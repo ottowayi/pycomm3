@@ -21,8 +21,7 @@ setup(
     license="MIT",
     packages=['pycomm3', 'pycomm3.packets'],
     python_requires='>=3.6.1',
-    install_requires=['autologging',
-                      'pywin32;platform_system=="Windows"'],
+    install_requires=['autologging', ],
     include_package_data=True,
     classifiers=[
         'Development Status :: 4 - Beta',
