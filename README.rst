@@ -21,7 +21,7 @@ Ethernet/IP communications with Allen-Bradley Control/Compact Logix and Micro800
 PLCs, but they have not been ported yet.  The module still exists in the package, but is broken and will raise a NotImplementedError
 on import.  `pylogix`_ is another library with similar features (including Python 2 support), thank you to them for their hard
 work as well.  Referencing `pylogix`_ code was a big help in implementing some features missing from `pycomm`_.
-This library is only supported on Python 3.6 and up.
+This library is only supported on Python 3.6.1 and up.
 
 .. _pycomm: https://github.com/ruscito/pycomm
 

@@ -1,6 +1,9 @@
 from setuptools import setup
-from pycomm3 import __version__
 import os
+
+__version__ = '0.0.0'
+with open('pycomm3/_version.py') as f:
+    exec(f.read())
 
 
 def read(file_name):
@@ -17,9 +20,8 @@ setup(
     long_description=read('README.rst'),
     license="MIT",
     packages=['pycomm3', 'pycomm3.packets'],
-    python_requires='>=3.6',
-    install_requires=['autologging',
-                      'pywin32;platform_system=="Windows"'],
+    python_requires='>=3.6.1',
+    install_requires=['autologging', ],
     include_package_data=True,
     classifiers=[
         'Development Status :: 4 - Beta',

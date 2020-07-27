@@ -342,7 +342,7 @@ class RegisterSessionResponsePacket(ResponsePacket):
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.session = Unpack.dint(self.raw[4:8])
+            self.session = Unpack.udint(self.raw[4:8])
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
 
@@ -371,16 +371,32 @@ class UnRegisterSessionResponsePacket(ResponsePacket):
 
 @logged
 class ListIdentityResponsePacket(ResponsePacket):
+    _data_format = (
+        ('item_type_code', 'UINT'),
+        ('item_length', 'UINT'),
+        ('encap_protocol_version', 'UINT'),
+        ('_socket_address_struct', 16),
+        ('vendor_id', 'UINT'),
+        ('product_code', 'UINT'),
+        ('revision_major', 'USINT'),
+        ('revision_minor', 'USINT'),
+        ('status', 'WORD'),
+        ('serial_number', 'UDINT'),
+        ('product_name', 'SHORT_STRING'),
+        ('state', 'USINT')
+    )
 
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
-        self.identity = None
+        self.identity = {}
         super().__init__(raw_data)
 
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.identity = self.raw[63:-1].decode()
+            self.data = self.raw[28:]
+            self.identity = _parse_data(self.data, self._data_format)
         except Exception as err:
+            self.__log.exception('Failed to parse response')
             self._error = f'Failed to parse reply - {err}'
 
     def is_valid(self):
