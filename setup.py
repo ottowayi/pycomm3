@@ -20,7 +20,7 @@ setup(
     long_description=read('README.rst'),
     license="MIT",
     packages=['pycomm3', 'pycomm3.packets'],
-    python_requires='>=3.6',
+    python_requires='>=3.6.1',
     install_requires=['autologging',
                       'pywin32;platform_system=="Windows"'],
     include_package_data=True,
