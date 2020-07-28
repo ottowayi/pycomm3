@@ -33,7 +33,7 @@ from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceRespons
                MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, WriteTagServiceResponsePacket,
                WriteTagFragmentedServiceResponsePacket, GenericUnconnectedResponsePacket,
                GenericConnectedResponsePacket)
-from .. import CommError, RequestError
+from ..exceptions import CommError, RequestError
 from ..bytes_ import Pack, print_bytes_msg
 from ..const import (EncapsulationCommand, INSUFFICIENT_PACKETS, DataItem, AddressItem, EXTENDED_SYMBOL, ELEMENT_TYPE,
                      TagService, CLASS_TYPE, INSTANCE_TYPE, DataType, DataTypeSize, ConnectionManagerService,
@@ -114,8 +114,8 @@ class RequestPacket(Packet):
             if self.VERBOSE_DEBUG:
                 self.__log.debug(print_bytes_msg(message, '>>> SEND >>>'))
             self._plc._sock.send(message)
-        except Exception as e:
-            raise CommError(e)
+        except Exception as err:
+            raise CommError('failed to send message') from err
 
     def _receive(self):
         """
@@ -124,8 +124,8 @@ class RequestPacket(Packet):
         """
         try:
             reply = self._plc._sock.receive()
-        except Exception as e:
-            raise CommError(e)
+        except Exception as err:
+            raise CommError('failed to receive reply') from err
         else:
             if self.VERBOSE_DEBUG:
                 self.__log.debug(print_bytes_msg(reply, '<<< RECEIVE <<<'))

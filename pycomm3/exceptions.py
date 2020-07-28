@@ -25,15 +25,17 @@
 #
 
 
-import logging
-logger = logging.getLogger('pycomm3')
-logger.addHandler(logging.NullHandler())
+class PycommError(Exception):
+    ...
 
 
-from ._version import __version__, __version_info__
-from .cip_base import CIPDriver
-from .clx import LogixDriver
-from .const import CommonService, ClassCode, TagService, DataType, ConnectionManagerInstance, ConnectionManagerService
-from .bytes_ import Pack, Unpack
-from .tag import Tag
-from .exceptions import PycommError, CommError, DataError, RequestError
+class CommError(PycommError):
+    ...
+
+
+class DataError(PycommError):
+    ...
+
+
+class RequestError(PycommError):
+    ...

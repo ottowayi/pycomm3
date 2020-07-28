@@ -26,9 +26,10 @@
 
 import logging
 import socket
-from . import CommError
-from .const import HEADER_SIZE
 import struct
+
+from .exceptions import CommError
+from .const import HEADER_SIZE
 
 
 class Socket:
@@ -70,7 +71,7 @@ class Socket:
 
             return data
         except socket.error as err:
-            raise CommError(err)
+            raise CommError('socket connection broken') from err
 
     def close(self):
         self.sock.close()

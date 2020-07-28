@@ -26,12 +26,12 @@
 
 import datetime
 import itertools
+import logging
 import time
 from typing import Union, List, Tuple, Optional
 
-
-from . import DataError, CommError
-from . import Tag, RequestError
+from .exceptions import DataError, CommError, RequestError
+from .tag import Tag
 from .bytes_ import Pack, Unpack
 from .cip_base import CIPDriver, with_forward_open
 from .const import (TagService, EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES, VENDORS,

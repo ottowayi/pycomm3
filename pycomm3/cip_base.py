@@ -28,11 +28,10 @@ import logging
 import socket
 from functools import wraps
 from os import urandom
-from typing import Union, List, Optional
+from typing import Union, Optional
 
-
-from . import DataError, CommError
-from . import Tag
+from .exceptions import DataError, CommError
+from .tag import Tag
 from .bytes_ import Pack, Unpack
 from .const import (PATH_SEGMENTS, ConnectionManagerInstance, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
                     TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
