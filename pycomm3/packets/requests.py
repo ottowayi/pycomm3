@@ -24,9 +24,8 @@
 # SOFTWARE.
 #
 
+import logging
 from reprlib import repr as _r
-
-from autologging import logged
 
 from . import Packet, DataFormatType
 from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceResponsePacket, RegisterSessionResponsePacket,
@@ -41,8 +40,8 @@ from ..const import (EncapsulationCommand, INSUFFICIENT_PACKETS, DataItem, Addre
                      ClassCode, CommonService, STRUCTURE_READ_REPLY, PRIORITY, TIMEOUT_TICKS, ATTRIBUTE_TYPE)
 
 
-@logged
 class RequestPacket(Packet):
+    __log = logging.getLogger(__qualname__)
     _message_type = None
     _address_type = None
     _timeout = b'\x0a\x00'  # 10
@@ -150,8 +149,8 @@ class RequestPacket(Packet):
     __str__ = __repr__
 
 
-@logged
 class SendUnitDataRequestPacket(RequestPacket):
+    __log = logging.getLogger(__qualname__)
     _message_type = DataItem.connected
     _address_type = AddressItem.connection
     _response_class = SendUnitDataResponsePacket
@@ -162,8 +161,8 @@ class SendUnitDataRequestPacket(RequestPacket):
         self._msg = [Pack.uint(plc._sequence), ]
 
 
-@logged
 class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
+    __log = logging.getLogger(__qualname__)
     type_ = 'read'
     _response_class = ReadTagServiceResponsePacket
 
@@ -203,8 +202,8 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
         return f'{self.__class__.__name__}(tag={self.tag!r}, elements={self.elements!r})'
 
 
-@logged
 class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
+    __log = logging.getLogger(__qualname__)
     type_ = 'read'
     _response_class = ReadTagFragmentedServiceResponsePacket
 
@@ -259,8 +258,8 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         return f'{self.__class__.__name__}(tag={self.tag!r}, elements={self.elements!r})'
 
 
-@logged
 class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
+    __log = logging.getLogger(__qualname__)
     type_ = 'write'
     _response_class = WriteTagServiceResponsePacket
 
@@ -297,8 +296,8 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
         return f'{self.__class__.__name__}(tag={self.tag!r}, value={_r(self.value)}, elements={self.elements!r})'
 
 
-@logged
 class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
+    __log = logging.getLogger(__qualname__)
     type_ = 'write'
     _response_class = WriteTagFragmentedServiceResponsePacket
 
@@ -376,8 +375,8 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         return failed_response
 
 
-@logged
 class MultiServiceRequestPacket(SendUnitDataRequestPacket):
+    __log = logging.getLogger(__qualname__)
     type_ = 'multi'
     _response_class = MultiServiceResponsePacket
 
@@ -512,8 +511,8 @@ def _make_write_data_bit(tag_info, value, request_path):
         ))
 
 
-@logged
 class SendRRDataRequestPacket(RequestPacket):
+    __log = logging.getLogger(__qualname__)
     _message_type = DataItem.unconnected
     _address_type = AddressItem.uccm
     _encap_command = EncapsulationCommand.send_rr_data
@@ -523,8 +522,8 @@ class SendRRDataRequestPacket(RequestPacket):
         return super()._build_common_packet_format(addr_data=None)
 
 
-@logged
 class RegisterSessionRequestPacket(RequestPacket):
+    __log = logging.getLogger(__qualname__)
     _encap_command = EncapsulationCommand.register_session
     _response_class = RegisterSessionResponsePacket
 
@@ -532,8 +531,8 @@ class RegisterSessionRequestPacket(RequestPacket):
         return self.message
 
 
-@logged
 class UnRegisterSessionRequestPacket(RequestPacket):
+    __log = logging.getLogger(__qualname__)
     _encap_command = EncapsulationCommand.unregister_session
     _response_class = UnRegisterSessionResponsePacket
 
@@ -544,8 +543,8 @@ class UnRegisterSessionRequestPacket(RequestPacket):
         return b''
 
 
-@logged
 class ListIdentityRequestPacket(RequestPacket):
+    __log = logging.getLogger(__qualname__)
     _encap_command = EncapsulationCommand.list_identity
     _response_class = ListIdentityResponsePacket
 
@@ -630,6 +629,7 @@ def _encode_tag_index(index):
 
 
 class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
+    __log = logging.getLogger(__qualname__)
     _response_class = GenericConnectedResponsePacket
 
     def __init__(self, plc):
@@ -660,6 +660,7 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
 
 
 class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
+    __log = logging.getLogger(__qualname__)
     _response_class = GenericUnconnectedResponsePacket
 
     def __init__(self, plc):

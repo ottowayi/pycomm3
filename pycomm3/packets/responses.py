@@ -23,10 +23,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from reprlib import repr as _r
+import logging
 from itertools import tee, zip_longest, chain
-
-from autologging import logged
+from reprlib import repr as _r
 
 from . import Packet, DataFormatType
 from ..bytes_ import Unpack
@@ -34,8 +33,8 @@ from ..const import (SUCCESS, INSUFFICIENT_PACKETS, TagService, SERVICE_STATUS, 
                      DataType, STRUCTURE_READ_REPLY, DataTypeSize)
 
 
-@logged
 class ResponsePacket(Packet):
+    __log = logging.getLogger(__qualname__)
 
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
         super().__init__()
@@ -98,8 +97,9 @@ class ResponsePacket(Packet):
     __str__ = __repr__
 
 
-@logged
 class SendUnitDataResponsePacket(ResponsePacket):
+    __log = logging.getLogger(__qualname__)
+
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
         super().__init__(raw_data, *args, **kwargs)
 
@@ -127,8 +127,8 @@ class SendUnitDataResponsePacket(ResponsePacket):
         return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 48)}'
 
 
-@logged
 class SendRRDataResponsePacket(ResponsePacket):
+    __log = logging.getLogger(__qualname__)
 
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
         super().__init__(raw_data)
@@ -155,8 +155,9 @@ class SendRRDataResponsePacket(ResponsePacket):
         return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 42)}'
 
 
-@logged
 class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
+    __log = logging.getLogger(__qualname__)
+
     def __init__(self,  *args, data_format: DataFormatType, **kwargs):
         self.data_format = data_format
         self.value = None
@@ -175,8 +176,9 @@ class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
                 self.value = None
 
 
-@logged
 class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
+    __log = logging.getLogger(__qualname__)
+
     def __init__(self,  *args, data_format: DataFormatType, **kwargs):
         self.data_format = data_format
         self.value = None
@@ -214,8 +216,9 @@ def _parse_data(data, fmt):
     return values
 
 
-@logged
 class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
+    __log = logging.getLogger(__qualname__)
+
     def __init__(self, raw_data: bytes = None, tag_info=None, elements=1, tag=None, *args,  **kwargs):
         self.value = None
         self.elements = elements
@@ -240,8 +243,9 @@ class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
         return f'{self.__class__.__name__}({self.data_type!r}, {_r(self.value)}, {self.service_status!r})'
 
 
-@logged
 class ReadTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
+    __log = logging.getLogger(__qualname__)
+
     def __init__(self, raw_data: bytes = None, tag_info=None, elements=1, *args,  **kwargs):
         self.value = None
         self.elements = elements
@@ -277,18 +281,18 @@ class ReadTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
     __str__ = __repr__
 
 
-@logged
 class WriteTagServiceResponsePacket(SendUnitDataResponsePacket):
+    __log = logging.getLogger(__qualname__)
     ...
 
 
-@logged
 class WriteTagFragmentedServiceResponsePacket(SendUnitDataResponsePacket):
+    __log = logging.getLogger(__qualname__)
     ...
 
 
-@logged
 class MultiServiceResponsePacket(SendUnitDataResponsePacket):
+    __log = logging.getLogger(__qualname__)
 
     def __init__(self, raw_data: bytes = None, tags=None, *args, **kwargs):
         self.tags = tags
@@ -332,8 +336,8 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
         return f'{self.__class__.__name__}(values={_r(self.values)}, error={self.error!r})'
 
 
-@logged
 class RegisterSessionResponsePacket(ResponsePacket):
+    __log = logging.getLogger(__qualname__)
 
     def __init__(self, raw_data: bytes = None, *args, **kwargs):
         self.session = None
@@ -356,8 +360,8 @@ class RegisterSessionResponsePacket(ResponsePacket):
         return f'{self.__class__.__name__}(session={self.session!r}, error={self.error!r})'
 
 
-@logged
 class UnRegisterSessionResponsePacket(ResponsePacket):
+    __log = logging.getLogger(__qualname__)
 
     def _parse_reply(self):
         ...  # nothing to parse
@@ -369,8 +373,8 @@ class UnRegisterSessionResponsePacket(ResponsePacket):
         return 'UnRegisterSessionResponsePacket()'
 
 
-@logged
 class ListIdentityResponsePacket(ResponsePacket):
+    __log = logging.getLogger(__qualname__)
     _data_format = (
         ('item_type_code', 'UINT'),
         ('item_length', 'UINT'),

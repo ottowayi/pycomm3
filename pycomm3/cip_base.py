@@ -30,7 +30,6 @@ from functools import wraps
 from os import urandom
 from typing import Union, List, Optional
 
-from autologging import logged
 
 from . import DataError, CommError
 from . import Tag
@@ -69,11 +68,11 @@ def with_forward_open(func):
     return wrapped
 
 
-@logged
 class CIPDriver:
     """
     An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
     """
+    __log = logging.getLogger(__qualname__)
 
     def __init__(self, path: str, *args,  large_packets: bool = True, **kwargs):
         """
