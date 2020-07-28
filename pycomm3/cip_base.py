@@ -30,7 +30,7 @@ from functools import wraps
 from os import urandom
 from typing import Union, Optional
 
-from .exceptions import DataError, CommError
+from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
 from .bytes_ import Pack, Unpack
 from .const import (PATH_SEGMENTS, ConnectionManagerInstance, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
@@ -485,7 +485,7 @@ def parse_connection_path(path):
     try:
         socket.inet_aton(ip)
     except OSError:
-        raise ValueError('Invalid IP Address', ip)
+        raise RequestError('Invalid IP Address', ip)
     segments = [_parse_cip_path_segment(s) for s in segments]
 
     if not segments:
@@ -521,9 +521,9 @@ def _parse_cip_path_segment(segment: str):
                     socket.inet_aton(segment)
                     return b''.join(Pack.usint(ord(c)) for c in segment)
                 except OSError:
-                    raise ValueError('Invalid IP Address Segment', segment)
+                    raise RequestError('Invalid IP Address Segment', segment)
     except Exception:
-        raise ValueError(f'Failed to parse path segment', segment)
+        raise RequestError(f'Failed to parse path segment', segment)
 
 
 def _parse_identity_object(reply):

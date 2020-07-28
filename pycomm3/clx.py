@@ -233,7 +233,7 @@ class LogixDriver(CIPDriver):
                 raise DataError(f'send_unit_data did not return valid data - {response.error}')
 
         except Exception as err:
-            raise DataError(err)
+            raise DataError('failed to get the plc name') from err
 
     def get_plc_info(self) -> dict:
         """
@@ -423,8 +423,8 @@ class LogixDriver(CIPDriver):
                                  'external_access': EXTERNAL_ACCESS.get(access, 'Unknown'),
                                  'dimensions': [dim1, dim2, dim3]})
 
-        except Exception as e:
-            raise DataError(e)
+        except Exception as err:
+            raise DataError('failed to parse instance attribute list') from err
 
         if response.service_status == SUCCESS:
             last_instance = -1
@@ -502,8 +502,8 @@ class LogixDriver(CIPDriver):
                 user_tags.append(_create_tag(name, tag))
 
             return user_tags
-        except Exception as e:
-            raise DataError(e)
+        except Exception as err:
+            raise DataError('failed isolating user tags') from err
 
     def _get_structure_makeup(self, instance_id):
         """
@@ -1109,8 +1109,8 @@ def _parse_structure_makeup_attributes(response):
 
             return structure
 
-        except Exception as e:
-            raise DataError(e)
+        except Exception as err:
+            raise DataError('failed to parse structure attributes') from err
 
 
 def writable_value(parsed_tag):

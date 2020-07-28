@@ -26,16 +26,24 @@
 
 
 class PycommError(Exception):
-    ...
+    """
+    Base exception for all exceptions raised by pycomm3
+    """
 
 
 class CommError(PycommError):
-    ...
+    """
+    For exceptions raised during connection related issues
+    """
 
 
 class DataError(PycommError):
-    ...
+    """
+    For exceptions raised during handling for responses to requests
+    """
 
 
 class RequestError(PycommError):
-    ...
+    """
+    For exceptions raised due to issues building requests or processing of user supplied data
+    """
