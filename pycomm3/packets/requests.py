@@ -84,8 +84,8 @@ class RequestPacket(Packet):
                 Pack.uint(length),  # Length UINT
                 Pack.udint(self._plc._session),  # Session Handle UDINT
                 b'\x00\x00\x00\x00',  # Status UDINT
-                self._plc.attribs['context'],  # Sender Context 8 bytes
-                Pack.udint(self._plc.attribs['option']),  # Option UDINT
+                self._plc._cfg['context'],  # Sender Context 8 bytes
+                Pack.udint(self._plc._cfg['option']),  # Option UDINT
             ])
 
         except Exception as err:

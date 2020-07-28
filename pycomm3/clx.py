@@ -103,7 +103,7 @@ class LogixDriver(CIPDriver):
         self._data_types = {}
         self._tags = {}
         self._micro800 = micro800
-        self.use_instance_ids = True
+        self._cfg['use_instance_ids'] = True
 
         if init_tags or init_info:
             self.open()
@@ -118,8 +118,8 @@ class LogixDriver(CIPDriver):
                 self.get_plc_name()
 
         if self._micro800:  # strip off backplane/0 from path, not used for these processors
-            _path = Pack.epath(self.attribs['cip_path'][:-2])
-            self.attribs['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
+            _path = Pack.epath(self._cfg['cip_path'][:-2])
+            self._cfg['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
 
         if init_tags:
             self.get_tag_list(program='*' if init_program_tags else None)
@@ -201,6 +201,14 @@ class LogixDriver(CIPDriver):
         :return: name of PLC program
         """
         return self._info.get('name')
+
+    @property
+    def use_instance_ids(self):
+        return self._cfg['use_instance_ids']
+
+    @use_instance_ids.setter
+    def use_instance_ids(self, value):
+        self._cfg['use_instance_ids'] = value
 
     @with_forward_open
     def get_plc_name(self) -> str:
