@@ -24,15 +24,16 @@
 # SOFTWARE.
 #
 
+import logging
 import socket
-from autologging import logged
-from . import CommError
-from .const import HEADER_SIZE
 import struct
 
+from .exceptions import CommError
+from .const import HEADER_SIZE
 
-@logged
+
 class Socket:
+    __log = logging.getLogger(__qualname__)
 
     def __init__(self, timeout=5.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -55,8 +56,8 @@ class Socket:
                 if sent == 0:
                     raise CommError("socket connection broken.")
                 total_sent += sent
-            except socket.error:
-                raise CommError("socket connection broken.")
+            except socket.error as err:
+                raise CommError("socket connection broken.") from err
         return total_sent
 
     def receive(self, timeout=0):
@@ -70,7 +71,7 @@ class Socket:
 
             return data
         except socket.error as err:
-            raise CommError(err)
+            raise CommError('socket connection broken') from err
 
     def close(self):
         self.sock.close()

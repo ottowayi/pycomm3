@@ -24,16 +24,14 @@
 # SOFTWARE.
 #
 
+import logging
 from typing import List, Tuple, Optional, Union
-
-from autologging import logged
 
 DataFormatType = List[Tuple[Optional[str], Union[str, int]]]
 
 
-@logged
 class Packet:
-    ...
+    __log = logging.getLogger(__qualname__)
 
 
 from .responses import (ResponsePacket, SendUnitDataResponsePacket, SendRRDataResponsePacket, ListIdentityResponsePacket,

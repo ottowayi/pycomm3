@@ -28,12 +28,10 @@ import logging
 import socket
 from functools import wraps
 from os import urandom
-from typing import Union, List, Optional
+from typing import Union, Optional
 
-from autologging import logged
-
-from . import DataError, CommError
-from . import Tag
+from .exceptions import DataError, CommError, RequestError
+from .tag import Tag
 from .bytes_ import Pack, Unpack
 from .const import (PATH_SEGMENTS, ConnectionManagerInstance, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
                     TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
@@ -52,10 +50,10 @@ def with_forward_open(func):
     def wrapped(self, *args, **kwargs):
         opened = False
         if not self._forward_open():
-            if self.attribs['extended forward open']:
+            if self._cfg['extended forward open']:
                 logger = logging.getLogger('pycomm3.clx.LogixDriver')
                 logger.info('Extended Forward Open failed, attempting standard Forward Open.')
-                self.attribs['extended forward open'] = False
+                self._cfg['extended forward open'] = False
                 if self._forward_open():
                     opened = True
         else:
@@ -69,11 +67,11 @@ def with_forward_open(func):
     return wrapped
 
 
-@logged
 class CIPDriver:
     """
     An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
     """
+    __log = logging.getLogger(__qualname__)
 
     def __init__(self, path: str, *args,  large_packets: bool = True, **kwargs):
         """
@@ -110,7 +108,7 @@ class CIPDriver:
         self._info = {}
         ip, _path = parse_connection_path(path)
 
-        self.attribs = {
+        self._cfg = {
             'context': b'_pycomm_',
             'protocol version': b'\x01\x00',
             'rpi': 5000,
@@ -160,7 +158,7 @@ class CIPDriver:
     @property
     def connection_size(self):
         """CIP connection size, ``4000`` if using Extended Forward Open else ``500``"""
-        return 4000 if self.attribs['extended forward open'] else 500
+        return 4000 if self._cfg['extended forward open'] else 500
 
     def new_request(self, command: str, *args, **kwargs) -> RequestPacket:
         """
@@ -248,16 +246,16 @@ class CIPDriver:
         try:
             if self._sock is None:
                 self._sock = Socket()
-            self._sock.connect(self.attribs['ip address'], self.attribs['port'])
+            self._sock.connect(self._cfg['ip address'], self._cfg['port'])
             self._connection_opened = True
-            self.attribs['cid'] = urandom(4)
-            self.attribs['vsn'] = urandom(4)
+            self._cfg['cid'] = urandom(4)
+            self._cfg['vsn'] = urandom(4)
             if self._register_session() is None:
                 self.__log.warning("Session not registered")
                 return False
             return True
-        except Exception as e:
-            raise CommError(e)
+        except Exception as err:
+            raise CommError('failed to open a connection') from err
 
     def _register_session(self) -> Optional[int]:
         """
@@ -271,7 +269,7 @@ class CIPDriver:
         self._session = 0
         request = self.new_request('register_session')
         request.add(
-            self.attribs['protocol version'],
+            self._cfg['protocol version'],
             b'\x00\x00'
         )
 
@@ -299,24 +297,24 @@ class CIPDriver:
 
         init_net_params = 0b_0100_0010_0000_0000  # CIP Vol 1 - 3-5.5.1.1
 
-        if self.attribs['extended forward open']:
+        if self._cfg['extended forward open']:
             net_params = Pack.udint((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
             net_params = Pack.uint((self.connection_size & 0x01FF) | init_net_params)
 
-        route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH)
+        route_path = Pack.epath(self._cfg['cip_path'] + MSG_ROUTER_PATH)
         service = (ConnectionManagerService.forward_open
-                   if not self.attribs['extended forward open']
+                   if not self._cfg['extended forward open']
                    else ConnectionManagerService.large_forward_open)
 
         forward_open_msg = [
             PRIORITY,
             TIMEOUT_TICKS,
             b'\x00\x00\x00\x00',
-            self.attribs['cid'],
-            self.attribs['csn'],
-            self.attribs['vid'],
-            self.attribs['vsn'],
+            self._cfg['cid'],
+            self._cfg['csn'],
+            self._cfg['vid'],
+            self._cfg['vsn'],
             TIMEOUT_MULTIPLIER,
             b'\x00\x00\x00',
             b'\x01\x40\x20\x00',
@@ -339,7 +337,7 @@ class CIPDriver:
         if response:
             self._target_cid = response.value[:4]
             self._target_is_connected = True
-            self.__log.info(f"{'Extended ' if self.attribs['extended forward open'] else ''}Forward Open succeeded. Target CID={self._target_cid}")
+            self.__log.info(f"{'Extended ' if self._cfg['extended forward open'] else ''}Forward Open succeeded. Target CID={self._target_cid}")
             return True
         self.__log.warning(f"forward_open failed - {response.error}")
         return False
@@ -394,14 +392,14 @@ class CIPDriver:
         if self._session == 0:
             raise CommError("A session need to be registered before to call forward_close.")
 
-        route_path = Pack.epath(self.attribs['cip_path'] + MSG_ROUTER_PATH, pad_len=True)
+        route_path = Pack.epath(self._cfg['cip_path'] + MSG_ROUTER_PATH, pad_len=True)
 
         forward_close_msg = [
             PRIORITY,
             TIMEOUT_TICKS,
-            self.attribs['csn'],
-            self.attribs['vid'],
-            self.attribs['vsn'],
+            self._cfg['csn'],
+            self._cfg['vid'],
+            self._cfg['vsn'],
         ]
 
         response = self.generic_message(
@@ -467,7 +465,7 @@ class CIPDriver:
 
         if not connected:
             if route_path is True:
-                _kwargs['route_path'] = Pack.epath(self.attribs['cip_path'], pad_len=True)
+                _kwargs['route_path'] = Pack.epath(self._cfg['cip_path'], pad_len=True)
             elif route_path:
                 _kwargs['route_path'] = route_path
 
@@ -487,7 +485,7 @@ def parse_connection_path(path):
     try:
         socket.inet_aton(ip)
     except OSError:
-        raise ValueError('Invalid IP Address', ip)
+        raise RequestError('Invalid IP Address', ip)
     segments = [_parse_cip_path_segment(s) for s in segments]
 
     if not segments:
@@ -523,9 +521,9 @@ def _parse_cip_path_segment(segment: str):
                     socket.inet_aton(segment)
                     return b''.join(Pack.usint(ord(c)) for c in segment)
                 except OSError:
-                    raise ValueError('Invalid IP Address Segment', segment)
+                    raise RequestError('Invalid IP Address Segment', segment)
     except Exception:
-        raise ValueError(f'Failed to parse path segment', segment)
+        raise RequestError(f'Failed to parse path segment', segment)
 
 
 def _parse_identity_object(reply):

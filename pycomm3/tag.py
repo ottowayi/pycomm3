@@ -25,15 +25,21 @@
 #
 
 
-import logging
-logger = logging.getLogger('pycomm3')
-logger.addHandler(logging.NullHandler())
+from typing import NamedTuple, Any, Optional
+from reprlib import repr as _r
 
 
-from ._version import __version__, __version_info__
-from .cip_base import CIPDriver
-from .clx import LogixDriver
-from .const import CommonService, ClassCode, TagService, DataType, ConnectionManagerInstance, ConnectionManagerService
-from .bytes_ import Pack, Unpack
-from .tag import Tag
-from .exceptions import PycommError, CommError, DataError, RequestError
+class Tag(NamedTuple):
+    tag: str
+    value: Any
+    type: Optional[str] = None
+    error: Optional[str] = None
+
+    def __bool__(self):
+        return self.value is not None and self.error is None
+
+    def __str__(self):
+        return f'{self.tag}, {_r(self.value)}, {self.type}, {self.error}'
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(tag={self.tag!r}, value={self.value!r}, type={self.type!r}, error={self.error!r})"

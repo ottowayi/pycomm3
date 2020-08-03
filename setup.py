@@ -21,7 +21,6 @@ setup(
     license="MIT",
     packages=['pycomm3', 'pycomm3.packets'],
     python_requires='>=3.6.1',
-    install_requires=['autologging', ],
     include_package_data=True,
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -38,7 +37,6 @@ setup(
         'Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator',
         'Topic :: Scientific/Engineering :: Human Machine Interfaces',
     ],
-
 )
 
 # Build and Publish Commands:

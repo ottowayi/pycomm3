@@ -26,13 +26,12 @@
 
 import datetime
 import itertools
+import logging
 import time
 from typing import Union, List, Tuple, Optional
 
-from autologging import logged
-
-from . import DataError, CommError
-from . import Tag, RequestError
+from .exceptions import DataError, CommError, RequestError
+from .tag import Tag
 from .bytes_ import Pack, Unpack
 from .cip_base import CIPDriver, with_forward_open
 from .const import (TagService, EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES, VENDORS,
@@ -46,11 +45,11 @@ TagType = Union[AtomicType, List[AtomicType]]
 ReturnType = Union[Tag, List[Tag]]
 
 
-@logged
 class LogixDriver(CIPDriver):
     """
     An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
     """
+    __log = logging.getLogger(__qualname__)
 
     def __init__(self, path: str, *args,  large_packets: bool = True, micro800: bool = False,
                  init_info: bool = True, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
@@ -104,7 +103,7 @@ class LogixDriver(CIPDriver):
         self._data_types = {}
         self._tags = {}
         self._micro800 = micro800
-        self.use_instance_ids = True
+        self._cfg['use_instance_ids'] = True
 
         if init_tags or init_info:
             self.open()
@@ -119,8 +118,8 @@ class LogixDriver(CIPDriver):
                 self.get_plc_name()
 
         if self._micro800:  # strip off backplane/0 from path, not used for these processors
-            _path = Pack.epath(self.attribs['cip_path'][:-2])
-            self.attribs['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
+            _path = Pack.epath(self._cfg['cip_path'][:-2])
+            self._cfg['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
 
         if init_tags:
             self.get_tag_list(program='*' if init_program_tags else None)
@@ -203,6 +202,14 @@ class LogixDriver(CIPDriver):
         """
         return self._info.get('name')
 
+    @property
+    def use_instance_ids(self):
+        return self._cfg['use_instance_ids']
+
+    @use_instance_ids.setter
+    def use_instance_ids(self, value):
+        self._cfg['use_instance_ids'] = value
+
     @with_forward_open
     def get_plc_name(self) -> str:
         """
@@ -226,7 +233,7 @@ class LogixDriver(CIPDriver):
                 raise DataError(f'send_unit_data did not return valid data - {response.error}')
 
         except Exception as err:
-            raise DataError(err)
+            raise DataError('failed to get the plc name') from err
 
     def get_plc_info(self) -> dict:
         """
@@ -416,8 +423,8 @@ class LogixDriver(CIPDriver):
                                  'external_access': EXTERNAL_ACCESS.get(access, 'Unknown'),
                                  'dimensions': [dim1, dim2, dim3]})
 
-        except Exception as e:
-            raise DataError(e)
+        except Exception as err:
+            raise DataError('failed to parse instance attribute list') from err
 
         if response.service_status == SUCCESS:
             last_instance = -1
@@ -495,8 +502,8 @@ class LogixDriver(CIPDriver):
                 user_tags.append(_create_tag(name, tag))
 
             return user_tags
-        except Exception as e:
-            raise DataError(e)
+        except Exception as err:
+            raise DataError('failed isolating user tags') from err
 
     def _get_structure_makeup(self, instance_id):
         """
@@ -968,7 +975,7 @@ class LogixDriver(CIPDriver):
         for request in requests:
             try:
                 response = request.send()
-            except Exception as err:
+            except (RequestError, DataError) as err:
                 self.__log.exception('Error sending request')
                 if request.type_ != 'multi':
                     results[_mkkey(r=request)] = Tag(request.tag, None, None, str(err))
@@ -1102,8 +1109,8 @@ def _parse_structure_makeup_attributes(response):
 
             return structure
 
-        except Exception as e:
-            raise DataError(e)
+        except Exception as err:
+            raise DataError('failed to parse structure attributes') from err
 
 
 def writable_value(parsed_tag):
