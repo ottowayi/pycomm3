@@ -975,7 +975,7 @@ class LogixDriver(CIPDriver):
         for request in requests:
             try:
                 response = request.send()
-            except Exception as err:
+            except (RequestError, DataError) as err:
                 self.__log.exception('Error sending request')
                 if request.type_ != 'multi':
                     results[_mkkey(r=request)] = Tag(request.tag, None, None, str(err))
