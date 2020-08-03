@@ -12,8 +12,7 @@ CIP services used by the library (Forward Open, get/set PLC time, etc).
 Accessing Drive Parameters
 ==========================
 
-While a drive may not be a PLC, we can use generic messaging to read parameters from it.  In order to do so we need to
-disable some of the PLC-only options in the LogixDriver.  The target drive is a PowerFlex 525 and using this
+While a drive may not be a PLC, we can use generic messaging to read parameters from it.  The target drive is a PowerFlex 525 and using this
 `Rockwell KB Article`_ we can get the appropriate parameters to read/write parameters from the drive.
 
 
