@@ -77,6 +77,17 @@ class Pack(EnumMap):
     char = _pack_char
     bool = lambda b: b'\xFF' if b else b'\x00'
 
+    pccc_n = int
+    pccc_b = int
+    pccc_t = int
+    pccc_c = int
+    pccc_s = int
+    pccc_o = int
+    pccc_i = int
+    pccc_f = real
+    pccc_a = sint
+    pccc_r = dint
+
 
 class Unpack(EnumMap):
     bool = lambda st: st[0] != 0
@@ -96,6 +107,17 @@ class Unpack(EnumMap):
     long = lambda st: int(unpack('<l', st[0:4])[0])
     ulong = lambda st: int(unpack('<L', st[0:4])[0])
     short_string = _short_string_decode
+
+    pccc_n = int
+    pccc_b = int
+    pccc_t = int
+    pccc_c = int
+    pccc_s = int
+    pccc_o = int
+    pccc_i = int
+    pccc_f = real
+    pccc_a = sint
+    pccc_r = dint
 
 
 def print_bytes_line(msg):

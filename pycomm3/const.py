@@ -503,6 +503,33 @@ PCCC_ERROR_CODE = {
 }
 
 
+# UNPACK_PCCC_DATA_FUNCTION = {
+#     'N': unpack_int,
+#     'B': unpack_int,
+#     'T': unpack_int,
+#     'C': unpack_int,
+#     'S': unpack_int,
+#     'F': unpack_real,
+#     'A': unpack_sint,
+#     'R': unpack_dint,
+#     'O': unpack_int,
+#     'I': unpack_int
+# }
+#
+# PACK_PCCC_DATA_FUNCTION = {
+#     'N': pack_int,
+#     'B': pack_int,
+#     'T': pack_int,
+#     'C': pack_int,
+#     'S': pack_int,
+#     'F': pack_real,
+#     'A': pack_sint,
+#     'R': pack_dint,
+#     'O': pack_int,
+#     'I': pack_int
+# }
+
+
 #  Taken from PyLogix
 # List originally came from Wireshark /epan/dissectors/packet-cip.c
 PRODUCT_TYPES = {
