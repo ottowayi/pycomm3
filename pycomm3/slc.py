@@ -22,7 +22,6 @@
 # SOFTWARE.
 #
 
-
 import re
 import logging
 from typing import Union, List, Tuple, Optional
@@ -265,8 +264,6 @@ def parse_tag(tag):
                                   'address_field': 3}
 
     return False, tag
-
-
 
 def get_bit(value, idx):
     """:returns value of bit at position idx"""
