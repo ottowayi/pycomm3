@@ -31,7 +31,7 @@ from .const import HEADER_SIZE
 
 
 class Socket:
-    __log = logging.getLogger(__qualname__)
+    __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
     def __init__(self, timeout=5.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
