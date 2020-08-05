@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
-#
-# Copyright (c) 2019 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -71,7 +69,7 @@ class CIPDriver:
     """
     An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
     """
-    __log = logging.getLogger(__qualname__)
+    __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
     def __init__(self, path: str, *args,  large_packets: bool = True, **kwargs):
         """
@@ -310,16 +308,16 @@ class CIPDriver:
         forward_open_msg = [
             PRIORITY,
             TIMEOUT_TICKS,
-            b'\x00\x00\x00\x00',
+            b'\x00\x00\x00\x00',  # O->T produced connection ID, not needed for us so leave blank
             self._cfg['cid'],
             self._cfg['csn'],
             self._cfg['vid'],
             self._cfg['vsn'],
             TIMEOUT_MULTIPLIER,
-            b'\x00\x00\x00',
-            b'\x01\x40\x20\x00',
+            b'\x00\x00\x00',  # reserved
+            b'\x01\x40\x20\x00',  # O->T RPI in microseconds, RPIs are not important for us so fixed value is fine
             net_params,
-            b'\x01\x40\x20\x00',
+            b'\x01\x40\x20\x00',  # T->O RPI
             net_params,
             TRANSPORT_CLASS,
         ]

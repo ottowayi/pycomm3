@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
-#
-# Copyright (c) 2019 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -49,7 +47,7 @@ class LogixDriver(CIPDriver):
     """
     An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
     """
-    __log = logging.getLogger(__qualname__)
+    __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
     def __init__(self, path: str, *args,  large_packets: bool = True, micro800: bool = False,
                  init_info: bool = True, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
