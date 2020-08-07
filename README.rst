@@ -245,5 +245,5 @@ TODO
 
 
 License
-~~~~~~~
+=======
 ``pycomm3`` is distributed under the MIT License
