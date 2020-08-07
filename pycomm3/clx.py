@@ -51,7 +51,7 @@ class LogixDriver(CIPDriver):
     """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, path: str, *args,  large_packets: bool = True, micro800: bool = False,
+    def __init__(self, path: str, *args,  micro800: bool = False,
                  init_info: bool = True, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
         """
         :param path: CIP path to intended target
@@ -67,15 +67,6 @@ class LogixDriver(CIPDriver):
                 Both the IP Address and IP Address/Slot options are shortcuts, they will be replaced with the
                 CIP path automatically.  The ``enet`` / ``backplane`` (or ``bp``) segments are symbols for the CIP routing
                 port numbers and will be replaced with the correct value.
-
-        :param large_packets: if True (default), the *Extended Forward Open* service will be used
-
-            .. note::
-
-                *Extended Forward Open* allows the used of 4KBs of service data in each request.
-                The standard *Forward Open* is limited to 500 bytes.  Not all hardware supports the large packet size,
-                like ENET or ENBT modules or ControlLogix version 19 or lower.  **This argument is no longer required
-                as of 0.5.1, since it will automatically try a standard Forward Open if the extended one fails**
 
         :param init_info:  if True (default), initializes controller info (name, revision, etc) on connect
 
@@ -98,7 +89,7 @@ class LogixDriver(CIPDriver):
 
         """
 
-        super().__init__(path, *args, large_packets=large_packets, **kwargs)
+        super().__init__(path, *args, **kwargs)
         self._cache = None
         self._data_types = {}
         self._tags = {}
