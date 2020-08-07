@@ -213,7 +213,7 @@ def _parse_read_reply(tag, data) -> Tag:
         raise DataError('Failed parsing tag read reply') from err
 
 
-def parse_tag(tag: str) -> dict:
+def parse_tag(tag: str) -> Optional[dict]:
     t = re.search(r"(?P<file_type>[CT])(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,3})"
                   r"(.)(?P<sub_element>ACC|PRE|EN|DN|TT|CU|CD|DN|OV|UN|UA)",
