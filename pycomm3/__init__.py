@@ -29,9 +29,10 @@ logger.addHandler(logging.NullHandler())
 
 
 from ._version import __version__, __version_info__
-from .cip_base import CIPDriver
-from .clx import LogixDriver
 from .const import CommonService, ClassCode, TagService, DataType, ConnectionManagerInstance, ConnectionManagerService
 from .bytes_ import Pack, Unpack
 from .tag import Tag
 from .exceptions import PycommError, CommError, DataError, RequestError
+from .cip_base import CIPDriver
+from .clx import LogixDriver
+from .slc import SLCDriver

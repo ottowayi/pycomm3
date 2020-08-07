@@ -35,12 +35,28 @@
 
 ``pycomm3`` is a Python 3 fork of `pycomm`_, which is a native python library for communicating
 with PLCs using Ethernet/IP.  The initial Python 3 translation was done in this fork_, this library
-seeks to continue and expand upon the great work done by the original ``pycomm`` developers.  This library supports
-Ethernet/IP communications with Allen-Bradley Control & Compact Logix PLCs. ``pycomm`` has support for SLC and MicroLogix
-PLCs, but they have not been ported yet.  The module still exists in the package, but is broken and will raise a ``NotImplementedError``
-on import.  `pylogix`_ is another library with similar features (including Python 2 support), thank you to them for their hard
-work as well.  Referencing ``pylogix`` code was a big help in implementing some features missing from ``pycomm``.
-This library is only supported on Python 3.6 and up.
+seeks to continue and expand upon the great work done by the original ``pycomm`` developers.
+`pylogix`_ is another library with similar features (including Python 2 support) for ControlLogix and CompactLogix PLCs.
+Referencing ``pylogix`` code was a big help in implementing some features missing from ``pycomm``.  This library is
+supported on Python 3.6.1 and newer.
+
+This library contains 3 drivers:
+
+LogixDriver
+    This is the main driver for this library, it supports ControlLogix, CompactLogix, and Micro800 PLCs.
+
+SLCDriver
+    **New in version 0.10.0**
+
+    This driver can be used for reading/writing data files in SLC 500 or MicroLogix PLCs.  This driver is an update to the
+    original pycomm SLC driver with some minor changes to make it similar to the LogixDriver. Some of the more advanced
+    or automatic features are not supported.  Even though this driver was newly added, it's considered legacy and it's development
+    will be on a limited basis.
+
+CIPDriver
+    This is the base class for the other two drivers, it handles some common shared services.  It can also be used for
+    generic CIP messaging to other non-PLC devices.
+
 
 .. _pycomm: https://github.com/ruscito/pycomm
 
@@ -55,7 +71,7 @@ Disclaimer
 PLCs can be used to control heavy or dangerous equipment, this library is provided 'As Is' and makes no guarantees on
 it's reliability in a production environment.  This library makes no promises in the completeness or correctness of the
 protocol implementations and should not be solely relied upon for critical systems.  The development for this library
-is aimed at providing quick and convenient access for reading/writing data inside Allen-Bradley Control/Compact Logix PLCs.
+is aimed at providing quick and convenient access for reading/writing data inside Allen-Bradley PLCs.
 
 
 Installation
@@ -69,6 +85,16 @@ This library is distributed on `PyPI`_ and can be installed from ``pip``:
 
 .. _PyPI: https://pypi.org/project/pycomm3/
 
+
+Setup
+-----
+The package can be installed from `PyPI`_ using ``pip``: ``pip install pycomm3`` or ``python -m pip install pycomm3``.
+
+.. _PyPI: https://pypi.org/project/pycomm3/
+
+Optionally, you may configure logging using the Python standard `logging`_ library.
+
+.. _logging: https://docs.python.org/3/library/logging.html
 
 
 Implementation
@@ -98,5 +124,7 @@ Contents
 
    usage
    logixdriver
+   slcdriver
+   cipdriver
    examples
    cip_constants
