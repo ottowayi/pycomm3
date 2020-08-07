@@ -22,41 +22,53 @@
 # SOFTWARE.
 #
 
-import re
+__all__ = ['SLCDriver', ]
+
 import logging
 import math
-from typing import Union, List, Tuple, Optional
-
-from .exceptions import DataError, CommError, RequestError
-from .tag import Tag
+import re
+from typing import List, Tuple, Optional, Union
 
 from .bytes_ import Pack, Unpack
 from .cip_base import CIPDriver, with_forward_open
-from .const import (TagService, EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES, VENDORS,
-                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD, CommonService, SUCCESS,
-                    INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH,
-                    TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DataTypeSize, MIN_VER_EXTERNAL_ACCESS, PCCC_CT, PCCC_DATA_TYPE,
-                    PCCC_DATA_SIZE, PCCC_ERROR_CODE, SLC_CMD_REPLY_CODE, SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE,
-                    SLC_REPLY_START, PCCC_PATH)
-from .packets import request_path
+from .const import (CLASS_TYPE, SUCCESS, PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE, PCCC_ERROR_CODE,
+                    SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH)
+from .exceptions import DataError, RequestError
+from .tag import Tag
+
+AtomicValueType = Union[int, float, bool]
+TagValueType = Union[AtomicValueType, List[AtomicValueType]]
+ReadWriteReturnType = Union[Tag, List[Tag]]
 
 
 class SLCDriver(CIPDriver):
+    """
+    An Ethernet/IP Client driver for reading and writing of data files in SLC or MicroLogix PLCs.
+    """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
     def __init__(self, path, *args, **kwargs):
         super().__init__(path, *args, large_packets=False, **kwargs)
 
     @with_forward_open
-    def read(self, *tags):
-        results = [self._read_tag(tag) for tag in tags]
-        
+    def read(self, *addresses: str) -> ReadWriteReturnType:
+        """
+        Reads data file addresses. To read multiple words add the word count to the address using curly braces,
+        e.g. ``N120:10{10}``.
+
+        Does not track request/response size like the CLXDriver.
+
+        :param addresses: one or many data file addresses to read
+        :return: a single or list of ``Tag`` objects
+        """
+        results = [self._read_tag(tag) for tag in addresses]
+
         if len(results) == 1:
             return results[0]
-        
+
         return results
 
-    def _read_tag(self, tag):
+    def _read_tag(self, tag) -> Tag:
         _tag = parse_tag(tag)
         if _tag is None:
             raise RequestError(f"Error parsing the tag passed to read() - {tag}")
@@ -93,21 +105,31 @@ class SLCDriver(CIPDriver):
             return Tag(_tag['tag'], None, _tag['file_type'], status)
 
         try:
-            return _parse_tag_read_reply(_tag, response.raw[SLC_REPLY_START:])
+            return _parse_read_reply(_tag, response.raw[SLC_REPLY_START:])
         except DataError as err:
             self.__log.exception(f'Failed to parse read reply for {_tag["tag"]}')
             return Tag(_tag['tag'], None, _tag['file_type'], str(err))
 
     @with_forward_open
-    def write(self, *tags_values):
-        results = [self._write_tag(tag, value) for tag, value in tags_values]
-        
+    def write(self, *address_values: Tuple[str, TagValueType]) -> ReadWriteReturnType:
+        """
+        Write values to data file addresses.  To write to multiple words in a file use curly braces in the address
+        to indicate the number of words, then set the value to a list of values to write e.g. ``('N120:10{10}', [1, 2, ...])``.
+
+        Does not track request/response size like the CLXDriver.
+
+
+        :param address_values: one or many 2-element tuples of (address, value)
+        :return: a single or list of ``Tag`` objects
+        """
+        results = [self._write_tag(tag, value) for tag, value in address_values]
+
         if len(results) == 1:
             return results[0]
-        
+
         return results
-    
-    def _write_tag(self, tag, value):
+
+    def _write_tag(self, tag: str, value: TagValueType) -> Tag:
         """ write tag from a connected plc
         Possible combination can be passed to this method:
             c.write_tag('N7:0', [-30, 32767, -32767])
@@ -153,7 +175,7 @@ class SLCDriver(CIPDriver):
         return Tag(_tag['tag'], value, _tag['file_type'], None)
 
 
-def _parse_tag_read_reply(tag, data):
+def _parse_read_reply(tag, data) -> Tag:
     try:
         bit_read = tag.get('address_field', 0) == 3
         bit_position = int(tag.get('sub_element') or 0)
@@ -191,15 +213,15 @@ def _parse_tag_read_reply(tag, data):
         raise DataError('Failed parsing tag read reply') from err
 
 
-def parse_tag(tag):
+def parse_tag(tag: str) -> dict:
     t = re.search(r"(?P<file_type>[CT])(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,3})"
                   r"(.)(?P<sub_element>ACC|PRE|EN|DN|TT|CU|CD|DN|OV|UN|UA)",
                   tag, flags=re.IGNORECASE)
     if (
-        t
-        and (1 <= int(t.group('file_number')) <= 255)
-        and (0 <= int(t.group('element_number')) <= 255)
+            t
+            and (1 <= int(t.group('file_number')) <= 255)
+            and (0 <= int(t.group('element_number')) <= 255)
     ):
         return {'file_type': t.group('file_type').upper(),
                 'file_number': t.group('file_number'),
@@ -220,9 +242,9 @@ def parse_tag(tag):
 
         if t.group('sub_element') is not None:
             if (
-                (1 <= int(t.group('file_number')) <= 255)
-                and (0 <= int(t.group('element_number')) <= 255)
-                and (0 <= int(t.group('sub_element')) <= 15)
+                    (1 <= int(t.group('file_number')) <= 255)
+                    and (0 <= int(t.group('element_number')) <= 255)
+                    and (0 <= int(t.group('sub_element')) <= 15)
             ):
                 element_count = t.group('element_count')
                 return {'file_type': t.group('file_type').upper(),
@@ -234,8 +256,8 @@ def parse_tag(tag):
                         'tag': tag_name}
         else:
             if (
-                (1 <= int(t.group('file_number')) <= 255)
-                and (0 <= int(t.group('element_number')) <= 255)
+                    (1 <= int(t.group('file_number')) <= 255)
+                    and (0 <= int(t.group('element_number')) <= 255)
             ):
                 element_count = t.group('element_count')
                 return {'file_type': t.group('file_type').upper(),
@@ -256,9 +278,9 @@ def parse_tag(tag):
         tag_name = t.group(0).replace(_cnt, '') if _cnt else t.group(0)
         if t.group('sub_element') is not None:
             if (
-                (0 <= int(t.group('file_number')) <= 255)
-                and (0 <= int(t.group('element_number')) <= 255)
-                and (0 <= int(t.group('sub_element')) <= 15)
+                    (0 <= int(t.group('file_number')) <= 255)
+                    and (0 <= int(t.group('element_number')) <= 255)
+                    and (0 <= int(t.group('sub_element')) <= 15)
             ):
                 element_count = t.group('element_count')
                 return {'file_type': t.group('file_type').upper(),
@@ -291,10 +313,9 @@ def parse_tag(tag):
         element_count = t.group('element_count')
         if t.group('sub_element') is not None:
             if (
-                (0 <= int(t.group('element_number')) <= 255)
-                and (0 <= int(t.group('sub_element')) <= 15)
+                    (0 <= int(t.group('element_number')) <= 255)
+                    and (0 <= int(t.group('sub_element')) <= 15)
             ):
-
                 return {'file_type': t.group('file_type').upper(),
                         'file_number': '2',
                         'element_number': t.group('element_number'),
@@ -316,9 +337,9 @@ def parse_tag(tag):
                   r"(?P<_elem_cnt_token>{(?P<element_count>\d+)})?",
                   tag, flags=re.IGNORECASE)
     if (
-        t
-        and (1 <= int(t.group('file_number')) <= 255)
-        and (0 <= int(t.group('element_number')) <= 4095)
+            t
+            and (1 <= int(t.group('file_number')) <= 255)
+            and (0 <= int(t.group('element_number')) <= 4095)
     ):
         _cnt = t.group('_elem_cnt_token')
         tag_name = t.group(0).replace(_cnt, '') if _cnt else t.group(0)
@@ -337,12 +358,12 @@ def parse_tag(tag):
     return None
 
 
-def get_bit(value, idx):
+def get_bit(value: int, idx: int) -> bool:
     """:returns value of bit at position idx"""
     return (value & (1 << idx)) != 0
 
 
-def writeable_value(tag, value):
+def writeable_value(tag: dict, value: Union[bytes, TagValueType]) -> bytes:
     if isinstance(value, bytes):
         return value
     bit_field = tag.get('address_field', 0) == 3
@@ -351,7 +372,8 @@ def writeable_value(tag, value):
     element_count = tag.get('element_count') or 1
     if element_count > 1:
         if len(value) < element_count:
-            raise RequestError(f'Insufficient data for requested elements, expected {element_count} and got {len(value)}')
+            raise RequestError(
+                f'Insufficient data for requested elements, expected {element_count} and got {len(value)}')
         if len(value) > element_count:
             value = value[:element_count]
 
@@ -368,7 +390,7 @@ def writeable_value(tag, value):
                     PCCC_CT['PRE'],
                     PCCC_CT['ACC'],
                 }:
-                    _value = b'\xff\xff' + pack_func[tag['file_type']](value)
+                    _value = b'\xff\xff' + pack_func(value)
                 else:
                     if value > 0:
                         _value = Pack.uint(math.pow(2, bit_position)) + Pack.uint(math.pow(2, bit_position))
@@ -385,7 +407,7 @@ def writeable_value(tag, value):
         return _value
 
 
-def request_status(data):
+def request_status(data) -> Optional[str]:
     try:
         _status_code = int(data[58])
         if _status_code == SUCCESS:
