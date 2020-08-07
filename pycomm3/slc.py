@@ -24,6 +24,7 @@
 
 import re
 import logging
+import math
 from typing import Union, List, Tuple, Optional
 
 from .exceptions import DataError, CommError, RequestError
@@ -35,236 +36,360 @@ from .const import (TagService, EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, Clas
                     MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD, CommonService, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH,
                     TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DataTypeSize, MIN_VER_EXTERNAL_ACCESS, PCCC_CT, PCCC_DATA_TYPE,
-                    PCCC_DATA_SIZE, PCCC_ERROR_CODE)
+                    PCCC_DATA_SIZE, PCCC_ERROR_CODE, SLC_CMD_REPLY_CODE, SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE,
+                    SLC_REPLY_START, PCCC_PATH)
 from .packets import request_path
-from autologging import logged
 
 
 class SLCDriver(CIPDriver):
-    __log = logging.getLogger(__qualname__)
+    __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
     def __init__(self, path, *args, **kwargs):
         super().__init__(path, *args, large_packets=False, **kwargs)
 
     @with_forward_open
-    def read_tag(self, tag, n=1):
-        """ read tag from a connected plc
+    def read(self, *tags):
+        results = [self._read_tag(tag) for tag in tags]
+        
+        if len(results) == 1:
+            return results[0]
+        
+        return results
 
-        Possible combination can be passed to this method:
-            print c.read_tag('F8:0', 3)    return a list of 3 registers starting from F8:0
-            print c.read_tag('F8:0')   return one value
-
-        It is possible to read status bit
-
-        :return: None is returned in case of error
-        """
-        res = parse_tag(tag)
-        if not res[0]:
-            raise RequestError(f"Error parsing the tag passed to read_tag({tag},{n})")
-
-        bit_read = False
-        bit_position = 0
-        if int(res[2]['address_field'] == 3):
-            bit_read = True
-            bit_position = int(res[2]['sub_element'])
-
-        data_size = PCCC_DATA_SIZE[res[2]['file_type']]
-
-        # Creating the Message Request Packet
-        self._last_sequence = Pack.uint(self._sequence)
+    def _read_tag(self, tag):
+        _tag = parse_tag(tag)
+        if _tag is None:
+            raise RequestError(f"Error parsing the tag passed to read() - {tag}")
 
         message_request = [
-            # self._last_sequence,
-
             # no clue what this part is
             b'\x4b',
             b'\x02',
             CLASS_TYPE["8-bit"],
-            b'\x67\x24\x01',
+            PCCC_PATH,
             b'\x07',
             self._cfg['vid'],
             self._cfg['vsn'],
 
             # page 83 of eip manual
-            b'\x0f',  # request command code
+            SLC_CMD_CODE,  # request command code
             b'\x00',  # status code
-            Pack.usint(self._last_sequence[1]),  # transaction identifier
-            Pack.usint(self._last_sequence[0]),  #  "        "
-            res[2]['read_func'],  # function code
-            Pack.usint(data_size * n),  # byte size
-            Pack.usint(int(res[2]['file_number'])),
-            PCCC_DATA_TYPE[res[2]['file_type']],
-            Pack.usint(int(res[2]['element_number'])),
-            b'\x00' if 'pos_number' not in res[2] else Pack.usint(int(res[2]['pos_number']))  # sub-element number
+            Pack.uint(self._sequence),  # transaction identifier
+            SLC_FNC_READ,  # function code
+            Pack.usint(PCCC_DATA_SIZE[_tag['file_type']] * _tag['element_count']),  # byte size
+            Pack.usint(int(_tag['file_number'])),
+            PCCC_DATA_TYPE[_tag['file_type']],
+            Pack.usint(int(_tag['element_number'])),
+            Pack.usint(int(_tag.get('pos_number', 0)))  # sub-element number
         ]
 
         request = self.new_request('send_unit_data')
         request.add(b''.join(message_request))
-        result = request.send()
-        self.__log.debug("SLC read_tag({0},{1})".format(tag, n))
+        response = request.send()
+        self.__log.debug(f"SLC read_tag({tag})")
 
-        self._reply = result.raw
+        status = request_status(response.raw)
+        if status is not None:
+            return Tag(_tag['tag'], None, _tag['file_type'], status)
 
         try:
-            if not result:
-                self.__log.debug('read failed')
-                # sts_txt = PCCC_ERROR_CODE[sts]
-                # self._status = (1000, "Error({0}) returned from read_tag({1},{2})".format(sts_txt, tag, n))
-                # self.__log.warning(self._status)
-                # raise DataError("Error({0}) returned from read_tag({1},{2})".format(sts_txt, tag, n))
+            return _parse_tag_read_reply(_tag, response.raw[SLC_REPLY_START:])
+        except DataError as err:
+            self.__log.exception(f'Failed to parse read reply for {_tag["tag"]}')
+            return Tag(_tag['tag'], None, _tag['file_type'], str(err))
 
-            new_value = 61
-            if bit_read:
-                if res[2]['file_type'] == 'T' or res[2]['file_type'] == 'C':
-                    if bit_position == PCCC_CT['PRE']:
-                        return Unpack[res[2]['file_type']](self._reply[new_value + 2:new_value + 2 + data_size])
-                    elif bit_position == PCCC_CT['ACC']:
-                        return Unpack[res[2]['file_type']](
-                            self._reply[new_value + 4:new_value + 4 + data_size])
+    @with_forward_open
+    def write(self, *tags_values):
+        results = [self._write_tag(tag, value) for tag, value in tags_values]
+        
+        if len(results) == 1:
+            return results[0]
+        
+        return results
+    
+    def _write_tag(self, tag, value):
+        """ write tag from a connected plc
+        Possible combination can be passed to this method:
+            c.write_tag('N7:0', [-30, 32767, -32767])
+            c.write_tag('N7:0', 21)
+            c.read_tag('N7:0', 10)
+        It is not possible to write status bit
+        :return: None is returned in case of error
+        """
+        _tag = parse_tag(tag)
+        if _tag is None:
+            raise RequestError(f"Error parsing the tag passed to write() - {tag}")
 
-                tag_value = Unpack[res[2]['file_type']](
-                    self._reply[new_value:new_value + data_size])
-                return get_bit(tag_value, bit_position)
+        _tag['data_size'] = PCCC_DATA_SIZE[_tag['file_type']]
 
+        message_request = [
+            b'\x4b',
+            b'\x02',
+            CLASS_TYPE["8-bit"],
+            PCCC_PATH,
+            b'\x07',
+            self._cfg['vid'],
+            self._cfg['vsn'],
+
+            SLC_CMD_CODE,
+            b'\x00',
+            Pack.uint(self._sequence),
+            SLC_FNC_WRITE,
+            Pack.usint(_tag['data_size'] * _tag['element_count']),
+            Pack.usint(int(_tag['file_number'])),
+            PCCC_DATA_TYPE[_tag['file_type']],
+            Pack.usint(int(_tag['element_number'])),
+            Pack.usint(int(_tag.get('pos_number', 0))),
+            writeable_value(_tag, value),
+        ]
+        request = self.new_request('send_unit_data')
+        request.add(b''.join(message_request))
+        response = request.send()
+
+        status = request_status(response.raw)
+        if status is not None:
+            return Tag(_tag['tag'], None, _tag['file_type'], status)
+
+        return Tag(_tag['tag'], value, _tag['file_type'], None)
+
+
+def _parse_tag_read_reply(tag, data):
+    try:
+        bit_read = tag.get('address_field', 0) == 3
+        bit_position = int(tag.get('sub_element') or 0)
+        data_size = PCCC_DATA_SIZE[tag['file_type']]
+        unpack_func = Unpack[f'pccc_{tag["file_type"].lower()}']
+        if bit_read:
+            new_value = 0
+            if tag['file_type'] in ['T', 'C']:
+                if bit_position == PCCC_CT['PRE']:
+                    return Tag(tag['tag'],
+                               unpack_func(data[new_value + 2:new_value + 2 + data_size]),
+                               tag['file_type'],
+                               None)
+
+                elif bit_position == PCCC_CT['ACC']:
+                    return Tag(tag['tag'],
+                               unpack_func(data[new_value + 4:new_value + 4 + data_size]),
+                               tag['file_type'],
+                               None)
+
+            tag_value = unpack_func(data[new_value:new_value + data_size])
+            return Tag(tag['tag'],
+                       get_bit(tag_value, bit_position),
+                       tag['file_type'],
+                       None)
+
+        else:
+            values_list = [unpack_func(data[i: i + data_size])
+                           for i in range(0, len(data), data_size)]
+            if len(values_list) > 1:
+                return Tag(tag['tag'], values_list, tag['file_type'], None)
             else:
-                values_list = []
-                while len(self._reply[new_value:]) >= data_size:
-                    unpack_func = Unpack[f'pccc_{res[2]["file_type"].lower()}']
-                    values_list.append(
-                        unpack_func(self._reply[new_value:new_value + data_size])
-                    )
-                    new_value = new_value + data_size
-
-                print( 'Values!!!!: ', values_list )
-                if len(values_list) > 1:
-                    return values_list
-                else:
-                    return values_list[0]
-
-        except Exception as e:
-            self._status = (1000, "Error({0}) parsing the data returned from read_tag({1},{2})".format(e, tag, n))
-            self.__log.warning(self._status)
-            raise DataError("Error({0}) parsing the data returned from read_tag({1},{2})".format(e, tag, n))
+                return Tag(tag['tag'], values_list[0], tag['file_type'], None)
+    except Exception as err:
+        raise DataError('Failed parsing tag read reply') from err
 
 
 def parse_tag(tag):
     t = re.search(r"(?P<file_type>[CT])(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,3})"
-                  r"(.)(?P<sub_element>ACC|PRE|EN|DN|TT|CU|CD|DN|OV|UN|UA)", tag, flags=re.IGNORECASE)
+                  r"(.)(?P<sub_element>ACC|PRE|EN|DN|TT|CU|CD|DN|OV|UN|UA)",
+                  tag, flags=re.IGNORECASE)
     if (
         t
         and (1 <= int(t.group('file_number')) <= 255)
         and (0 <= int(t.group('element_number')) <= 255)
     ):
-        return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                  'file_number': t.group('file_number'),
-                                  'element_number': t.group('element_number'),
-                                  'sub_element': PCCC_CT[t.group('sub_element').upper()],
-                                  'read_func': b'\xa2',
-                                  'write_func': b'\xab',
-                                  'address_field': 3}
+        return {'file_type': t.group('file_type').upper(),
+                'file_number': t.group('file_number'),
+                'element_number': t.group('element_number'),
+                'sub_element': PCCC_CT[t.group('sub_element').upper()],
+                'address_field': 3,
+                'element_count': 1,
+                'tag': t.group(0)}
 
     t = re.search(r"(?P<file_type>[LFBN])(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,3})"
-                  r"(/(?P<sub_element>\d{1,2}))?",
+                  r"(/(?P<sub_element>\d{1,2}))?"
+                  r"(?P<_elem_cnt_token>{(?P<element_count>\d+)})?",
                   tag, flags=re.IGNORECASE)
     if t:
+        _cnt = t.group('_elem_cnt_token')
+        tag_name = t.group(0).replace(_cnt, '') if _cnt else t.group(0)
+
         if t.group('sub_element') is not None:
-            if (1 <= int(t.group('file_number')) <= 255) \
-                    and (0 <= int(t.group('element_number')) <= 255) \
-                    and (0 <= int(t.group('sub_element')) <= 15):
-
-                return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                          'file_number': t.group('file_number'),
-                                          'element_number': t.group('element_number'),
-                                          'sub_element': t.group('sub_element'),
-                                          'read_func': b'\xa2',
-                                          'write_func': b'\xab',
-                                          'address_field': 3}
+            if (
+                (1 <= int(t.group('file_number')) <= 255)
+                and (0 <= int(t.group('element_number')) <= 255)
+                and (0 <= int(t.group('sub_element')) <= 15)
+            ):
+                element_count = t.group('element_count')
+                return {'file_type': t.group('file_type').upper(),
+                        'file_number': t.group('file_number'),
+                        'element_number': t.group('element_number'),
+                        'sub_element': t.group('sub_element'),
+                        'address_field': 3,
+                        'element_count': int(element_count) if element_count is not None else 1,
+                        'tag': tag_name}
         else:
-            if (1 <= int(t.group('file_number')) <= 255) \
-                    and (0 <= int(t.group('element_number')) <= 255):
-
-                return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                          'file_number': t.group('file_number'),
-                                          'element_number': t.group('element_number'),
-                                          'sub_element': t.group('sub_element'),
-                                          'read_func': b'\xa2',
-                                          'write_func': b'\xab',
-                                          'address_field': 2}
+            if (
+                (1 <= int(t.group('file_number')) <= 255)
+                and (0 <= int(t.group('element_number')) <= 255)
+            ):
+                element_count = t.group('element_count')
+                return {'file_type': t.group('file_type').upper(),
+                        'file_number': t.group('file_number'),
+                        'element_number': t.group('element_number'),
+                        'sub_element': t.group('sub_element'),
+                        'address_field': 2,
+                        'element_count': int(element_count) if element_count is not None else 1,
+                        'tag': tag_name}
 
     t = re.search(r"(?P<file_type>[IO])(:)(?P<element_number>\d{1,3})"
                   r"(.)(?P<position_number>\d{1,3})"
-                  r"(/(?P<sub_element>\d{1,2}))?", tag, flags=re.IGNORECASE)
+                  r"(/(?P<sub_element>\d{1,2}))?"
+                  r"(?P<_elem_cnt_token>{(?P<element_count>\d+)})?",
+                  tag, flags=re.IGNORECASE)
     if t:
+        _cnt = t.group('_elem_cnt_token')
+        tag_name = t.group(0).replace(_cnt, '') if _cnt else t.group(0)
         if t.group('sub_element') is not None:
-            if (0 <= int(t.group('file_number')) <= 255) \
-                    and (0 <= int(t.group('element_number')) <= 255) \
-                    and (0 <= int(t.group('sub_element')) <= 15):
-
-                return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                          'file_number': '0',
-                                          'element_number': t.group('element_number'),
-                                          'pos_number': t.group('position_number'),
-                                          'sub_element': t.group('sub_element'),
-                                          'read_func': b'\xa2',
-                                          'write_func': b'\xab',
-                                          'address_field': 3}
+            if (
+                (0 <= int(t.group('file_number')) <= 255)
+                and (0 <= int(t.group('element_number')) <= 255)
+                and (0 <= int(t.group('sub_element')) <= 15)
+            ):
+                element_count = t.group('element_count')
+                return {'file_type': t.group('file_type').upper(),
+                        'file_number': '0',
+                        'element_number': t.group('element_number'),
+                        'pos_number': t.group('position_number'),
+                        'sub_element': t.group('sub_element'),
+                        'address_field': 3,
+                        'element_count': int(element_count) if element_count is not None else 1,
+                        'tag': tag_name}
         else:
-            if (0 <= int(t.group('element_number')) <= 255):
-
-                return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                          'file_number': '0',
-                                          'element_number': t.group('element_number'),
-                                          'pos_number': t.group('position_number'),
-                                          'read_func': b'\xa2',
-                                          'write_func': b'\xab',
-                                          'address_field': 2}
+            if 0 <= int(t.group('element_number')) <= 255:
+                element_count = t.group('element_count')
+                return {'file_type': t.group('file_type').upper(),
+                        'file_number': '0',
+                        'element_number': t.group('element_number'),
+                        'pos_number': t.group('position_number'),
+                        'address_field': 2,
+                        'element_count': int(element_count) if element_count is not None else 1,
+                        'tag': tag_name}
 
     t = re.search(r"(?P<file_type>S)"
                   r"(:)(?P<element_number>\d{1,3})"
-                  r"(/(?P<sub_element>\d{1,2}))?", tag, flags=re.IGNORECASE)
+                  r"(/(?P<sub_element>\d{1,2}))?"
+                  r"(?P<_elem_cnt_token>{(?P<element_count>\d+)})?",
+                  tag, flags=re.IGNORECASE)
     if t:
+        _cnt = t.group('_elem_cnt_token')
+        tag_name = t.group(0).replace(_cnt, '') if _cnt else t.group(0)
+        element_count = t.group('element_count')
         if t.group('sub_element') is not None:
-            if (0 <= int(t.group('element_number')) <= 255) \
-                    and (0 <= int(t.group('sub_element')) <= 15):
-                return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                          'file_number': '2',
-                                          'element_number': t.group('element_number'),
-                                          'sub_element': t.group('sub_element'),
-                                          'read_func': b'\xa2',
-                                          'write_func': b'\xab',
-                                          'address_field': 3}
+            if (
+                (0 <= int(t.group('element_number')) <= 255)
+                and (0 <= int(t.group('sub_element')) <= 15)
+            ):
+
+                return {'file_type': t.group('file_type').upper(),
+                        'file_number': '2',
+                        'element_number': t.group('element_number'),
+                        'sub_element': t.group('sub_element'),
+                        'address_field': 3,
+                        'element_count': int(element_count) if element_count is not None else 1,
+                        'tag': t.group(0)}
         else:
             if 0 <= int(t.group('element_number')) <= 255:
-                return True, t.group(0), {'file_type':  t.group('file_type').upper(),
-                                          'file_number': '2',
-                                          'element_number': t.group('element_number'),
-                                          'read_func': b'\xa2',
-                                          'write_func': b'\xab',
-                                          'address_field': 2}
+                return {'file_type': t.group('file_type').upper(),
+                        'file_number': '2',
+                        'element_number': t.group('element_number'),
+                        'address_field': 2,
+                        'element_count': int(element_count) if element_count is not None else 1,
+                        'tag': tag_name}
 
     t = re.search(r"(?P<file_type>B)(?P<file_number>\d{1,3})"
-                  r"(/)(?P<element_number>\d{1,4})",
+                  r"(/)(?P<element_number>\d{1,4})"
+                  r"(?P<_elem_cnt_token>{(?P<element_count>\d+)})?",
                   tag, flags=re.IGNORECASE)
     if (
         t
         and (1 <= int(t.group('file_number')) <= 255)
         and (0 <= int(t.group('element_number')) <= 4095)
     ):
+        _cnt = t.group('_elem_cnt_token')
+        tag_name = t.group(0).replace(_cnt, '') if _cnt else t.group(0)
         bit_position = int(t.group('element_number'))
         element_number = bit_position / 16
         sub_element = bit_position - (element_number * 16)
-        return True, t.group(0), {'file_type': t.group('file_type').upper(),
-                                  'file_number': t.group('file_number'),
-                                  'element_number': element_number,
-                                  'sub_element': sub_element,
-                                  'read_func': b'\xa2',
-                                  'write_func': b'\xab',
-                                  'address_field': 3}
+        element_count = t.group('element_count')
+        return {'file_type': t.group('file_type').upper(),
+                'file_number': t.group('file_number'),
+                'element_number': element_number,
+                'sub_element': sub_element,
+                'address_field': 3,
+                'element_count': int(element_count) if element_count is not None else 1,
+                'tag': tag_name}
 
-    return False, tag
+    return None
+
 
 def get_bit(value, idx):
     """:returns value of bit at position idx"""
     return (value & (1 << idx)) != 0
+
+
+def writeable_value(tag, value):
+    if isinstance(value, bytes):
+        return value
+    bit_field = tag.get('address_field', 0) == 3
+    bit_position = int(tag.get('sub_element') or 0) if bit_field else 0
+
+    element_count = tag.get('element_count') or 1
+    if element_count > 1:
+        if len(value) < element_count:
+            raise RequestError(f'Insufficient data for requested elements, expected {element_count} and got {len(value)}')
+        if len(value) > element_count:
+            value = value[:element_count]
+
+    try:
+        pack_func = Pack[f'pccc_{tag["file_type"].lower()}']
+
+        if element_count > 1:
+            _value = b''.join(pack_func(val) for val in value)
+        else:
+            if bit_field:
+                tag['data_size'] = 2
+
+                if tag['file_type'] in ['T', 'C'] and bit_position in {
+                    PCCC_CT['PRE'],
+                    PCCC_CT['ACC'],
+                }:
+                    _value = b'\xff\xff' + pack_func[tag['file_type']](value)
+                else:
+                    if value > 0:
+                        _value = Pack.uint(math.pow(2, bit_position)) + Pack.uint(math.pow(2, bit_position))
+                    else:
+                        _value = Pack.uint(math.pow(2, bit_position)) + Pack.uint(0)
+
+            else:
+                _value = pack_func(value)
+
+    except Exception as err:
+        raise RequestError(f'Failed to create a writeable value for {tag["tag"]} from {value}') from err
+
+    else:
+        return _value
+
+
+def request_status(data):
+    try:
+        _status_code = int(data[58])
+        if _status_code == SUCCESS:
+            return None
+        return PCCC_ERROR_CODE.get(_status_code, 'Unknown Status')
+    except Exception:
+        return 'Unknown Status'
