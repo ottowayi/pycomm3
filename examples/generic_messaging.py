@@ -4,7 +4,7 @@ from pycomm3 import CIPDriver, CommonService, Pack
 def read_pf525_parameter():
     drive_path = '10.10.10.100/bp/1/enet/192.168.1.55'
 
-    with CIPDriver(drive_path, init_tags=False, init_info=False) as drive:
+    with CIPDriver(drive_path) as drive:
         param = drive.generic_message(
             service=CommonService.get_attribute_single,
             class_code=b'\x93',
@@ -22,7 +22,7 @@ def read_pf525_parameter():
 def write_pf525_parameter():
     drive_path = '10.10.10.100/bp/1/enet/192.168.1.55'
 
-    with CIPDriver(drive_path, init_tags=False, init_info=False) as drive:
+    with CIPDriver(drive_path) as drive:
         drive.generic_message(
             service=CommonService.set_attribute_single,
             class_code=b'\x93',

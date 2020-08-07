@@ -1,3 +1,4 @@
+=======
 pycomm3
 =======
 
@@ -20,12 +21,28 @@ pycomm3
 
 ``pycomm3`` is a Python 3 fork of `pycomm`_, which is a native python library for communicating
 with PLCs using Ethernet/IP.  The initial Python 3 translation was done in this fork_, this library
-seeks to continue and expand upon the great work done by the original ``pycomm`` developers.  This library supports
-Ethernet/IP communications with Allen-Bradley Control/Compact Logix and Micro800 PLCs. `pycomm`_ has support for SLC and MicroLogix
-PLCs, but they have not been ported yet.  The module still exists in the package, but is broken and will raise a NotImplementedError
-on import.  `pylogix`_ is another library with similar features (including Python 2 support), thank you to them for their hard
-work as well.  Referencing `pylogix`_ code was a big help in implementing some features missing from `pycomm`_.
-This library is only supported on Python 3.6.1 and up.
+seeks to continue and expand upon the great work done by the original ``pycomm`` developers.
+`pylogix`_ is another library with similar features (including Python 2 support) for ControlLogix and CompactLogix PLCs.
+Referencing ``pylogix`` code was a big help in implementing some features missing from ``pycomm``.  This library is
+supported on Python 3.6.1 and newer.
+
+This library contains 3 drivers:
+
+LogixDriver
+    This is the main driver for this library, it supports ControlLogix, CompactLogix, and Micro800 PLCs.
+
+SLCDriver
+    **New in version 0.10.0**
+
+    This driver can be used for reading/writing data files in SLC 500 or MicroLogix PLCs.  This driver is an update to the
+    original pycomm SLC driver with some minor changes to make it similar to the LogixDriver. Some of the more advanced
+    or automatic features are not supported.  Even though this driver was newly added, it's considered legacy and it's development
+    will be on a limited basis.
+
+CIPDriver
+    This is the base class for the other two drivers, it handles some common shared services.  It can also be used for
+    generic CIP messaging to other non-PLC devices.
+
 
 .. _pycomm: https://github.com/ruscito/pycomm
 
@@ -35,15 +52,16 @@ This library is only supported on Python 3.6.1 and up.
 
 
 Disclaimer
-----------
+==========
+
 PLCs can be used to control heavy or dangerous equipment, this library is provided 'As Is' and makes no guarantees on
 it's reliability in a production environment.  This library makes no promises in the completeness or correctness of the
 protocol implementations and should not be solely relied upon for critical systems.  The development for this library
-is aimed at providing quick and convenient access for reading/writing data inside Allen-Bradley Control/Compact Logix PLCs.
-
+is aimed at providing quick and convenient access for reading/writing data inside Allen-Bradley PLCs.
 
 Setup
------
+=====
+
 The package can be installed from `PyPI`_ using ``pip``: ``pip install pycomm3`` or ``python -m pip install pycomm3``.
 
 .. _PyPI: https://pypi.org/project/pycomm3/
@@ -53,13 +71,15 @@ Optionally, you may configure logging using the Python standard `logging`_ libra
 .. _logging: https://docs.python.org/3/library/logging.html
 
 Documentation
--------------
+=============
 
 This README covers a basic overview of the library, full documentation can be found on
 `Read the Docs`_.
 
 .. _Read the Docs: https://pycomm3.readthedocs.io/en/latest/
 
+LogixDriver
+===========
 
 Highlighted Features
 --------------------
@@ -77,8 +97,7 @@ Highlighted Features
     - returns a value dict ``{attribute: value}``
 
 - ``write`` supports full structure writing
-   
-    - Experimental support added in v0.7.0
+
     - value should be a list/tuple of values for each attribute, nested for arrays and other structures
     - not recommended for built-in types (TIMER, CONTROL, COUNTER, etc)
     - all or nothing, does not update only parts of a struct
@@ -105,7 +124,6 @@ Highlighted Features
     - Extended Forward Open (EN2T or newer and v20+)
     - Symbol Instance Addressing (Logix v21+)
     - detection of Micro800 and disables unsupported features (CIP Path, Ex. Forward Open, Instance Addressing, etc)
-
 
 Basic Usage
 -----------
@@ -136,13 +154,11 @@ has 3 forms:
         #  'device_type': '1756-L83E/B', 'keyswitch': 'REMOTE RUN', 'name': 'PLCA'}
 
 
-
 By default, when creating the LogixDriver object, it will open a connection to the plc, read the program name, get the
 controller info, and get all the controller scoped tags.  By reading the tag list first, this allows us to cache all the
 tag type/structure information, including the instance ids for all the tags.  This information allows the ``read``/``write``
 methods to require only the tag name. If your project will require program-scoped tags, be sure to set the ``init_program_tags`` kwarg.
 By default, only the controller-scoped tags will be retrieved and cached.
-
 
 Reading/Writing Tags
 --------------------
@@ -211,18 +227,18 @@ For details on the information contained and the structure of the definitions, r
 
 
 Unit Testing
-------------
+============
 
 ``pytest`` is used for unit testing. The ``tests`` directory contains an L5X export of the ``Pycomm3_Testing`` program
 that contains all tags necessary for testing.  The only requirement for testing (besides a running PLC with the testing
 program) is the environment variable ``PLCPATH`` for the PLC defined.
 
 .. Note::
-    Test coverage is not complete, pull requests are very much welcome to cover all combinations for reading and writing tags.
+    Test coverage is not complete, pull requests are welcome to help improve coverage.
 
 
 TODO
-----
+====
 
 - *(wip)* - improve documentation and include more real-world example scripts
 - *(not started)* - make API case insensitive

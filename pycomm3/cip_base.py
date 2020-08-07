@@ -66,7 +66,7 @@ def with_forward_open(func):
 
 class CIPDriver:
     """
-    A base CIP driver for the SLCDriver and CLXDriver classes.  Implements common CIP services like
+    A base CIP driver for the SLCDriver and LogixDriver classes.  Implements common CIP services like
     (un)registering sessions, forward open/close, generic messaging, etc.
     """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
