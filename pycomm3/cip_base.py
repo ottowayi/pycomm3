@@ -22,11 +22,13 @@
 # SOFTWARE.
 #
 
+__all__ = ['CIPDriver', 'with_forward_open', 'parse_connection_path', ]
+
 import logging
 import socket
 from functools import wraps
 from os import urandom
-from typing import Union, Optional
+from typing import Union, Optional, List
 
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
@@ -36,9 +38,6 @@ from .const import (PATH_SEGMENTS, ConnectionManagerInstance, PRIORITY, ClassCod
                     ConnectionManagerService, CommonService)
 from .packets import REQUEST_MAP, RequestPacket, DataFormatType
 from .socket_ import Socket
-
-
-# re_bit = re.compile(r'(?P<base>^.*)\.(?P<bit>([0-2][0-9])|(3[01])|[0-9])$')
 
 
 def with_forward_open(func):
@@ -67,11 +66,12 @@ def with_forward_open(func):
 
 class CIPDriver:
     """
-    An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
+    A base CIP driver for the SLCDriver and CLXDriver classes.  Implements common CIP services like
+    (un)registering sessions, forward open/close, generic messaging, etc.
     """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, path: str, *args,  large_packets: bool = True, **kwargs):
+    def __init__(self, path: str, *args, large_packets: bool = True, **kwargs):
         """
         :param path: CIP path to intended target
 
@@ -335,7 +335,8 @@ class CIPDriver:
         if response:
             self._target_cid = response.value[:4]
             self._target_is_connected = True
-            self.__log.info(f"{'Extended ' if self._cfg['extended forward open'] else ''}Forward Open succeeded. Target CID={self._target_cid}")
+            self.__log.info(
+                f"{'Extended ' if self._cfg['extended forward open'] else ''}Forward Open succeeded. Target CID={self._target_cid}")
             return True
         self.__log.warning(f"forward_open failed - {response.error}")
         return False

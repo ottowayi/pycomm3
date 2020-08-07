@@ -22,11 +22,13 @@
 # SOFTWARE.
 #
 
+__all__ = ['LogixDriver', ]
+
 import datetime
 import itertools
 import logging
 import time
-from typing import Union, List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
@@ -38,14 +40,14 @@ from .const import (TagService, EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, Clas
                     TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DataTypeSize, MIN_VER_EXTERNAL_ACCESS)
 from .packets import request_path
 
-AtomicType = Union[int, float, bool, str]
-TagType = Union[AtomicType, List[AtomicType]]
-ReturnType = Union[Tag, List[Tag]]
+AtomicValueType = Union[int, float, bool, str]
+TagValueType = Union[AtomicValueType, List[AtomicValueType]]
+ReadWriteReturnType = Union[Tag, List[Tag]]
 
 
 class LogixDriver(CIPDriver):
     """
-    An Ethernet/IP Client library for reading and writing tags in ControlLogix and CompactLogix PLCs.
+    An Ethernet/IP Client driver for reading and writing tags in ControlLogix and CompactLogix PLCs.
     """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
@@ -648,7 +650,7 @@ class LogixDriver(CIPDriver):
         return self._cache['id:udt'][instance_id]
 
     @with_forward_open
-    def read(self, *tags: str) -> ReturnType:
+    def read(self, *tags: str) -> ReadWriteReturnType:
         """
         Read the value of tag(s).  Automatically will split tags into multiple requests by tracking the request and
         response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
@@ -756,7 +758,7 @@ class LogixDriver(CIPDriver):
         return None
 
     @with_forward_open
-    def write(self, *tags_values: Tuple[str, TagType]) -> ReturnType:
+    def write(self, *tags_values: Tuple[str, TagValueType]) -> ReadWriteReturnType:
         """
         Write to tag(s). Automatically will split tags into multiple requests by tracking the request and
         response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
@@ -1122,7 +1124,7 @@ def writable_value(parsed_tag):
 
         if elements > 1:
             if len(value) < elements:
-                raise RequestError('Insufficient data for requested elements')
+                raise RequestError(f'Insufficient data for requested elements, expected {elements} and got {len(value)}')
             if len(value) > elements:
                 value = value[:elements]
 
@@ -1136,7 +1138,7 @@ def writable_value(parsed_tag):
             else:
                 return pack_func(value)
     except Exception as err:
-        raise RequestError('Unable to create a writable value', err)
+        raise RequestError('Unable to create a writable value') from err
 
 
 def _strip_array(tag):
