@@ -23,6 +23,7 @@
 #
 
 import logging
+from typing import Union
 from reprlib import repr as _r
 
 from . import Packet, DataFormatType
@@ -612,18 +613,7 @@ def _find_tag_index(tag):
 
 
 def _encode_tag_index(index):
-        path = []
-        for idx in index:
-            val = int(idx)
-            if val <= 0xff:
-                path += [ELEMENT_TYPE["8-bit"], Pack.usint(val)]
-            elif val <= 0xffff:
-                path += [ELEMENT_TYPE["16-bit"], Pack.uint(val)]
-            elif val <= 0xfffffffff:
-                path += [ELEMENT_TYPE["32-bit"], Pack.dint(val)]
-            else:
-                return None  # Cannot create a valid request packet
-        return path
+    return [_encode_segment(int(idx), ELEMENT_TYPE) for idx in index]
 
 
 class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
@@ -709,25 +699,34 @@ def wrap_unconnected_send(message, route_path):
     )
 
 
-def request_path(class_code: bytes, instance: bytes, attribute: bytes = b'', data: bytes = b''):
-    class_type = CLASS_TYPE.get(len(class_code))
+def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
+                 attribute: Union[int, bytes] = b'', data: bytes = b''):
 
-    if class_type is None:
-        raise RequestError(f'Invalid Class Code Length ({len(class_code)}), must be 1 or 2 bytes')
-
-    instance_type = INSTANCE_TYPE.get(len(instance))
-    if instance_type is None:
-        raise RequestError(f'Invalid Instance Length ({len(instance)}), must be 1 or 2 bytes')
-
-    path = [class_type, class_code, instance_type, instance]
+    path = [_encode_segment(class_code, CLASS_TYPE), _encode_segment(instance, INSTANCE_TYPE)]
 
     if attribute:
-        attr_type = ATTRIBUTE_TYPE.get(len(attribute))
-        if attr_type is None:
-            raise RequestError(f'Invalid Attribute Length ({len(attribute)}), must be 1 or 2 bytes')
-        path += [attr_type, attribute]
+        path.append(_encode_segment(attribute, ATTRIBUTE_TYPE))
 
     if data:
         path.append(data)
 
     return Pack.epath(b''.join(path))
+
+
+def _encode_segment(segment: Union[bytes, int], segment_types: dict):
+    if isinstance(segment, int):
+        if segment <= 0xff:
+            segment = Pack.usint(segment)
+        elif segment <= 0xffff:
+            segment = Pack.uint(segment)
+        elif segment <= 0xfffffffff:
+            segment = Pack.dint(segment)
+        else:
+            raise RequestError('Invalid segment value')
+
+    _type = segment_types.get(len(segment))
+
+    if _type is None:
+        raise RequestError('Segment value not valid for segment type')
+
+    return _type + segment
