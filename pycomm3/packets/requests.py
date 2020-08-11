@@ -660,10 +660,10 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
         self.request_data = None
 
     def build(self,
-              service: bytes,
-              class_code: bytes,
-              instance: bytes,
-              attribute: bytes = b'',
+              service: Union[int, bytes],
+              class_code: Union[int, bytes],
+              instance: Union[int, bytes],
+              attribute: Union[int, bytes] = b'',
               request_data: bytes = b'',
               route_path: bytes = b'',
               unconnected_send: bool = False,
