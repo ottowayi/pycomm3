@@ -554,8 +554,8 @@ class LogixDriver(CIPDriver):
 
                 offset += len(response.data)
 
-        except Exception:
-            raise
+        except Exception as err:
+            raise DataError('Failed to read template') from err
         else:
             return template_raw
 
@@ -573,8 +573,8 @@ class LogixDriver(CIPDriver):
                     template_name, _ = name.split(';', maxsplit=1)
                 else:
                     member_names.append(name)
-        except (ValueError, UnicodeDecodeError):
-            raise DataError(f'Unable to decode template or member names')
+        except (ValueError, UnicodeDecodeError) as err:
+            raise DataError(f'Unable to decode template or member names') from err
 
         predefine = template_name is None
         if predefine:
@@ -629,14 +629,14 @@ class LogixDriver(CIPDriver):
         if instance_id not in self._cache['id:udt']:
             try:
                 template = self._get_structure_makeup(instance_id)  # instance id from type
-                if not template.get('Error'):
+                if not template.get('error'):
                     _data = self._read_template(instance_id, template['object_definition_size'])
                     data_type = self._parse_template_data(_data, template['member_count'])
                     data_type['template'] = template
                     self._cache['id:udt'][instance_id] = data_type
                     self._data_types[data_type['name']] = data_type
-            except Exception:
-                self.__log.exception('fuck')
+            except Exception as err:
+                raise DataError('Failed to get data type information') from err
 
         return self._cache['id:udt'][instance_id]
 
@@ -899,8 +899,9 @@ class LogixDriver(CIPDriver):
                 return _recurse_attrs(attrs, data['data_type']['internal_tags'])
 
         except Exception as err:
-            self.__log.exception(f'Failed to lookup tag data for {base}, {attrs}')
-            raise
+            _msg = f'Failed to lookup tag data for {base}, {attrs}'
+            self.__log.exception(_msg)
+            raise RequestError(_msg) from err
 
     def _parse_requested_tags(self, tags):
         requests = {}
@@ -1061,7 +1062,7 @@ def _parse_structure_makeup_attributes(response):
         structure = {}
 
         if response.service_status != SUCCESS:
-            structure['Error'] = response.service_status
+            structure['error'] = response.service_status
             return
 
         attribute = response.data
@@ -1071,7 +1072,7 @@ def _parse_structure_makeup_attributes(response):
                 idx += 2
                 structure['object_definition_size'] = Unpack.dint(attribute[idx:idx + 4])
             else:
-                structure['Error'] = 'object_definition Error'
+                structure['error'] = 'object_definition Error'
                 return structure
 
             idx += 6
@@ -1079,7 +1080,7 @@ def _parse_structure_makeup_attributes(response):
                 idx += 2
                 structure['structure_size'] = Unpack.dint(attribute[idx:idx + 4])
             else:
-                structure['Error'] = 'structure Error'
+                structure['error'] = 'structure Error'
                 return structure
 
             idx += 6
@@ -1087,7 +1088,7 @@ def _parse_structure_makeup_attributes(response):
                 idx += 2
                 structure['member_count'] = Unpack.uint(attribute[idx:idx + 2])
             else:
-                structure['Error'] = 'member_count Error'
+                structure['error'] = 'member_count Error'
                 return structure
 
             idx += 4
@@ -1095,7 +1096,7 @@ def _parse_structure_makeup_attributes(response):
                 idx += 2
                 structure['structure_handle'] = Unpack.uint(attribute[idx:idx + 2])
             else:
-                structure['Error'] = 'structure_handle Error'
+                structure['error'] = 'structure_handle Error'
                 return structure
 
             return structure

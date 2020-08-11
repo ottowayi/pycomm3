@@ -64,7 +64,10 @@ PCCC_PATH = b'\x67\x24\x01'
 ELEMENT_TYPE = {
     "8-bit": b'\x28',
     "16-bit": b'\x29\x00',
-    "32-bit": b'\x2a\x00\x00\x00'
+    "32-bit": b'\x2a\x00\x00\x00',
+    1: b'\x28',
+    2: b'\x29\x00',
+    3: b'\x2a\x00\x00\x00',
 }
 
 CLASS_TYPE = {

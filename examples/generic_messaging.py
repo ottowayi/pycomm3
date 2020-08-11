@@ -8,7 +8,7 @@ def read_pf525_parameter():
         param = drive.generic_message(
             service=CommonService.get_attribute_single,
             class_code=b'\x93',
-            instance=b'\x29',  # (hex) Parameter 41 = Accel Time
+            instance=41,  # Parameter 41 = Accel Time
             attribute=b'\x09',
             connected=False,
             unconnected_send=True,
@@ -26,7 +26,7 @@ def write_pf525_parameter():
         drive.generic_message(
             service=CommonService.set_attribute_single,
             class_code=b'\x93',
-            instance=b'\x29',  # (hex) Parameter 41 = Accel Time
+            instance=41,  # Parameter 41 = Accel Time
             attribute=b'\x09',
             request_data=Pack.int(500),  # = 5 seconds * 100
             connected=False,

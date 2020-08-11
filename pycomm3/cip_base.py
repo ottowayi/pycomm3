@@ -419,11 +419,11 @@ class CIPDriver:
         return False
 
     def generic_message(self,
-                        service: bytes,
-                        class_code: bytes,
-                        instance: bytes,
-                        attribute: Optional[bytes] = b'',
-                        request_data: Optional[bytes] = b'',
+                        service: Union[int, bytes],
+                        class_code: Union[int, bytes],
+                        instance: Union[int, bytes],
+                        attribute: Optional[Union[int, bytes]] = b'',
+                        request_data: Optional[Union[int, bytes]] = b'',
                         data_format: Optional[DataFormatType] = None,
                         name: str = 'generic',
                         connected: bool = True,
