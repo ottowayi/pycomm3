@@ -30,7 +30,7 @@ def _pack_epath(path, pad_len=False):
     if len(path) % 2:
         path += b'\x00'
 
-    _len = Pack.usint(len(path)//2)
+    _len = Pack.usint(len(path) // 2)
     if pad_len:
         _len += b'\x00'
 
