@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 **Pre-checks**
-- [ ] running latest version (`pip show pycomm3`)
+- [ ] running latest version
 - [ ] enabled logging 
 - [ ] consulted the [docs](https://pycomm3.readthedocs.io/en/latest/) 
 
