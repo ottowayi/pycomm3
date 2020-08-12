@@ -221,7 +221,7 @@ class CIPDriver:
                 service=CommonService.get_attributes_all,
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 connected=False, unconnected_send=True,
-                route_path=PATH_SEGMENTS['bp'] + Pack.sint(slot)
+                route_path=Pack.epath(Pack.usint(PATH_SEGMENTS['bp']) + Pack.usint(slot), pad_len=True)
             )
 
             if response:
@@ -488,7 +488,7 @@ def parse_connection_path(path):
     segments = [_parse_cip_path_segment(s) for s in segments]
 
     if not segments:
-        _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']  # [] if micro800 else
+        _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']
     elif len(segments) == 1:
         _path = [Pack.usint(PATH_SEGMENTS['backplane']), Pack.usint(segments[0])]
     else:

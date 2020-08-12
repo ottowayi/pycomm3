@@ -233,7 +233,7 @@ class LogixDriver(CIPDriver):
         try:
             response = self.generic_message(
                 class_code=ClassCode.identity_object, instance=b'\x01',
-                service=b'\x01',
+                service=CommonService.get_attributes_all,
                 data_format=[
                     ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
                     ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
