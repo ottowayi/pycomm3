@@ -1,7 +1,7 @@
 from pycomm3 import CIPDriver, CommonService, Pack
 
 
-#Read PF525 Parameter
+# Read PF525 Parameter
 def read_pf525_parameter():
     drive_path = '10.10.10.100/bp/1/enet/192.168.1.55'
 
@@ -20,7 +20,7 @@ def read_pf525_parameter():
         print(param)
 
 
-#Write PF525 Parameter
+# Write PF525 Parameter
 def write_pf525_parameter():
     drive_path = '10.10.10.100/bp/1/enet/192.168.1.55'
 
@@ -38,47 +38,53 @@ def write_pf525_parameter():
         )
 
 
-#Read OK LED Status From ENBT/EN2T    
-def ENBT_OK_LED_Status():
+# Read OK LED Status From ENBT/EN2T
+def enbt_ok_led_status():
     message_path = '10.10.10.100/bp/2'
 
     with CIPDriver(message_path) as device:
         data = device.generic_message(
             service=CommonService.get_attribute_single,
-            class_code=b'\x01', #Values from RA Knowledgebase
-            instance=1, #Values from RA Knowledgebase
-            attribute=5, #Values from RA Knowledgebase
+            class_code=b'\x01',  # Values from RA Knowledgebase
+            instance=1,  # Values from RA Knowledgebase
+            attribute=5,  # Values from RA Knowledgebase
             connected=False,
             unconnected_send=True,
             route_path=True,
             data_format=[('Value', 'INT'), ],
             name='OK LED Status'
         )
-        #The LED Status is returned as a binary representation on bits 4, 5, 6, and 7. The decimal equivalents are:
-        #0 = Solid Red, 64 = Flashing Red, and 96 = Solid Green. The ENBT/EN2T do not display link lost through the OK LED. 
-        print(data.value['Value'])
-        
+        # The LED Status is returned as a binary representation on bits 4, 5, 6, and 7. The decimal equivalents are:
+        # 0 = Solid Red, 64 = Flashing Red, and 96 = Solid Green. The ENBT/EN2T do not display link lost through the OK LED.
+        statuses = {
+            0: 'solid red',
+            64: 'flashing red',
+            96: 'solid green'
+        }
+        print(statuses.get(data.value['Value']), 'unknown')
 
-#Read Link Status of any Logix Ethernet Module
-def LinkStatus():
+
+# Read Link Status of any Logix Ethernet Module
+def link_status():
     message_path = '10.10.10.100/bp/2'
 
     with CIPDriver(message_path) as device:
         data = device.generic_message(
             service=CommonService.get_attribute_single,
-            class_code=b'\xf6', #Values from RA Knowledgebase
-            instance=1, #For multiport devices, change to "2" for second port, "3" for third port. For CompactLogix, front port is "1" and back port is "2".
-            attribute=2, #Values from RA Knowledgebase
+            class_code=b'\xf6',  # Values from RA Knowledgebase
+            instance=1,  # For multiport devices, change to "2" for second port, "3" for third port.
+                         # For CompactLogix, front port is "1" and back port is "2".
+            attribute=2,  # Values from RA Knowledgebase
             connected=False,
             unconnected_send=True,
             route_path=True,
             data_format=[('LinkStatus', 'INT'), ],
             name='LinkStatus'
         )
-        #Prints the binary representation of the link status. The definition of the bits are:
+        # Prints the binary representation of the link status. The definition of the bits are:
         #   Bit 0 - Link Status - 0 means inactive link (Link Lost), 1 means active link.
         #   Bit 1 - Half/Full Duplex - 0 means half duplex, 1 means full duplex
-        #   Bit 2 to 4 - Binary represetation of auto-negotiation and speed detection status:
+        #   Bit 2 to 4 - Binary representation of auto-negotiation and speed detection status:
         #       0 = Auto-negotiation in progress
         #       1 = Auto-negotiation and speed detection failed 
         #       2 = Auto-negotiation failed, speed detected
@@ -87,16 +93,16 @@ def LinkStatus():
         #   Bit 5 - Setting Requires Reset - if 1, a manual setting requires resetting of the module
         #   Bit 6 - Local Hardware Fault - 0 indicates no hardware faults, 1 indicates a fault detected. 
         print(bin(data.value["LinkStatus"]))
-        
-        
-#Get the status of both power inputs from a Stratix switch. 
+
+
+# Get the status of both power inputs from a Stratix switch.
 def stratix_power_status():
     message_path = '10.10.10.100/bp/2/enet/192.168.1.1'
 
     with CIPDriver(message_path) as device:
         data = device.generic_message(
             service=b'\x0e',
-            class_code=863, #use decimal represenation of hex class code
+            class_code=863,  # use decimal represenation of hex class code
             instance=1,
             attribute=8,
             connected=False,
@@ -105,16 +111,18 @@ def stratix_power_status():
             data_format=[('Power Status', 'INT'), ],
             name='Power Status'
         )
-        #Returns a binary representation of the power status. Bit 0 is PWR A, Bit 1 is PWR B. If 1, power is applied. If 0, power is off. 
-        print(data.value['Power Status'])
+        # Returns a binary representation of the power status. Bit 0 is PWR A, Bit 1 is PWR B. If 1, power is applied. If 0, power is off.
+        pwr_a = 'on' if data.value['Power Status'] & 0b_1 else 'off'
+        pwr_b = 'on' if data.value['Power Status'] & 0b_10 else 'off'
+        print(f'PWR A: {pwr_a}, PWR B: {pwr_b}')
 
 
-#Get the IP Configuration from an Ethernet Module
+# Get the IP Configuration from an Ethernet Module
 def ip_config():
     message_path = '10.10.10.100/bp/2'
 
-    with CIPDriver(message_path) as device:
-        data = device.generic_message(
+    with CIPDriver(message_path) as plc:  # L85
+        data = plc.generic_message(
             service=b'\x0e',
             class_code=b'\xf5',
             instance=1,
@@ -125,8 +133,12 @@ def ip_config():
             data_format=[('IP Config', 'INT'), ],
             name='IP_config'
         )
-        #Returns a binary representation of the current IP config (BOOTP/STATIC/DHCP). Look only at bits 0-3.
-        #   Static = 0000
-        #   BOOTP  = 0001
-        #   DHCP   = 0010
-        print(bin(data.value['IP Config']))
+
+        statuses = {
+            0b_0000: 'static',
+            0b_0001: 'BOOTP',
+            0b_0010: 'DHCP'
+        }
+
+        ip_status = data.value['IP Config'] & 0b_1111  # only need the first 4 bits
+        print(statuses.get(ip_status, 'unknown'))
