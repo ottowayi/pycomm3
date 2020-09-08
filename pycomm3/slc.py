@@ -37,7 +37,7 @@ from .exceptions import DataError, RequestError
 from .tag import Tag
 
 AtomicValueType = Union[int, float, bool]
-TagValueType = Union[AtomicValueType, List[AtomicValueType]]
+TagValueType = Union[AtomicValueType, List[Union[AtomicValueType, str]]]
 ReadWriteReturnType = Union[Tag, List[Tag]]
 
 
@@ -183,7 +183,7 @@ def _parse_read_reply(tag, data) -> Tag:
         unpack_func = Unpack[f'pccc_{tag["file_type"].lower()}']
         if bit_read:
             new_value = 0
-            if tag['file_type'] in ['T', 'C']:
+            if tag['file_type'] in {'T', 'C'}:
                 if bit_position == PCCC_CT['PRE']:
                     return Tag(tag['tag'],
                                unpack_func(data[new_value + 2:new_value + 2 + data_size]),
@@ -302,6 +302,46 @@ def parse_tag(tag: str) -> Optional[dict]:
                         'element_count': int(element_count) if element_count is not None else 1,
                         'tag': tag_name}
 
+    t = re.search(r"(?P<file_type>ST)(?P<file_number>\d{1,3})"
+                  r"(:)(?P<element_number>\d{1,4})"
+                  r"(?P<_elem_cnt_token>{(?P<element_count>[12])})?",
+                  tag, flags=re.IGNORECASE)
+    if (
+            t
+            and (1 <= int(t.group('file_number')) <= 255)
+            and (0 <= int(t.group('element_number')) <= 255)
+    ):
+        _cnt = t.group('_elem_cnt_token')
+        tag_name = t.group(0).replace(_cnt, '') if _cnt else t.group(0)
+        element_number = int(t.group('element_number'))
+        element_count = t.group('element_count')
+        return {'file_type': t.group('file_type').upper(),
+                'file_number': t.group('file_number'),
+                'element_number': element_number,
+                'address_field':  2,
+                'element_count': int(element_count) if element_count is not None else 1,
+                'tag': tag_name}
+
+    t = re.search(r"(?P<file_type>A)(?P<file_number>\d{1,3})"
+                  r"(:)(?P<element_number>\d{1,4})"
+                  r"(?P<_elem_cnt_token>{(?P<element_count>\d+)})?",
+                  tag, flags=re.IGNORECASE)
+    if (
+            t
+            and (1 <= int(t.group('file_number')) <= 255)
+            and (0 <= int(t.group('element_number')) <= 255)
+    ):
+        _cnt = t.group('_elem_cnt_token')
+        tag_name = t.group(0).replace(_cnt, '') if _cnt else t.group(0)
+        element_number = int(t.group('element_number'))
+        element_count = t.group('element_count')
+        return {'file_type': t.group('file_type').upper(),
+                'file_number': t.group('file_number'),
+                'element_number': element_number,
+                'address_field': 2,
+                'element_count': int(element_count) if element_count is not None else 1,
+                'tag': tag_name}
+
     t = re.search(r"(?P<file_type>S)"
                   r"(:)(?P<element_number>\d{1,3})"
                   r"(/(?P<sub_element>\d{1,2}))?"
@@ -354,6 +394,8 @@ def parse_tag(tag: str) -> Optional[dict]:
                 'address_field': 3,
                 'element_count': int(element_count) if element_count is not None else 1,
                 'tag': tag_name}
+
+
 
     return None
 

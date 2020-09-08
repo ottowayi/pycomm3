@@ -25,6 +25,7 @@
 from typing import Callable
 from struct import pack, unpack
 from .map import EnumMap
+from itertools import chain
 
 
 def _pack_epath(path, pad_len=False):
@@ -49,9 +50,49 @@ def _short_string_encode(string):
 
 def _short_string_decode(str_data):
     string_len = str_data[0]
+    return _decode_string(str_data[1: string_len + 1])
+
+
+def _decode_string(str_bytes):
     return ''.join(
-        chr(v + 256) if v < 0 else chr(v) for v in str_data[1:string_len + 1]
+        chr(v + 256) if v < 0 else chr(v) for v in str_bytes
     )
+
+
+def _decode_pccc_ascii(data):
+    return _decode_string(_slc_string_swap(data))
+
+
+def _decode_pccc_string(str_bytes):
+    str_len = Unpack.uint(str_bytes)
+    str_data = str_bytes[2:2+str_len+(str_len % 2)]
+    _str = _slc_string_swap(str_data)[:str_len]
+    return _decode_string(_str)
+
+
+def _encode_pccc_string(string):
+    str_len = Pack.uint(len(string))
+    str_data = str_len + b''.join(_pack_char(x) for x in _slc_string_swap(string))
+    return str_data
+
+
+def _encode_pccc_ascii(string):
+    _len = len(string)
+    if _len > 2:
+        raise ValueError('ASCII strings cannot be greater than 2 characters')
+    elif _len < 2:
+        string += ' ' * (2 - _len)
+
+    return b''.join(_pack_char(x) for x in _slc_string_swap(string))
+
+
+def _slc_string_swap(data):
+    return [
+        x for x in
+        chain.from_iterable(
+                (x2, x1) for x1, x2 in (data[i:i + 2] for i in range(0, len(data), 2))
+            )
+    ]
 
 
 class Pack(EnumMap):
