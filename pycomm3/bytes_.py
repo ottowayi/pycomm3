@@ -22,6 +22,7 @@
 # SOFTWARE.
 #
 
+from typing import Callable
 from struct import pack, unpack
 from .map import EnumMap
 
@@ -55,67 +56,70 @@ def _short_string_decode(str_data):
 
 class Pack(EnumMap):
 
-    sint = lambda n: pack('b', n)
-    byte = sint
-    usint = lambda n: pack('B', n)
-    int = lambda n: pack('<h', n)
-    uint = lambda n: pack('<H', n)
-    word = uint
-    dint = lambda n: pack('<i', n)
-    udint = lambda n: pack('<I', n)
-    dword = udint
-    lint = lambda l: pack('<q', l)
-    ulint = lambda l: pack('<Q', l)
-    lword = ulint
-    real = lambda r: pack('<f', r)
-    long = lambda l: pack('<l', l)
-    ulong = lambda l: pack('<L', l)
-    epath = _pack_epath
-    short_string = _short_string_encode
-    char = _pack_char
-    bool = lambda b: b'\xFF' if b else b'\x00'
+    sint: Callable[[int], bytes] = lambda n: pack('b', n)
+    byte: Callable[[int], bytes] = sint
+    usint: Callable[[int], bytes] = lambda n: pack('B', n)
+    int: Callable[[int], bytes] = lambda n: pack('<h', n)
+    uint: Callable[[int], bytes] = lambda n: pack('<H', n)
+    word: Callable[[int], bytes] = uint
+    dint: Callable[[int], bytes] = lambda n: pack('<i', n)
+    udint: Callable[[int], bytes] = lambda n: pack('<I', n)
+    dword: Callable[[int], bytes] = udint
+    lint: Callable[[int], bytes] = lambda l: pack('<q', l)
+    ulint: Callable[[int], bytes] = lambda l: pack('<Q', l)
+    lword: Callable[[int], bytes] = ulint
+    real: Callable[[float], bytes] = lambda r: pack('<f', r)
+    long: Callable[[float], bytes] = lambda l: pack('<l', l)
+    ulong: Callable[[float], bytes] = lambda l: pack('<L', l)
+    epath: Callable[[bytes, bool], bytes] = _pack_epath
+    short_string: Callable[[str], bytes] = _short_string_encode
+    char: Callable[[str], bytes] = _pack_char
+    bool: Callable[[bool], bytes] = lambda b: b'\xFF' if b else b'\x00'
 
-    pccc_n = int
-    pccc_b = int
-    pccc_t = int
-    pccc_c = int
-    pccc_s = int
-    pccc_o = int
-    pccc_i = int
-    pccc_f = real
-    pccc_a = sint
-    pccc_r = dint
+    pccc_n: Callable[[int], bytes] = int
+    pccc_b: Callable[[int], bytes] = int
+    pccc_t: Callable[[int], bytes] = int
+    pccc_c: Callable[[int], bytes] = int
+    pccc_s: Callable[[int], bytes] = int
+    pccc_o: Callable[[int], bytes] = int
+    pccc_i: Callable[[int], bytes] = int
+    pccc_f: Callable[[float], bytes] = real
+    pccc_a: Callable[[int], bytes] = _encode_pccc_ascii
+    pccc_r: Callable[[int], bytes] = dint
+    pccc_st: Callable[[str], bytes] = _encode_pccc_string
 
 
 class Unpack(EnumMap):
-    bool = lambda st: st[0] != 0
-    sint = lambda st: int(unpack('b', bytes([st[0]]))[0])
-    byte = sint
-    usint = lambda st: int(unpack('B', bytes([st[0]]))[0])
-    int = lambda st: int(unpack('<h', st[0:2])[0])
-    uint = lambda st: int(unpack('<H', st[0:2])[0])
-    word = uint
-    dint = lambda st: int(unpack('<i', st[0:4])[0])
-    udint = lambda st: int(unpack('<I', st[0:4])[0])
-    dword = udint
-    lint = lambda st: int(unpack('<q', st[0:8])[0])
-    ulint = lambda st: int(unpack('<Q', st[0:8])[0])
-    lword = ulint
-    real = lambda st: float(unpack('<f', st[0:4])[0])
-    long = lambda st: int(unpack('<l', st[0:4])[0])
-    ulong = lambda st: int(unpack('<L', st[0:4])[0])
-    short_string = _short_string_decode
+    bool: Callable[[bytes], bool] = lambda st: st[0] != 0
+    sint: Callable[[bytes], int] = lambda st: int(unpack('b', bytes([st[0]]))[0])
+    char: Callable[[bytes], str] = sint
+    byte: Callable[[bytes], int] = sint
+    usint: Callable[[bytes], int] = lambda st: int(unpack('B', bytes([st[0]]))[0])
+    int: Callable[[bytes], int] = lambda st: int(unpack('<h', st[0:2])[0])
+    uint: Callable[[bytes], int] = lambda st: int(unpack('<H', st[0:2])[0])
+    word: Callable[[bytes], int] = uint
+    dint: Callable[[bytes], int] = lambda st: int(unpack('<i', st[0:4])[0])
+    udint: Callable[[bytes], int] = lambda st: int(unpack('<I', st[0:4])[0])
+    dword: Callable[[bytes], int] = udint
+    lint: Callable[[bytes], int] = lambda st: int(unpack('<q', st[0:8])[0])
+    ulint: Callable[[bytes], int] = lambda st: int(unpack('<Q', st[0:8])[0])
+    lword: Callable[[bytes], int] = ulint
+    real: Callable[[bytes], float] = lambda st: float(unpack('<f', st[0:4])[0])
+    long: Callable[[bytes], float] = lambda st: int(unpack('<l', st[0:4])[0])
+    ulong: Callable[[bytes], float] = lambda st: int(unpack('<L', st[0:4])[0])
+    short_string: Callable[[bytes], str] = _short_string_decode
 
-    pccc_n = int
-    pccc_b = int
-    pccc_t = int
-    pccc_c = int
-    pccc_s = int
-    pccc_o = int
-    pccc_i = int
-    pccc_f = real
-    pccc_a = sint
-    pccc_r = dint
+    pccc_n: Callable[[bytes], int] = int
+    pccc_b: Callable[[bytes], int] = int
+    pccc_t: Callable[[bytes], int] = int
+    pccc_c: Callable[[bytes], int] = int
+    pccc_s: Callable[[bytes], int] = int
+    pccc_o: Callable[[bytes], int] = int
+    pccc_i: Callable[[bytes], int] = int
+    pccc_f: Callable[[bytes], float] = real
+    pccc_a: Callable[[bytes], int] = _decode_pccc_ascii
+    pccc_r: Callable[[bytes], int] = dint
+    pccc_st: Callable[[bytes], str] = _decode_pccc_string
 
 
 def print_bytes_line(msg):
@@ -142,17 +146,3 @@ def print_bytes_msg(msg, info=''):
         else:
             column += 1
     return out
-
-
-PCCC_DATA_FUNCTION = {
-    'N': 'int',
-    'B': 'int',
-    'T': 'int',
-    'C': 'int',
-    'S': 'int',
-    'F': 'real',
-    'A': 'sint',
-    'R': 'dint',
-    'O': 'int',
-    'I': 'int'
-}
