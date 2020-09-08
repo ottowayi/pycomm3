@@ -90,18 +90,16 @@ Highlighted Features
     - requires the tag name only, no other information required from the user
     - automatically manages request/response size to pack as many requests into a single packet
     - automatically handles fragmented requests for large tags that can't fit in a single packet
+    - both support full structure reading/writing (UDTs, AOIs, etc)
 
-- ``read`` support the reading of an entire structure
+        - for ``read`` the Tag.value will be a ``dict`` of ``{attribute: value``
+        - for ``write`` the value should be a sequence (list, tuple) of values for each attribute, nesting as needed
 
-    - does not require reading of each attribute separately
-    - returns a value dict ``{attribute: value}``
+            - does not do partial writes, the value must match the complete structure
+            - not recommended for builtin type (TIMER, CONTROL, COUNTER, etc)
 
-- ``write`` supports full structure writing
+        - both require no attributes to have an External Access of None
 
-    - value should be a list/tuple of values for each attribute, nested for arrays and other structures
-    - not recommended for built-in types (TIMER, CONTROL, COUNTER, etc)
-    - all or nothing, does not update only parts of a struct
-    
 - ``generic_message`` for extra functionality not directly implemented
   
     - working similar to the MSG instruction in Logix, arguments similar to the MESSAGE properties
@@ -184,9 +182,7 @@ Otherwise, the ``error`` will indicate either the CIP error or exception that wa
 ``value`` will contain the value of the tag either read or written, structures (read only) will be in the form of a
 ``{ attribute: value, ... }`` dict.  Even though strings are technically structures, both reading and writing support
 automatically converting them to/from normal string objects.  Any structures that have only the attributes ``LEN`` (DINT)
-and ``DATA`` (array of SINT) will automatically be treated as strings. Reading of structures as a whole is supported
-as long as no attributes have External Access set to None (CIP limitation).  Writing structures as a whole is not
-supported (for the time being) except for string objects.
+and ``DATA`` (array of SINT) will automatically be treated as strings.
 
 
 Examples::
@@ -235,13 +231,6 @@ program) is the environment variable ``PLCPATH`` for the PLC defined.
 
 .. Note::
     Test coverage is not complete, pull requests are welcome to help improve coverage.
-
-
-TODO
-====
-
-- *(wip)* - improve documentation and include more real-world example scripts
-- *(not started)* - make API case insensitive
 
 
 License
