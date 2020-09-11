@@ -50,6 +50,20 @@ class SLCDriver(CIPDriver):
     def __init__(self, path, *args, **kwargs):
         super().__init__(path, *args, large_packets=False, **kwargs)
 
+    def _msg_start(self):
+        """
+        No idea what this part is, but it starts all messages
+        """
+        return b''.join((
+            b'\x4b',
+            b'\x02',
+            CLASS_TYPE["8-bit"],
+            PCCC_PATH,
+            b'\x07',
+            self._cfg['vid'],
+            self._cfg['vsn'],
+        ))
+
     @with_forward_open
     def read(self, *addresses: str) -> ReadWriteReturnType:
         """
@@ -74,14 +88,7 @@ class SLCDriver(CIPDriver):
             raise RequestError(f"Error parsing the tag passed to read() - {tag}")
 
         message_request = [
-            # no clue what this part is
-            b'\x4b',
-            b'\x02',
-            CLASS_TYPE["8-bit"],
-            PCCC_PATH,
-            b'\x07',
-            self._cfg['vid'],
-            self._cfg['vsn'],
+            self._msg_start(),
 
             # page 83 of eip manual
             SLC_CMD_CODE,  # request command code
@@ -173,6 +180,128 @@ class SLCDriver(CIPDriver):
             return Tag(_tag['tag'], None, _tag['file_type'], status)
 
         return Tag(_tag['tag'], value, _tag['file_type'], None)
+
+    @with_forward_open
+    def get_processor_type(self):
+        msg_request = (
+            self._msg_start(),
+            # diagnostic status - CMD 06, FNC 03 - pg93 DF1 manual (1770-rm516)
+            b'\x06',  # CMD
+            b'\x00',  # status code
+            Pack.uint(self._sequence),  # transaction identifier
+            b'\x03',  # FNC
+
+        )
+        request = self.new_request('send_unit_data')
+        request.add(b''.join(msg_request))
+        response = request.send()
+        if response:
+            try:
+                typ = response.raw[SLC_REPLY_START:][5:16].decode('utf-8').strip()
+            except Exception as err:
+                self.__log.exception('failed getting processor type')
+                typ = None
+            finally:
+                return typ
+        else:
+            self.__log.error(f'failed to get processor type: {request_status(response.raw)}',)
+            return None
+
+    @with_forward_open
+    def get_file_directory(self):
+        plc_type = self.get_processor_type()
+
+        if plc_type is not None:
+            file_type, element = _get_file_and_element_for_plc_type(plc_type)
+            size = self._get_file_directory_size(file_type, element)
+
+            if size is not None:
+                data = self._read_whole_file_directory(file_type, size)
+                self._parse_file0(data)
+            else:
+                raise DataError('Failed to read file directory size')
+        else:
+            raise DataError('Failed to read processor type')
+
+    def _get_file_directory_size(self, file_type, element):
+        msg_request = [
+            self._msg_start(),
+
+            # page 83 of eip manual
+            SLC_CMD_CODE,  # request command code
+            b'\x00',  # status code
+            Pack.uint(self._sequence),  # transaction identifier
+            b'\xa1',  # function code, from RSLinx capture
+            b'\x04',  # size
+            b'\x00',  # file number
+            file_type,
+            element,
+        ]
+        request = self.new_request('send_unit_data')
+        request.add(b''.join(msg_request))
+        response = request.send()
+        status = request_status(response.raw)
+        if status is None:
+            try:
+                size = Unpack.usint(response.raw[SLC_REPLY_START:])
+            except Exception as err:
+                self.__log.exception('failed to parse size of File 0')
+                size = None
+            finally:
+                return size
+        else:
+            self.__log.error(f'failed to read size of File 0: {status}', )
+            return None
+
+    def _read_whole_file_directory(self, file_type,  file0_size):
+        file0_data = b''
+        while len(file0_data) < file0_size:
+            bytes_remaining = file0_size - len(file0_data)
+            size = 236 if bytes_remaining > 236 else bytes_remaining
+            msg_request = [
+                self._msg_start(),
+                # page 83 of eip manual
+                SLC_CMD_CODE,  # request command code
+                b'\x00',  # status code
+                Pack.uint(self._sequence),  # transaction identifier
+                SLC_FNC_READ,  # function code
+                Pack.usint(size),  # size
+                b'\x00',  # file number
+                file_type,
+                b'\x00',  # element 0, whole file?
+                Pack.usint(len(file0_data) // 2),  # sub-element None
+            ]
+            request = self.new_request('send_unit_data')
+            request.add(b''.join(msg_request))
+            response = request.send()
+            status = request_status(response.raw)
+            if status is None:
+                file0_data += response.raw[SLC_REPLY_START:]
+            else:
+                msg = f'Error reading File 0 contents: {status}'
+                self.__log.error(msg)
+                raise DataError(msg)
+
+        return file0_data
+
+    def _parse_file0(self, data):
+        num_data = data[52]
+        num_lads = data[46]
+        print(f'data files: {num_data}, logic files: {num_lads}')
+
+
+def _get_file_and_element_for_plc_type(plc_type):
+    if plc_type in {'5/02', }:  # TODO: add MLX1000
+        file_type = b'\x00'
+        element = b'\x23'
+    elif plc_type in {}:  # TODO: add MLX1100/1200/1500
+        file_type = b'\x02'
+        element = b'\x2F'
+    else:
+        file_type = b'\x01'
+        element = b'\x23'
+
+    return file_type, element
 
 
 def _parse_read_reply(tag, data) -> Tag:
