@@ -35,7 +35,7 @@ from .const import (CLASS_TYPE, SUCCESS, PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE
                     SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH)
 from .exceptions import DataError, RequestError
 from .tag import Tag
-
+from .packets.requests import wrap_unconnected_send
 AtomicValueType = Union[int, float, bool]
 TagValueType = Union[AtomicValueType, List[Union[AtomicValueType, str]]]
 ReadWriteReturnType = Union[Tag, List[Tag]]
@@ -152,13 +152,7 @@ class SLCDriver(CIPDriver):
         _tag['data_size'] = PCCC_DATA_SIZE[_tag['file_type']]
 
         message_request = [
-            b'\x4b',
-            b'\x02',
-            CLASS_TYPE["8-bit"],
-            PCCC_PATH,
-            b'\x07',
-            self._cfg['vid'],
-            self._cfg['vsn'],
+            self._msg_start(),
 
             SLC_CMD_CODE,
             b'\x00',
@@ -192,6 +186,7 @@ class SLCDriver(CIPDriver):
             b'\x03',  # FNC
 
         )
+
         request = self.new_request('send_unit_data')
         request.add(b''.join(msg_request))
         response = request.send()
@@ -216,8 +211,8 @@ class SLCDriver(CIPDriver):
             size = self._get_file_directory_size(file_type, element)
 
             if size is not None:
-                data = self._read_whole_file_directory(file_type, size)
-                self._parse_file0(data)
+                data = self._read_whole_file_directory(file_type, element, size)
+                return _parse_file0(plc_type, data)
             else:
                 raise DataError('Failed to read file directory size')
         else:
@@ -227,7 +222,6 @@ class SLCDriver(CIPDriver):
         msg_request = [
             self._msg_start(),
 
-            # page 83 of eip manual
             SLC_CMD_CODE,  # request command code
             b'\x00',  # status code
             Pack.uint(self._sequence),  # transaction identifier
@@ -237,13 +231,14 @@ class SLCDriver(CIPDriver):
             file_type,
             element,
         ]
+
         request = self.new_request('send_unit_data')
         request.add(b''.join(msg_request))
         response = request.send()
         status = request_status(response.raw)
         if status is None:
             try:
-                size = Unpack.usint(response.raw[SLC_REPLY_START:])
+                size = Unpack.uint(response.raw[SLC_REPLY_START:])
             except Exception as err:
                 self.__log.exception('failed to parse size of File 0')
                 size = None
@@ -253,11 +248,14 @@ class SLCDriver(CIPDriver):
             self.__log.error(f'failed to read size of File 0: {status}', )
             return None
 
-    def _read_whole_file_directory(self, file_type,  file0_size):
+    def _read_whole_file_directory(self, file_type,  element, file0_size):
         file0_data = b''
+        offset = 0
+
         while len(file0_data) < file0_size:
             bytes_remaining = file0_size - len(file0_data)
-            size = 236 if bytes_remaining > 236 else bytes_remaining
+            size = 0x50 if bytes_remaining > 0x50 else bytes_remaining
+
             msg_request = [
                 self._msg_start(),
                 # page 83 of eip manual
@@ -268,15 +266,18 @@ class SLCDriver(CIPDriver):
                 Pack.usint(size),  # size
                 b'\x00',  # file number
                 file_type,
-                b'\x00',  # element 0, whole file?
-                Pack.usint(len(file0_data) // 2),  # sub-element None
-            ]
+                ]
+
+            msg_request += [b'\x00', Pack.usint(offset)] if offset < 256 else [b'\xFF', Pack.uint(offset)]
+
             request = self.new_request('send_unit_data')
             request.add(b''.join(msg_request))
             response = request.send()
             status = request_status(response.raw)
             if status is None:
-                file0_data += response.raw[SLC_REPLY_START:]
+                data = response.raw[SLC_REPLY_START:]
+                offset += len(data) // 2
+                file0_data += data
             else:
                 msg = f'Error reading File 0 contents: {status}'
                 self.__log.error(msg)
@@ -284,10 +285,32 @@ class SLCDriver(CIPDriver):
 
         return file0_data
 
-    def _parse_file0(self, data):
-        num_data = data[52]
-        num_lads = data[46]
-        print(f'data files: {num_data}, logic files: {num_lads}')
+
+def _parse_file0(plc_type, data):
+    num_data_files = data[52]
+    num_lad_files = data[46]
+    print(f'data files: {num_data_files}, logic files: {num_lad_files}')
+    file_pos, row_size = _get_file_position_row_size_for_plc_type(plc_type)
+
+    data_files = {}
+    file_num = 0
+    while file_pos < len(data):
+        file_code = data[file_pos:file_pos + 1]
+        file_type = PCCC_DATA_TYPE.get(file_code, None)
+
+        if file_type:
+            file_name = f'{file_type}{file_num}'
+
+            element_size = PCCC_DATA_SIZE.get(file_type, 2)
+            file_size = Unpack.uint(data[file_pos+1:])
+            data_files[file_name] = {'elements': file_size//element_size, 'length': file_size, }
+
+        if file_type or file_code == b'\x81':  # 0x81 reserved type, for skipped file numbers?
+            file_num += 1
+
+        file_pos += row_size
+
+    return data_files
 
 
 def _get_file_and_element_for_plc_type(plc_type):
@@ -302,6 +325,21 @@ def _get_file_and_element_for_plc_type(plc_type):
         element = b'\x23'
 
     return file_type, element
+
+
+def _get_file_position_row_size_for_plc_type(plc_type):
+    prefix = plc_type[:4]
+    if prefix in {'5/02', '1761'}:  # SLC 5/02 MLX1000
+        file_pos = 93
+        row_size = 8
+    elif prefix in {'1763', '1762', '1764'}:  # MLX1100/1200/1500
+        file_pos = 103
+        row_size = 10
+    else:  # other SLCs or MLX1400
+        file_pos = 79
+        row_size = 10
+
+    return file_pos, row_size
 
 
 def _parse_read_reply(tag, data) -> Tag:

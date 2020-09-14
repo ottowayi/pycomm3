@@ -128,6 +128,7 @@ class Pack(EnumMap):
     pccc_a: Callable[[int], bytes] = _encode_pccc_ascii
     pccc_r: Callable[[int], bytes] = dint
     pccc_st: Callable[[str], bytes] = _encode_pccc_string
+    pccc_l: Callable[[bytes], int] = dint
 
 
 class Unpack(EnumMap):
@@ -161,6 +162,7 @@ class Unpack(EnumMap):
     pccc_a: Callable[[bytes], int] = _decode_pccc_ascii
     pccc_r: Callable[[bytes], int] = dint
     pccc_st: Callable[[bytes], str] = _decode_pccc_string
+    pccc_l: Callable[[bytes], int] = dint
 
 
 def print_bytes_line(msg):
