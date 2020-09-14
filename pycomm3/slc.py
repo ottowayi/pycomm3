@@ -314,13 +314,14 @@ def _parse_file0(plc_type, data):
 
 
 def _get_file_and_element_for_plc_type(plc_type):
-    if plc_type in {'5/02', }:  # TODO: add MLX1000
+    prefix = plc_type[:4]
+    if prefix in {'5/02', '1761'}:  # SLC 5/02 MLX1000
         file_type = b'\x00'
         element = b'\x23'
-    elif plc_type in {}:  # TODO: add MLX1100/1200/1500
+    elif prefix in {'1763', '1762', '1764'}:  # MLX1100/1200/1500
         file_type = b'\x02'
         element = b'\x2F'
-    else:
+    else:  # other SLCs or MLX1400
         file_type = b'\x01'
         element = b'\x23'
 
