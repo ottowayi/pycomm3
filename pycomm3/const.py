@@ -456,8 +456,8 @@ _PCCC_DATA_TYPE = {
     'ST': b'\x8d',
     'A': b'\x8e',
     'R': b'\x88',
-    'O': b'\x8b',  # or b'\x82'?
-    'I': b'\x8c',  # or b'\x83'?
+    'O': b'\x82',  # or b'\x8b'?
+    'I': b'\x83',  # or b'\x8c'?
     'L': b'\x91',
     'MG': b'\x92',
     'PD': b'\x93',
@@ -467,8 +467,6 @@ _PCCC_DATA_TYPE = {
 PCCC_DATA_TYPE = {
     **_PCCC_DATA_TYPE,
     **{v: k for k, v in _PCCC_DATA_TYPE.items()},
-    b'\x82': 'O',
-    b'\x83': 'I',
 }
 
 

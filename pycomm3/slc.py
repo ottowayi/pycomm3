@@ -213,7 +213,7 @@ class SLCDriver(CIPDriver):
 
             if sys0_info['size'] is not None:
                 data = self._read_whole_file_directory(sys0_info)
-                return _parse_file0(plc_type, data)
+                return _parse_file0(sys0_info, data)
             else:
                 raise DataError('Failed to read file directory size')
         else:
@@ -319,66 +319,25 @@ def _parse_file0(sys0_info, data):
     return data_files
 
 
-def _get_file_and_element_for_plc_type(plc_type):
-    prefix = plc_type[:4]
-    if prefix in {'5/02', '1761'}:  # SLC 5/02 MLX1000
-        file_type = b'\x00'
-        element = b'\x23'
-    elif prefix in {'1763', '1762', '1764'}:  # MLX1100/1200/1500
-        file_type = b'\x02'
-        element = b'\x2F'
-    elif prefix in {'1763'}:  # MLX 1400
-        file_type = b'\x03'
-        element = b'\x2b'
-    else:  # other SLCs or
-        file_type = b'\x01'
-        element = b'\x23'
-
-    return file_type, element
-
-
-def _get_file_position_row_size_for_plc_type(plc_type):
-    prefix = plc_type[:4]
-    if prefix in {'5/02', '1761'}:  # SLC 5/02 MLX1000
-        file_pos = 93
-        row_size = 8
-    elif prefix in {'1763', '1762', '1764'}:  # MLX1100/1200/1500
-        file_pos = 103
-        row_size = 10
-    else:  # other SLCs or MLX1400
-        file_pos = 79
-        row_size = 10
-
-    return file_pos, row_size
-
-
 def _get_sys0_info(plc_type):
     prefix = plc_type[:4]
 
-    if prefix in {'5/02', '1761'}:
+    if prefix in {'5/02', '1761'}:  # MLX1100, SLC 5/02
         return {
             'file_position': 93,
             'row_size': 8,
             'file_type': b'\x00',
             'size_element': b'\x23'
         }
-    elif prefix in {'1763', '1762', '1764'}:  # MLX 1100, 1200, 1500
+    elif prefix in {'1763', '1762', '1766', '1764'}:  # MLX 1100, 1200, 1400, 1500
         return {
-            'file_position': 103,
+            'file_position': 233,
             'row_size': 10,
             'file_type': b'\x02',
             'size_element': b'\x28',
             'size_const': 19968   # no idea why, but this seems like a const added to the size? wtf?
         }
-    elif prefix in {'1763', }:  # MLX 1400
-        return {
-            'file_position': 103,
-            'row_size': 10,
-            'file_type': b'\x03',
-            'size_element': b'\x2b',
-            'size_const': 19968
-        }
-    else:
+    else:  # SLC 5/04, 5/05
         return {
             'file_position': 79,
             'row_size': 10,
