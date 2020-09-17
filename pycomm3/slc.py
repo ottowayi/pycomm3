@@ -207,18 +207,19 @@ class SLCDriver(CIPDriver):
         plc_type = self.get_processor_type()
 
         if plc_type is not None:
-            file_type, element = _get_file_and_element_for_plc_type(plc_type)
-            size = self._get_file_directory_size(file_type, element)
+            sys0_info = _get_sys0_info(plc_type)
+            # file_type, element = _get_file_and_element_for_plc_type(plc_type)
+            sys0_info['size'] = self._get_file_directory_size(sys0_info)
 
-            if size is not None:
-                data = self._read_whole_file_directory(file_type, element, size)
+            if sys0_info['size'] is not None:
+                data = self._read_whole_file_directory(sys0_info)
                 return _parse_file0(plc_type, data)
             else:
                 raise DataError('Failed to read file directory size')
         else:
             raise DataError('Failed to read processor type')
 
-    def _get_file_directory_size(self, file_type, element):
+    def _get_file_directory_size(self, sys0_info):
         msg_request = [
             self._msg_start(),
 
@@ -228,8 +229,8 @@ class SLCDriver(CIPDriver):
             b'\xa1',  # function code, from RSLinx capture
             b'\x04',  # size
             b'\x00',  # file number
-            file_type,
-            element,
+            sys0_info['file_type'],
+            sys0_info['size_element'],
         ]
 
         request = self.new_request('send_unit_data')
@@ -238,7 +239,7 @@ class SLCDriver(CIPDriver):
         status = request_status(response.raw)
         if status is None:
             try:
-                size = Unpack.uint(response.raw[SLC_REPLY_START:])
+                size = Unpack.uint(response.raw[SLC_REPLY_START:]) - sys0_info.get('size_const', 0)
             except Exception as err:
                 self.__log.exception('failed to parse size of File 0')
                 size = None
@@ -248,12 +249,15 @@ class SLCDriver(CIPDriver):
             self.__log.error(f'failed to read size of File 0: {status}', )
             return None
 
-    def _read_whole_file_directory(self, file_type,  element, file0_size):
+    def _read_whole_file_directory(self, sys0_info):
         file0_data = b''
         offset = 0
+        file0_size = sys0_info['size']
+        file_type = sys0_info['file_type']
 
         while len(file0_data) < file0_size:
             bytes_remaining = file0_size - len(file0_data)
+
             size = 0x50 if bytes_remaining > 0x50 else bytes_remaining
 
             msg_request = [
@@ -286,11 +290,13 @@ class SLCDriver(CIPDriver):
         return file0_data
 
 
-def _parse_file0(plc_type, data):
+def _parse_file0(sys0_info, data):
     num_data_files = data[52]
     num_lad_files = data[46]
     print(f'data files: {num_data_files}, logic files: {num_lad_files}')
-    file_pos, row_size = _get_file_position_row_size_for_plc_type(plc_type)
+    # file_pos, row_size = _get_file_position_row_size_for_plc_type(plc_type)
+    file_pos = sys0_info['file_position']
+    row_size = sys0_info['row_size']
 
     data_files = {}
     file_num = 0
@@ -321,7 +327,10 @@ def _get_file_and_element_for_plc_type(plc_type):
     elif prefix in {'1763', '1762', '1764'}:  # MLX1100/1200/1500
         file_type = b'\x02'
         element = b'\x2F'
-    else:  # other SLCs or MLX1400
+    elif prefix in {'1763'}:  # MLX 1400
+        file_type = b'\x03'
+        element = b'\x2b'
+    else:  # other SLCs or
         file_type = b'\x01'
         element = b'\x23'
 
@@ -341,6 +350,41 @@ def _get_file_position_row_size_for_plc_type(plc_type):
         row_size = 10
 
     return file_pos, row_size
+
+
+def _get_sys0_info(plc_type):
+    prefix = plc_type[:4]
+
+    if prefix in {'5/02', '1761'}:
+        return {
+            'file_position': 93,
+            'row_size': 8,
+            'file_type': b'\x00',
+            'size_element': b'\x23'
+        }
+    elif prefix in {'1763', '1762', '1764'}:  # MLX 1100, 1200, 1500
+        return {
+            'file_position': 103,
+            'row_size': 10,
+            'file_type': b'\x02',
+            'size_element': b'\x28',
+            'size_const': 19968   # no idea why, but this seems like a const added to the size? wtf?
+        }
+    elif prefix in {'1763', }:  # MLX 1400
+        return {
+            'file_position': 103,
+            'row_size': 10,
+            'file_type': b'\x03',
+            'size_element': b'\x2b',
+            'size_const': 19968
+        }
+    else:
+        return {
+            'file_position': 79,
+            'row_size': 10,
+            'file_type': b'\x01',
+            'size_element': b'\x23'
+        }
 
 
 def _parse_read_reply(tag, data) -> Tag:
