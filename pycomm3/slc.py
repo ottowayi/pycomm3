@@ -322,7 +322,8 @@ def _parse_file0(sys0_info, data):
 def _get_sys0_info(plc_type):
     prefix = plc_type[:4]
 
-    if prefix in {'5/02', '1761'}:  # MLX1100, SLC 5/02
+    if prefix in {'1761', }:  # MLX1000, SLC 5/02
+        # FIXME: Not sure if these are correct, never tested
         return {
             'file_position': 93,
             'row_size': 8,
@@ -330,6 +331,7 @@ def _get_sys0_info(plc_type):
             'size_element': b'\x23'
         }
     elif prefix in {'1763', '1762', '1766', '1764'}:  # MLX 1100, 1200, 1400, 1500
+        # FIXME: values from 1100 and 1400, not tested on 1200/1500
         return {
             'file_position': 233,
             'row_size': 10,
@@ -337,7 +339,7 @@ def _get_sys0_info(plc_type):
             'size_element': b'\x28',
             'size_const': 19968   # no idea why, but this seems like a const added to the size? wtf?
         }
-    else:  # SLC 5/04, 5/05
+    else:  # SLC 5/05
         return {
             'file_position': 79,
             'row_size': 10,
