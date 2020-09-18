@@ -227,7 +227,7 @@ class SLCDriver(CIPDriver):
             b'\x00',  # status code
             Pack.uint(self._sequence),  # transaction identifier
             b'\xa1',  # function code, from RSLinx capture
-            b'\x04',  # size
+            sys0_info['size_len'],  # size
             b'\x00',  # file number
             sys0_info['file_type'],
             sys0_info['size_element'],
@@ -328,7 +328,8 @@ def _get_sys0_info(plc_type):
             'file_position': 93,
             'row_size': 8,
             'file_type': b'\x00',
-            'size_element': b'\x23'
+            'size_element': b'\x23',
+            'size_len': b'\x04',
         }
     elif prefix in {'1763', '1762', '1766', '1764'}:  # MLX 1100, 1200, 1400, 1500
         # FIXME: values from 1100 and 1400, not tested on 1200/1500
@@ -337,6 +338,7 @@ def _get_sys0_info(plc_type):
             'row_size': 10,
             'file_type': b'\x02',
             'size_element': b'\x28',
+            'size_len': b'\x08',
             'size_const': 19968   # no idea why, but this seems like a const added to the size? wtf?
         }
     else:  # SLC 5/05
@@ -344,7 +346,8 @@ def _get_sys0_info(plc_type):
             'file_position': 79,
             'row_size': 10,
             'file_type': b'\x01',
-            'size_element': b'\x23'
+            'size_element': b'\x23',
+            'size_len': b'\x04',
         }
 
 
