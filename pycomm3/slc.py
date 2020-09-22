@@ -64,6 +64,9 @@ class SLCDriver(CIPDriver):
             self._cfg['vsn'],
         ))
 
+    def list_identity(cls, path) -> Optional[str]:
+        raise NotImplementedError('list_identity not supported in the SLCDriver')
+
     @with_forward_open
     def read(self, *addresses: str) -> ReadWriteReturnType:
         """
@@ -240,6 +243,7 @@ class SLCDriver(CIPDriver):
         if status is None:
             try:
                 size = Unpack.uint(response.raw[SLC_REPLY_START:]) - sys0_info.get('size_const', 0)
+                self.__log.debug(f'SYS 0 file size: {size}')
             except Exception as err:
                 self.__log.exception('failed to parse size of File 0')
                 size = None
@@ -257,7 +261,6 @@ class SLCDriver(CIPDriver):
 
         while len(file0_data) < file0_size:
             bytes_remaining = file0_size - len(file0_data)
-
             size = 0x50 if bytes_remaining > 0x50 else bytes_remaining
 
             msg_request = [
@@ -266,13 +269,14 @@ class SLCDriver(CIPDriver):
                 SLC_CMD_CODE,  # request command code
                 b'\x00',  # status code
                 Pack.uint(self._sequence),  # transaction identifier
-                SLC_FNC_READ,  # function code
+                b'\xa1',
+                # SLC_FNC_READ,  # function code
                 Pack.usint(size),  # size
                 b'\x00',  # file number
                 file_type,
                 ]
 
-            msg_request += [b'\x00', Pack.usint(offset)] if offset < 256 else [b'\xFF', Pack.uint(offset)]
+            msg_request += [Pack.usint(offset)] if offset < 256 else [b'\xFF', Pack.uint(offset)]
 
             request = self.new_request('send_unit_data')
             request.add(b''.join(msg_request))
