@@ -54,7 +54,7 @@ def _short_string_encode(string):
 
 def _string_decode(str_data):
     string_len = Unpack.uint(str_data)
-    return _decode_string(str_data[1: string_len + 1])
+    return _decode_string(str_data[2: string_len + 1])
 
 
 def _short_string_decode(str_data):
