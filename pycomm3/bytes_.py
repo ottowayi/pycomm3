@@ -44,8 +44,17 @@ def _pack_char(char):
     return Pack.sint(unsigned - 256 if unsigned > 127 else unsigned)
 
 
+def _string_encode(string):
+    return Pack.uint(len(string)) + b''.join([_pack_char(x) for x in string])
+
+
 def _short_string_encode(string):
     return Pack.usint(len(string)) + b''.join([_pack_char(x) for x in string])
+
+
+def _string_decode(str_data):
+    string_len = Unpack.uint(str_data)
+    return _decode_string(str_data[1: string_len + 1])
 
 
 def _short_string_decode(str_data):
@@ -114,6 +123,7 @@ class Pack(EnumMap):
     ulong: Callable[[float], bytes] = lambda l: pack('<L', l)
     epath: Callable[[bytes, bool], bytes] = _pack_epath
     short_string: Callable[[str], bytes] = _short_string_encode
+    string: Callable[[str], bytes] = _string_encode
     char: Callable[[str], bytes] = _pack_char
     bool: Callable[[bool], bytes] = lambda b: b'\xFF' if b else b'\x00'
 
@@ -149,6 +159,7 @@ class Unpack(EnumMap):
     long: Callable[[bytes], float] = lambda st: int(unpack('<l', st[0:4])[0])
     ulong: Callable[[bytes], float] = lambda st: int(unpack('<L', st[0:4])[0])
     short_string: Callable[[bytes], str] = _short_string_decode
+    string: Callable[[bytes], str] = _string_decode
 
     pccc_n: Callable[[bytes], int] = int
     pccc_b: Callable[[bytes], int] = int

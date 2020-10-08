@@ -205,7 +205,13 @@ def _parse_data(data, fmt):
         else:
             unpack_func = Unpack[typ]
             value = unpack_func(data[start:])
-            data_size = len(value) + 1 if typ == 'SHORT_STRING' else DataTypeSize[typ]
+            if typ == 'STRING':
+                data_size = len(value) + 2  # len stored as int
+            elif typ == 'SHORT_STRING':
+                data_size = len(value) + 1  # len stored as sint
+            else:
+                data_size = DataTypeSize[typ]
+
             start += data_size
 
         if name:
