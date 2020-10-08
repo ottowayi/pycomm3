@@ -298,7 +298,7 @@ def _parse_file0(sys0_info, data):
     num_data_files = data[52]
     num_lad_files = data[46]
     print(f'data files: {num_data_files}, logic files: {num_lad_files}')
-    # file_pos, row_size = _get_file_position_row_size_for_plc_type(plc_type)
+
     file_pos = sys0_info['file_position']
     row_size = sys0_info['row_size']
 
@@ -335,7 +335,7 @@ def _get_sys0_info(plc_type):
             'size_element': b'\x23',
             'size_len': b'\x04',
         }
-    elif prefix in {'1763', '1762', '1766', '1764'}:  # MLX 1100, 1200, 1400, 1500
+    elif prefix in {'1763', '1762', '1764'}:  # MLX 1100, 1200, 1500
         # FIXME: values from 1100 and 1400, not tested on 1200/1500
         return {
             'file_position': 233,
@@ -344,6 +344,15 @@ def _get_sys0_info(plc_type):
             'size_element': b'\x28',
             'size_len': b'\x08',
             'size_const': 19968   # no idea why, but this seems like a const added to the size? wtf?
+        }
+    elif prefix in {'1766', }:  # MLX 1400
+        return {
+            'file_position': 233,
+            'row_size': 10,
+            'file_type': b'\x03',
+            'size_element': b'\x2b',
+            'size_len': b'\x08',
+            'size_const': 19968,  # no idea why, but this seems like a const added to the size? wtf?
         }
     else:  # SLC 5/05
         return {
