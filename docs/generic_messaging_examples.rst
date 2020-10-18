@@ -67,3 +67,11 @@ This message will read the IP setting configuration type from an ethernet module
 
     .. literalinclude:: ../examples/generic_messaging.py
         :pyobject: ip_config
+
+Communication Module MAC Address
+--------------------------------
+
+This message will read the MAC address of ethernet module where the current connection is opened.
+
+    .. literalinclude:: ../examples/generic_messaging.py
+        :pyobject: get_mac_address

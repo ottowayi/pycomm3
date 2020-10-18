@@ -35,6 +35,7 @@ READ_RESPONSE_OVERHEAD = 10
 MIN_VER_INSTANCE_IDS = 21  # using Symbol Instance Addressing not supported below version 21
 MIN_VER_LARGE_CONNECTIONS = 20  # >500 byte connections not supported below logix v20
 MIN_VER_EXTERNAL_ACCESS = 18  # ExternalAccess attributed added in v18
+
 MICRO800_PREFIX = '2080'  # catalog number prefix for Micro800 PLCs
 
 EXTENDED_SYMBOL = b'\x91'
@@ -60,6 +61,7 @@ SLC_FNC_READ = b'\xa2'  # protected typed logical read w/ 3 address fields
 SLC_FNC_WRITE = b'\xaa'  # protected typed logical write w/ 3 address fields
 SLC_REPLY_START = 61
 PCCC_PATH = b'\x67\x24\x01'
+
 
 ELEMENT_TYPE = {
     "8-bit": b'\x28',
@@ -212,8 +214,13 @@ class AddressItem(EnumMap):
     uccm = b'\x00\x00'
 
 
-class DataTypeSize(EnumMap):
+class StringTypeLenSize(EnumMap):
+    short_string = 1
+    string = 2
+    logix_string = 4
 
+
+class DataTypeSize(EnumMap):
     bool = 1
     sint = 1
     usint = 1
@@ -228,8 +235,6 @@ class DataTypeSize(EnumMap):
     lint = 8
     ulint = 8
     lword = 8
-
-    short_string = 84
 
 
 class DataType(EnumMap):
@@ -444,7 +449,7 @@ EXTEND_CODES = {
 }
 
 
-PCCC_DATA_TYPE = {
+_PCCC_DATA_TYPE = {
     'N': b'\x89',
     'B': b'\x85',
     'T': b'\x86',
@@ -454,14 +459,23 @@ PCCC_DATA_TYPE = {
     'ST': b'\x8d',
     'A': b'\x8e',
     'R': b'\x88',
-    'O': b'\x8b',
-    'I': b'\x8c'
+    'O': b'\x82',  # or b'\x8b'?
+    'I': b'\x83',  # or b'\x8c'?
+    'L': b'\x91',
+    'MG': b'\x92',
+    'PD': b'\x93',
+    'PLS': b'\x94',
+}
+
+PCCC_DATA_TYPE = {
+    **_PCCC_DATA_TYPE,
+    **{v: k for k, v in _PCCC_DATA_TYPE.items()},
 }
 
 
 PCCC_DATA_SIZE = {
     'N': 2,
-    # 'L': 4,
+    'L': 4,
     'B': 2,
     'T': 6,
     'C': 6,
@@ -471,7 +485,10 @@ PCCC_DATA_SIZE = {
     'A': 2,
     'R': 6,
     'O': 2,
-    'I': 2
+    'I': 2,
+    'MG': 50,
+    'PD': 46,
+    'PLS': 12,
 }
 
 

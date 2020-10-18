@@ -227,10 +227,10 @@ class CIPDriver:
             if response:
                 return _parse_identity_object(response.value)
             else:
-                raise DataError(f'send_rr_data did not return valid data - {response.error}')
+                raise DataError(f'generic_message did not return valid data - {response.error}')
 
         except Exception as err:
-            raise DataError('error sending request') from err
+            raise DataError('error getting module info') from err
 
     def open(self):
         """
@@ -551,3 +551,4 @@ def _parse_identity_object(reply):
         'status': status,
         'state': STATES.get(state, 'UNKNOWN'),
     }
+
