@@ -44,6 +44,10 @@ def _pack_char(char):
     return Pack.sint(unsigned - 256 if unsigned > 127 else unsigned)
 
 
+def _logix_string_encode(string):
+    return Pack.udint(len(string)) + b''.join([_pack_char(x) for x in string])
+
+
 def _string_encode(string):
     return Pack.uint(len(string)) + b''.join([_pack_char(x) for x in string])
 
@@ -52,12 +56,14 @@ def _short_string_encode(string):
     return Pack.usint(len(string)) + b''.join([_pack_char(x) for x in string])
 
 
+def _logix_string_decode(str_data):
+    string_len = Unpack.udint(str_data)
+    return _decode_string(str_data[4: string_len + 4])
+
+
 def _string_decode(str_data):
     string_len = Unpack.uint(str_data)
-    data = str_data[2: string_len + 2]
-    string = _decode_string(data)
-    return string
-    # return _decode_string()
+    return _decode_string(str_data[2: string_len + 2])
 
 
 def _short_string_decode(str_data):
@@ -127,6 +133,7 @@ class Pack(EnumMap):
     epath: Callable[[bytes, bool], bytes] = _pack_epath
     short_string: Callable[[str], bytes] = _short_string_encode
     string: Callable[[str], bytes] = _string_encode
+    logix_string: Callable[[str], bytes] = _logix_string_encode
     char: Callable[[str], bytes] = _pack_char
     bool: Callable[[bool], bytes] = lambda b: b'\xFF' if b else b'\x00'
 
@@ -163,6 +170,7 @@ class Unpack(EnumMap):
     ulong: Callable[[bytes], float] = lambda st: int(unpack('<L', st[0:4])[0])
     short_string: Callable[[bytes], str] = _short_string_decode
     string: Callable[[bytes], str] = _string_decode
+    logix_string: Callable[[str], bytes] = _logix_string_decode
 
     pccc_n: Callable[[bytes], int] = int
     pccc_b: Callable[[bytes], int] = int
@@ -175,13 +183,6 @@ class Unpack(EnumMap):
     pccc_a: Callable[[bytes], int] = _decode_pccc_ascii
     pccc_r: Callable[[bytes], int] = dint
     pccc_st: Callable[[bytes], str] = _decode_pccc_string
-
-
-def print_bytes_line(msg):
-    out = ''
-    for ch in msg:
-        out += f"{ch:0>2x}"
-    return out
 
 
 def print_bytes_msg(msg, info=''):

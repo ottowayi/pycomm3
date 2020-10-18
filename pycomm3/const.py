@@ -212,8 +212,13 @@ class AddressItem(EnumMap):
     uccm = b'\x00\x00'
 
 
-class DataTypeSize(EnumMap):
+class StringTypeLenSize(EnumMap):
+    short_string = 1
+    string = 2
+    logix_string = 4
 
+
+class DataTypeSize(EnumMap):
     bool = 1
     sint = 1
     usint = 1
@@ -228,8 +233,6 @@ class DataTypeSize(EnumMap):
     lint = 8
     ulint = 8
     lword = 8
-
-    short_string = 84
 
 
 class DataType(EnumMap):

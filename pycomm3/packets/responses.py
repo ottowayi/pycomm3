@@ -26,9 +26,10 @@ from itertools import tee, zip_longest, chain
 from reprlib import repr as _r
 
 from . import Packet, DataFormatType
+from .. import util
 from ..bytes_ import Unpack
 from ..const import (SUCCESS, INSUFFICIENT_PACKETS, TagService, SERVICE_STATUS, EXTEND_CODES, MULTI_PACKET_SERVICES,
-                     DataType, STRUCTURE_READ_REPLY, DataTypeSize)
+                     DataType, STRUCTURE_READ_REPLY, DataTypeSize, StringTypeLenSize)
 
 
 class ResponsePacket(Packet):
@@ -203,14 +204,20 @@ def _parse_data(data, fmt):
             value = data[start: start + typ]
             start += typ
         else:
+            typ, cnt = util.get_array_index(typ)
             unpack_func = Unpack[typ]
-            value = unpack_func(data[start:])
-            if typ == 'STRING':
-                data_size = len(value) + 2  # len stored as int
-            elif typ == 'SHORT_STRING':
-                data_size = len(value) + 1  # len stored as sint
+
+            if typ in StringTypeLenSize:
+                value = unpack_func(data[start:])
+                data_size = len(value) + StringTypeLenSize[typ]
+
             else:
                 data_size = DataTypeSize[typ]
+                if cnt:
+                    value = tuple(unpack_func(data[i:]) for i in range(start, data_size * cnt, data_size))
+                    data_size *= cnt
+                else:
+                    value = unpack_func(data[start:])
 
             start += data_size
 
