@@ -1,4 +1,4 @@
-from pycomm3 import CIPDriver, CommonService, Pack
+from pycomm3 import CIPDriver, CommonService, Pack, ClassCode
 
 
 # Read PF525 Parameter
@@ -142,3 +142,21 @@ def ip_config():
 
         ip_status = data.value['IP Config'] & 0b_1111  # only need the first 4 bits
         print(statuses.get(ip_status, 'unknown'))
+
+
+# Get MAC address of
+def get_mac_address():
+    with CIPDriver('10.10.10.100') as plc:
+        response = plc.generic_message(
+            service=CommonService.get_attribute_single,
+            class_code=ClassCode.ethernet_link,
+            instance=1,
+            attribute=3,
+            data_format=(('MAC', 'SINT[6]'), ),
+            connected=False
+        )
+
+        if response:
+            return ':'.join(f'{abs(x):0>2x}' for x in response.value['MAC'])
+        else:
+            print(f'error getting MAC address - {response.error}')
