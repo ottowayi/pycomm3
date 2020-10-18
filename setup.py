@@ -20,6 +20,7 @@ setup(
     long_description=read('README.rst'),
     license="MIT",
     packages=['pycomm3', 'pycomm3.packets'],
+    package_data={'pycomm3': ['py.typed']},
     python_requires='>=3.6.1',
     include_package_data=True,
     classifiers=[
