@@ -217,12 +217,13 @@ class LogixDriver(CIPDriver):
                 class_code=ClassCode.program_name,
                 instance=b'\x01\x00',  # instance 1
                 request_data=b'\x01\x00\x01\x00',  # num attributes, attribute 1 (program name)
+                data_format=((None, 6), ('program_name', 'STRING')),
             )
             if response:
-                self._info['name'] = _parse_plc_name(response.value)
+                self._info['name'] = response.value['program_name']
                 return self._info['name']
             else:
-                raise DataError(f'send_unit_data did not return valid data - {response.error}')
+                raise DataError(f'response did not return valid data - {response.error}')
 
         except Exception as err:
             raise DataError('failed to get the plc name') from err
