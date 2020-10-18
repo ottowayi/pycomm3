@@ -30,6 +30,7 @@ import logging
 import time
 from typing import List, Tuple, Optional, Union
 
+from . import util
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
 from .bytes_ import Pack, Unpack
@@ -883,7 +884,7 @@ class LogixDriver(CIPDriver):
 
         def _recurse_attrs(attrs, data):
             cur, *remain = attrs
-            curr_tag = _strip_array(cur)
+            curr_tag = util.strip_array(cur)
             if not len(remain):
                 return data.get(curr_tag)
             else:
@@ -892,7 +893,7 @@ class LogixDriver(CIPDriver):
                 else:
                     return None
         try:
-            data = self._tags.get(_strip_array(base))
+            data = self._tags.get(util.strip_array(base))
             if not len(attrs):
                 return data
             else:
@@ -944,7 +945,7 @@ class LogixDriver(CIPDriver):
             tag_info = self._get_tag_info(base, attrs)
 
             if tag_info['data_type'] == 'DWORD' and elements == 1:
-                _tag, idx = _get_array_index(tag)
+                _tag, idx = util.get_array_index(tag)
                 tag = f'{_tag}[{idx // 32}]'
                 bit = ('bool_array', idx)
 
@@ -1038,14 +1039,6 @@ class LogixDriver(CIPDriver):
         )
 
 
-def _parse_plc_name(data):
-    try:
-        name_len = Unpack.uint(data[6:8])
-        return data[8: 8 + name_len].decode()
-    except Exception as err:
-        raise DataError('failed parsing plc name') from err
-
-
 def _parse_plc_info(data):
     parsed = {k: v for k, v in data.items() if not k.startswith('_')}
     parsed['vendor'] = VENDORS.get(parsed['vendor'], 'UNKNOWN')
@@ -1133,22 +1126,6 @@ def writable_value(parsed_tag):
         raise RequestError('Unable to create a writable value') from err
 
 
-def _strip_array(tag):
-    if '[' in tag:
-        return tag[:tag.find('[')]
-    return tag
-
-
-def _get_array_index(tag):
-    if tag.endswith(']') and '[' in tag:
-        tag, _tmp = tag.split('[')
-        idx = int(_tmp[:-1])
-    else:
-        idx = 0
-
-    return tag, idx
-
-
 def _tag_return_size(tag_data):
     tag_info = tag_data['tag_info']
     if tag_info['tag_type'] == 'atomic':
@@ -1221,10 +1198,6 @@ def _pack_structure(value, data_type):
             raise RequestError('Value Invalid for Structure') from err
 
     return bytes(data)
-
-
-def _pad(data):
-    return data + b'\x00' * (len(data) % 4)  # pad data to 4-byte boundaries
 
 
 def _bit_request(tag_data, bit_requests):
