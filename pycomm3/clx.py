@@ -664,6 +664,10 @@ class LogixDriver(CIPDriver):
         for tag in tags:
             try:
                 request_data = parsed_requests[tag]
+                if request_data.get('error'):
+                    results.append(Tag(tag, None, None, request_data['error']))
+                    continue
+
                 result = read_results[(request_data['plc_tag'], request_data['elements'])]
                 if request_data.get('bit') is None:
                     results.append(result)
@@ -782,6 +786,10 @@ class LogixDriver(CIPDriver):
         for tag, value in tags_values:
             try:
                 request_data = parsed_requests[tag]
+                if request_data.get('error'):
+                    results.append(Tag(tag, None, None, request_data['error']))
+                    continue
+                    
                 bit = parsed_requests[tag].get('bit')
                 result = write_results[(request_data['plc_tag'], request_data['elements'])]
 
@@ -887,21 +895,24 @@ class LogixDriver(CIPDriver):
             cur, *remain = attrs
             curr_tag = util.strip_array(cur)
             if not len(remain):
-                return data.get(curr_tag)
+                return data[curr_tag]
             else:
                 if curr_tag in data:
                     return _recurse_attrs(remain, data[curr_tag]['data_type']['internal_tags'])
                 else:
                     return None
         try:
-            data = self._tags.get(util.strip_array(base))
+            data = self._tags[util.strip_array(base)]
             if not len(attrs):
                 return data
             else:
                 return _recurse_attrs(attrs, data['data_type']['internal_tags'])
 
+        except KeyError as err:
+            raise RequestError(f"Tag doesn't exist - {err.args[0]}")
+
         except Exception as err:
-            _msg = f'Failed to lookup tag data for {base}, {attrs}'
+            _msg = f"failed to get tag data for: {base}, {attrs}"
             self.__log.exception(_msg)
             raise RequestError(_msg) from err
 
@@ -951,10 +962,10 @@ class LogixDriver(CIPDriver):
                 bit = ('bool_array', idx)
 
             return tag, bit, elements, tag_info
-
+        except RequestError:
+            raise
         except Exception as err:
-            # something went wrong parsing the tag path
-            raise RequestError('Failed to parse tag request', tag)
+            raise RequestError('Failed to parse tag request', tag) from err
 
     def _send_requests(self, requests):
 
