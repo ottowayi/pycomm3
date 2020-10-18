@@ -35,7 +35,7 @@ from .const import (CLASS_TYPE, SUCCESS, PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE
                     SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH)
 from .exceptions import DataError, RequestError
 from .tag import Tag
-
+from .packets.requests import wrap_unconnected_send
 AtomicValueType = Union[int, float, bool]
 TagValueType = Union[AtomicValueType, List[Union[AtomicValueType, str]]]
 ReadWriteReturnType = Union[Tag, List[Tag]]
@@ -49,6 +49,23 @@ class SLCDriver(CIPDriver):
 
     def __init__(self, path, *args, **kwargs):
         super().__init__(path, *args, large_packets=False, **kwargs)
+
+    def _msg_start(self):
+        """
+        No idea what this part is, but it starts all messages
+        """
+        return b''.join((
+            b'\x4b',
+            b'\x02',
+            CLASS_TYPE["8-bit"],
+            PCCC_PATH,
+            b'\x07',
+            self._cfg['vid'],
+            self._cfg['vsn'],
+        ))
+
+    def list_identity(cls, path) -> Optional[str]:
+        raise NotImplementedError('list_identity not supported in the SLCDriver')
 
     @with_forward_open
     def read(self, *addresses: str) -> ReadWriteReturnType:
@@ -74,14 +91,7 @@ class SLCDriver(CIPDriver):
             raise RequestError(f"Error parsing the tag passed to read() - {tag}")
 
         message_request = [
-            # no clue what this part is
-            b'\x4b',
-            b'\x02',
-            CLASS_TYPE["8-bit"],
-            PCCC_PATH,
-            b'\x07',
-            self._cfg['vid'],
-            self._cfg['vsn'],
+            self._msg_start(),
 
             # page 83 of eip manual
             SLC_CMD_CODE,  # request command code
@@ -145,13 +155,7 @@ class SLCDriver(CIPDriver):
         _tag['data_size'] = PCCC_DATA_SIZE[_tag['file_type']]
 
         message_request = [
-            b'\x4b',
-            b'\x02',
-            CLASS_TYPE["8-bit"],
-            PCCC_PATH,
-            b'\x07',
-            self._cfg['vid'],
-            self._cfg['vsn'],
+            self._msg_start(),
 
             SLC_CMD_CODE,
             b'\x00',
@@ -173,6 +177,191 @@ class SLCDriver(CIPDriver):
             return Tag(_tag['tag'], None, _tag['file_type'], status)
 
         return Tag(_tag['tag'], value, _tag['file_type'], None)
+
+    @with_forward_open
+    def get_processor_type(self):
+        msg_request = (
+            self._msg_start(),
+            # diagnostic status - CMD 06, FNC 03 - pg93 DF1 manual (1770-rm516)
+            b'\x06',  # CMD
+            b'\x00',  # status code
+            Pack.uint(self._sequence),  # transaction identifier
+            b'\x03',  # FNC
+
+        )
+
+        request = self.new_request('send_unit_data')
+        request.add(b''.join(msg_request))
+        response = request.send()
+        if response:
+            try:
+                typ = response.raw[SLC_REPLY_START:][5:16].decode('utf-8').strip()
+            except Exception as err:
+                self.__log.exception('failed getting processor type')
+                typ = None
+            finally:
+                return typ
+        else:
+            self.__log.error(f'failed to get processor type: {request_status(response.raw)}',)
+            return None
+
+    @with_forward_open
+    def get_file_directory(self):
+        plc_type = self.get_processor_type()
+
+        if plc_type is not None:
+            sys0_info = _get_sys0_info(plc_type)
+            # file_type, element = _get_file_and_element_for_plc_type(plc_type)
+            sys0_info['size'] = self._get_file_directory_size(sys0_info)
+
+            if sys0_info['size'] is not None:
+                data = self._read_whole_file_directory(sys0_info)
+                return _parse_file0(sys0_info, data)
+            else:
+                raise DataError('Failed to read file directory size')
+        else:
+            raise DataError('Failed to read processor type')
+
+    def _get_file_directory_size(self, sys0_info):
+        msg_request = [
+            self._msg_start(),
+
+            SLC_CMD_CODE,  # request command code
+            b'\x00',  # status code
+            Pack.uint(self._sequence),  # transaction identifier
+            b'\xa1',  # function code, from RSLinx capture
+            sys0_info['size_len'],  # size
+            b'\x00',  # file number
+            sys0_info['file_type'],
+            sys0_info['size_element'],
+        ]
+
+        request = self.new_request('send_unit_data')
+        request.add(b''.join(msg_request))
+        response = request.send()
+        status = request_status(response.raw)
+        if status is None:
+            try:
+                size = Unpack.uint(response.raw[SLC_REPLY_START:]) - sys0_info.get('size_const', 0)
+                self.__log.debug(f'SYS 0 file size: {size}')
+            except Exception as err:
+                self.__log.exception('failed to parse size of File 0')
+                size = None
+            finally:
+                return size
+        else:
+            self.__log.error(f'failed to read size of File 0: {status}', )
+            return None
+
+    def _read_whole_file_directory(self, sys0_info):
+        file0_data = b''
+        offset = 0
+        file0_size = sys0_info['size']
+        file_type = sys0_info['file_type']
+
+        while len(file0_data) < file0_size:
+            bytes_remaining = file0_size - len(file0_data)
+            size = 0x50 if bytes_remaining > 0x50 else bytes_remaining
+
+            msg_request = [
+                self._msg_start(),
+                # page 83 of eip manual
+                SLC_CMD_CODE,  # request command code
+                b'\x00',  # status code
+                Pack.uint(self._sequence),  # transaction identifier
+                b'\xa1',
+                # SLC_FNC_READ,  # function code
+                Pack.usint(size),  # size
+                b'\x00',  # file number
+                file_type,
+                ]
+
+            msg_request += [Pack.usint(offset)] if offset < 256 else [b'\xFF', Pack.uint(offset)]
+
+            request = self.new_request('send_unit_data')
+            request.add(b''.join(msg_request))
+            response = request.send()
+            status = request_status(response.raw)
+            if status is None:
+                data = response.raw[SLC_REPLY_START:]
+                offset += len(data) // 2
+                file0_data += data
+            else:
+                msg = f'Error reading File 0 contents: {status}'
+                self.__log.error(msg)
+                raise DataError(msg)
+
+        return file0_data
+
+
+def _parse_file0(sys0_info, data):
+    num_data_files = data[52]
+    num_lad_files = data[46]
+    print(f'data files: {num_data_files}, logic files: {num_lad_files}')
+
+    file_pos = sys0_info['file_position']
+    row_size = sys0_info['row_size']
+
+    data_files = {}
+    file_num = 0
+    while file_pos < len(data):
+        file_code = data[file_pos:file_pos + 1]
+        file_type = PCCC_DATA_TYPE.get(file_code, None)
+
+        if file_type:
+            file_name = f'{file_type}{file_num}'
+
+            element_size = PCCC_DATA_SIZE.get(file_type, 2)
+            file_size = Unpack.uint(data[file_pos+1:])
+            data_files[file_name] = {'elements': file_size//element_size, 'length': file_size, }
+
+        if file_type or file_code == b'\x81':  # 0x81 reserved type, for skipped file numbers?
+            file_num += 1
+
+        file_pos += row_size
+
+    return data_files
+
+
+def _get_sys0_info(plc_type):
+    prefix = plc_type[:4]
+
+    if prefix in {'1761', }:  # MLX1000, SLC 5/02
+        # FIXME: Not sure if these are correct, never tested
+        return {
+            'file_position': 93,
+            'row_size': 8,
+            'file_type': b'\x00',
+            'size_element': b'\x23',
+            'size_len': b'\x04',
+        }
+    elif prefix in {'1763', '1762', '1764'}:  # MLX 1100, 1200, 1500
+        # FIXME: values from 1100 and 1400, not tested on 1200/1500
+        return {
+            'file_position': 233,
+            'row_size': 10,
+            'file_type': b'\x02',
+            'size_element': b'\x28',
+            'size_len': b'\x08',
+            'size_const': 19968   # no idea why, but this seems like a const added to the size? wtf?
+        }
+    elif prefix in {'1766', }:  # MLX 1400
+        return {
+            'file_position': 233,
+            'row_size': 10,
+            'file_type': b'\x03',
+            'size_element': b'\x2b',
+            'size_len': b'\x08',
+            'size_const': 19968,  # no idea why, but this seems like a const added to the size? wtf?
+        }
+    else:  # SLC 5/05
+        return {
+            'file_position': 79,
+            'row_size': 10,
+            'file_type': b'\x01',
+            'size_element': b'\x23',
+            'size_len': b'\x04',
+        }
 
 
 def _parse_read_reply(tag, data) -> Tag:
