@@ -23,9 +23,9 @@
 #
 
 import logging
-from typing import List, Tuple, Optional, Union
+from typing import Tuple, Optional, Union, Sequence
 
-DataFormatType = List[Tuple[Optional[str], Union[str, int]]]
+DataFormatType = Sequence[Tuple[Optional[str], Union[str, int]]]
 
 
 class Packet:
