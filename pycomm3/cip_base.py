@@ -480,6 +480,7 @@ class CIPDriver:
 
 
 def parse_connection_path(path):
+    path = path.replace('\\', '/')
     ip, *segments = path.split('/')
     try:
         socket.inet_aton(ip)
