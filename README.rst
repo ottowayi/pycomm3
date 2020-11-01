@@ -92,7 +92,7 @@ Highlighted Features
     - automatically handles fragmented requests for large tags that can't fit in a single packet
     - both support full structure reading/writing (UDTs, AOIs, etc)
 
-        - for ``read`` the Tag.value will be a ``dict`` of ``{attribute: value``
+        - for ``read`` the ``Tag.value`` will be a ``dict`` of ``{attribute: value}``
         - for ``write`` the value should be a sequence (list, tuple) of values for each attribute, nesting as needed
 
             - does not do partial writes, the value must match the complete structure
