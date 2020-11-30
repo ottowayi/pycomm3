@@ -889,6 +889,17 @@ class LogixDriver(CIPDriver):
             self.__log.error(f'Skipping making request, error: {parsed_tag["error"]}')
             return None
 
+    def get_tag_info(self, tag_name: str) -> Optional[dict]:
+        """
+        Returns the tag information for a tag collected during the tag list upload.  Can be a base tag or an attribute.
+
+        :param tag_name: name of tag to get info for
+        :return: a dict of the tag's definition
+
+        """
+        base, *attrs = tag_name.split('.')
+        return self._get_tag_info(base, attrs)
+
     def _get_tag_info(self, base, attrs) -> Optional[dict]:
 
         def _recurse_attrs(attrs, data):
