@@ -599,6 +599,7 @@ def writeable_value(tag: dict, value: Union[bytes, TagValueType]) -> bytes:
         return value
     bit_field = tag.get('address_field', 0) == 3
     bit_position = int(tag.get('sub_element') or 0) if bit_field else 0
+    bit_mask = Pack.uint(2**bit_position) if bit_field else b'\xFF\xFF'
 
     element_count = tag.get('element_count') or 1
     if element_count > 1:
@@ -621,13 +622,10 @@ def writeable_value(tag: dict, value: Union[bytes, TagValueType]) -> bytes:
                     PCCC_CT['PRE'],
                     PCCC_CT['ACC'],
                 }:
-                    _value = b'\xff\xff' + pack_func(value)
+                    bit_mask = b'\xff\xff'
+                    _value = pack_func(value)
                 else:
-                    if value > 0:
-                        _value = Pack.uint(math.pow(2, bit_position)) + Pack.uint(math.pow(2, bit_position))
-                    else:
-                        _value = Pack.uint(math.pow(2, bit_position)) + Pack.uint(0)
-
+                    _value = bit_mask if value else b'\x00\x00'
             else:
                 _value = pack_func(value)
 
@@ -635,7 +633,7 @@ def writeable_value(tag: dict, value: Union[bytes, TagValueType]) -> bytes:
         raise RequestError(f'Failed to create a writeable value for {tag["tag"]} from {value}') from err
 
     else:
-        return _value
+        return bit_mask + _value
 
 
 def request_status(data) -> Optional[str]:

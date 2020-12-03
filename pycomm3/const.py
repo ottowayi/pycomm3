@@ -58,7 +58,7 @@ STRUCTURE_READ_REPLY = b'\xa0\x02'
 SLC_CMD_CODE = b'\x0F'
 SLC_CMD_REPLY_CODE = b'\x4F'
 SLC_FNC_READ = b'\xa2'  # protected typed logical read w/ 3 address fields
-SLC_FNC_WRITE = b'\xaa'  # protected typed logical write w/ 3 address fields
+SLC_FNC_WRITE = b'\xab'  # protected typed logical masked write w/ 3 address fields
 SLC_REPLY_START = 61
 PCCC_PATH = b'\x67\x24\x01'
 
