@@ -473,7 +473,7 @@ def parse_tag(tag: str) -> Optional[dict]:
             ):
                 element_count = t.group('element_count')
                 return {'file_type': t.group('file_type').upper(),
-                        'file_number': '0',
+                        'file_number': '0' if t.group('file_type').upper() == 'O' else '1',
                         'element_number': t.group('element_number'),
                         'pos_number': t.group('position_number'),
                         'sub_element': t.group('sub_element'),
@@ -484,7 +484,7 @@ def parse_tag(tag: str) -> Optional[dict]:
             if 0 <= int(t.group('element_number')) <= 255:
                 element_count = t.group('element_count')
                 return {'file_type': t.group('file_type').upper(),
-                        'file_number': '0',
+                        'file_number': '0' if t.group('file_type').upper() == 'O' else '1',
                         'element_number': t.group('element_number'),
                         'pos_number': t.group('position_number'),
                         'address_field': 2,
