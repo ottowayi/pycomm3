@@ -306,6 +306,7 @@ class LogixDriver(CIPDriver):
         for tag in user_tags:
             if tag['tag_type'] == 'struct':
                 tag['data_type'] = self._get_data_type(tag['template_instance_id'])
+                tag['data_type_name'] = tag['data_type']['name']
 
         return user_tags
 
@@ -619,6 +620,7 @@ class LogixDriver(CIPDriver):
 
         member['tag_type'] = tag_type
         member['data_type'] = data_type
+        member['data_type_name'] = data_type['name'] if tag_type == 'struct' else data_type
 
         if data_type == 'BOOL':
             member['bit'] = type_info
@@ -794,16 +796,19 @@ class LogixDriver(CIPDriver):
                 bit = parsed_requests[tag].get('bit')
                 result = write_results[(request_data['plc_tag'], request_data['elements'])]
 
-                if request_data['elements'] > 1:
-                    if result.type == 'DWORD':
-                        result = result._replace(type=f'BOOL[{request_data["elements"] * 32}]')
-                    else:
-                        result = result._replace(type=f'{result.type}[{request_data["elements"]}]')
+                data_type = request_data['tag_info']['data_type_name']
                 if bit is not None:
-                    result = result._replace(tag=tag, type='BOOL', value=value)
-                else:
-                    result = result._replace(tag=request_data['plc_tag'], value=value)
-                results.append(result)
+                    data_type = 'BOOL'
+                elif data_type == 'DWORD':
+                    data_type = f'BOOL[{request_data["elements"] * 32}]'
+                elif request_data['elements'] > 1:
+                    data_type = f'{data_type}[{request_data["elements"]}]'
+
+                tag_name = tag if bit is not None else request_data['plc_tag']
+
+                user_result = Tag(tag_name, value, data_type, result.error)
+
+                results.append(user_result)
             except Exception as err:
                 results.append(Tag(tag, None, None, f'Invalid tag request - {err}'))
 
@@ -839,7 +844,7 @@ class LogixDriver(CIPDriver):
                     _request = RequestTypes.write_tag_fragmented(self)
                     _request.add(tag_data['plc_tag'],
                                  tag_data['rp'],
-                                 tag_data['value'],
+                                 tag_data['write_value'],
                                  tag_data['elements'],
                                  tag_data['tag_info'])
                     requests.append(_request)
@@ -872,7 +877,7 @@ class LogixDriver(CIPDriver):
                     if not current_request.add_write(tag, rp, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True):
                         current_request = RequestTypes.multi_request(self)
                         requests.append(current_request)
-                        current_request.add_write(tag, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True)
+                        current_request.add_write(tag, rp, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True)
                 except RequestError:
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
                     continue
@@ -1324,6 +1329,7 @@ def _create_tag(name, raw_tag):
         new_tag['tag_type'] = 'atomic'
         datatype = raw_tag['symbol_type'] & 0b_0000_0000_1111_1111
         new_tag['data_type'] = DataType.get(datatype)
+        new_tag['data_type_name'] = new_tag['data_type']
         if datatype == DataType.bool:
             new_tag['bit_position'] = (raw_tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
 
