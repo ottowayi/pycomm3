@@ -6,11 +6,11 @@ Documented CIP service and class codes are available in enum-like classes that c
 generic messaging.  The following classes may be imported directly from the ``pycomm3`` package.
 
 
-CIP Common Services and Class Codes
+CIP Services and Class Codes
 ===================================
 
 .. literalinclude:: ../pycomm3/const.py
-    :pyobject: CommonService
+    :pyobject: Services
 
 .. literalinclude:: ../pycomm3/const.py
     :pyobject: ClassCode
@@ -30,13 +30,6 @@ Python types using the ``Unpack`` class.
 
 .. literalinclude:: ../pycomm3/bytes_.py
     :pyobject: Unpack
-
-
-Rockwell-specific Tag Services
-==============================
-
-.. literalinclude:: ../pycomm3/const.py
-    :pyobject: TagService
 
 
 Connection Manager Object

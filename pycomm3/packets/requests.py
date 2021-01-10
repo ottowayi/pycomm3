@@ -35,8 +35,8 @@ from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceRespons
 from ..exceptions import CommError, RequestError
 from ..bytes_ import Pack, print_bytes_msg
 from ..const import (EncapsulationCommand, INSUFFICIENT_PACKETS, DataItem, AddressItem, EXTENDED_SYMBOL, ELEMENT_TYPE,
-                     TagService, CLASS_TYPE, INSTANCE_TYPE, DataType, DataTypeSize, ConnectionManagerService,
-                     ClassCode, CommonService, STRUCTURE_READ_REPLY, PRIORITY, TIMEOUT_TICKS, ATTRIBUTE_TYPE)
+                     Services, CLASS_TYPE, INSTANCE_TYPE, DataType, DataTypeSize, ConnectionManagerService,
+                     ClassCode, Services, STRUCTURE_READ_REPLY, PRIORITY, TIMEOUT_TICKS, ATTRIBUTE_TYPE)
 
 
 class RequestPacket(Packet):
@@ -180,7 +180,7 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
             self.error = 'Invalid Tag Request Path'
 
         super().add(
-            TagService.read_tag,
+            Services.read_tag,
             request_path,
             Pack.uint(self.elements),
         )
@@ -226,10 +226,10 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
             offset = 0
             responses = []
             while offset is not None:
-                self._msg.extend([TagService.read_tag_fragmented,
-                                 self.request_path,
-                                 Pack.uint(self.elements),
-                                 Pack.dint(offset)])
+                self._msg.extend([Services.read_tag_fragmented,
+                                  self.request_path,
+                                  Pack.uint(self.elements),
+                                  Pack.dint(offset)])
                 self._send(self._build_request())
                 self.__log.debug(f'Sent: {self!r} (offset={offset})')
                 reply = self._receive()
@@ -346,7 +346,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
             for i, segment in enumerate(segments, start=1):
                 segment_bytes = b''.join(pack_func(s) for s in segment) if not isinstance(segment, bytes) else segment
                 self._msg.extend((
-                    TagService.write_tag_fragmented,
+                    Services.write_tag_fragmented,
                     self.request_path,
                     self._packed_type,
                     elements_packed,
@@ -383,7 +383,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         super().__init__(plc)
         self.tags = []
         self._msg.extend((
-            CommonService.multiple_service_request,  # the Request Service
+            Services.multiple_service_request,  # the Request Service
             Pack.usint(2),  # the Request Path Size length in word
             CLASS_TYPE["8-bit"],
             ClassCode.message_router,
@@ -419,7 +419,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         request_path = _create_tag_rp(tag, self._plc.tags, self._plc.use_instance_ids)
         if request_path is not None:
 
-            request_path = TagService.read_tag + request_path + Pack.uint(elements)
+            request_path = Services.read_tag + request_path + Pack.uint(elements)
             _tag = {'tag': tag, 'elements': elements, 'tag_info': tag_info, 'rp': request_path, 'service': 'read'}
             message = self.build_message(self.tags + [_tag])
             if len(message) < self._plc.connection_size:
@@ -485,7 +485,7 @@ def _make_write_data_tag(tag_info, value, elements, request_path, fragmented=Fal
     else:
         _dt_value = Pack.uint(DataType[data_type])
 
-    service = TagService.write_tag_fragmented if fragmented else TagService.write_tag
+    service = Services.write_tag_fragmented if fragmented else Services.write_tag
 
     request_path = b''.join((service,
                              request_path,
@@ -502,9 +502,9 @@ def _make_write_data_bit(tag_info, value, request_path):
 
     or_mask, and_mask = value
     return b''.join((
-            TagService.read_modify_write,
-            request_path,
-            Pack.uint(mask_size),
+        Services.read_modify_write,
+        request_path,
+        Pack.uint(mask_size),
             Pack.udint(or_mask)[:mask_size],
             Pack.udint(and_mask)[:mask_size]
         ))

@@ -29,7 +29,7 @@ logger.addHandler(logging.NullHandler())
 
 
 from ._version import __version__, __version_info__
-from .const import CommonService, ClassCode, TagService, DataType, ConnectionManagerInstance, ConnectionManagerService
+from .const import Services, ClassCode, Services, DataType, ConnectionManagerInstance, ConnectionManagerService
 from .bytes_ import Pack, Unpack
 from .tag import Tag
 from .exceptions import PycommError, CommError, DataError, RequestError

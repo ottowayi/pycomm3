@@ -35,7 +35,7 @@ from .tag import Tag
 from .bytes_ import Pack, Unpack
 from .const import (PATH_SEGMENTS, ConnectionManagerInstance, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
                     TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
-                    ConnectionManagerService, CommonService)
+                    ConnectionManagerService, Services)
 from .packets import REQUEST_MAP, RequestPacket, DataFormatType
 from .socket_ import Socket
 
@@ -218,7 +218,7 @@ class CIPDriver:
     def get_module_info(self, slot):
         try:
             response = self.generic_message(
-                service=CommonService.get_attributes_all,
+                service=Services.get_attributes_all,
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 connected=False, unconnected_send=True,
                 route_path=Pack.epath(Pack.usint(PATH_SEGMENTS['bp']) + Pack.usint(slot), pad_len=True)

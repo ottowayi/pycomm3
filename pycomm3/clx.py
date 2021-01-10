@@ -28,15 +28,15 @@ import datetime
 import itertools
 import logging
 import time
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional, Union, Mapping
 
 from . import util
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
 from .bytes_ import Pack, Unpack
 from .cip_base import CIPDriver, with_forward_open
-from .const import (TagService, EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES, VENDORS,
-                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD, CommonService, SUCCESS,
+from .const import (EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES, VENDORS,
+                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD, Services, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH,
                     TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DataTypeSize, MIN_VER_EXTERNAL_ACCESS)
 from .packets import request_path
@@ -213,7 +213,7 @@ class LogixDriver(CIPDriver):
         """
         try:
             response = self.generic_message(
-                service=CommonService.get_attribute_list,
+                service=Services.get_attribute_list,
                 class_code=ClassCode.program_name,
                 instance=b'\x01\x00',  # instance 1
                 request_data=b'\x01\x00\x01\x00',  # num attributes, attribute 1 (program name)
@@ -235,7 +235,7 @@ class LogixDriver(CIPDriver):
         try:
             response = self.generic_message(
                 class_code=ClassCode.identity_object, instance=b'\x01',
-                service=CommonService.get_attributes_all,
+                service=Services.get_attributes_all,
                 data_format=[
                     ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
                     ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
@@ -353,7 +353,7 @@ class LogixDriver(CIPDriver):
                     attributes.append(b'\x0a\x00')  # Attr. 10 : external access
 
                 request.add(
-                    TagService.get_instance_attribute_list,
+                    Services.get_instance_attribute_list,
                     path_size,
                     path,
                     Pack.uint(len(attributes)),
@@ -506,7 +506,7 @@ class LogixDriver(CIPDriver):
             request = self.new_request('send_unit_data')
             req_path = request_path(ClassCode.template_object, Pack.uint(instance_id))
             request.add(
-                CommonService.get_attribute_list,
+                Services.get_attribute_list,
                 req_path,
 
                 # service data:
@@ -538,7 +538,7 @@ class LogixDriver(CIPDriver):
                 request = self.new_request('send_unit_data')
                 req_path = request_path(ClassCode.template_object, instance=Pack.uint(instance_id))
                 request.add(
-                    TagService.read_tag,
+                    Services.read_tag,
                     req_path,
                     # service data:
                     Pack.dint(offset),
@@ -1026,7 +1026,7 @@ class LogixDriver(CIPDriver):
         :return: a Tag object with the current time
         """
         tag = self.generic_message(
-            service=CommonService.get_attribute_list,
+            service=Services.get_attribute_list,
             class_code=ClassCode.wall_clock_time,
             instance=b'\x01',
             request_data=b'\x01\x00\x0B\x00',
@@ -1055,7 +1055,7 @@ class LogixDriver(CIPDriver):
             Pack.ulint(microseconds),
         ])
         return self.generic_message(
-            service=CommonService.set_attribute_list,
+            service=Services.set_attribute_list,
             class_code=ClassCode.wall_clock_time,
             instance=b'\x01',
             request_data=request_data, name='__SET_PLC_TIME__'
@@ -1186,10 +1186,14 @@ def _pack_structure(value, data_type):
     if string_len:
         data = _pack_string(value, string_len, data_type['template']['structure_size'])
     else:
-        data = [0 for _ in range(data_type['template']['structure_size'])]
+        # NOTE:  start with bytes(object-definition-size) , then replace sections with offset + data len
+        data = bytes(data_type['template']['structure_size'])
         try:
-            # NOTE:  start with bytes(object-definition-size) , then replace sections with offset + data len
-            for val, attr in zip(value, data_type['attributes']):
+            val_is_dict = isinstance(value, Mapping)
+
+            for i, attr in enumerate(data_type['attributes']):
+                val = value[attr] if val_is_dict else value[i]
+
                 dtype = data_type['internal_tags'][attr]
                 offset = dtype['offset']
 
