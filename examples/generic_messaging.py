@@ -102,7 +102,7 @@ def stratix_power_status():
     with CIPDriver(message_path) as device:
         data = device.generic_message(
             service=b'\x0e',
-            class_code=863,  # use decimal represenation of hex class code
+            class_code=863,  # use decimal representation of hex class code
             instance=1,
             attribute=8,
             connected=False,

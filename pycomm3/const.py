@@ -30,7 +30,6 @@ HEADER_SIZE = 24
 # used to estimate packet size  and determine
 # when to start a new packet
 MULTISERVICE_READ_OVERHEAD = 6
-READ_RESPONSE_OVERHEAD = 10
 
 MIN_VER_INSTANCE_IDS = 21  # using Symbol Instance Addressing not supported below version 21
 MIN_VER_LARGE_CONNECTIONS = 20  # >500 byte connections not supported below logix v20
@@ -128,6 +127,8 @@ class ConnectionManagerInstance(EnumMap):
 
 
 class Services(EnumMap):
+
+    # Common CIP Services
     get_attributes_all = b'\x01'
     set_attributes_all = b'\x02'
     get_attribute_list = b'\x03'
@@ -152,6 +153,7 @@ class Services(EnumMap):
     remove_member = b'\x1B'
     group_sync = b'\x1C'
 
+    # Rockwell Custom Services
     read_tag = b'\x4C'
     read_tag_fragmented = b'\x52'
     write_tag = b'\x4D'
@@ -161,6 +163,9 @@ class Services(EnumMap):
 
     @classmethod
     def from_reply(cls, reply_service):
+        """
+        Get service from reply service code
+        """
         val = cls.get(Pack.usint(Unpack.usint(reply_service) - 128))
         return val
 

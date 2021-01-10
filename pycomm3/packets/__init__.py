@@ -24,6 +24,7 @@
 
 import logging
 from typing import Tuple, Optional, Union, Sequence
+from ..map import EnumMap
 
 DataFormatType = Sequence[Tuple[Optional[str], Union[str, int]]]
 
@@ -42,23 +43,19 @@ from .requests import (RequestPacket, SendUnitDataRequestPacket, SendRRDataReque
                        RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket,
                        MultiServiceRequestPacket, ReadTagFragmentedServiceRequestPacket, WriteTagServiceRequestPacket,
                        WriteTagFragmentedServiceRequestPacket, GenericConnectedRequestPacket, GenericUnconnectedRequestPacket,
-                       request_path)
-
-from collections import defaultdict
+                       request_path, encode_segment)
 
 
-REQUEST_MAP = defaultdict(RequestPacket,
-{
-    'send_unit_data': SendUnitDataRequestPacket,
-    'send_rr_data': SendRRDataRequestPacket,
-    'register_session': RegisterSessionRequestPacket,
-    'unregister_session': UnRegisterSessionRequestPacket,
-    'list_identity': ListIdentityRequestPacket,
-    'read_tag': ReadTagServiceRequestPacket,
-    'multi_request': MultiServiceRequestPacket,
-    'read_tag_fragmented': ReadTagFragmentedServiceRequestPacket,
-    'write_tag': WriteTagServiceRequestPacket,
-    'write_tag_fragmented': WriteTagFragmentedServiceRequestPacket,
-    'generic_connected': GenericConnectedRequestPacket,
-    'generic_unconnected': GenericUnconnectedRequestPacket,
-})
+class RequestTypes(EnumMap):
+    send_unit_data = SendUnitDataRequestPacket
+    send_rr_data = SendRRDataRequestPacket
+    register_session = RegisterSessionRequestPacket
+    unregister_session = UnRegisterSessionRequestPacket
+    list_identity = ListIdentityRequestPacket
+    read_tag = ReadTagServiceRequestPacket
+    multi_request = MultiServiceRequestPacket
+    read_tag_fragmented = ReadTagFragmentedServiceRequestPacket
+    write_tag = WriteTagServiceRequestPacket
+    write_tag_fragmented = WriteTagFragmentedServiceRequestPacket
+    generic_connected = GenericConnectedRequestPacket
+    generic_unconnected = GenericUnconnectedRequestPacket

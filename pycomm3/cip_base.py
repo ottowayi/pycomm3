@@ -36,7 +36,7 @@ from .bytes_ import Pack, Unpack
 from .const import (PATH_SEGMENTS, ConnectionManagerInstance, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
                     TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
                     ConnectionManagerService, Services)
-from .packets import REQUEST_MAP, RequestPacket, DataFormatType
+from .packets import RequestPacket, DataFormatType, RequestTypes
 from .socket_ import Socket
 
 
@@ -211,7 +211,7 @@ class CIPDriver:
         return identity
 
     def _list_identity(self):
-        request = self.new_request('list_identity')
+        request = RequestTypes.list_identity(self)
         response = request.send()
         return response.identity
 
@@ -265,7 +265,7 @@ class CIPDriver:
             return self._session
 
         self._session = 0
-        request = self.new_request('register_session')
+        request = RequestTypes.register_session(self)
         request.add(
             self._cfg['protocol version'],
             b'\x00\x00'
@@ -374,7 +374,7 @@ class CIPDriver:
         """
         Un-registers the current session with the target.
         """
-        request = self.new_request('unregister_session')
+        request = RequestTypes.unregister_session(self)
         request.send()
         self._session = None
         self.__log.info('Session Unregistered')
@@ -470,8 +470,8 @@ class CIPDriver:
 
             _kwargs['unconnected_send'] = unconnected_send
 
-        request = self.new_request('generic_connected' if connected else 'generic_unconnected')
-
+        req_class = RequestTypes.generic_connected if connected else RequestTypes.generic_unconnected
+        request = req_class(self)
         request.build(**_kwargs)
 
         response = request.send()

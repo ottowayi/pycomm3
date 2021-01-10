@@ -171,11 +171,11 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
         self.elements = None
         self.tag_info = None
 
-    def add(self, tag, elements=1, tag_info=None):
+    def add(self, tag, request_path, elements=1, tag_info=None):
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
-        request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
+        # request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
         if request_path is None:
             self.error = 'Invalid Tag Request Path'
 
@@ -213,11 +213,11 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         self.tag_info = None
         self.request_path = None
 
-    def add(self, tag, elements=1, tag_info=None):
+    def add(self, tag, request_path, elements=1, tag_info=None):
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
-        self.request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
+        self.request_path = request_path
         if self.request_path is None:
             self.error = 'Invalid Tag Request Path'
 
@@ -270,12 +270,12 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
         self.value = None
         self.data_type = None
 
-    def add(self, tag, value, elements=1, tag_info=None, bits_write=None):
+    def add(self, tag, request_path, value, elements=1, tag_info=None, bits_write=None):
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
         self.value = value
-        request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
+        request_path = request_path
         if request_path is None:
             self.error = 'Invalid Tag Request Path'
             
@@ -310,7 +310,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         self.data_type = None
         self.segment_size = None
 
-    def add(self, tag, value, elements=1, tag_info=None):
+    def add(self, tag, request_path, value, elements=1, tag_info=None):
         try:
             if tag_info['tag_type'] == 'struct':
                 self._packed_type = STRUCTURE_READ_REPLY + Pack.uint(tag_info['data_type']['template']['structure_handle'])
@@ -323,7 +323,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
             self.value = value
             self.elements = elements
             self.tag_info = tag_info
-            self.request_path = _create_tag_rp(self.tag, self._plc.tags, self._plc.use_instance_ids)
+            self.request_path = request_path
             if self.request_path is None:
                 self.error = 'Invalid Tag Request Path'
         except Exception as err:
@@ -361,7 +361,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                 self.__log.debug(f'Received: {response!r}')
                 responses.append(response)
                 offset += len(segment_bytes)
-                self._msg = [Pack.uint(self._plc._sequence), ]
+                self._msg = [Pack.uint(next(self._sequence)), ]
 
             if all(responses):
                 final_response = responses[-1]
@@ -414,13 +414,10 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         msg = self._msg + [Pack.uint(len(rp_list))] + offsets + rp_list
         return b''.join(msg)
 
-    def add_read(self, tag, elements=1, tag_info=None):
-
-        request_path = _create_tag_rp(tag, self._plc.tags, self._plc.use_instance_ids)
+    def add_read(self, tag, request_path, elements=1, tag_info=None):
         if request_path is not None:
-
-            request_path = Services.read_tag + request_path + Pack.uint(elements)
-            _tag = {'tag': tag, 'elements': elements, 'tag_info': tag_info, 'rp': request_path, 'service': 'read'}
+            rp = Services.read_tag + request_path + Pack.uint(elements)
+            _tag = {'tag': tag, 'elements': elements, 'tag_info': tag_info, 'rp': rp, 'service': 'read'}
             message = self.build_message(self.tags + [_tag])
             if len(message) < self._plc.connection_size:
                 self._message = message
@@ -432,8 +429,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
             self.__log.error(f'Failed to create request path for {tag}')
             raise RequestError('Failed to create request path')
 
-    def add_write(self, tag, value, elements=1, tag_info=None, bits_write=None):
-        request_path = _create_tag_rp(tag, self._plc.tags, self._plc.use_instance_ids)
+    def add_write(self, tag, request_path, value, elements=1, tag_info=None, bits_write=None):
         if request_path is not None:
             if bits_write:
                 data_type = tag_info['data_type']
@@ -487,12 +483,12 @@ def _make_write_data_tag(tag_info, value, elements, request_path, fragmented=Fal
 
     service = Services.write_tag_fragmented if fragmented else Services.write_tag
 
-    request_path = b''.join((service,
-                             request_path,
-                             _dt_value,
-                             Pack.uint(elements),
-                             value))
-    return request_path, data_type
+    rp = b''.join((service,
+                   request_path,
+                   _dt_value,
+                   Pack.uint(elements),
+                   value))
+    return rp, data_type
 
 
 def _make_write_data_bit(tag_info, value, request_path):
@@ -549,71 +545,6 @@ class ListIdentityRequestPacket(RequestPacket):
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
         return b''
-
-
-def _create_tag_rp(tag, tag_cache, use_instance_ids):
-    """
-
-    It returns the request packed wrapped around the tag passed.
-    If any error it returns none
-    """
-
-    tags = tag.split('.')
-    if tags:
-        base, *attrs = tags
-        base_tag, index = _find_tag_index(base)
-        if use_instance_ids and base_tag in tag_cache:
-            rp = [CLASS_TYPE['8-bit'],
-                  ClassCode.symbol_object,
-                  INSTANCE_TYPE['16-bit'],
-                  Pack.uint(tag_cache[base_tag]['instance_id'])]
-        else:
-            base_len = len(base_tag)
-            rp = [EXTENDED_SYMBOL,
-                  Pack.usint(base_len),
-                  base_tag.encode()]
-            if base_len % 2:
-                rp.append(b'\x00')
-        if index is None:
-            return None
-        else:
-            rp += _encode_tag_index(index)
-
-        for attr in attrs:
-            attr, index = _find_tag_index(attr)
-            tag_length = len(attr)
-            # Create the request path
-            attr_path = [EXTENDED_SYMBOL,
-                         Pack.usint(tag_length),
-                         attr.encode()]
-            # Add pad byte because total length of Request path must be word-aligned
-            if tag_length % 2:
-                attr_path.append(b'\x00')
-            # Add any index
-            if index is None:
-                return None
-            else:
-                attr_path += _encode_tag_index(index)
-            rp += attr_path
-
-        return Pack.epath(b''.join(rp))
-
-    return None
-
-
-def _find_tag_index(tag):
-    if '[' in tag:  # Check if is an array tag
-        t = tag[:len(tag) - 1]  # Remove the last square bracket
-        inside_value = t[t.find('[') + 1:]  # Isolate the value inside bracket
-        index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
-        tag = t[:t.find('[')]  # Get only the tag part
-    else:
-        index = []
-    return tag, index
-
-
-def _encode_tag_index(index):
-    return [_encode_segment(int(idx), ELEMENT_TYPE) for idx in index]
 
 
 class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
@@ -702,10 +633,10 @@ def wrap_unconnected_send(message, route_path):
 def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
                  attribute: Union[int, bytes] = b'', data: bytes = b''):
 
-    path = [_encode_segment(class_code, CLASS_TYPE), _encode_segment(instance, INSTANCE_TYPE)]
+    path = [encode_segment(class_code, CLASS_TYPE), encode_segment(instance, INSTANCE_TYPE)]
 
     if attribute:
-        path.append(_encode_segment(attribute, ATTRIBUTE_TYPE))
+        path.append(encode_segment(attribute, ATTRIBUTE_TYPE))
 
     if data:
         path.append(data)
@@ -713,7 +644,7 @@ def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
     return Pack.epath(b''.join(path))
 
 
-def _encode_segment(segment: Union[bytes, int], segment_types: dict):
+def encode_segment(segment: Union[bytes, int], segment_types: dict):
     if isinstance(segment, int):
         if segment <= 0xff:
             segment = Pack.usint(segment)
