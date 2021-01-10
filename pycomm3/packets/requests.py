@@ -361,7 +361,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                 self.__log.debug(f'Received: {response!r}')
                 responses.append(response)
                 offset += len(segment_bytes)
-                self._msg = [Pack.uint(next(self._sequence)), ]
+                self._msg = [Pack.uint(self._plc._sequence), ]
 
             if all(responses):
                 final_response = responses[-1]

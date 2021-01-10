@@ -795,7 +795,10 @@ class LogixDriver(CIPDriver):
                 result = write_results[(request_data['plc_tag'], request_data['elements'])]
 
                 if request_data['elements'] > 1:
-                    result = result._replace(type=f'{result.type}[{request_data["elements"]}]')
+                    if result.type == 'DWORD':
+                        result = result._replace(type=f'BOOL[{request_data["elements"] * 32}]')
+                    else:
+                        result = result._replace(type=f'{result.type}[{request_data["elements"]}]')
                 if bit is not None:
                     result = result._replace(tag=tag, type='BOOL', value=value)
                 else:
@@ -880,7 +883,8 @@ class LogixDriver(CIPDriver):
         if parsed_tag.get('error') is None:
             if not _bit_request(parsed_tag, bit_writes):
                 parsed_tag['write_value'] = writable_value(parsed_tag)
-                if len(parsed_tag['write_value']) > self.connection_size:
+                req_size = len(parsed_tag['write_value']) + len(parsed_tag['rp']) + 4
+                if req_size > self.connection_size:
                     request = RequestTypes.write_tag_fragmented(self)
                 else:
                     request = RequestTypes.write_tag(self)
@@ -896,8 +900,8 @@ class LogixDriver(CIPDriver):
                     tag = parsed_tag['plc_tag']
                     value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
                     request = RequestTypes.write_tag(self)
-                    rp = bit_writes[tag]['tag_info']['rp']
-                    request.add(tag, value, rp, tag_info=bit_writes[tag]['tag_info'], bits_write=True)
+                    rp = tag_request_path(tag, self._tags, self.use_instance_ids)
+                    request.add(tag, rp, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True)
                     return request
                 except RequestError:
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
@@ -1210,8 +1214,9 @@ def _pack_structure(value, data_type):
     if string_len:
         data = _pack_string(value, string_len, data_type['template']['structure_size'])
     else:
-        # NOTE:  start with bytes(object-definition-size) , then replace sections with offset + data len
-        data = bytes(data_type['template']['structure_size'])
+        # NOTE:  start with object-definition-size array, then replace sections with offset + data len
+        #        DONT use bytes, needs to be a list for swapping values later on
+        data = [0 for _ in range(data_type['template']['structure_size'])]
         try:
             val_is_dict = isinstance(value, Mapping)
 
@@ -1231,10 +1236,13 @@ def _pack_structure(value, data_type):
                     pack_func = Pack[dtype['data_type']]
                     bit = dtype.get('bit')
                     if bit is not None:
+                        _byte = data[offset]
                         if val:
-                            data[offset] |= 1 << bit
+                            _byte |= 1 << bit
                         else:
-                            data[offset] &= ~(1 << bit)
+                            _byte &= ~(1 << bit)
+
+                        data[offset] = _byte
                         continue
 
                     if ary:
