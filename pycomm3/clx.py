@@ -1158,21 +1158,26 @@ def writable_value(parsed_tag):
         elements = parsed_tag['elements']
         data_type = parsed_tag['tag_info']['data_type']
 
-        if elements > 1:
-            if len(value) < elements:
-                raise RequestError(f'Insufficient data for requested elements, expected {elements} and got {len(value)}')
-            if len(value) > elements:
-                value = value[:elements]
+        value_elements = elements * 32 if data_type == 'DWORD' else elements
+
+        if value_elements > 1:
+            if len(value) < value_elements:
+                raise RequestError(f'Insufficient data for requested elements, expected {value_elements} and got {len(value)}')
+            if len(value) > value_elements:
+                value = value[:value_elements]
 
         if parsed_tag['tag_info']['tag_type'] == 'struct':
             return _writable_value_structure(value, elements, data_type)
         else:
             pack_func = Pack[data_type]
+            if data_type == 'DWORD':
+                return b''.join(pack_func(_pack_bool_array(value[i:i+32])) for i in range(0, value_elements, 32))
 
-            if elements > 1:
-                return b''.join(pack_func(value[i]) for i in range(elements))
             else:
-                return pack_func(value)
+                if elements > 1:
+                    return b''.join(pack_func(value[i]) for i in range(elements))
+                else:
+                    return pack_func(value)
     except Exception as err:
         raise RequestError('Unable to create a writable value') from err
 
@@ -1194,6 +1199,16 @@ def _writable_value_structure(value, elements, data_type):
         return b''.join(_pack_structure(val, data_type) for val in value)
     else:
         return _pack_structure(value, data_type)
+
+
+def _pack_bool_array(bools):
+    if len(bools) != 32:
+        raise RequestError(f'boolean arrays must have 32 elements: not {len(bools)}')
+    value = 0
+    for i, val in enumerate(bools):
+        if val:
+            value |= 1 << i
+    return value
 
 
 def _pack_string(value, string_len, struct_size):
@@ -1235,7 +1250,7 @@ def _pack_structure(value, data_type):
                 else:
                     pack_func = Pack[dtype['data_type']]
                     bit = dtype.get('bit')
-                    if bit is not None:
+                    if bit is not None:  # attributes that are aliased to a bit
                         _byte = data[offset]
                         if val:
                             _byte |= 1 << bit
@@ -1245,10 +1260,13 @@ def _pack_structure(value, data_type):
                         data[offset] = _byte
                         continue
 
-                    if ary:
-                        value_bytes = [pack_func(val[i]) for i in range(ary)]
-                    else:
-                        value_bytes = [pack_func(val), ]
+                    elif dtype['data_type'] == 'DWORD':  # boolean arrays
+                        value_bytes = [b''.join(pack_func(_pack_bool_array(val[i:i + 32])) for i in range(0, ary*32, 32)), ]
+                    else:  # all other types
+                        if ary:
+                            value_bytes = [pack_func(val[i]) for i in range(ary)]
+                        else:
+                            value_bytes = [pack_func(val), ]
 
                 val_bytes = list(itertools.chain.from_iterable(value_bytes))
                 data[offset:offset+len(val_bytes)] = val_bytes
@@ -1310,6 +1328,7 @@ def _create_tag(name, raw_tag):
             new_tag['bit_position'] = (raw_tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
 
     return new_tag
+
 
 def tag_request_path(tag, tag_cache, use_instance_ids):
     """
