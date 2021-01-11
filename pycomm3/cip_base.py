@@ -158,31 +158,6 @@ class CIPDriver:
         """CIP connection size, ``4000`` if using Extended Forward Open else ``500``"""
         return 4000 if self._cfg['extended forward open'] else 500
 
-    def new_request(self, command: str, *args, **kwargs) -> RequestPacket:
-        """
-        Creates a new request packet for the given command.
-        If the command is invalid, a base :class:`RequestPacket` is created.
-
-        Commands:
-            - `send_unit_data`
-            - `send_rr_data`
-            - `register_session`
-            - `unregister_session`
-            - `list_identity`
-            - `multi_request`
-            - `read_tag`
-            - `read_tag_fragmented`
-            - `write_tag`
-            - `write_tag_fragmented`
-            - `generic_connected`
-            - `generic_unconnected`
-
-        :param command: the service for which a request will be created
-        :return: a new request for the command
-        """
-        cls = REQUEST_MAP[command]
-        return cls(self, *args, **kwargs)
-
     @property
     def _sequence(self) -> int:
         """
