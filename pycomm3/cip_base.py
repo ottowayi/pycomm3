@@ -25,10 +25,10 @@
 __all__ = ['CIPDriver', 'with_forward_open', 'parse_connection_path', ]
 
 import logging
-import socket
+import ipaddress
 from functools import wraps
 from os import urandom
-from typing import Union, Optional, List
+from typing import Union, Optional
 
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
@@ -36,7 +36,7 @@ from .bytes_ import Pack, Unpack
 from .const import (PATH_SEGMENTS, ConnectionManagerInstance, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
                     TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
                     ConnectionManagerService, Services)
-from .packets import RequestPacket, DataFormatType, RequestTypes
+from .packets import DataFormatType, RequestTypes
 from .socket_ import Socket
 
 
@@ -455,32 +455,36 @@ class CIPDriver:
 
 
 def parse_connection_path(path):
-    path = path.replace('\\', '/')
-    ip, *segments = path.split('/')
     try:
-        socket.inet_aton(ip)
-    except OSError:
-        raise RequestError('Invalid IP Address', ip)
-    segments = [_parse_cip_path_segment(s) for s in segments]
+        path = path.replace('\\', '/')
+        ip, *segments = path.split('/')
+        try:
+            ipaddress.ip_address(ip)
+        except ValueError as err:
+            raise RequestError(f'Invalid IP Address: {ip}') from err
+        segments = [_parse_cip_path_segment(s) for s in segments]
 
-    if not segments:
-        _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']
-    elif len(segments) == 1:
-        _path = [Pack.usint(PATH_SEGMENTS['backplane']), Pack.usint(segments[0])]
+        if not segments:
+            _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']
+        elif len(segments) == 1:
+            _path = [Pack.usint(PATH_SEGMENTS['backplane']), Pack.usint(segments[0])]
+        else:
+            pairs = (segments[i:i + 2] for i in range(0, len(segments), 2))
+            _path = []
+            for port, dest in pairs:
+                if isinstance(dest, bytes):
+                    port |= 1 << 4  # set Extended Link Address bit, CIP Vol 1 C-1.3
+                    dest_len = len(dest)
+                    if dest_len % 2:
+                        dest += b'\x00'
+                    _path.extend([Pack.usint(port), Pack.usint(dest_len), dest])
+                else:
+                    _path.extend([Pack.usint(port), Pack.usint(dest)])
+
+    except Exception as err:
+        raise RequestError(f'Failed to parse connection path: {path}') from err
     else:
-        pairs = (segments[i:i + 2] for i in range(0, len(segments), 2))
-        _path = []
-        for port, dest in pairs:
-            if isinstance(dest, bytes):
-                port |= 1 << 4  # set Extended Link Address bit, CIP Vol 1 C-1.3
-                dest_len = len(dest)
-                if dest_len % 2:
-                    dest += b'\x00'
-                _path.extend([Pack.usint(port), Pack.usint(dest_len), dest])
-            else:
-                _path.extend([Pack.usint(port), Pack.usint(dest)])
-
-    return ip, Pack.epath(b''.join(_path))
+        return ip, Pack.epath(b''.join(_path))
 
 
 def _parse_cip_path_segment(segment: str):
@@ -493,12 +497,12 @@ def _parse_cip_path_segment(segment: str):
                 return tmp
             else:
                 try:
-                    socket.inet_aton(segment)
+                    ipaddress.ip_address(segment)
                     return b''.join(Pack.usint(ord(c)) for c in segment)
-                except OSError:
-                    raise RequestError('Invalid IP Address Segment', segment)
-    except Exception:
-        raise RequestError(f'Failed to parse path segment', segment)
+                except ValueError as err:
+                    raise RequestError(f'Invalid IP Address Segment: {segment}') from err
+    except Exception as err:
+        raise RequestError(f'Failed to parse path segment: {segment}') from err
 
 
 def _parse_identity_object(reply):
