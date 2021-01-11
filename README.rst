@@ -229,6 +229,25 @@ Unit Testing
 that contains all tags necessary for testing.  The only requirement for testing (besides a running PLC with the testing
 program) is the environment variable ``PLCPATH`` for the PLC defined.
 
+User Tests
+----------
+
+These tests are for users to run.  There are a few tests that are specific to a demo
+plc, those are excluded. To run them you have the following options:
+
+.. code-block::
+
+    set PLCPATH=192.168.1.100
+    pytest --ignore tests/online/test_demo_plc.py
+
+*(or the equivalent in your shell)*
+
+or using `tox`:
+
+    - modify the `PLCPATH` variable in `tox.ini`
+    - then run this command: `tox -e user`
+
+
 .. Note::
     Test coverage is not complete, pull requests are welcome to help improve coverage.
 
