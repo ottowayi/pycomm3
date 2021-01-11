@@ -237,9 +237,9 @@ class LogixDriver(CIPDriver):
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 service=Services.get_attributes_all,
                 data_format=[
-                    ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
-                    ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
-                    ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
+                    ('vendor', 'UINT'), ('product_type', 'UINT'), ('product_code', 'UINT'),
+                    ('version_major', 'SINT'), ('version_minor', 'USINT'), ('_keyswitch', 2),
+                    ('serial', 'UDINT'), ('device_type', 'SHORT_STRING')
                 ],
                 connected=False, unconnected_send=not self._micro800)
 
