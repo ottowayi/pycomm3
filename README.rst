@@ -244,8 +244,8 @@ plc, those are excluded. To run them you have the following options:
 
 or using `tox`:
 
-    - modify the `PLCPATH` variable in `tox.ini`
-    - then run this command: `tox -e user`
+    - modify the ``PLCPATH`` variable in ``tox.ini``
+    - then run this command: ``tox -e user``
 
 
 .. Note::
