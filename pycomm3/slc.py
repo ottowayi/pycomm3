@@ -25,7 +25,6 @@
 __all__ = ['SLCDriver', ]
 
 import logging
-import math
 import re
 from typing import List, Tuple, Optional, Union
 
@@ -35,7 +34,8 @@ from .const import (CLASS_TYPE, SUCCESS, PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE
                     SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH)
 from .exceptions import DataError, RequestError
 from .tag import Tag
-from .packets.requests import wrap_unconnected_send
+from .packets import RequestTypes
+
 AtomicValueType = Union[int, float, bool]
 TagValueType = Union[AtomicValueType, List[Union[AtomicValueType, str]]]
 ReadWriteReturnType = Union[Tag, List[Tag]]
@@ -105,7 +105,7 @@ class SLCDriver(CIPDriver):
             Pack.usint(int(_tag.get('pos_number', 0)))  # sub-element number
         ]
 
-        request = self.new_request('send_unit_data')
+        request = RequestTypes.send_unit_data(self)
         request.add(b''.join(message_request))
         response = request.send()
         self.__log.debug(f"SLC read_tag({tag})")
@@ -168,7 +168,7 @@ class SLCDriver(CIPDriver):
             Pack.usint(int(_tag.get('pos_number', 0))),
             writeable_value(_tag, value),
         ]
-        request = self.new_request('send_unit_data')
+        request = RequestTypes.send_unit_data(self)
         request.add(b''.join(message_request))
         response = request.send()
 
@@ -180,6 +180,7 @@ class SLCDriver(CIPDriver):
 
     @with_forward_open
     def get_processor_type(self):
+
         msg_request = (
             self._msg_start(),
             # diagnostic status - CMD 06, FNC 03 - pg93 DF1 manual (1770-rm516)
@@ -190,14 +191,14 @@ class SLCDriver(CIPDriver):
 
         )
 
-        request = self.new_request('send_unit_data')
+        request = RequestTypes.send_unit_data(self)
         request.add(b''.join(msg_request))
         response = request.send()
         if response:
             try:
                 typ = response.raw[SLC_REPLY_START:][5:16].decode('utf-8').strip()
             except Exception as err:
-                self.__log.exception('failed getting processor type')
+                self.__log.exception(f'failed getting processor type: {err}')
                 typ = None
             finally:
                 return typ
@@ -236,7 +237,7 @@ class SLCDriver(CIPDriver):
             sys0_info['size_element'],
         ]
 
-        request = self.new_request('send_unit_data')
+        request = RequestTypes.send_unit_data(self)
         request.add(b''.join(msg_request))
         response = request.send()
         status = request_status(response.raw)
@@ -278,7 +279,7 @@ class SLCDriver(CIPDriver):
 
             msg_request += [Pack.usint(offset)] if offset < 256 else [b'\xFF', Pack.uint(offset)]
 
-            request = self.new_request('send_unit_data')
+            request = RequestTypes.send_unit_data(self)
             request.add(b''.join(msg_request))
             response = request.send()
             status = request_status(response.raw)
