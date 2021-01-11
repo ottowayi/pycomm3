@@ -1154,7 +1154,7 @@ def _parse_structure_makeup_attributes(response):
         raise DataError('failed to parse structure attributes') from err
 
 
-def writable_value(parsed_tag):
+def writable_value(parsed_tag: dict) -> bytes:
     if isinstance(parsed_tag['value'], bytes):
         return parsed_tag['value']
 

@@ -1,19 +1,17 @@
-from itertools import chain
-from time import sleep
-
 import pytest
 
 from tests import tag_only
 from . import BASE_ATOMIC_TESTS, BASE_ATOMIC_ARRAY_TESTS, BASE_STRUCT_TESTS
 
-all_write_tests = list(chain.from_iterable((
-    [(f'write{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_TESTS],
-    [(f'Program:pycomm3.write_prog{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_TESTS],
-    [(f'write{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_ARRAY_TESTS],
-    [(f'Program:pycomm3.write_prog{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_ARRAY_TESTS],
-    [(f'write{tag}', dt, val) for tag, dt, val in BASE_STRUCT_TESTS],
-    [(f'Program:pycomm3.write_prog{tag}', dt, val) for tag, dt, val in BASE_STRUCT_TESTS],
-)))
+
+all_write_tests = [
+    *[(f'write{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_TESTS],
+    *[(f'Program:pycomm3.write_prog{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_TESTS],
+    *[(f'write{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_ARRAY_TESTS],
+    *[(f'Program:pycomm3.write_prog{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_ARRAY_TESTS],
+    *[(f'write{tag}', dt, val) for tag, dt, val in BASE_STRUCT_TESTS],
+    *[(f'Program:pycomm3.write_prog{tag}', dt, val) for tag, dt, val in BASE_STRUCT_TESTS],
+]
 
 
 @pytest.mark.parametrize('tag_name, data_type, value', all_write_tests)
@@ -42,3 +40,29 @@ def test_multi_write(plc):
         assert result.type == typ
         assert result.value == value
 
+
+def _nested_dict_to_lists(src):
+    if isinstance(src, dict):
+        return [
+            _nested_dict_to_lists(value) if isinstance(value, dict) else value
+            for key, value in src.items()
+        ]
+    return src
+
+
+struct_values_list_tests = [
+    *[(f'write{tag}', dt, _nested_dict_to_lists(val))
+      for tag, dt, val in BASE_STRUCT_TESTS if isinstance(val, dict)],
+
+    *[(f'Program:pycomm3.write_prog{tag}', dt, _nested_dict_to_lists(val))
+      for tag, dt, val in BASE_STRUCT_TESTS if isinstance(val, dict)],
+]
+
+
+@pytest.mark.parametrize('tag_name, data_type, value', struct_values_list_tests)
+def test_struct_write_value_as_list(plc, tag_name, data_type, value):
+    """
+    verify that writing structures using nested lists works as well as dictionaries
+    """
+    result = plc.write((tag_name, value))
+    assert result
