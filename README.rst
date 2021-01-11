@@ -225,7 +225,7 @@ For details on the information contained and the structure of the definitions, r
 Unit Testing
 ============
 
-``pytest`` is used for unit testing. The ``tests`` directory contains an L5X export of the ``Pycomm3_Testing`` program
+``pytest`` is used for unit testing. The ``tests`` directory contains an L5X export of the testing program
 that contains all tags necessary for testing.  The only requirement for testing (besides a running PLC with the testing
 program) is the environment variable ``PLCPATH`` for the PLC defined.
 
