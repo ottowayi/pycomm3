@@ -1295,10 +1295,14 @@ def _bit_request(tag_data, bit_requests):
     if typ_ == 'bool_array':
         bit = bit % 32
 
+    # update both masks so if same bit written to multiple times
+    # only the last one is accurate/used
     if tag_data['value']:
         bits_['or_mask'] |= (1 << bit)
+        bits_['and_mask'] |= (1 << bit)
     else:
         bits_['and_mask'] &= ~(1 << bit)
+        bits_['or_mask'] &= ~(1 << bit)
 
     return True
 

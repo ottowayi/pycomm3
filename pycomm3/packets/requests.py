@@ -512,8 +512,8 @@ def _make_write_data_bit(tag_info, value, request_path):
         Services.read_modify_write,
         request_path,
         Pack.uint(mask_size),
-            Pack.udint(or_mask)[:mask_size],
-            Pack.udint(and_mask)[:mask_size]
+        Pack.ulint(or_mask)[:mask_size],
+        Pack.ulint(and_mask)[:mask_size]
         ))
 
 
