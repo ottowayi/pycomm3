@@ -77,7 +77,6 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ('_real_ary1[18]{2}', 'REAL[2]', _real_array[18:20]),
     ('_bool_ary1[1]{2}', 'BOOL[64]', _bool_array[32:]),
 
-
     # and single elements
     ('_sint_ary1[5]', 'SINT', _sint_array[5]),
     ('_int_ary1[0]', 'INT', _int_array[0]),

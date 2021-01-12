@@ -43,13 +43,14 @@ def test_multi_read(plc):
         assert result.value == value
 
 
+def test_duplicate_tags_in_request(plc):
+    tags = [
+        'read_dint_max.0', 'read_dint_max.1', 'read_int_max', 'read_bool1', 'read_int_max'
+    ]
 
+    results = plc.read(*tags, *tags)
 
-# @pytest.mark.parametrize('tag_name, data_type, value', struct_tests)
-# def test_udt_read(plc, tag_name, data_type, value):
-#     result = plc.read(tag_name)
-#     assert result
-#     assert result.error is None
-#     assert result.tag == tag_only(tag_name)
-#     assert result.type == data_type
-#     assert result.value == value
+    result_tags = [r.tag for r in results]
+
+    assert result_tags == tags * 2
+    assert all(results)

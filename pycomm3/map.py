@@ -51,7 +51,6 @@ class MapMeta(type):
 
         return enumcls
 
-
     def __getitem__(self, item):
         val = self._members_.__getitem__(_key(item))
         if self._return_caps_only_ and isinstance(val, str):

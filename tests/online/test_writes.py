@@ -66,3 +66,19 @@ def test_struct_write_value_as_list(plc, tag_name, data_type, value):
     """
     result = plc.write((tag_name, value))
     assert result
+
+
+def test_duplicate_tags_in_request(plc):
+    tags = [
+        ('write_int_max.0', True), ('write_int_max.1', False),
+        ('write_int_max', 32_767), ('write_int_min', -32_768),
+        ('write_bool_ary1[1]', False)
+    ]
+
+    results = plc.write(*tags, *tags)
+
+    request_tags = [tag for tag, value in tags] * 2
+    result_tags = [r.tag for r in results]
+
+    assert result_tags == request_tags
+    assert all(results)

@@ -28,7 +28,7 @@ import datetime
 import itertools
 import logging
 import time
-from typing import List, Tuple, Optional, Union, Mapping
+from typing import List, Tuple, Optional, Union, Mapping, Dict
 
 from . import util
 from .exceptions import DataError, CommError, RequestError
@@ -42,7 +42,7 @@ from .const import (EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataT
 from .packets import request_path, encode_segment, RequestTypes
 
 AtomicValueType = Union[int, float, bool, str]
-TagValueType = Union[AtomicValueType, List[AtomicValueType]]
+TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, 'TagValueType']]
 ReadWriteReturnType = Union[Tag, List[Tag]]
 
 
@@ -663,14 +663,14 @@ class LogixDriver(CIPDriver):
 
         results = []
 
-        for tag in tags:
+        for i, tag in enumerate(tags):
             try:
-                request_data = parsed_requests[tag]
+                request_data = parsed_requests[i]
                 if request_data.get('error'):
                     results.append(Tag(tag, None, None, request_data['error']))
                     continue
 
-                result = read_results[(request_data['plc_tag'], request_data['elements'])]
+                result = read_results[i]
                 if request_data.get('bit') is None:
                     results.append(result)
                 else:
@@ -690,7 +690,7 @@ class LogixDriver(CIPDriver):
 
     def _read_build_requests(self, parsed_tags):
         if len(parsed_tags) == 1 or self._micro800:
-            requests = (self._read_build_single_request(parsed_tags[tag]) for tag in parsed_tags)
+            requests = (self._read_build_single_request(parsed_tags[request_id]) for request_id in parsed_tags)
             return [r for r in requests if r is not None]
         else:
             return self._read_build_multi_requests(parsed_tags)
@@ -703,37 +703,38 @@ class LogixDriver(CIPDriver):
         response_size = MULTISERVICE_READ_OVERHEAD
         current_request = RequestTypes.multi_request(self)
         requests.append(current_request)
-        tags_in_requests = set()
-        for tag, tag_data in parsed_tags.items():
-            if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements']) not in tags_in_requests:
-                tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
-
+        for request_id, tag_data in parsed_tags.items():
+            if tag_data.get('error') is None:
                 return_size = _tag_return_size(tag_data) + len(tag_data['rp']) + 4  # 4 = DINT element count
                 if return_size > self.connection_size:
                     _request = RequestTypes.read_tag_fragmented(self)
-                    _request.add(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'], tag_data['tag_info'])
+                    _request.add(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
+                                 tag_data['tag_info'], request_id)
                     requests.append(_request)
                 else:
                     try:
                         return_size += 2  # add 2 bytes for offset list in reply
                         if response_size + return_size < self.connection_size:
-                            if current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'], tag_data['tag_info']):
+                            if current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
+                                                        tag_data['tag_info'], request_id):
                                 response_size += return_size
                             else:
                                 response_size = return_size + MULTISERVICE_READ_OVERHEAD
                                 current_request = RequestTypes.multi_request(self)
-                                current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'], tag_data['tag_info'])
+                                current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
+                                                         tag_data['tag_info'], request_id)
                                 requests.append(current_request)
                         else:
                             response_size = return_size + MULTISERVICE_READ_OVERHEAD
                             current_request = RequestTypes.multi_request(self)
-                            current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'], tag_data['tag_info'])
+                            current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
+                                                     tag_data['tag_info'], request_id)
                             requests.append(current_request)
                     except RequestError:
-                        self.__log.exception(f'Failed to build request for {tag} - skipping')
+                        self.__log.exception(f'Failed to build request for {tag_data["request_tag"]} - skipping')
                         continue
             else:
-                self.__log.error(f'Skipping making request for {tag}, error: {tag_data.get("error")}')
+                self.__log.error(f'Skipping making request for {tag_data["request_tag"]}, error: {tag_data.get("error")}')
                 continue
 
         return (r for r in requests if (r.type_ == 'multi' and r.tags) or r.type_ == 'read')
@@ -750,7 +751,8 @@ class LogixDriver(CIPDriver):
             else:
                 request = RequestTypes.read_tag(self)
 
-            request.add(parsed_tag['plc_tag'], parsed_tag['rp'], parsed_tag['elements'], parsed_tag['tag_info'])
+            request.add(parsed_tag['plc_tag'], parsed_tag['rp'], parsed_tag['elements'],
+                        parsed_tag['tag_info'], parsed_tag['request_id'])
 
             return request
 
@@ -764,7 +766,7 @@ class LogixDriver(CIPDriver):
         response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
         use fragmented read requests if the response size will not fit in a single packet.  Supports arrays (specify element
         count in using curly braces (array{10}).  Also supports full structure writing (when possible), value must be a
-        sequence of values matching the exact structure of the destination tag.
+        sequence of values or a dict of {attribute: value} matching the exact structure of the destination tag.
 
         :param tags_values: one or many 2-element tuples (tag name, value)
         :return: a single or list of ``Tag`` objects.
@@ -772,30 +774,28 @@ class LogixDriver(CIPDriver):
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 
-        normal_tags = set()
-        bit_tags = set()
-
-        for tag, value in tags_values:
-            parsed_requests[tag]['value'] = value
-
-            if parsed_requests[tag].get('bit') is None:
-                normal_tags.add(tag)
-            else:
-                bit_tags.add(tag)
+        for i, (tag, value) in enumerate(tags_values):
+            parsed_requests[i]['value'] = value
 
         requests, bit_writes = self._write_build_requests(parsed_requests)
         write_results = self._send_requests(requests)
+
+        for bw in bit_writes:   # restore original request ids that were handled by a bits write
+            bit_request_id = bit_writes[bw]['request_id']
+            result = write_results.pop(bit_request_id)
+            for req_id in bit_writes[bw]['request_ids']:
+                write_results[req_id] = result
+
         results = []
-        for tag, value in tags_values:
+        for i, (tag, value) in enumerate(tags_values):
             try:
-                request_data = parsed_requests[tag]
+                request_data = parsed_requests[i]
                 if request_data.get('error'):
                     results.append(Tag(tag, None, None, request_data['error']))
                     continue
                     
-                bit = parsed_requests[tag].get('bit')
-                result = write_results[(request_data['plc_tag'], request_data['elements'])]
-
+                bit = parsed_requests[i].get('bit')
+                result = write_results[i]
                 data_type = request_data['tag_info']['data_type_name']
                 if bit is not None:
                     data_type = 'BOOL'
@@ -830,10 +830,8 @@ class LogixDriver(CIPDriver):
         current_request = RequestTypes.multi_request(self)
         requests.append(current_request)
 
-        tags_in_requests = set()
-        for tag, tag_data in parsed_tags.items():
-            if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements']) not in tags_in_requests:
-                tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
+        for request_id, tag_data in parsed_tags.items():
+            if tag_data.get('error') is None:
 
                 if _bit_request(tag_data, bit_writes):
                     continue
@@ -842,42 +840,39 @@ class LogixDriver(CIPDriver):
                 req_size = len(tag_data['write_value']) + len(tag_data['rp']) + 4
                 if req_size > self.connection_size:
                     _request = RequestTypes.write_tag_fragmented(self)
-                    _request.add(tag_data['plc_tag'],
-                                 tag_data['rp'],
-                                 tag_data['write_value'],
-                                 tag_data['elements'],
-                                 tag_data['tag_info'])
+                    _request.add(tag_data['plc_tag'], tag_data['rp'], tag_data['write_value'], tag_data['elements'],
+                                 tag_data['tag_info'], request_id)
                     requests.append(_request)
                     continue
 
                 try:
-                    if not current_request.add_write(tag_data['plc_tag'],
-                                                     tag_data['rp'],
-                                                     tag_data['write_value'],
-                                                     tag_data['elements'],
-                                                     tag_data['tag_info']):
+                    if not current_request.add_write(tag_data['plc_tag'], tag_data['rp'], tag_data['write_value'],
+                                                     tag_data['elements'], tag_data['tag_info'], request_id):
 
                         current_request = RequestTypes.multi_request(self)
                         requests.append(current_request)
-                        current_request.add_write(tag_data['plc_tag'],
-                                                  tag_data['rp'],
-                                                  tag_data['write_value'],
-                                                  tag_data['elements'],
-                                                  tag_data['tag_info'])
+                        current_request.add_write(tag_data['plc_tag'], tag_data['rp'], tag_data['write_value'],
+                                                  tag_data['elements'], tag_data['tag_info'], request_id)
 
                 except RequestError:
-                    self.__log.exception(f'Failed to build request for {tag} - skipping')
+                    self.__log.exception(f'Failed to build request for {tag_data["request_tag"]} - skipping')
                     continue
 
         if bit_writes:
-            for tag in bit_writes:
+            for i, tag in enumerate(bit_writes):
                 try:
+                    # multiple requests are merged into a single request for bit writes
+                    # so create a new request_id for those and then we'll restore the original ones later
+                    _request_id = f'bit-write-{i}'
+                    bit_writes[tag]['request_id'] = _request_id
                     value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
                     rp = tag_request_path(tag, self._tags, self.use_instance_ids)
-                    if not current_request.add_write(tag, rp, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True):
+                    if not current_request.add_write(tag, rp, value, 1, bit_writes[tag]['tag_info'],
+                                                     _request_id, bits_write=True):
                         current_request = RequestTypes.multi_request(self)
                         requests.append(current_request)
-                        current_request.add_write(tag, rp, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True)
+                        current_request.add_write(tag, rp, value, 1, bit_writes[tag]['tag_info'],
+                                                  _request_id, bits_write=True)
                 except RequestError:
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
                     continue
@@ -898,15 +893,19 @@ class LogixDriver(CIPDriver):
                             parsed_tag['rp'],
                             parsed_tag['write_value'],
                             parsed_tag['elements'],
-                            parsed_tag['tag_info'])
+                            parsed_tag['tag_info'],
+                            parsed_tag['request_id'])
                 return request
             else:
                 try:
                     tag = parsed_tag['plc_tag']
+                    request_id = f'bit-write-0'
+                    bit_writes[tag]['request_id'] = request_id
                     value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
                     request = RequestTypes.write_tag(self)
                     rp = tag_request_path(tag, self._tags, self.use_instance_ids)
-                    request.add(tag, rp, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True)
+                    request.add(tag, rp, value, 1, bit_writes[tag]['tag_info'], request_id,
+                                bits_write=True)
                     return request
                 except RequestError:
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
@@ -955,8 +954,11 @@ class LogixDriver(CIPDriver):
 
     def _parse_requested_tags(self, tags):
         requests = {}
-        for tag in tags:
-            parsed = {}
+        for i, tag in enumerate(tags):
+            parsed = {
+                'request_id': i,
+                'request_tag': tag
+            }
             try:
                 parsed_request = self._parse_tag_request(tag)
                 if parsed_request is not None:
@@ -976,7 +978,7 @@ class LogixDriver(CIPDriver):
                 parsed['error'] = str(err)
 
             finally:
-                requests[tag] = parsed
+                requests[i] = parsed
         return requests
 
     def _parse_tag_request(self, tag: str) -> Optional[Tuple[str, Optional[int], int, dict]]:
@@ -1010,13 +1012,6 @@ class LogixDriver(CIPDriver):
             raise RequestError('Failed to parse tag request', tag) from err
 
     def _send_requests(self, requests):
-
-        def _mkkey(t=None, r=None):
-            if t is not None:
-                return t['tag'], t['elements']
-            else:
-                return r.tag, r.elements
-
         results = {}
 
         for request in requests:
@@ -1025,25 +1020,25 @@ class LogixDriver(CIPDriver):
             except (RequestError, DataError) as err:
                 self.__log.exception('Error sending request')
                 if request.type_ != 'multi':
-                    results[_mkkey(r=request)] = Tag(request.tag, None, None, str(err))
+                    results[request.request_id] = Tag(request.tag, None, None, str(err))
                 else:
                     for tag in request.tags:
-                        results[_mkkey(t=tag)] = Tag(tag['tag'], None, None, str(err))
+                        results[tag['request_id']] = Tag(tag['tag'], None, None, str(err))
             else:
                 if request.type_ != 'multi':
                     if response:
-                        results[_mkkey(r=request)] = Tag(request.tag,
+                        results[request.request_id] = Tag(request.tag,
                                                          response.value if request.type_ == 'read' else request.value,
                                                          response.data_type if request.type_ == 'read' else request.data_type,
                                                          response.error)
                     else:
-                        results[_mkkey(r=request)] = Tag(request.tag, None, None, response.error)
+                        results[request.request_id] = Tag(request.tag, None, None, response.error)
                 else:
                     for tag in response.tags:
                         if tag['service_status'] == SUCCESS:
-                            results[_mkkey(t=tag)] = Tag(tag['tag'], tag['value'], tag['data_type'], None)
+                            results[tag['request_id']] = Tag(tag['tag'], tag['value'], tag['data_type'], None)
                         else:
-                            results[_mkkey(t=tag)] = Tag(tag['tag'], None, None,
+                            results[tag['request_id']] = Tag(tag['tag'], None, None,
                                                          tag.get('error', 'Unknown Service Error'))
         return results
 
@@ -1289,12 +1284,13 @@ def _bit_request(tag_data, bit_requests):
     if tag_data['plc_tag'] not in bit_requests:
         bit_requests[tag_data['plc_tag']] = {'and_mask': 0xFFFFFFFF,
                                              'or_mask': 0x00000000,
-                                             'bits': [],
+                                             'bits': [], 'request_ids': [],
                                              'tag_info': tag_data['tag_info']}
 
     bits_ = bit_requests[tag_data['plc_tag']]
     typ_, bit = tag_data['bit']
     bits_['bits'].append(bit)
+    bits_['request_ids'].append(tag_data['request_id'])
 
     if typ_ == 'bool_array':
         bit = bit % 32
