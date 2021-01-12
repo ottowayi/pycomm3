@@ -94,6 +94,9 @@ data_type
     - ``'DINT'``/``'REAL'``/etc name of data type for atomic types
     - ``{data type definition}`` for structures, detailed in `Structure Definitions`_
 
+data_type_name
+    - the string name of the data type: ``'DINT'``/``'REAL'``/``'TIMER'``/``'MyCoolUDT'``
+
 string
     **Optional** string size if the tag is a STRING type (or custom string)
 
@@ -101,7 +104,7 @@ external_access
     ``'Read/Write'``/``'Read Only'``/``'None'`` matches the External Access tag property in the PLC
 
 dim
-    dimensions defined for the tag
+    number dimensions defined for the tag
     - ``0`` - not an array
     - ``1-3`` - a 1 to 3 dimension array tag
 
@@ -146,6 +149,9 @@ internal_tags
         Same as `Tag Structure`_
 
     data_type
+        Same as `Tag Structure`_
+
+    data_type_name
         Same as `Tag Structure`_
 
     string
@@ -241,6 +247,7 @@ Verify all reads were successful
 ...     print('All tags read successfully')
 All tags read successfully
 
+
 Writing Tags
 ^^^^^^^^^^^^
 
@@ -273,6 +280,7 @@ Check if all writes were successful
 >>> if all(results):
 ...     print('All tags written successfully')
 All tags written successfully
+
 
 String Tags
 ^^^^^^^^^^^
