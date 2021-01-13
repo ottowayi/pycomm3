@@ -312,22 +312,23 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
         self.data_type = None
         self.segment_size = None
         self.request_id = None
+        self._packed_type = None
 
     def add(self, tag, request_path, value, elements, tag_info, request_id):
         try:
-            if tag_info['tag_type'] == 'struct':
-                self._packed_type = STRUCTURE_READ_REPLY + Pack.uint(tag_info['data_type']['template']['structure_handle'])
-                self.data_type = tag_info['data_type']['name']
-            else:
-                self._packed_type = Pack.uint(DataType[self.data_type])
-                self.data_type = tag_info['data_type']
-
+            self.data_type = tag_info['data_type_name']
             self.tag = tag
             self.value = value
             self.elements = elements
             self.tag_info = tag_info
             self.request_path = request_path
             self.request_id = request_id
+
+            if tag_info['tag_type'] == 'struct':
+                self._packed_type = STRUCTURE_READ_REPLY + Pack.uint(tag_info['data_type']['template']['structure_handle'])
+            else:
+                self._packed_type = Pack.uint(DataType[self.data_type])
+
             if self.request_path is None:
                 self.error = 'Invalid Tag Request Path'
         except Exception as err:
