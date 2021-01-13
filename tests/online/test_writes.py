@@ -67,6 +67,11 @@ def test_struct_write_value_as_list(plc, tag_name, data_type, value):
     result = plc.write((tag_name, value))
     assert result
 
+    read_value = plc.read(tag_name).value
+    result = plc.write((tag_name, read_value))
+    assert result
+    assert plc.read(tag_name).value == read_value
+
 
 def test_duplicate_tags_in_request(plc):
     tags = [
