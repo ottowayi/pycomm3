@@ -28,7 +28,7 @@ from reprlib import repr as _r
 from . import Packet, DataFormatType
 from .. import util
 from ..bytes_ import Unpack
-from ..const import (SUCCESS, INSUFFICIENT_PACKETS, TagService, SERVICE_STATUS, EXTEND_CODES, MULTI_PACKET_SERVICES,
+from ..const import (SUCCESS, INSUFFICIENT_PACKETS, Services, SERVICE_STATUS, EXTEND_CODES, MULTI_PACKET_SERVICES,
                      DataType, STRUCTURE_READ_REPLY, DataTypeSize, StringTypeLenSize)
 
 
@@ -105,7 +105,7 @@ class SendUnitDataResponsePacket(ResponsePacket):
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.service = TagService.get(TagService.from_reply(self.raw[46:47]))
+            self.service = Services.get(Services.from_reply(self.raw[46:47]))
             self.service_status = Unpack.usint(self.raw[48:49])
             self.data = self.raw[50:]
         except Exception as err:
@@ -135,7 +135,7 @@ class SendRRDataResponsePacket(ResponsePacket):
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.service = TagService.get(TagService.from_reply(self.raw[40:41]))
+            self.service = Services.get(Services.from_reply(self.raw[40:41]))
             self.service_status = Unpack.usint(self.raw[42:43])
             self.data = self.raw[44:]
         except Exception as err:
@@ -328,7 +328,7 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
             if service_status != SUCCESS:
                 tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
 
-            if TagService.get(TagService.from_reply(service)) == TagService.read_tag:
+            if Services.get(Services.from_reply(service)) == Services.read_tag:
                 if service_status == SUCCESS:
                     value, dt = parse_read_reply(data[4:], tag['tag_info'], tag['elements'])
                 else:

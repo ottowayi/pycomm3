@@ -52,20 +52,30 @@ class MapMeta(type):
         return enumcls
 
     def __getitem__(self, item):
-        val = self._members_.__getitem__(item.lower() if isinstance(item, str) else item)
+        val = self._members_.__getitem__(_key(item))
         if self._return_caps_only_ and isinstance(val, str):
             val = val.upper()
         return val
 
     def get(cls, item, default=None):
-        val = cls._members_.get(item.lower() if isinstance(item, str) else item, default)
+
+        val = cls._members_.get(_key(item), default)
 
         if cls._return_caps_only_ and isinstance(val, str):
             val = val.upper()
         return val
 
     def __contains__(self, item):
-        return self._members_.__contains__(item.lower() if isinstance(item, str) else item)
+        return self._members_.__contains__(item.lower() if isinstance(item, (str, bytes)) else item)
+
+
+def _key(item):
+    if isinstance(item, str):
+        return item.lower()
+    elif isinstance(item, bytes):
+        return item
+    else:
+        return item
 
 
 class EnumMap(metaclass=MapMeta):

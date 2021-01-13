@@ -28,21 +28,21 @@ import datetime
 import itertools
 import logging
 import time
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional, Union, Mapping, Dict
 
 from . import util
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
 from .bytes_ import Pack, Unpack
 from .cip_base import CIPDriver, with_forward_open
-from .const import (TagService, EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES, VENDORS,
-                    MICRO800_PREFIX, READ_RESPONSE_OVERHEAD, MULTISERVICE_READ_OVERHEAD, CommonService, SUCCESS,
+from .const import (EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES, VENDORS,
+                    MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, Services, SUCCESS, ELEMENT_TYPE,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH,
-                    TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DataTypeSize, MIN_VER_EXTERNAL_ACCESS)
-from .packets import request_path
+                    TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DataTypeSize, MIN_VER_EXTERNAL_ACCESS, )
+from .packets import request_path, encode_segment, RequestTypes
 
 AtomicValueType = Union[int, float, bool, str]
-TagValueType = Union[AtomicValueType, List[AtomicValueType]]
+TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, 'TagValueType']]
 ReadWriteReturnType = Union[Tag, List[Tag]]
 
 
@@ -213,7 +213,7 @@ class LogixDriver(CIPDriver):
         """
         try:
             response = self.generic_message(
-                service=CommonService.get_attribute_list,
+                service=Services.get_attribute_list,
                 class_code=ClassCode.program_name,
                 instance=b'\x01\x00',  # instance 1
                 request_data=b'\x01\x00\x01\x00',  # num attributes, attribute 1 (program name)
@@ -235,11 +235,11 @@ class LogixDriver(CIPDriver):
         try:
             response = self.generic_message(
                 class_code=ClassCode.identity_object, instance=b'\x01',
-                service=CommonService.get_attributes_all,
+                service=Services.get_attributes_all,
                 data_format=[
-                    ('vendor', 'INT'), ('product_type', 'INT'), ('product_code', 'INT'),
-                    ('version_major', 'SINT'), ('version_minor', 'SINT'), ('_keyswitch', 2),
-                    ('serial', 'DINT'), ('device_type', 'SHORT_STRING')
+                    ('vendor', 'UINT'), ('product_type', 'UINT'), ('product_code', 'UINT'),
+                    ('version_major', 'SINT'), ('version_minor', 'USINT'), ('_keyswitch', 2),
+                    ('serial', 'UDINT'), ('device_type', 'SHORT_STRING')
                 ],
                 connected=False, unconnected_send=not self._micro800)
 
@@ -306,6 +306,7 @@ class LogixDriver(CIPDriver):
         for tag in user_tags:
             if tag['tag_type'] == 'struct':
                 tag['data_type'] = self._get_data_type(tag['template_instance_id'])
+                tag['data_type_name'] = tag['data_type']['name']
 
         return user_tags
 
@@ -338,7 +339,7 @@ class LogixDriver(CIPDriver):
                 ]
                 path = b''.join(path)
                 path_size = Pack.usint(len(path) // 2)
-                request = self.new_request('send_unit_data')
+                request = RequestTypes.send_unit_data(self)
 
                 attributes = [
                     b'\x01\x00',  # Attr. 1: Symbol name
@@ -353,7 +354,7 @@ class LogixDriver(CIPDriver):
                     attributes.append(b'\x0a\x00')  # Attr. 10 : external access
 
                 request.add(
-                    TagService.get_instance_attribute_list,
+                    Services.get_instance_attribute_list,
                     path_size,
                     path,
                     Pack.uint(len(attributes)),
@@ -503,10 +504,10 @@ class LogixDriver(CIPDriver):
         get the structure makeup for a specific structure
         """
         if instance_id not in self._cache['id:struct']:
-            request = self.new_request('send_unit_data')
+            request = RequestTypes.send_unit_data(self)
             req_path = request_path(ClassCode.template_object, Pack.uint(instance_id))
             request.add(
-                CommonService.get_attribute_list,
+                Services.get_attribute_list,
                 req_path,
 
                 # service data:
@@ -535,10 +536,10 @@ class LogixDriver(CIPDriver):
         template_raw = b''
         try:
             while True:
-                request = self.new_request('send_unit_data')
+                request = RequestTypes.send_unit_data(self)
                 req_path = request_path(ClassCode.template_object, instance=Pack.uint(instance_id))
                 request.add(
-                    TagService.read_tag,
+                    Services.read_tag,
                     req_path,
                     # service data:
                     Pack.dint(offset),
@@ -619,6 +620,7 @@ class LogixDriver(CIPDriver):
 
         member['tag_type'] = tag_type
         member['data_type'] = data_type
+        member['data_type_name'] = data_type['name'] if tag_type == 'struct' else data_type
 
         if data_type == 'BOOL':
             member['bit'] = type_info
@@ -661,14 +663,14 @@ class LogixDriver(CIPDriver):
 
         results = []
 
-        for tag in tags:
+        for i, tag in enumerate(tags):
             try:
-                request_data = parsed_requests[tag]
+                request_data = parsed_requests[i]
                 if request_data.get('error'):
                     results.append(Tag(tag, None, None, request_data['error']))
                     continue
 
-                result = read_results[(request_data['plc_tag'], request_data['elements'])]
+                result = read_results[i]
                 if request_data.get('bit') is None:
                     results.append(result)
                 else:
@@ -688,7 +690,7 @@ class LogixDriver(CIPDriver):
 
     def _read_build_requests(self, parsed_tags):
         if len(parsed_tags) == 1 or self._micro800:
-            requests = (self._read_build_single_request(parsed_tags[tag]) for tag in parsed_tags)
+            requests = (self._read_build_single_request(parsed_tags[request_id]) for request_id in parsed_tags)
             return [r for r in requests if r is not None]
         else:
             return self._read_build_multi_requests(parsed_tags)
@@ -699,38 +701,40 @@ class LogixDriver(CIPDriver):
         """
         requests = []
         response_size = MULTISERVICE_READ_OVERHEAD
-        current_request = self.new_request('multi_request')
+        current_request = RequestTypes.multi_request(self)
         requests.append(current_request)
-        tags_in_requests = set()
-        for tag, tag_data in parsed_tags.items():
-            if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements']) not in tags_in_requests:
-                tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
-                return_size = _tag_return_size(tag_data)
+        for request_id, tag_data in parsed_tags.items():
+            if tag_data.get('error') is None:
+                return_size = _tag_return_size(tag_data) + len(tag_data['rp']) + 4  # 4 = DINT element count
                 if return_size > self.connection_size:
-                    _request = self.new_request('read_tag_fragmented')
-                    _request.add(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'])
+                    _request = RequestTypes.read_tag_fragmented(self)
+                    _request.add(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
+                                 tag_data['tag_info'], request_id)
                     requests.append(_request)
                 else:
                     try:
                         return_size += 2  # add 2 bytes for offset list in reply
                         if response_size + return_size < self.connection_size:
-                            if current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info']):
+                            if current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
+                                                        tag_data['tag_info'], request_id):
                                 response_size += return_size
                             else:
                                 response_size = return_size + MULTISERVICE_READ_OVERHEAD
-                                current_request = self.new_request('multi_request')
-                                current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'])
+                                current_request = RequestTypes.multi_request(self)
+                                current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
+                                                         tag_data['tag_info'], request_id)
                                 requests.append(current_request)
                         else:
                             response_size = return_size + MULTISERVICE_READ_OVERHEAD
-                            current_request = self.new_request('multi_request')
-                            current_request.add_read(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'])
+                            current_request = RequestTypes.multi_request(self)
+                            current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
+                                                     tag_data['tag_info'], request_id)
                             requests.append(current_request)
                     except RequestError:
-                        self.__log.exception(f'Failed to build request for {tag} - skipping')
+                        self.__log.exception(f'Failed to build request for {tag_data["request_tag"]} - skipping')
                         continue
             else:
-                self.__log.error(f'Skipping making request for {tag}, error: {tag_data.get("error")}')
+                self.__log.error(f'Skipping making request for {tag_data["request_tag"]}, error: {tag_data.get("error")}')
                 continue
 
         return (r for r in requests if (r.type_ == 'multi' and r.tags) or r.type_ == 'read')
@@ -741,13 +745,14 @@ class LogixDriver(CIPDriver):
         """
 
         if parsed_tag.get('error') is None:
-            return_size = _tag_return_size(parsed_tag)
+            return_size = _tag_return_size(parsed_tag) + len(parsed_tag['rp']) + 4  # 4 = DINT element count
             if return_size > self.connection_size:
-                request = self.new_request('read_tag_fragmented')
+                request = RequestTypes.read_tag_fragmented(self)
             else:
-                request = self.new_request('read_tag')
+                request = RequestTypes.read_tag(self)
 
-            request.add(parsed_tag['plc_tag'], parsed_tag['elements'], parsed_tag['tag_info'])
+            request.add(parsed_tag['plc_tag'], parsed_tag['rp'], parsed_tag['elements'],
+                        parsed_tag['tag_info'], parsed_tag['request_id'])
 
             return request
 
@@ -761,7 +766,7 @@ class LogixDriver(CIPDriver):
         response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
         use fragmented read requests if the response size will not fit in a single packet.  Supports arrays (specify element
         count in using curly braces (array{10}).  Also supports full structure writing (when possible), value must be a
-        sequence of values matching the exact structure of the destination tag.
+        sequence of values or a dict of {attribute: value} matching the exact structure of the destination tag.
 
         :param tags_values: one or many 2-element tuples (tag name, value)
         :return: a single or list of ``Tag`` objects.
@@ -769,37 +774,41 @@ class LogixDriver(CIPDriver):
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 
-        normal_tags = set()
-        bit_tags = set()
-
-        for tag, value in tags_values:
-            parsed_requests[tag]['value'] = value
-
-            if parsed_requests[tag].get('bit') is None:
-                normal_tags.add(tag)
-            else:
-                bit_tags.add(tag)
+        for i, (tag, value) in enumerate(tags_values):
+            parsed_requests[i]['value'] = value
 
         requests, bit_writes = self._write_build_requests(parsed_requests)
         write_results = self._send_requests(requests)
+
+        for bw in bit_writes:   # restore original request ids that were handled by a bits write
+            bit_request_id = bit_writes[bw]['request_id']
+            result = write_results.pop(bit_request_id)
+            for req_id in bit_writes[bw]['request_ids']:
+                write_results[req_id] = result
+
         results = []
-        for tag, value in tags_values:
+        for i, (tag, value) in enumerate(tags_values):
             try:
-                request_data = parsed_requests[tag]
+                request_data = parsed_requests[i]
                 if request_data.get('error'):
                     results.append(Tag(tag, None, None, request_data['error']))
                     continue
                     
-                bit = parsed_requests[tag].get('bit')
-                result = write_results[(request_data['plc_tag'], request_data['elements'])]
-
-                if request_data['elements'] > 1:
-                    result = result._replace(type=f'{result.type}[{request_data["elements"]}]')
+                bit = parsed_requests[i].get('bit')
+                result = write_results[i]
+                data_type = request_data['tag_info']['data_type_name']
                 if bit is not None:
-                    result = result._replace(tag=tag, type='BOOL', value=value)
-                else:
-                    result = result._replace(tag=request_data['plc_tag'], value=value)
-                results.append(result)
+                    data_type = 'BOOL'
+                elif data_type == 'DWORD':
+                    data_type = f'BOOL[{request_data["elements"] * 32}]'
+                elif request_data['elements'] > 1:
+                    data_type = f'{data_type}[{request_data["elements"]}]'
+
+                tag_name = tag if bit is not None else request_data['plc_tag']
+
+                user_result = Tag(tag_name, value, data_type, result.error)
+
+                results.append(user_result)
             except Exception as err:
                 results.append(Tag(tag, None, None, f'Invalid tag request - {err}'))
 
@@ -818,45 +827,52 @@ class LogixDriver(CIPDriver):
 
     def _write_build_multi_requests(self, parsed_tags, bit_writes):
         requests = []
-        current_request = self.new_request('multi_request')
+        current_request = RequestTypes.multi_request(self)
         requests.append(current_request)
 
-        tags_in_requests = set()
-        for tag, tag_data in parsed_tags.items():
-            if tag_data.get('error') is None and (tag_data['plc_tag'], tag_data['elements']) not in tags_in_requests:
-                tags_in_requests.add((tag_data['plc_tag'], tag_data['elements']))
+        for request_id, tag_data in parsed_tags.items():
+            if tag_data.get('error') is None:
 
                 if _bit_request(tag_data, bit_writes):
                     continue
 
                 tag_data['write_value'] = writable_value(tag_data)
-
-                if len(tag_data['write_value']) > self.connection_size:
-                    _request = self.new_request('write_tag_fragmented')
-                    _request.add(tag_data['plc_tag'], tag_data['value'], tag_data['elements'], tag_data['tag_info'])
+                req_size = len(tag_data['write_value']) + len(tag_data['rp']) + 4
+                if req_size > self.connection_size:
+                    _request = RequestTypes.write_tag_fragmented(self)
+                    _request.add(tag_data['plc_tag'], tag_data['rp'], tag_data['write_value'], tag_data['elements'],
+                                 tag_data['tag_info'], request_id)
                     requests.append(_request)
                     continue
 
                 try:
-                    if not current_request.add_write(tag_data['plc_tag'], tag_data['write_value'], tag_data['elements'],
-                                                     tag_data['tag_info']):
-                        current_request = self.new_request('multi_request')
+                    if not current_request.add_write(tag_data['plc_tag'], tag_data['rp'], tag_data['write_value'],
+                                                     tag_data['elements'], tag_data['tag_info'], request_id):
+
+                        current_request = RequestTypes.multi_request(self)
                         requests.append(current_request)
-                        current_request.add_write(tag_data['plc_tag'], tag_data['write_value'], tag_data['elements'],
-                                                  tag_data['tag_info'])
+                        current_request.add_write(tag_data['plc_tag'], tag_data['rp'], tag_data['write_value'],
+                                                  tag_data['elements'], tag_data['tag_info'], request_id)
 
                 except RequestError:
-                    self.__log.exception(f'Failed to build request for {tag} - skipping')
+                    self.__log.exception(f'Failed to build request for {tag_data["request_tag"]} - skipping')
                     continue
 
         if bit_writes:
-            for tag in bit_writes:
+            for i, tag in enumerate(bit_writes):
                 try:
+                    # multiple requests are merged into a single request for bit writes
+                    # so create a new request_id for those and then we'll restore the original ones later
+                    _request_id = f'bit-write-{i}'
+                    bit_writes[tag]['request_id'] = _request_id
                     value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
-                    if not current_request.add_write(tag, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True):
-                        current_request = self.new_request('multi_request')
+                    rp = tag_request_path(tag, self._tags, self.use_instance_ids)
+                    if not current_request.add_write(tag, rp, value, 1, bit_writes[tag]['tag_info'],
+                                                     _request_id, bits_write=True):
+                        current_request = RequestTypes.multi_request(self)
                         requests.append(current_request)
-                        current_request.add_write(tag, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True)
+                        current_request.add_write(tag, rp, value, 1, bit_writes[tag]['tag_info'],
+                                                  _request_id, bits_write=True)
                 except RequestError:
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
                     continue
@@ -867,20 +883,29 @@ class LogixDriver(CIPDriver):
         if parsed_tag.get('error') is None:
             if not _bit_request(parsed_tag, bit_writes):
                 parsed_tag['write_value'] = writable_value(parsed_tag)
-                if len(parsed_tag['write_value']) > self.connection_size:
-                    request = self.new_request('write_tag_fragmented')
+                req_size = len(parsed_tag['write_value']) + len(parsed_tag['rp']) + 4
+                if req_size > self.connection_size:
+                    request = RequestTypes.write_tag_fragmented(self)
                 else:
-                    request = self.new_request('write_tag')
+                    request = RequestTypes.write_tag(self)
 
-                request.add(parsed_tag['plc_tag'], parsed_tag['write_value'], parsed_tag['elements'],
-                            parsed_tag['tag_info'])
+                request.add(parsed_tag['plc_tag'],
+                            parsed_tag['rp'],
+                            parsed_tag['write_value'],
+                            parsed_tag['elements'],
+                            parsed_tag['tag_info'],
+                            parsed_tag['request_id'])
                 return request
             else:
                 try:
                     tag = parsed_tag['plc_tag']
+                    request_id = f'bit-write-0'
+                    bit_writes[tag]['request_id'] = request_id
                     value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
-                    request = self.new_request('write_tag')
-                    request.add(tag, value, tag_info=bit_writes[tag]['tag_info'], bits_write=True)
+                    request = RequestTypes.write_tag(self)
+                    rp = tag_request_path(tag, self._tags, self.use_instance_ids)
+                    request.add(tag, rp, value, 1, bit_writes[tag]['tag_info'], request_id,
+                                bits_write=True)
                     return request
                 except RequestError:
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
@@ -888,6 +913,17 @@ class LogixDriver(CIPDriver):
         else:
             self.__log.error(f'Skipping making request, error: {parsed_tag["error"]}')
             return None
+
+    def get_tag_info(self, tag_name: str) -> Optional[dict]:
+        """
+        Returns the tag information for a tag collected during the tag list upload.  Can be a base tag or an attribute.
+
+        :param tag_name: name of tag to get info for
+        :return: a dict of the tag's definition
+
+        """
+        base, *attrs = tag_name.split('.')
+        return self._get_tag_info(base, attrs)
 
     def _get_tag_info(self, base, attrs) -> Optional[dict]:
 
@@ -918,8 +954,11 @@ class LogixDriver(CIPDriver):
 
     def _parse_requested_tags(self, tags):
         requests = {}
-        for tag in tags:
-            parsed = {}
+        for i, tag in enumerate(tags):
+            parsed = {
+                'request_id': i,
+                'request_tag': tag
+            }
             try:
                 parsed_request = self._parse_tag_request(tag)
                 if parsed_request is not None:
@@ -928,13 +967,18 @@ class LogixDriver(CIPDriver):
                     parsed['bit'] = bit
                     parsed['elements'] = elements
                     parsed['tag_info'] = tag_info
+                    rp = tag_request_path(plc_tag, self._tags, self.use_instance_ids)
+                    parsed['rp'] = rp
+                    if rp is None:
+                        parsed['error'] = 'Failed to create request path'
                 else:
                     parsed['error'] = 'Failed to parse tag request'
+
             except RequestError as err:
                 parsed['error'] = str(err)
 
             finally:
-                requests[tag] = parsed
+                requests[i] = parsed
         return requests
 
     def _parse_tag_request(self, tag: str) -> Optional[Tuple[str, Optional[int], int, dict]]:
@@ -968,13 +1012,6 @@ class LogixDriver(CIPDriver):
             raise RequestError('Failed to parse tag request', tag) from err
 
     def _send_requests(self, requests):
-
-        def _mkkey(t=None, r=None):
-            if t is not None:
-                return t['tag'], t['elements']
-            else:
-                return r.tag, r.elements
-
         results = {}
 
         for request in requests:
@@ -983,25 +1020,25 @@ class LogixDriver(CIPDriver):
             except (RequestError, DataError) as err:
                 self.__log.exception('Error sending request')
                 if request.type_ != 'multi':
-                    results[_mkkey(r=request)] = Tag(request.tag, None, None, str(err))
+                    results[request.request_id] = Tag(request.tag, None, None, str(err))
                 else:
                     for tag in request.tags:
-                        results[_mkkey(t=tag)] = Tag(tag['tag'], None, None, str(err))
+                        results[tag['request_id']] = Tag(tag['tag'], None, None, str(err))
             else:
                 if request.type_ != 'multi':
                     if response:
-                        results[_mkkey(r=request)] = Tag(request.tag,
+                        results[request.request_id] = Tag(request.tag,
                                                          response.value if request.type_ == 'read' else request.value,
                                                          response.data_type if request.type_ == 'read' else request.data_type,
                                                          response.error)
                     else:
-                        results[_mkkey(r=request)] = Tag(request.tag, None, None, response.error)
+                        results[request.request_id] = Tag(request.tag, None, None, response.error)
                 else:
                     for tag in response.tags:
                         if tag['service_status'] == SUCCESS:
-                            results[_mkkey(t=tag)] = Tag(tag['tag'], tag['value'], tag['data_type'], None)
+                            results[tag['request_id']] = Tag(tag['tag'], tag['value'], tag['data_type'], None)
                         else:
-                            results[_mkkey(t=tag)] = Tag(tag['tag'], None, None,
+                            results[tag['request_id']] = Tag(tag['tag'], None, None,
                                                          tag.get('error', 'Unknown Service Error'))
         return results
 
@@ -1015,7 +1052,7 @@ class LogixDriver(CIPDriver):
         :return: a Tag object with the current time
         """
         tag = self.generic_message(
-            service=CommonService.get_attribute_list,
+            service=Services.get_attribute_list,
             class_code=ClassCode.wall_clock_time,
             instance=b'\x01',
             request_data=b'\x01\x00\x0B\x00',
@@ -1044,7 +1081,7 @@ class LogixDriver(CIPDriver):
             Pack.ulint(microseconds),
         ])
         return self.generic_message(
-            service=CommonService.set_attribute_list,
+            service=Services.set_attribute_list,
             class_code=ClassCode.wall_clock_time,
             instance=b'\x01',
             request_data=request_data, name='__SET_PLC_TIME__'
@@ -1063,54 +1100,56 @@ def _parse_plc_info(data):
 
 
 def _parse_structure_makeup_attributes(response):
-        """ extract the tags list from the message received"""
-        structure = {}
+    """
+    extract the tags list from the message received
+    """
+    structure = {}
 
-        if response.service_status != SUCCESS:
-            structure['error'] = response.service_status
-            return
+    if response.service_status != SUCCESS:
+        structure['error'] = response.service_status
+        return
 
-        attribute = response.data
-        idx = 4
-        try:
-            if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
-                idx += 2
-                structure['object_definition_size'] = Unpack.dint(attribute[idx:idx + 4])
-            else:
-                structure['error'] = 'object_definition Error'
-                return structure
-
-            idx += 6
-            if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
-                idx += 2
-                structure['structure_size'] = Unpack.dint(attribute[idx:idx + 4])
-            else:
-                structure['error'] = 'structure Error'
-                return structure
-
-            idx += 6
-            if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
-                idx += 2
-                structure['member_count'] = Unpack.uint(attribute[idx:idx + 2])
-            else:
-                structure['error'] = 'member_count Error'
-                return structure
-
-            idx += 4
-            if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
-                idx += 2
-                structure['structure_handle'] = Unpack.uint(attribute[idx:idx + 2])
-            else:
-                structure['error'] = 'structure_handle Error'
-                return structure
-
+    attribute = response.data
+    idx = 4
+    try:
+        if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
+            idx += 2
+            structure['object_definition_size'] = Unpack.dint(attribute[idx:idx + 4])
+        else:
+            structure['error'] = 'object_definition Error'
             return structure
 
-        except Exception as err:
-            raise DataError('failed to parse structure attributes') from err
+        idx += 6
+        if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
+            idx += 2
+            structure['structure_size'] = Unpack.dint(attribute[idx:idx + 4])
+        else:
+            structure['error'] = 'structure Error'
+            return structure
+
+        idx += 6
+        if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
+            idx += 2
+            structure['member_count'] = Unpack.uint(attribute[idx:idx + 2])
+        else:
+            structure['error'] = 'member_count Error'
+            return structure
+
+        idx += 4
+        if Unpack.uint(attribute[idx:idx + 2]) == SUCCESS:
+            idx += 2
+            structure['structure_handle'] = Unpack.uint(attribute[idx:idx + 2])
+        else:
+            structure['error'] = 'structure_handle Error'
+            return structure
+
+        return structure
+
+    except Exception as err:
+        raise DataError('failed to parse structure attributes') from err
 
 
-def writable_value(parsed_tag):
+def writable_value(parsed_tag: dict) -> bytes:
     if isinstance(parsed_tag['value'], bytes):
         return parsed_tag['value']
 
@@ -1119,21 +1158,26 @@ def writable_value(parsed_tag):
         elements = parsed_tag['elements']
         data_type = parsed_tag['tag_info']['data_type']
 
-        if elements > 1:
-            if len(value) < elements:
-                raise RequestError(f'Insufficient data for requested elements, expected {elements} and got {len(value)}')
-            if len(value) > elements:
-                value = value[:elements]
+        value_elements = elements * 32 if data_type == 'DWORD' else elements
+
+        if value_elements > 1:
+            if len(value) < value_elements:
+                raise RequestError(f'Insufficient data for requested elements, expected {value_elements} and got {len(value)}')
+            if len(value) > value_elements:
+                value = value[:value_elements]
 
         if parsed_tag['tag_info']['tag_type'] == 'struct':
             return _writable_value_structure(value, elements, data_type)
         else:
             pack_func = Pack[data_type]
+            if data_type == 'DWORD':
+                return b''.join(pack_func(_pack_bool_array(value[i:i+32])) for i in range(0, value_elements, 32))
 
-            if elements > 1:
-                return b''.join(pack_func(value[i]) for i in range(elements))
             else:
-                return pack_func(value)
+                if elements > 1:
+                    return b''.join(pack_func(value[i]) for i in range(elements))
+                else:
+                    return pack_func(value)
     except Exception as err:
         raise RequestError('Unable to create a writable value') from err
 
@@ -1145,7 +1189,7 @@ def _tag_return_size(tag_data):
     else:
         size = tag_info['data_type']['template']['structure_size']
 
-    size = (size * tag_data['elements']) + READ_RESPONSE_OVERHEAD  # account for service overhead
+    size = (size * tag_data['elements'])
 
     return size
 
@@ -1155,6 +1199,16 @@ def _writable_value_structure(value, elements, data_type):
         return b''.join(_pack_structure(val, data_type) for val in value)
     else:
         return _pack_structure(value, data_type)
+
+
+def _pack_bool_array(bools):
+    if len(bools) != 32:
+        raise RequestError(f'boolean arrays must have 32 elements: not {len(bools)}')
+    value = 0
+    for i, val in enumerate(bools):
+        if val:
+            value |= 1 << i
+    return value
 
 
 def _pack_string(value, string_len, struct_size):
@@ -1175,10 +1229,15 @@ def _pack_structure(value, data_type):
     if string_len:
         data = _pack_string(value, string_len, data_type['template']['structure_size'])
     else:
+        # NOTE:  start with object-definition-size array, then replace sections with offset + data len
+        #        DONT use bytes, needs to be a list for swapping values later on
         data = [0 for _ in range(data_type['template']['structure_size'])]
         try:
-            # NOTE:  start with bytes(object-definition-size) , then replace sections with offset + data len
-            for val, attr in zip(value, data_type['attributes']):
+            val_is_dict = isinstance(value, Mapping)
+
+            for i, attr in enumerate(data_type['attributes']):
+                val = value[attr] if val_is_dict else value[i]
+
                 dtype = data_type['internal_tags'][attr]
                 offset = dtype['offset']
 
@@ -1191,17 +1250,23 @@ def _pack_structure(value, data_type):
                 else:
                     pack_func = Pack[dtype['data_type']]
                     bit = dtype.get('bit')
-                    if bit is not None:
+                    if bit is not None:  # attributes that are aliased to a bit
+                        _byte = data[offset]
                         if val:
-                            data[offset] |= 1 << bit
+                            _byte |= 1 << bit
                         else:
-                            data[offset] &= ~(1 << bit)
+                            _byte &= ~(1 << bit)
+
+                        data[offset] = _byte
                         continue
 
-                    if ary:
-                        value_bytes = [pack_func(val[i]) for i in range(ary)]
-                    else:
-                        value_bytes = [pack_func(val), ]
+                    elif dtype['data_type'] == 'DWORD':  # boolean arrays
+                        value_bytes = [b''.join(pack_func(_pack_bool_array(val[i:i + 32])) for i in range(0, ary*32, 32)), ]
+                    else:  # all other types
+                        if ary:
+                            value_bytes = [pack_func(val[i]) for i in range(ary)]
+                        else:
+                            value_bytes = [pack_func(val), ]
 
                 val_bytes = list(itertools.chain.from_iterable(value_bytes))
                 data[offset:offset+len(val_bytes)] = val_bytes
@@ -1219,20 +1284,25 @@ def _bit_request(tag_data, bit_requests):
     if tag_data['plc_tag'] not in bit_requests:
         bit_requests[tag_data['plc_tag']] = {'and_mask': 0xFFFFFFFF,
                                              'or_mask': 0x00000000,
-                                             'bits': [],
+                                             'bits': [], 'request_ids': [],
                                              'tag_info': tag_data['tag_info']}
 
     bits_ = bit_requests[tag_data['plc_tag']]
     typ_, bit = tag_data['bit']
     bits_['bits'].append(bit)
+    bits_['request_ids'].append(tag_data['request_id'])
 
     if typ_ == 'bool_array':
         bit = bit % 32
 
+    # update both masks so if same bit written to multiple times
+    # only the last one is accurate/used
     if tag_data['value']:
         bits_['or_mask'] |= (1 << bit)
+        bits_['and_mask'] |= (1 << bit)
     else:
         bits_['and_mask'] &= ~(1 << bit)
+        bits_['or_mask'] &= ~(1 << bit)
 
     return True
 
@@ -1259,7 +1329,72 @@ def _create_tag(name, raw_tag):
         new_tag['tag_type'] = 'atomic'
         datatype = raw_tag['symbol_type'] & 0b_0000_0000_1111_1111
         new_tag['data_type'] = DataType.get(datatype)
+        new_tag['data_type_name'] = new_tag['data_type']
         if datatype == DataType.bool:
             new_tag['bit_position'] = (raw_tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
 
     return new_tag
+
+
+def tag_request_path(tag, tag_cache, use_instance_ids):
+    """
+    It returns the request packed wrapped around the tag passed.
+    If any error it returns none
+    """
+
+    tags = tag.split('.')
+    if tags:
+        base, *attrs = tags
+        base_tag, index = _find_tag_index(base)
+        if use_instance_ids and base_tag in tag_cache:
+            rp = [CLASS_TYPE['8-bit'],
+                  ClassCode.symbol_object,
+                  INSTANCE_TYPE['16-bit'],
+                  Pack.uint(tag_cache[base_tag]['instance_id'])]
+        else:
+            base_len = len(base_tag)
+            rp = [EXTENDED_SYMBOL,
+                  Pack.usint(base_len),
+                  base_tag.encode()]
+            if base_len % 2:
+                rp.append(b'\x00')
+        if index is None:
+            return None
+        else:
+            rp += _encode_tag_index(index)
+
+        for attr in attrs:
+            attr, index = _find_tag_index(attr)
+            tag_length = len(attr)
+            # Create the request path
+            attr_path = [EXTENDED_SYMBOL,
+                         Pack.usint(tag_length),
+                         attr.encode()]
+            # Add pad byte because total length of Request path must be word-aligned
+            if tag_length % 2:
+                attr_path.append(b'\x00')
+            # Add any index
+            if index is None:
+                return None
+            else:
+                attr_path += _encode_tag_index(index)
+            rp += attr_path
+
+        return Pack.epath(b''.join(rp))
+
+    return None
+
+
+def _find_tag_index(tag):
+    if '[' in tag:  # Check if is an array tag
+        t = tag[:len(tag) - 1]  # Remove the last square bracket
+        inside_value = t[t.find('[') + 1:]  # Isolate the value inside bracket
+        index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
+        tag = t[:t.find('[')]  # Get only the tag part
+    else:
+        index = []
+    return tag, index
+
+
+def _encode_tag_index(index):
+    return [encode_segment(int(idx), ELEMENT_TYPE) for idx in index]

@@ -94,6 +94,9 @@ data_type
     - ``'DINT'``/``'REAL'``/etc name of data type for atomic types
     - ``{data type definition}`` for structures, detailed in `Structure Definitions`_
 
+data_type_name
+    - the string name of the data type: ``'DINT'``/``'REAL'``/``'TIMER'``/``'MyCoolUDT'``
+
 string
     **Optional** string size if the tag is a STRING type (or custom string)
 
@@ -101,7 +104,7 @@ external_access
     ``'Read/Write'``/``'Read Only'``/``'None'`` matches the External Access tag property in the PLC
 
 dim
-    dimensions defined for the tag
+    number dimensions defined for the tag
     - ``0`` - not an array
     - ``1-3`` - a 1 to 3 dimension array tag
 
@@ -146,6 +149,9 @@ internal_tags
         Same as `Tag Structure`_
 
     data_type
+        Same as `Tag Structure`_
+
+    data_type_name
         Same as `Tag Structure`_
 
     string
@@ -197,7 +203,7 @@ Both read/write methods return ``Tag`` objects with the results of the operation
         will contain the value of tag read, or the value written.  May be ``None`` on error.
 
     type
-        data type of tag, will include ``[<len>]`` multiple array elements requested
+        data type of tag, will include ``[<len>]`` when multiple array elements are requested
 
     error
         ``None`` if successful, else the CIP error or exception thrown
@@ -241,13 +247,13 @@ Verify all reads were successful
 ...     print('All tags read successfully')
 All tags read successfully
 
+
 Writing Tags
 ^^^^^^^^^^^^
 
 :meth:`LogixDriver.write` method accepts any number of tag-value pairs of the tag name and value to be written.
 To write arrays, include ``{<# elements>}`` suffix to the tag name and the value should be a list of the values to write.
-A ``RequestError`` will be raised if the value list is too short, else it will be truncated if too long.  Writing of full
-structures is not supported.
+A ``RequestError`` will be raised if the value list is too short, else it will be truncated if too long.
 
 Write a tag
 
@@ -274,14 +280,15 @@ Check if all writes were successful
 ...     print('All tags written successfully')
 All tags written successfully
 
+
 String Tags
 ^^^^^^^^^^^
 
 Strings are technically structures within the PLC, but are treated as atomic types in this library.  There is no need
 to handle the ``LEN`` and ``DATA`` attributes, the structure is converted to/from Python ``str`` objects transparently.
 Any structures that contain only a DINT-``LEN`` and a SINT[]-``DATA`` attributes will be automatically treated as string tags.
-This allows the builtin STRING types plus custom strings to be handled automatically.  When writing, values large than
-the length will be truncated.
+This allows the builtin STRING types plus custom strings to be handled automatically.  Strings that are longer than the
+plc tag will be truncated when writing.
 
 >>> plc.read('string_tag')
 Tag(tag='string_tag', value='Hello World!', type='STRING', error=None)

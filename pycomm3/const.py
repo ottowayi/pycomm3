@@ -30,7 +30,6 @@ HEADER_SIZE = 24
 # used to estimate packet size  and determine
 # when to start a new packet
 MULTISERVICE_READ_OVERHEAD = 6
-READ_RESPONSE_OVERHEAD = 10
 
 MIN_VER_INSTANCE_IDS = 21  # using Symbol Instance Addressing not supported below version 21
 MIN_VER_LARGE_CONNECTIONS = 20  # >500 byte connections not supported below logix v20
@@ -58,7 +57,7 @@ STRUCTURE_READ_REPLY = b'\xa0\x02'
 SLC_CMD_CODE = b'\x0F'
 SLC_CMD_REPLY_CODE = b'\x4F'
 SLC_FNC_READ = b'\xa2'  # protected typed logical read w/ 3 address fields
-SLC_FNC_WRITE = b'\xaa'  # protected typed logical write w/ 3 address fields
+SLC_FNC_WRITE = b'\xab'  # protected typed logical masked write w/ 3 address fields
 SLC_REPLY_START = 61
 PCCC_PATH = b'\x67\x24\x01'
 
@@ -127,7 +126,9 @@ class ConnectionManagerInstance(EnumMap):
     connection_timeout = b'\x08'
 
 
-class CommonService(EnumMap):
+class Services(EnumMap):
+
+    # Common CIP Services
     get_attributes_all = b'\x01'
     set_attributes_all = b'\x02'
     get_attribute_list = b'\x03'
@@ -151,6 +152,22 @@ class CommonService(EnumMap):
     insert_member = b'\x1A'
     remove_member = b'\x1B'
     group_sync = b'\x1C'
+
+    # Rockwell Custom Services
+    read_tag = b'\x4C'
+    read_tag_fragmented = b'\x52'
+    write_tag = b'\x4D'
+    write_tag_fragmented = b'\x53'
+    read_modify_write = b'\x4E'
+    get_instance_attribute_list = b'\x55'
+
+    @classmethod
+    def from_reply(cls, reply_service):
+        """
+        Get service from reply service code
+        """
+        val = cls.get(Pack.usint(Unpack.usint(reply_service) - 128))
+        return val
 
 
 class EncapsulationCommand(EnumMap):
@@ -181,25 +198,12 @@ class ClassCode(EnumMap):
 MSG_ROUTER_PATH = b''.join([CLASS_TYPE['8-bit'], ClassCode.message_router, INSTANCE_TYPE['8-bit'], b'\x01'])
 
 
-class TagService(EnumMap):
-    read_tag = b'\x4C'
-    read_tag_fragmented = b'\x52'
-    write_tag = b'\x4D'
-    write_tag_fragmented = b'\x53'
-    read_modify_write = b'\x4E'
-    get_instance_attribute_list = b'\x55'
-
-    @classmethod
-    def from_reply(cls, reply_service):
-        return cls.get(Pack.usint(Unpack.usint(reply_service) - 128))
-
-
 MULTI_PACKET_SERVICES = {
-    TagService.read_tag_fragmented,
-    TagService.write_tag_fragmented,
-    TagService.get_instance_attribute_list,
-    CommonService.multiple_service_request,
-    CommonService.get_attribute_list,
+    Services.read_tag_fragmented,
+    Services.write_tag_fragmented,
+    Services.get_instance_attribute_list,
+    Services.multiple_service_request,
+    Services.get_attribute_list,
 }
 
 

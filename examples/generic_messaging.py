@@ -1,4 +1,4 @@
-from pycomm3 import CIPDriver, CommonService, Pack, ClassCode
+from pycomm3 import CIPDriver, Services, Pack, ClassCode
 
 
 # Read PF525 Parameter
@@ -7,7 +7,7 @@ def read_pf525_parameter():
 
     with CIPDriver(drive_path) as drive:
         param = drive.generic_message(
-            service=CommonService.get_attribute_single,
+            service=Services.get_attribute_single,
             class_code=b'\x93',
             instance=41,  # Parameter 41 = Accel Time
             attribute=b'\x09',
@@ -26,7 +26,7 @@ def write_pf525_parameter():
 
     with CIPDriver(drive_path) as drive:
         drive.generic_message(
-            service=CommonService.set_attribute_single,
+            service=Services.set_attribute_single,
             class_code=b'\x93',
             instance=41,  # Parameter 41 = Accel Time
             attribute=b'\x09',
@@ -44,7 +44,7 @@ def enbt_ok_led_status():
 
     with CIPDriver(message_path) as device:
         data = device.generic_message(
-            service=CommonService.get_attribute_single,
+            service=Services.get_attribute_single,
             class_code=b'\x01',  # Values from RA Knowledgebase
             instance=1,  # Values from RA Knowledgebase
             attribute=5,  # Values from RA Knowledgebase
@@ -70,7 +70,7 @@ def link_status():
 
     with CIPDriver(message_path) as device:
         data = device.generic_message(
-            service=CommonService.get_attribute_single,
+            service=Services.get_attribute_single,
             class_code=b'\xf6',  # Values from RA Knowledgebase
             instance=1,  # For multiport devices, change to "2" for second port, "3" for third port.
                          # For CompactLogix, front port is "1" and back port is "2".
@@ -102,7 +102,7 @@ def stratix_power_status():
     with CIPDriver(message_path) as device:
         data = device.generic_message(
             service=b'\x0e',
-            class_code=863,  # use decimal represenation of hex class code
+            class_code=863,  # use decimal representation of hex class code
             instance=1,
             attribute=8,
             connected=False,
@@ -148,7 +148,7 @@ def ip_config():
 def get_mac_address():
     with CIPDriver('10.10.10.100') as plc:
         response = plc.generic_message(
-            service=CommonService.get_attribute_single,
+            service=Services.get_attribute_single,
             class_code=ClassCode.ethernet_link,
             instance=1,
             attribute=3,
