@@ -203,7 +203,7 @@ Both read/write methods return ``Tag`` objects with the results of the operation
         will contain the value of tag read, or the value written.  May be ``None`` on error.
 
     type
-        data type of tag, will include ``[<len>]`` multiple array elements requested
+        data type of tag, will include ``[<len>]`` when multiple array elements are requested
 
     error
         ``None`` if successful, else the CIP error or exception thrown
@@ -253,8 +253,7 @@ Writing Tags
 
 :meth:`LogixDriver.write` method accepts any number of tag-value pairs of the tag name and value to be written.
 To write arrays, include ``{<# elements>}`` suffix to the tag name and the value should be a list of the values to write.
-A ``RequestError`` will be raised if the value list is too short, else it will be truncated if too long.  Writing of full
-structures is not supported.
+A ``RequestError`` will be raised if the value list is too short, else it will be truncated if too long.
 
 Write a tag
 
@@ -288,8 +287,8 @@ String Tags
 Strings are technically structures within the PLC, but are treated as atomic types in this library.  There is no need
 to handle the ``LEN`` and ``DATA`` attributes, the structure is converted to/from Python ``str`` objects transparently.
 Any structures that contain only a DINT-``LEN`` and a SINT[]-``DATA`` attributes will be automatically treated as string tags.
-This allows the builtin STRING types plus custom strings to be handled automatically.  When writing, values large than
-the length will be truncated.
+This allows the builtin STRING types plus custom strings to be handled automatically.  Strings that are longer than the
+plc tag will be truncated when writing.
 
 >>> plc.read('string_tag')
 Tag(tag='string_tag', value='Hello World!', type='STRING', error=None)

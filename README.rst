@@ -23,8 +23,7 @@ pycomm3
 with PLCs using Ethernet/IP.  The initial Python 3 translation was done in this fork_, this library
 seeks to continue and expand upon the great work done by the original ``pycomm`` developers.
 `pylogix`_ is another library with similar features (including Python 2 support) for ControlLogix and CompactLogix PLCs.
-Referencing ``pylogix`` code was a big help in implementing some features missing from ``pycomm``.  This library is
-supported on Python 3.6.1 and newer.
+Referencing ``pylogix`` code was a big help in implementing some features missing from ``pycomm``.
 
 This library contains 3 drivers:
 
@@ -58,6 +57,14 @@ PLCs can be used to control heavy or dangerous equipment, this library is provid
 it's reliability in a production environment.  This library makes no promises in the completeness or correctness of the
 protocol implementations and should not be solely relied upon for critical systems.  The development for this library
 is aimed at providing quick and convenient access for reading/writing data inside Allen-Bradley PLCs.
+
+Python and OS Support
+=====================
+
+`pycomm3` is a Python 3 only library.  The minimum supported version of Python is 3.6.1 and has been tested up to 3.9.
+There should be no OS specific requirements and should be able to run on any OS that Python is supported on.
+Development and testing is done primarily on Windows 10.  If you encounter an OS-related problem, please open an issue
+in this repository and it will be investigated.
 
 Setup
 =====
@@ -93,7 +100,7 @@ Highlighted Features
     - both support full structure reading/writing (UDTs, AOIs, etc)
 
         - for ``read`` the Tag.value will be a ``dict`` of ``{attribute: value``
-        - for ``write`` the value should be a sequence (list, tuple) of values for each attribute, nesting as needed
+        - for ``write`` the value can either be a sequence of values or a dict of attributes and values, nesting as needed
 
             - does not do partial writes, the value must match the complete structure
             - not recommended for builtin type (TIMER, CONTROL, COUNTER, etc)

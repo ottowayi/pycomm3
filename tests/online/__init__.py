@@ -62,12 +62,22 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ('_real_ary1[0]{20}', 'REAL[20]', _real_array),
     ('_bool_ary1[0]{3}', 'BOOL[96]', _bool_array),  # bool-arrays element count is DWORDs (1 element = 32 bools)
 
+    ('_dint_2d_ary1[0,0]{25}', 'DINT[25]', _dint_array[:25]),
+    ('_dint_3d_ary1[0,0,0]{27}', 'DINT[27]', _dint_array[:27]),
+
     ('_sint_ary1{20}', 'SINT[20]', _sint_array),
     ('_int_ary1{25}', 'INT[25]', _int_array),
     ('_dint_ary1{30}', 'DINT[30]', _dint_array),
     ('_lint_ary1{10}', 'LINT[10]', _lint_array),
     ('_real_ary1{20}', 'REAL[20]', _real_array),
     ('_bool_ary1{3}', 'BOOL[96]', _bool_array),
+
+    # TODO: add these to tests for 'bad' tags
+    # ('_dint_2d_ary1[0]{25}', 'DINT25]', _dint_array[:25]),
+    # ('_dint_2d_ary1{25}', 'DINT[25]', _dint_array[:25]),
+    # ('_dint_3d_ary1[0,0]{27}', 'DINT[27]', _dint_array[:27]),
+    # ('_dint_3d_ary1[0]{27}', 'DINT[27]', _dint_array[:27]),
+    # ('_dint_3d_ary1{27}', 'DINT[27]', _dint_array[:27]),
 
     # also test slicing arrays
     ('_sint_ary1[5]{10}', 'SINT[10]', _sint_array[5:15]),
@@ -76,6 +86,8 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ('_lint_ary1[3]{5}', 'LINT[5]', _lint_array[3:8]),
     ('_real_ary1[18]{2}', 'REAL[2]', _real_array[18:20]),
     ('_bool_ary1[1]{2}', 'BOOL[64]', _bool_array[32:]),
+    ('_dint_2d_ary1[2,3]{10}', 'DINT[10]', _dint_array[13:23]),
+    ('_dint_3d_ary1[1,2,1]{5}', 'DINT[5]', _dint_array[16:21]),
 
     # and single elements
     ('_sint_ary1[5]', 'SINT', _sint_array[5]),
