@@ -100,7 +100,7 @@ Highlighted Features
     - both support full structure reading/writing (UDTs, AOIs, etc)
 
         - for ``read`` the ``Tag.value`` will be a ``dict`` of ``{attribute: value}``
-        - for ``write`` the value should be a sequence (list, tuple) of values for each attribute, nesting as needed
+        - for ``write`` the value should be a sequence of values or dict of {attribute: value} , nesting as needed
 
             - does not do partial writes, the value must match the complete structure
             - not recommended for builtin type (TIMER, CONTROL, COUNTER, etc)
