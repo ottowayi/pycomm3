@@ -152,11 +152,11 @@ def get_mac_address():
             class_code=ClassCode.ethernet_link,
             instance=1,
             attribute=3,
-            data_format=(('MAC', 'SINT[6]'), ),
+            data_format=(('MAC', 'USINT[6]'), ),
             connected=False
         )
 
         if response:
-            return ':'.join(f'{abs(x):0>2x}' for x in response.value['MAC'])
+            return ':'.join(f'{x:0>2x}' for x in response.value['MAC'])
         else:
             print(f'error getting MAC address - {response.error}')
