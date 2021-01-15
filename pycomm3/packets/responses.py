@@ -22,6 +22,7 @@
 # SOFTWARE.
 #
 import logging
+import ipaddress
 from itertools import tee, zip_longest, chain
 from reprlib import repr as _r
 
@@ -196,37 +197,6 @@ class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
                 self.value = None
 
 
-def _parse_data(data, fmt):
-    values = {}
-    start = 0
-    for name, typ in fmt:
-        if isinstance(typ, int):
-            value = data[start: start + typ]
-            start += typ
-        else:
-            typ, cnt = util.get_array_index(typ)
-            unpack_func = Unpack[typ]
-
-            if typ in StringTypeLenSize:
-                value = unpack_func(data[start:])
-                data_size = len(value) + StringTypeLenSize[typ]
-
-            else:
-                data_size = DataTypeSize[typ]
-                if cnt:
-                    value = tuple(unpack_func(data[i:]) for i in range(start, data_size * cnt, data_size))
-                    data_size *= cnt
-                else:
-                    value = unpack_func(data[start:])
-
-            start += data_size
-
-        if name:
-            values[name] = value
-
-    return values
-
-
 class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
@@ -390,8 +360,11 @@ class ListIdentityResponsePacket(ResponsePacket):
         ('item_type_code', 'UINT'),
         ('item_length', 'UINT'),
         ('encap_protocol_version', 'UINT'),
-        ('_socket_address_struct', 16),
+        (None, 4),
+        ('ip_address', 'IP'),
+        (None, 8),
         ('vendor_id', 'UINT'),
+        ('device_type', 'UINT'),
         ('product_code', 'UINT'),
         ('revision_major', 'USINT'),
         ('revision_minor', 'USINT'),
@@ -408,7 +381,7 @@ class ListIdentityResponsePacket(ResponsePacket):
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.data = self.raw[28:]
+            self.data = self.raw[26:]
             self.identity = _parse_data(self.data, self._data_format)
         except Exception as err:
             self.__log.exception('Failed to parse response')
@@ -422,6 +395,46 @@ class ListIdentityResponsePacket(ResponsePacket):
 
     def __repr__(self):
         return f'{self.__class__.__name__}(identity={self.identity!r}, error={self.error!r})'
+
+
+def _parse_data(data, fmt):
+    values = {}
+    start = 0
+    for name, typ in fmt:
+        if isinstance(typ, int):
+            value = data[start: start + typ]
+            start += typ
+        elif typ == '*':
+            values[name] = data[start:]
+            break
+        elif typ == 'IP':
+            value = ipaddress.IPv4Address(data[start: start + 4]).exploded
+            start += 4
+        else:
+            typ, cnt = util.get_array_index(typ)
+            unpack_func = Unpack[typ]
+
+            if typ == 'STRINGI':
+                value, langs, data_size = unpack_func(data[start:])
+
+            elif typ in StringTypeLenSize:
+                value = unpack_func(data[start:])
+                data_size = len(value) + StringTypeLenSize[typ]
+
+            else:
+                data_size = DataTypeSize[typ]
+                if cnt:
+                    value = tuple(unpack_func(data[i:]) for i in range(start, data_size * cnt, data_size))
+                    data_size *= cnt
+                else:
+                    value = unpack_func(data[start:])
+
+            start += data_size
+
+        if name:
+            values[name] = value
+
+    return values
 
 
 def parse_read_reply(data, data_type, elements):

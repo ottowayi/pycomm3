@@ -51,10 +51,10 @@ class RequestPacket(Packet):
     type_ = None
     VERBOSE_DEBUG = False
 
-    def __init__(self, plc):
+    def __init__(self, driver):
         super().__init__()
         self._msg = []  # message data
-        self._plc = plc
+        self._driver = driver
         self.error = None
 
     def add(self, *value: bytes):
@@ -66,7 +66,7 @@ class RequestPacket(Packet):
         return b''.join(self._msg)
 
     def _build_request(self):
-        msg = self._build_common_packet_format(addr_data=self._plc._target_cid)
+        msg = self._build_common_packet_format(addr_data=self._driver._target_cid)
         header = self._build_header(self._encap_command, len(msg))
         return header + msg
 
@@ -81,10 +81,10 @@ class RequestPacket(Packet):
             return b''.join([
                 command,
                 Pack.uint(length),  # Length UINT
-                Pack.udint(self._plc._session),  # Session Handle UDINT
+                Pack.udint(self._driver._session),  # Session Handle UDINT
                 b'\x00\x00\x00\x00',  # Status UDINT
-                self._plc._cfg['context'],  # Sender Context 8 bytes
-                Pack.udint(self._plc._cfg['option']),  # Option UDINT
+                self._driver._cfg['context'],  # Sender Context 8 bytes
+                Pack.udint(self._driver._cfg['option']),  # Option UDINT
             ])
 
         except Exception as err:
@@ -109,7 +109,7 @@ class RequestPacket(Packet):
         try:
             if self.VERBOSE_DEBUG:
                 self.__log.debug(print_bytes_msg(message, '>>> SEND >>>'))
-            self._plc._sock.send(message)
+            self._driver._sock.send(message)
         except Exception as err:
             raise CommError('failed to send message') from err
 
@@ -119,7 +119,7 @@ class RequestPacket(Packet):
         :return: reply data
         """
         try:
-            reply = self._plc._sock.receive()
+            reply = self._driver._sock.receive()
         except Exception as err:
             raise CommError('failed to receive reply') from err
         else:
@@ -152,9 +152,9 @@ class SendUnitDataRequestPacket(RequestPacket):
     _response_class = SendUnitDataResponsePacket
     _encap_command = EncapsulationCommand.send_unit_data
 
-    def __init__(self, plc):
-        super().__init__(plc)
-        self._msg = [Pack.uint(plc._sequence), ]
+    def __init__(self, driver):
+        super().__init__(driver)
+        self._msg = [Pack.uint(driver._sequence), ]
 
 
 class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
@@ -162,8 +162,8 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
     type_ = 'read'
     _response_class = ReadTagServiceResponsePacket
 
-    def __init__(self, plc):
-        super().__init__(plc)
+    def __init__(self, driver):
+        super().__init__(driver)
         self.tag = None
         self.elements = None
         self.tag_info = None
@@ -204,8 +204,8 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
     type_ = 'read'
     _response_class = ReadTagFragmentedServiceResponsePacket
 
-    def __init__(self, plc):
-        super().__init__(plc)
+    def __init__(self, driver):
+        super().__init__(driver)
         self.tag = None
         self.elements = None
         self.tag_info = None
@@ -238,7 +238,7 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                 responses.append(response)
                 if response.service_status == INSUFFICIENT_PACKETS:
                     offset += len(response.bytes_)
-                    self._msg = [Pack.uint(self._plc._sequence)]
+                    self._msg = [Pack.uint(self._driver._sequence)]
                 else:
                     offset = None
             if all(responses):
@@ -262,8 +262,8 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
     type_ = 'write'
     _response_class = WriteTagServiceResponsePacket
 
-    def __init__(self, plc):
-        super().__init__(plc)
+    def __init__(self, driver):
+        super().__init__(driver)
         self.tag = None
         self.elements = None
         self.tag_info = None
@@ -302,8 +302,8 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
     type_ = 'write'
     _response_class = WriteTagFragmentedServiceResponsePacket
 
-    def __init__(self, plc):
-        super().__init__(plc)
+    def __init__(self, driver):
+        super().__init__(driver)
         self.tag = None
         self.value = None
         self.elements = None
@@ -338,8 +338,8 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
     def send(self):
         if not self.error:
             responses = []
-            segment_size = self._plc.connection_size - (len(self.request_path) + len(self._packed_type)
-                                                        + 9)  # 9 = len of other stuff in the path
+            segment_size = self._driver.connection_size - (len(self.request_path) + len(self._packed_type)
+                                                           + 9)  # 9 = len of other stuff in the path
 
             pack_func = Pack[self.data_type] if self.tag_info['tag_type'] == 'atomic' else lambda x: x
             segments = (self.value[i:i+segment_size]
@@ -366,7 +366,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                 self.__log.debug(f'Received: {response!r}')
                 responses.append(response)
                 offset += len(segment_bytes)
-                self._msg = [Pack.uint(self._plc._sequence), ]
+                self._msg = [Pack.uint(self._driver._sequence), ]
 
             if all(responses):
                 final_response = responses[-1]
@@ -384,8 +384,8 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
     type_ = 'multi'
     _response_class = MultiServiceResponsePacket
 
-    def __init__(self, plc):
-        super().__init__(plc)
+    def __init__(self, driver):
+        super().__init__(driver)
         self.tags = []
         self._msg.extend((
             Services.multiple_service_request,  # the Request Service
@@ -431,7 +431,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
                 'request_id': request_id
             }
             message = self.build_message(self.tags + [_tag])
-            if len(message) < self._plc.connection_size:
+            if len(message) < self._driver.connection_size:
                 self._message = message
                 self.tags.append(_tag)
                 return True
@@ -453,7 +453,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
                     'value': value, 'data_type': data_type, 'request_id': request_id}
 
             message = self.build_message(self.tags + [_tag])
-            if len(message) < self._plc.connection_size:
+            if len(message) < self._driver.connection_size:
                 self._message = message
                 self.tags.append(_tag)
                 return True
@@ -563,8 +563,8 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     _response_class = GenericConnectedResponsePacket
 
-    def __init__(self, plc):
-        super().__init__(plc)
+    def __init__(self, driver):
+        super().__init__(driver)
         self.service = None
         self.class_code = None
         self.instance = None
@@ -572,10 +572,10 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
         self.request_data = None
 
     def build(self,
-              service: bytes,
-              class_code: bytes,
-              instance: bytes,
-              attribute: bytes = b'',
+              service: Union[int, bytes],
+              class_code: Union[int, bytes],
+              instance: Union[int, bytes],
+              attribute: Union[int, bytes] = b'',
               request_data: bytes = b'',
               data_format: DataFormatType = None):
 
@@ -583,19 +583,19 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
         self.class_code = class_code
         self.instance = instance
         self.attribute = attribute
-        self.service = service
+        self.service = service if isinstance(service, bytes) else bytes([service])
         self.request_data = request_data
         req_path = request_path(class_code, instance, attribute)
 
-        self.add(service, req_path, request_data)
+        self.add(self.service, req_path, request_data)
 
 
 class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     _response_class = GenericUnconnectedResponsePacket
 
-    def __init__(self, plc):
-        super().__init__(plc)
+    def __init__(self, driver):
+        super().__init__(driver)
         self.service = None
         self.class_code = None
         self.instance = None
@@ -615,14 +615,14 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
         self.class_code = class_code
         self.instance = instance
         self.attribute = attribute
-        self.service = service
+        self.service = service if isinstance(service, bytes) else bytes([service])
         self.request_data = request_data
         req_path = request_path(class_code, instance, attribute)
 
         if unconnected_send:
-            self.add(wrap_unconnected_send(b''.join((service, req_path, request_data)), route_path))
+            self.add(wrap_unconnected_send(b''.join((self.service, req_path, request_data)), route_path))
         else:
-            self.add(service, req_path, request_data, route_path)
+            self.add(self.service, req_path, request_data, route_path)
 
 
 def wrap_unconnected_send(message, route_path):

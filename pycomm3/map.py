@@ -44,6 +44,7 @@ class MapMeta(type):
 
         # merge 3 previous dicts to get member lookup dict
         enumcls._members_ = {**members, **lower_members, **value_map}
+        enumcls._attributes = list(members)
 
         # lookup by value only return CAPS keys if attribute set
         _only_caps = enumcls.__dict__.get('_return_caps_only_')
@@ -51,9 +52,9 @@ class MapMeta(type):
 
         return enumcls
 
-    def __getitem__(self, item):
-        val = self._members_.__getitem__(_key(item))
-        if self._return_caps_only_ and isinstance(val, str):
+    def __getitem__(cls, item):
+        val = cls._members_.__getitem__(_key(item))
+        if cls._return_caps_only_ and isinstance(val, str):
             val = val.upper()
         return val
 
@@ -65,8 +66,12 @@ class MapMeta(type):
             val = val.upper()
         return val
 
-    def __contains__(self, item):
-        return self._members_.__contains__(item.lower() if isinstance(item, (str, bytes)) else item)
+    def __contains__(cls, item):
+        return cls._members_.__contains__(item.lower() if isinstance(item, (str, bytes)) else item)
+
+    @property
+    def attributes(cls):
+        return cls._attributes
 
 
 def _key(item):

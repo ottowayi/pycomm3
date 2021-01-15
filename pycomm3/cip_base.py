@@ -26,6 +26,7 @@ __all__ = ['CIPDriver', 'with_forward_open', 'parse_connection_path', ]
 
 import logging
 import ipaddress
+import socket
 from functools import wraps
 from os import urandom
 from typing import Union, Optional
@@ -179,11 +180,44 @@ class CIPDriver:
 
         :return: device identity if reply contains valid response else None
         """
-        plc = cls(path, init_tags=False, init_info=False)
+        plc = cls(path)
         plc.open()
         identity = plc._list_identity()
         plc.close()
         return identity
+
+    @classmethod
+    def discover(cls):
+        ip_addrs = [
+            sockaddr[0]
+            for family, type, proto, canonname, sockaddr in
+            socket.getaddrinfo(socket.gethostname(), None)
+            if family == socket.AddressFamily.AF_INET
+        ]
+        driver = CIPDriver('0.0.0.0')
+        context = driver._cfg['context']
+        request = RequestTypes.list_identity(driver)
+        message = request._build_request()
+        devices = []
+
+        for ip in ip_addrs:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.bind((ip, 0))
+
+            sock.sendto(message, ('255.255.255.255', 44818))
+
+            while True:
+                try:
+                    resp = sock.recv(4096)
+                    response = request._response_class(resp)
+                    if response and response.raw[12:20] == context:
+                        devices.append(response.identity)
+                except Exception:
+                    break
+
+        return devices
 
     def _list_identity(self):
         request = RequestTypes.list_identity(self)
