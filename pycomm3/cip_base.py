@@ -190,11 +190,12 @@ class CIPDriver:
     def discover(cls):
         ip_addrs = [
             sockaddr[0]
-            for family, type, proto, canonname, sockaddr in
+            for family, _, _, _, sockaddr in
             socket.getaddrinfo(socket.gethostname(), None)
             if family == socket.AddressFamily.AF_INET
-        ]
-        driver = CIPDriver('0.0.0.0')
+        ] + [None, ]
+
+        driver = CIPDriver('0.0.0.0')  # dumby driver for creating the list_identity request
         context = driver._cfg['context']
         request = RequestTypes.list_identity(driver)
         message = request._build_request()
@@ -204,7 +205,8 @@ class CIPDriver:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(1)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            sock.bind((ip, 0))
+            if ip:
+                sock.bind((ip, 0))
 
             sock.sendto(message, ('255.255.255.255', 44818))
 
