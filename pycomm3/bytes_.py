@@ -26,7 +26,7 @@ from typing import Callable
 from struct import pack, unpack
 from .map import EnumMap
 from itertools import chain
-
+from . import const
 
 def _pack_epath(path, pad_len=False):
     if len(path) % 2:
@@ -52,6 +52,11 @@ def _string_encode(string):
     return Pack.uint(len(string)) + b''.join([_pack_char(x) for x in string])
 
 
+def _stringi_encode(string):
+    # TODO: this method, obviously
+    return None
+
+
 def _short_string_encode(string):
     return Pack.usint(len(string)) + b''.join([_pack_char(x) for x in string])
 
@@ -64,6 +69,33 @@ def _logix_string_decode(str_data):
 def _string_decode(str_data):
     string_len = Unpack.uint(str_data)
     return _decode_string(str_data[2: string_len + 2])
+
+
+def _stringi_decode(str_data):
+    count = Unpack.usint(str_data)
+    offset = 1
+
+    strings = []
+    langs = []
+    char_sets = []
+    for _ in range(count):
+        lang = _decode_string(str_data[offset: offset + 3])
+        offset += 3
+        langs.append(lang)
+
+        data_type = str_data[offset]
+        offset += 1
+        _str_type = const.DataType[data_type]
+
+        char_set = Unpack.uint(str_data[offset:])
+        offset += 2
+        char_sets.append(char_set)
+
+        string = Unpack[_str_type](str_data[offset:])
+        offset += len(string) + const.StringTypeLenSize[_str_type]
+        strings.append(string)
+
+    return strings, langs, offset
 
 
 def _short_string_decode(str_data):
@@ -136,6 +168,7 @@ class Pack(EnumMap):
     logix_string: Callable[[str], bytes] = _logix_string_encode
     char: Callable[[str], bytes] = _pack_char
     bool: Callable[[bool], bytes] = lambda b: b'\xFF' if b else b'\x00'
+    stringi: Callable[[str], bytes] = _stringi_encode
 
     pccc_n: Callable[[int], bytes] = int
     pccc_b: Callable[[int], bytes] = int
@@ -171,7 +204,8 @@ class Unpack(EnumMap):
     ulong: Callable[[bytes], float] = lambda st: int(unpack('<L', st[0:4])[0])
     short_string: Callable[[bytes], str] = _short_string_decode
     string: Callable[[bytes], str] = _string_decode
-    logix_string: Callable[[str], bytes] = _logix_string_decode
+    logix_string: Callable[[bytes], str] = _logix_string_decode
+    stringi: Callable[[bytes], str] = _stringi_decode
 
     pccc_n: Callable[[bytes], int] = int
     pccc_b: Callable[[bytes], int] = int

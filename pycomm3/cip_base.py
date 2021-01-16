@@ -226,7 +226,10 @@ class CIPDriver:
         response = request.send()
         return response.identity
 
-    def get_module_info(self, slot):
+    def get_module_info(self, slot: int) -> dict:
+        """
+        Get the Identity object for a given slot in the rack of the current connection
+        """
         try:
             response = self.generic_message(
                 service=Services.get_attributes_all,
