@@ -39,12 +39,10 @@ def test_socket_connect_raises_commerror_on_timeout():
     with mock.patch.object(socket.socket, 'connect') as mock_socket_connect:
         mock_socket_connect.side_effect = socket.timeout
         my_sock = Socket()
-        try:
+        with pytest.raises(CommError):
             my_sock.connect('123.456.789.101', 12345)
-        except PycommError:
-            pass
+
         mock_socket_connect.assert_called_once()
-        assert pytest.raises(CommError)
 
 def test_socket_send_raises_commerror_on_no_bytes_sent():
     TEST_MSG = b"Meaningless Data"
@@ -52,11 +50,8 @@ def test_socket_send_raises_commerror_on_no_bytes_sent():
     with mock.patch.object(socket.socket, 'send') as mock_socket_send:
         mock_socket_send.return_value = 0    
         my_sock = Socket()
-        try:
+        with pytest.raises(CommError):
             my_sock.send(msg=TEST_MSG)
-        except PycommError:
-            pass
-        assert pytest.raises(CommError)
 
 def test_socket_send_returns_length_of_bytes_sent():
     BYTES_TO_SEND = b"Baah baah black sheep"
@@ -89,13 +84,8 @@ def test_socket_send_raises_commerror_on_socketerror():
         mock_socket_send.side_effect = socket.error
 
         my_sock = Socket()
-        try:
+        with pytest.raises(CommError):
             my_sock.send(TEST_MESSAGE)
-        except PycommError:
-            pass
-
-        assert pytest.raises(CommError)
-
 
 # Prefixing with the data_len value expected in a message. This
 # seems like an implementation detail that should live in cip_base
@@ -130,12 +120,8 @@ def test_socket_receive_raises_commerror_opn_socketerror():
         mock_socket_recv.side_effect = socket.error
 
         my_sock = Socket()
-        try:
+        with pytest.raises(CommError):
             my_sock.receive()
-        except PycommError:
-            pass
-
-        assert pytest.raises(CommError)
 
 def test_socket_close_closes_socket():
     with mock.patch.object(socket.socket, 'close') as mock_socket_close:
