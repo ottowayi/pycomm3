@@ -99,8 +99,8 @@ class CIPDriver:
         """
 
         self._sequence_number = 1
-        self._sock = None
-        self._session = 0
+        self._sock = kwargs.get('socket', None)
+        self._session = kwargs.get('session', None)
         self._connection_opened = False
         self._target_cid = None
         self._target_is_connected = False
