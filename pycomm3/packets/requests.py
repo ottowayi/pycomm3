@@ -34,8 +34,8 @@ from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceRespons
                GenericConnectedResponsePacket)
 from ..exceptions import CommError, RequestError
 from ..bytes_ import Pack, print_bytes_msg
-from ..const import (EncapsulationCommand, INSUFFICIENT_PACKETS, DataItem, AddressItem, EXTENDED_SYMBOL, ELEMENT_TYPE,
-                     Services, CLASS_TYPE, INSTANCE_TYPE, DataType, DataTypeSize, ConnectionManagerService,
+from ..const import (EncapsulationCommands, INSUFFICIENT_PACKETS, DataItem, AddressItem, EXTENDED_SYMBOL, ELEMENT_TYPE,
+                     Services, CLASS_TYPE, INSTANCE_TYPE, DataType, DataTypeSize, ConnectionManagerServices,
                      ClassCode, Services, STRUCTURE_READ_REPLY, PRIORITY, TIMEOUT_TICKS, ATTRIBUTE_TYPE)
 
 
@@ -150,7 +150,7 @@ class SendUnitDataRequestPacket(RequestPacket):
     _message_type = DataItem.connected
     _address_type = AddressItem.connection
     _response_class = SendUnitDataResponsePacket
-    _encap_command = EncapsulationCommand.send_unit_data
+    _encap_command = EncapsulationCommands.send_unit_data
 
     def __init__(self, driver):
         super().__init__(driver)
@@ -522,7 +522,7 @@ class SendRRDataRequestPacket(RequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     _message_type = DataItem.unconnected
     _address_type = AddressItem.uccm
-    _encap_command = EncapsulationCommand.send_rr_data
+    _encap_command = EncapsulationCommands.send_rr_data
     _response_class = SendRRDataResponsePacket
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
@@ -531,7 +531,7 @@ class SendRRDataRequestPacket(RequestPacket):
 
 class RegisterSessionRequestPacket(RequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
-    _encap_command = EncapsulationCommand.register_session
+    _encap_command = EncapsulationCommands.register_session
     _response_class = RegisterSessionResponsePacket
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
@@ -540,7 +540,7 @@ class RegisterSessionRequestPacket(RequestPacket):
 
 class UnRegisterSessionRequestPacket(RequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
-    _encap_command = EncapsulationCommand.unregister_session
+    _encap_command = EncapsulationCommands.unregister_session
     _response_class = UnRegisterSessionResponsePacket
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
@@ -552,7 +552,7 @@ class UnRegisterSessionRequestPacket(RequestPacket):
 
 class ListIdentityRequestPacket(RequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
-    _encap_command = EncapsulationCommand.list_identity
+    _encap_command = EncapsulationCommands.list_identity
     _response_class = ListIdentityResponsePacket
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
@@ -630,7 +630,7 @@ def wrap_unconnected_send(message, route_path):
     msg_len = len(message)
     return b''.join(
         [
-            ConnectionManagerService.unconnected_send,
+            ConnectionManagerServices.unconnected_send,
             rp,
             PRIORITY,
             TIMEOUT_TICKS,

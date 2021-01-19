@@ -22,18 +22,63 @@
 # SOFTWARE.
 #
 
-
-import logging
-logger = logging.getLogger('pycomm3')
-logger.addHandler(logging.NullHandler())
+from ..map import EnumMap
+from .object_library import ClassCode
 
 
-from ._version import __version__, __version_info__
-from .const import *
-from .bytes_ import Pack, Unpack
-from .tag import Tag
-from .exceptions import PycommError, CommError, DataError, RequestError
-from .cip_base import CIPDriver
-from .clx import LogixDriver
-from .slc import SLCDriver
-from .packets import RequestTypes
+ELEMENT_TYPE = {
+    "8-bit": b'\x28',
+    "16-bit": b'\x29\x00',
+    "32-bit": b'\x2a\x00\x00\x00',
+    1: b'\x28',
+    2: b'\x29\x00',
+    3: b'\x2a\x00\x00\x00',
+}
+
+CLASS_TYPE = {
+    "8-bit": b'\x20',
+    "16-bit": b'\x21\x00',
+    1: b'\x20',  # length of code
+    2: b'\x21\x00'
+}
+
+INSTANCE_TYPE = {
+    "8-bit": b'\x24',
+    "16-bit": b'\x25\x00',
+    1: b'\x24',  # length of code
+    2: b'\x25\x00'
+}
+
+ATTRIBUTE_TYPE = {
+    "8-bit": b'\x30',
+    "16-bit": b'\x31\x00',
+    1: b'\x30',
+    2: b'\x31\x00',
+}
+
+PATH_SEGMENTS = {
+    'backplane': 0x01,
+    'bp': 0x01,
+    'enet': 0x02,
+    'dhrio-a': 0x02,
+    'dhrio-b': 0x03,
+    'dnet': 0x02,
+    'cnet': 0x02,
+    'dh485-a': 0x02,
+    'dh485-b': 0x03,
+}
+
+MSG_ROUTER_PATH = b''.join([CLASS_TYPE['8-bit'], ClassCode.message_router, INSTANCE_TYPE['8-bit'], b'\x01'])
+
+
+class DataItem(EnumMap):
+    connected = b'\xb1\x00'
+    unconnected = b'\xb2\x00'
+
+
+class AddressItem(EnumMap):
+    connection = b'\xa1\x00'
+    null = b'\x00\x00'
+    uccm = b'\x00\x00'
+
+
