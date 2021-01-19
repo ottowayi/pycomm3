@@ -34,9 +34,9 @@ from typing import Union, Optional
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
 from .bytes_ import Pack, Unpack
-from .const import (PATH_SEGMENTS, ConnectionManagerInstance, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
+from .const import (PATH_SEGMENTS, ConnectionManagerInstances, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
                     TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
-                    ConnectionManagerService, Services)
+                    ConnectionManagerServices, Services)
 from .packets import DataFormatType, RequestTypes
 from .socket_ import Socket
 
@@ -315,9 +315,9 @@ class CIPDriver:
             net_params = Pack.uint((self.connection_size & 0x01FF) | init_net_params)
 
         route_path = Pack.epath(self._cfg['cip_path'] + MSG_ROUTER_PATH)
-        service = (ConnectionManagerService.forward_open
+        service = (ConnectionManagerServices.forward_open
                    if not self._cfg['extended forward open']
-                   else ConnectionManagerService.large_forward_open)
+                   else ConnectionManagerServices.large_forward_open)
 
         forward_open_msg = [
             PRIORITY,
@@ -339,7 +339,7 @@ class CIPDriver:
         response = self.generic_message(
             service=service,
             class_code=ClassCode.connection_manager,
-            instance=ConnectionManagerInstance.open_request,
+            instance=ConnectionManagerInstances.open_request,
             request_data=b''.join(forward_open_msg),
             route_path=route_path,
             connected=False,
@@ -416,9 +416,9 @@ class CIPDriver:
         ]
 
         response = self.generic_message(
-            service=ConnectionManagerService.forward_close,
+            service=ConnectionManagerServices.forward_close,
             class_code=ClassCode.connection_manager,
-            instance=ConnectionManagerInstance.open_request,
+            instance=ConnectionManagerInstances.open_request,
             connected=False,
             route_path=route_path,
             request_data=b''.join(forward_close_msg),

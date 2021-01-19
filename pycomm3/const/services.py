@@ -26,7 +26,7 @@ from ..map import EnumMap
 from ..bytes_ import Pack, Unpack
 
 
-class EncapsulationCommand(EnumMap):
+class EncapsulationCommands(EnumMap):
     nop = b'\x00\x00'
     list_targets = b'\x01\x00'
     list_services = b'\x04\x00'
@@ -38,7 +38,7 @@ class EncapsulationCommand(EnumMap):
     send_unit_data = b'\x70\x00'
 
 
-class ConnectionManagerService(EnumMap):
+class ConnectionManagerServices(EnumMap):
     forward_close = b'\x4E'
     unconnected_send = b'\x52'
     forward_open = b'\x54'
@@ -99,3 +99,14 @@ MULTI_PACKET_SERVICES = {
     Services.multiple_service_request,
     Services.get_attribute_list,
 }
+
+
+class FileObjectServices(EnumMap):
+    initiate_upload = b'\x4B'
+    initiate_download = b'\x4C'
+    initiate_partial_read = b'\x4D'
+    initiate_partial_write = b'\x4E'
+    upload_transfer = b'\x4F'
+    download_transfer = b'\x50'
+    clear_file = b'\x51'
+
