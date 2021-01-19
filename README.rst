@@ -85,6 +85,15 @@ This README covers a basic overview of the library, full documentation can be fo
 
 .. _Read the Docs: https://pycomm3.readthedocs.io/en/latest/
 
+Contributions
+=============
+
+If you'd like to contribute or are having an issue, please read the `Contributing`_ guidelines.
+
+.. _Contributing: CONTRIBUTING.md
+
+
+
 LogixDriver
 ===========
 
