@@ -52,7 +52,7 @@ class LogixDriver(CIPDriver):
     """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, path: str, *args,  micro800: bool = False,
+    def __init__(self, path: str, *args,
                  init_info: bool = True, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
         """
         :param path: CIP path to intended target
@@ -94,27 +94,11 @@ class LogixDriver(CIPDriver):
         self._cache = None
         self._data_types = {}
         self._tags = {}
-        self._micro800 = micro800
+        self._micro800 = False
         self._cfg['use_instance_ids'] = True
-
-        if init_tags or init_info:
-            self.open()
-
-        if init_info:
-            target_identity = self._list_identity()
-            self._micro800 = target_identity.get('product_name', '').startswith(MICRO800_PREFIX)
-            self.get_plc_info()
-
-            self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
-            if not self._micro800:
-                self.get_plc_name()
-
-        if self._micro800:  # strip off backplane/0 from path, not used for these processors
-            _path = Pack.epath(self._cfg['cip_path'][:-2])
-            self._cfg['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
-
-        if init_tags:
-            self.get_tag_list(program='*' if init_program_tags else None)
+        self._init_args = {'init_info': init_info,
+                           'init_tags': init_tags,
+                           'init_program_tags': init_program_tags}
 
     def __enter__(self):
         self.open()
@@ -136,6 +120,27 @@ class LogixDriver(CIPDriver):
     def __repr__(self):
         _ = self._info
         return f"Program Name: {_.get('name')}, Device: {_.get('device_type', 'None')}, Revision: {_.get('revision', 'None')}"
+
+    def open(self):
+        super().open()
+        self._initialize_driver(**self._init_args)
+
+    def _initialize_driver(self, init_info, init_tags, init_program_tags):
+        if init_info:
+            target_identity = self._list_identity()
+            self._micro800 = target_identity.get('product_name', '').startswith(MICRO800_PREFIX)
+            self.get_plc_info()
+
+            self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
+            if not self._micro800:
+                self.get_plc_name()
+
+        if self._micro800:  # strip off backplane/0 from path, not used for these processors
+            _path = Pack.epath(self._cfg['cip_path'][:-2])
+            self._cfg['cip_path'] = _path[1:]  # leave out the len, we sometimes add to the path later
+
+        if init_tags:
+            self.get_tag_list(program='*' if init_program_tags else None)
 
     @property
     def tags(self) -> dict:
