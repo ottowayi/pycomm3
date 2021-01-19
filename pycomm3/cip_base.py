@@ -121,7 +121,6 @@ class CIPDriver:
             'csn': b'\x27\x04',
             'vid': b'\x09\x10',
             'vsn': b'\x09\x10\x19\x71',
-            'name': 'LogixDriver',
             'extended forward open': large_packets}
 
     def __enter__(self):
