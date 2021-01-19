@@ -20,10 +20,6 @@ from pycomm3.socket_ import Socket
 from pycomm3.tag import Tag
 
 CONNECT_PATH = '192.168.1.100/1'
-DEFAULT_PORT = CIPDriver(CONNECT_PATH,
-    init_info = False,
-    init_tags = False
-)._cfg['port']
 
 def test_cip_get_module_info_raises_data_error_if_response_falsy():
     with mock.patch.object(CIPDriver, 'generic_message') as mock_generic_message:
