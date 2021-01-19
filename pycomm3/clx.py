@@ -1033,9 +1033,9 @@ class LogixDriver(CIPDriver):
                 if request.type_ != 'multi':
                     if response:
                         results[request.request_id] = Tag(request.tag,
-                                                         response.value if request.type_ == 'read' else request.value,
-                                                         response.data_type if request.type_ == 'read' else request.data_type,
-                                                         response.error)
+                                                          response.value if request.type_ == 'read' else request.value,
+                                                          response.data_type if request.type_ == 'read' else request.data_type,
+                                                          response.error)
                     else:
                         results[request.request_id] = Tag(request.tag, None, None, response.error)
                 else:
