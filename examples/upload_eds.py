@@ -1,95 +1,46 @@
-from pycomm3 import CIPDriver, Services, ClassCode, Pack, Unpack
+from pycomm3 import CIPDriver, Services, ClassCode, Pack, FileObjectServices, FileObjectInstances, FileObjectClassAttributes, FileObjectInstanceAttributes
 import itertools
 import gzip
 from pathlib import Path
 
+SAVE_PATH = Path.home()
 
-EDS_INSTANCE = 0xc8
-EDS_ATTR_FILE_NAME = 0x04
-EDS_ATTR_FILE_ENCODING = 0x0B
-EDS_ATTR_FILE_SIZE = 0x06
-EDS_ATTR_FILE_REV = 0x05
 
-EDS_SERVICE_INIT_UPLOAD = 0x4B
-EDS_SERVICE_UPLOAD_TRANSFER = 0x4F
+def upload_eds():
+    """
+    Uploads the EDS and ICO files from the device and saves the files.
+    """
+    with CIPDriver('192.168.1.236') as driver:
+        if initiate_transfer(driver):
+            file_data = upload_file(driver)
+            encoding = get_file_encoding(driver)
 
-EDS_ENCODINGS = {
-    0: 'binary',
-    1: 'zlib'
-}
+            if encoding == 'zlib':
+                # in this case the file has both the eds and ico files in it
+                files = decompress_eds(file_data)
 
-with CIPDriver('192.168.1.236') as plc:
+                for filename, file_data in files.items():
+                    file_path = SAVE_PATH / filename
+                    file_path.write_bytes(file_data)
 
-    file_name_resp = plc.generic_message(
-        service=Services.get_attribute_single,
+            elif encoding == 'binary':
+                file_name = get_file_name(driver)
+                file_path = SAVE_PATH / file_name
+                file_path.write_bytes(file_data)
+            else:
+                print('Unsupported Encoding')
+        else:
+            print('Failed to initiate transfer')
+
+
+def initiate_transfer(driver):
+    """
+    Initiates the transfer with the device
+    """
+    resp = driver.generic_message(
+        service=FileObjectServices.initiate_upload,
         class_code=ClassCode.file_object,
-        attribute=EDS_ATTR_FILE_NAME,
-        instance=0xc8,
-        route_path=True,
-        unconnected_send=True,
-        connected=False,
-        data_format=[('FileName', 'STRINGI')]
-    )
-
-    file_name = file_name_resp.value['FileName'][0] if file_name_resp else None
-
-    file_encoding_resp = plc.generic_message(
-        service=Services.get_attribute_single,
-        class_code=ClassCode.file_object,
-        attribute=EDS_ATTR_FILE_NAME,
-        instance=0xc8,
-        route_path=True,
-        unconnected_send=True,
-        connected=False,
-        data_format=[('FileEncoding', 'USINT')]
-    )
-    _enc_code = file_encoding_resp.value['FileEncoding'] if file_encoding_resp else None
-    file_encoding = EDS_ENCODINGS.get(_enc_code, 'UNSUPPORTED ENCODING')
-
-    file_encoding_resp = plc.generic_message(
-        service=Services.get_attribute_single,
-        class_code=ClassCode.file_object,
-        attribute=EDS_ATTR_FILE_NAME,
-        instance=0xc8,
-        route_path=True,
-        unconnected_send=True,
-        connected=False,
-        data_format=[('FileEncoding', 'USINT')]
-    )
-    _enc_code = file_encoding_resp.value['FileEncoding'] if file_encoding_resp else None
-
-    file_size_resp = plc.generic_message(
-        service=Services.get_attribute_single,
-        class_code=ClassCode.file_object,
-        attribute=EDS_ATTR_FILE_SIZE,
-        instance=0xc8,
-        route_path=True,
-        unconnected_send=True,
-        connected=False,
-        data_format=[('FileSize', 'UDINT')]
-    )
-    file_size = file_size_resp.value['FileSize'] if file_size_resp else None
-
-    file_rev_resp = plc.generic_message(
-        service=Services.get_attribute_single,
-        class_code=ClassCode.file_object,
-        attribute=EDS_ATTR_FILE_REV,
-        instance=0xc8,
-        route_path=True,
-        unconnected_send=True,
-        connected=False,
-        data_format=[('FileRevMajor', 'USINT'), ('FileRevMinor', 'USINT')]
-    )
-    if file_rev_resp:
-        file_rev = f'{file_rev_resp.value["FileRevMajor"]}.{file_rev_resp.value["FileRevMinor"]:03}'
-    else:
-        file_rev = None
-    print(f'file name: {file_name!r}, encoding: {file_encoding}, size: {file_size} bytes, rev: {file_rev}')
-
-    init_resp = plc.generic_message(
-        service=EDS_SERVICE_INIT_UPLOAD,
-        class_code=ClassCode.file_object,
-        instance=0xc8,
+        instance=FileObjectInstances.eds_file_and_icon,
         route_path=True,
         unconnected_send=True,
         connected=False,
@@ -99,55 +50,117 @@ with CIPDriver('192.168.1.236') as plc:
             ('TransferSize', 'USINT')
         ],
     )
+    return resp
 
-    if init_resp:
-        contents = b''
 
-        for i in itertools.cycle(range(256)):
-            resp = plc.generic_message(
-                service=EDS_SERVICE_UPLOAD_TRANSFER,
-                class_code=ClassCode.file_object,
-                instance=0xc8,
-                route_path=True,
-                unconnected_send=True,
-                connected=False,
-                request_data=Pack.usint(i),
-                data_format=[
-                    ('TransferNumber', 'USINT'),
-                    ('PacketType', 'USINT'),
-                    ('FileData', '*')
-                ],
-            )
+def upload_file(driver):
+    contents = b''
 
-            if resp:
-                print(resp.value)
-                packet_type = resp.value['PacketType']
-                transfer_num = resp.value['TransferNumber']
-                data = resp.value['FileData']
+    for i in itertools.cycle(range(256)):
+        resp = driver.generic_message(
+            service=FileObjectServices.upload_transfer,
+            class_code=ClassCode.file_object,
+            instance=FileObjectInstances.eds_file_and_icon,
+            route_path=True,
+            unconnected_send=True,
+            connected=False,
+            request_data=Pack.usint(i),
+            data_format=[
+                ('TransferNumber', 'USINT'),
+                ('PacketType', 'USINT'),
+                ('FileData', '*')
+            ],
+        )
 
-                contents += data
-                if packet_type in (2, 3, 4, 5):
-                    print(f'final packet type: {packet_type}')
-                    break
-            else:
-                print(f'failed response {resp}')
+        if resp:
+            packet_type = resp.value['PacketType']
+            data = resp.value['FileData']
+
+            contents += data
+
+            # CIP Vol 1 Section 5-42.4.5
+            # 0 - first packet
+            # 1 - middle packet
+            # 2 - last packet
+            # 3 - Abort transfer
+            # 4 - first & last packet
+            # 5-255 - Reserved
+            if packet_type not in (0, 1):
                 break
+        else:
+            print(f'failed response {resp}')
+            break
 
-        contents = contents[:-2]  # strip off checksum
-        print(f'bytes received {len(contents)}')
+    contents = contents[:-2]  # strip off checksum
+    return contents
 
-        GZ_MAGIC_BYTES = b'\x1f\x8b'
-        if file_encoding == 'zlib':
-            end_file1 = contents.find(GZ_MAGIC_BYTES, 2)
-            file1, file2 = contents[:end_file1], contents[end_file1:]
-            eds = gzip.decompress(file1)
-            ico = gzip.decompress(file2)
-            eds_name = file1[10:file1.find(b'\x00', 10)].decode()
-            ico_name = file2[10:file2.find(b'\x00', 10)].decode()
 
-            save_path = Path.home()
-            eds_path = save_path / eds_name
-            ico_path = save_path / ico_name
+def get_file_encoding(driver):
+    """
+    get the encoding format for the eds file object
+    """
+    attr = FileObjectInstanceAttributes.file_encoding_format
 
-            eds_path.write_bytes(eds)
-            ico_path.write_bytes(ico)
+    resp = driver.generic_message(
+        service=Services.get_attribute_single,
+        class_code=ClassCode.file_object,
+        attribute=attr.attr_id,
+        instance=FileObjectInstances.eds_file_and_icon,
+        route_path=True,
+        unconnected_send=True,
+        connected=False,
+        data_format=attr.data_format,
+    )
+    _enc_code = resp.value['file_encoding_format'] if resp else None
+    EDS_ENCODINGS = {
+        0: 'binary',
+        1: 'zlib'
+    }
+    file_encoding = EDS_ENCODINGS.get(_enc_code, 'UNSUPPORTED ENCODING')
+    return file_encoding
+
+
+def decompress_eds(contents):
+    """
+    extract the eds and ico files from the uploaded file
+
+    returns a dict of {file name: file contents}
+    """
+    GZ_MAGIC_BYTES = b'\x1f\x8b'
+
+    # there is actually 2 files, the eds file and the icon
+    # we need to split the file contents since gzip
+    # only supports single files
+
+    end_file1 = contents.find(GZ_MAGIC_BYTES, 2)
+    file1, file2 = contents[:end_file1], contents[end_file1:]
+    eds = gzip.decompress(file1)
+    ico = gzip.decompress(file2)
+    eds_name = file1[10:file1.find(b'\x00', 10)].decode()
+    ico_name = file2[10:file2.find(b'\x00', 10)].decode()
+
+    return {eds_name: eds, ico_name: ico}
+
+
+def get_file_name(driver):
+    """
+    Get the filename of the eds file object
+    """
+    attr = FileObjectInstanceAttributes.file_name
+    resp = driver.generic_message(
+        service=Services.get_attribute_single,
+        class_code=ClassCode.file_object,
+        attribute=attr.attr_id,
+        instance=FileObjectInstances.eds_file_and_icon,
+        route_path=True,
+        unconnected_send=True,
+        connected=False,
+        data_format=attr.data_format
+    )
+
+    file_name = resp.value['FileName'][0] if resp else None
+    return file_name
+
+
+if __name__ == '__main__':
+    upload_eds()
