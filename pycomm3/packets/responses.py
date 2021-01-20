@@ -164,7 +164,6 @@ class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
         self.value = None
         super().__init__(request, raw_data)
 
-
     def _parse_reply(self):
         super()._parse_reply()
 
@@ -202,13 +201,13 @@ class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
 class ReadTagServiceResponsePacket(SendUnitDataResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, raw_data: bytes = None, tag_info=None, elements=1, tag=None, *args,  **kwargs):
+    def __init__(self, request, raw_data: bytes = None, *args,  **kwargs):
         self.value = None
-        self.elements = elements
         self.data_type = None
-        self.tag_info = tag_info
-        self.tag = tag
-        super().__init__(raw_data, *args, **kwargs)
+        self.elements = request.elements
+        self.tag_info = request.tag_info
+        self.tag = request.tag
+        super().__init__(request, raw_data, *args, **kwargs)
 
     def _parse_reply(self):
         try:

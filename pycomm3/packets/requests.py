@@ -171,27 +171,36 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
     type_ = 'read'
     response_class = ReadTagServiceResponsePacket
 
-    def __init__(self, driver):
-        super().__init__(driver)
-        self.tag = None
-        self.elements = None
-        self.tag_info = None
-        self.request_id = None
-
-    def add(self, tag, request_path, elements, tag_info, request_id):
-        # TODO: instead of add methods, maybe just do it in __init__
+    def __init__(self, tag, request_path, elements, tag_info, request_id):
+        super().__init__()
         self.tag = tag
+        self.request_path = request_path
         self.elements = elements
         self.tag_info = tag_info
         self.request_id = request_id
         if request_path is None:
             self.error = 'Invalid Tag Request Path'
 
-        super().add(
+        self.add(
             Services.read_tag,
             request_path,
             Pack.uint(self.elements),
         )
+
+    # def add(self, tag, request_path, elements, tag_info, request_id):
+    #     # TODO: instead of add methods, maybe just do it in __init__
+    #     self.tag = tag
+    #     self.elements = elements
+    #     self.tag_info = tag_info
+    #     self.request_id = request_id
+    #     if request_path is None:
+    #         self.error = 'Invalid Tag Request Path'
+    #
+    #     super().add(
+    #         Services.read_tag,
+    #         request_path,
+    #         Pack.uint(self.elements),
+    #     )
 
     # def send(self):
     #     if not self.error:
@@ -578,23 +587,14 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     response_class = GenericConnectedResponsePacket
 
-    def __init__(self):
+    def __init__(self,
+                 service: Union[int, bytes],
+                 class_code: Union[int, bytes],
+                 instance: Union[int, bytes],
+                 attribute: Union[int, bytes] = b'',
+                 request_data: bytes = b'',
+                 data_format: DataFormatType = None):
         super().__init__()
-        self.service = None
-        self.class_code = None
-        self.instance = None
-        self.attribute = None
-        self.request_data = None
-        self.data_format = None
-
-    def build(self,
-              service: Union[int, bytes],
-              class_code: Union[int, bytes],
-              instance: Union[int, bytes],
-              attribute: Union[int, bytes] = b'',
-              request_data: bytes = b'',
-              data_format: DataFormatType = None):
-
         self.data_format = data_format
         self.class_code = class_code
         self.instance = instance
@@ -602,7 +602,6 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
         self.service = service if isinstance(service, bytes) else bytes([service])
         self.request_data = request_data
         req_path = request_path(class_code, instance, attribute)
-
         self.add(self.service, req_path, request_data)
 
 
@@ -610,24 +609,16 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     response_class = GenericUnconnectedResponsePacket
 
-    def __init__(self):
+    def __init__(self,
+                 service: Union[int, bytes],
+                 class_code: Union[int, bytes],
+                 instance: Union[int, bytes],
+                 attribute: Union[int, bytes] = b'',
+                 request_data: bytes = b'',
+                 route_path: bytes = b'',
+                 unconnected_send: bool = False,
+                 data_format: DataFormatType = None):
         super().__init__()
-        self.service = None
-        self.class_code = None
-        self.instance = None
-        self.attribute = None
-        self.request_data = None
-        self.data_format = None
-
-    def build(self,
-              service: Union[int, bytes],
-              class_code: Union[int, bytes],
-              instance: Union[int, bytes],
-              attribute: Union[int, bytes] = b'',
-              request_data: bytes = b'',
-              route_path: bytes = b'',
-              unconnected_send: bool = False,
-              data_format: DataFormatType = None):
         self.data_format = data_format
         self.class_code = class_code
         self.instance = instance

@@ -473,10 +473,8 @@ class CIPDriver:
             _kwargs['unconnected_send'] = unconnected_send
 
         req_class = RequestTypes.generic_connected if connected else RequestTypes.generic_unconnected
-        request = req_class()
-        request.build(**_kwargs)
+        request = req_class(**_kwargs)
 
-        # response = request.send()
         response = self.send(request)
 
         return Tag(name, response.value, None, error=response.error)
