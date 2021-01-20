@@ -195,6 +195,7 @@ class CIPDriver:
         ] + [None, ]
 
         driver = CIPDriver('0.0.0.0')  # dumby driver for creating the list_identity request
+        driver._session = 0
         context = driver._cfg['context']
         request = RequestTypes.list_identity(driver)
         message = request._build_request()
