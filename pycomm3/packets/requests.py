@@ -54,7 +54,7 @@ class RequestPacket(Packet):
     def __init__(self, driver):
         super().__init__()
         self._msg = []  # message data
-        self._driver = driver
+        self._driver = driver  # TODO: Remove
         self.error = None
 
     def add(self, *value: bytes):
@@ -66,6 +66,7 @@ class RequestPacket(Packet):
         return b''.join(self._msg)
 
     def _build_request(self):
+        # TODO: should have args for any driver provided data
         msg = self._build_common_packet_format(addr_data=self._driver._target_cid)
         header = self._build_header(self._encap_command, len(msg))
         return header + msg
@@ -105,7 +106,7 @@ class RequestPacket(Packet):
         ])
 
     def _send(self, message):
-
+        # TODO: Remove
         try:
             if self.VERBOSE_DEBUG:
                 self.__log.debug(print_bytes_msg(message, '>>> SEND >>>'))
@@ -114,6 +115,7 @@ class RequestPacket(Packet):
             raise CommError('failed to send message') from err
 
     def _receive(self):
+        # TODO: Remove
         """
         socket receive
         :return: reply data
@@ -170,6 +172,7 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
         self.request_id = None
 
     def add(self, tag, request_path, elements, tag_info, request_id):
+        # TODO: instead of add methods, maybe just do it in __init__
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
@@ -222,6 +225,8 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
             self.error = 'Invalid Tag Request Path'
 
     def send(self):
+        # TODO: determine best approach here, will probably require more work in the
+        #       driver send method to handle the fragmenting
         if not self.error:
             offset = 0
             responses = []
@@ -420,6 +425,8 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         return b''.join(msg)
 
     def add_read(self, tag, request_path, elements, tag_info, request_id):
+        # TODO: maybe instead of these methods, the multi-packet uses multiple normal ReadRequests
+        #       and combines them as needed
         if request_path is not None:
             rp = Services.read_tag + request_path + Pack.uint(elements)
             _tag = {

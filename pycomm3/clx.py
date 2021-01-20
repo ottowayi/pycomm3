@@ -1021,7 +1021,8 @@ class LogixDriver(CIPDriver):
 
         for request in requests:
             try:
-                response = request.send()
+                # response = request.send()
+                response = self.send(request)
             except (RequestError, DataError) as err:
                 self.__log.exception('Error sending request')
                 if request.type_ != 'multi':

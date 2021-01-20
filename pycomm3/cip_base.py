@@ -33,12 +33,13 @@ from typing import Union, Optional
 
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
-from .bytes_ import Pack, Unpack
+from .bytes_ import Pack, Unpack, print_bytes_msg
 from .const import (PATH_SEGMENTS, ConnectionManagerInstances, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
                     TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
                     ConnectionManagerServices, Services)
 from .packets import DataFormatType, RequestTypes
 from .socket_ import Socket
+
 
 
 def with_forward_open(func):
@@ -72,6 +73,7 @@ class CIPDriver:
     """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
+
     def __init__(self, path: str, *args, large_packets: bool = True, **kwargs):
         """
         :param path: CIP path to intended target
@@ -97,7 +99,7 @@ class CIPDriver:
                 like ENET or ENBT modules or ControlLogix version 19 or lower.  **This argument is no longer required
                 as of 0.5.1, since it will automatically try a standard Forward Open if the extended one fails**
         """
-
+        self.VERBOSE_DEBUG = False
         self._sequence_number = 1
         self._sock = kwargs.get('socket', None)
         self._session = kwargs.get('session', None)
@@ -490,6 +492,41 @@ class CIPDriver:
         response = request.send()
 
         return Tag(name, response.value, None, error=response.error)
+
+    def send(self, request):
+        if not request.error:
+            # TODO: remove request dependency on the driver
+            #       maybe have driver provide the info needed in the build request method
+            self._send(request._build_request())
+            self.__log.debug(f'Sent: {request!r}')
+            reply = self._receive()
+
+            # TODO: remove the args and kwargs, response class should take the reply data and original request
+            #       the request has any context the response should need, so no need for individual args
+            response = request._response_class(reply, *request._response_args, **request._response_kwargs)
+        else:
+            response = request._response_class(*request._response_args, **request._response_kwargs)
+            response._error = request.error
+        self.__log.debug(f'Received: {response!r}')
+        return response
+
+    def _send(self, message):
+        try:
+            if self.VERBOSE_DEBUG:
+                self.__log.debug(print_bytes_msg(message, '>>> SEND >>>'))
+            self._sock.send(message)
+        except Exception as err:
+            raise CommError('failed to send message') from err
+
+    def _receive(self):
+        try:
+            reply = self._sock.receive()
+        except Exception as err:
+            raise CommError('failed to receive reply') from err
+        else:
+            if self.VERBOSE_DEBUG:
+                self.__log.debug(print_bytes_msg(reply, '<<< RECEIVE <<<'))
+            return reply
 
 
 def parse_connection_path(path):

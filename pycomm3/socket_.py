@@ -62,10 +62,10 @@ class Socket:
         try:
             if timeout != 0:
                 self.sock.settimeout(timeout)
-            data = self.sock.recv(4096)
+            data = self.sock.recv(256)
             data_len = struct.unpack_from('<H', data, 2)[0]
             while len(data) - HEADER_SIZE < data_len:
-                data += self.sock.recv(4096)
+                data += self.sock.recv(256)
 
             return data
         except socket.error as err:
