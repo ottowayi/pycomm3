@@ -52,8 +52,7 @@ class LogixDriver(CIPDriver):
     """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, path: str, *args,
-                 init_info: bool = True, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
+    def __init__(self, path: str, *args, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
         """
         :param path: CIP path to intended target
 
@@ -69,17 +68,8 @@ class LogixDriver(CIPDriver):
                 CIP path automatically.  The ``enet`` / ``backplane`` (or ``bp``) segments are symbols for the CIP routing
                 port numbers and will be replaced with the correct value.
 
-        :param init_info:  if True (default), initializes controller info (name, revision, etc) on connect
-
-            .. note::
-
-                Initializing the controller info will enable/disable the use of *Symbol Instance Addressing* in
-                the :meth:`.read` and :meth:`.write` methods.  If you disable this option and are using an older firmware
-                (below v21), you will need to set ``plc.use_instance_ids`` to False or the reads and writes will fail.
-
         :param init_tags: if True (default), uploads all controller-scoped tag definitions on connect
         :param init_program_tags: if True, uploads all program-scoped tag definitions on connect
-        :param micro800: set to True if connecting to a Micro800 series PLC with ``init_info`` disabled, it will disable unsupported features
 
         .. tip::
 
@@ -96,8 +86,7 @@ class LogixDriver(CIPDriver):
         self._tags = {}
         self._micro800 = False
         self._cfg['use_instance_ids'] = True
-        self._init_args = {'init_info': init_info,
-                           'init_tags': init_tags,
+        self._init_args = {'init_tags': init_tags,
                            'init_program_tags': init_program_tags}
 
     def __enter__(self):
@@ -125,15 +114,14 @@ class LogixDriver(CIPDriver):
         super().open()
         self._initialize_driver(**self._init_args)
 
-    def _initialize_driver(self, init_info, init_tags, init_program_tags):
-        if init_info:
-            target_identity = self._list_identity()
-            self._micro800 = target_identity.get('product_name', '').startswith(MICRO800_PREFIX)
-            self.get_plc_info()
+    def _initialize_driver(self, init_tags, init_program_tags):
+        target_identity = self._list_identity()
+        self._micro800 = target_identity.get('product_name', '').startswith(MICRO800_PREFIX)
+        self.get_plc_info()
 
-            self.use_instance_ids = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
-            if not self._micro800:
-                self.get_plc_name()
+        self._cfg['use_instance_ids'] = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
+        if not self._micro800:
+            self.get_plc_name()
 
         if self._micro800:  # strip off backplane/0 from path, not used for these processors
             _path = Pack.epath(self._cfg['cip_path'][:-2])
@@ -198,14 +186,6 @@ class LogixDriver(CIPDriver):
         :return: name of PLC program
         """
         return self._info.get('name')
-
-    @property
-    def use_instance_ids(self):
-        return self._cfg['use_instance_ids']
-
-    @use_instance_ids.setter
-    def use_instance_ids(self, value):
-        self._cfg['use_instance_ids'] = value
 
     @with_forward_open
     def get_plc_name(self) -> str:
@@ -752,12 +732,12 @@ class LogixDriver(CIPDriver):
         if parsed_tag.get('error') is None:
             return_size = _tag_return_size(parsed_tag) + len(parsed_tag['rp']) + 4  # 4 = DINT element count
             if return_size > self.connection_size:
-                request = RequestTypes.read_tag_fragmented(self)
+                request_class = RequestTypes.read_tag_fragmented
             else:
-                request = RequestTypes.read_tag(self)
+                request_class = RequestTypes.read_tag
 
-            request.add(parsed_tag['plc_tag'], parsed_tag['rp'], parsed_tag['elements'],
-                        parsed_tag['tag_info'], parsed_tag['request_id'])
+            request = request_class(parsed_tag['plc_tag'], parsed_tag['rp'], parsed_tag['elements'],
+                                    parsed_tag['tag_info'], parsed_tag['request_id'])
 
             return request
 
@@ -871,7 +851,7 @@ class LogixDriver(CIPDriver):
                     _request_id = f'bit-write-{i}'
                     bit_writes[tag]['request_id'] = _request_id
                     value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
-                    rp = tag_request_path(tag, self._tags, self.use_instance_ids)
+                    rp = tag_request_path(tag, self._tags, self._cfg['use_instance_ids'])
                     if not current_request.add_write(tag, rp, value, 1, bit_writes[tag]['tag_info'],
                                                      _request_id, bits_write=True):
                         current_request = RequestTypes.multi_request(self)
@@ -908,7 +888,7 @@ class LogixDriver(CIPDriver):
                     bit_writes[tag]['request_id'] = request_id
                     value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
                     request = RequestTypes.write_tag(self)
-                    rp = tag_request_path(tag, self._tags, self.use_instance_ids)
+                    rp = tag_request_path(tag, self._tags, self._cfg['use_instance_ids'])
                     request.add(tag, rp, value, 1, bit_writes[tag]['tag_info'], request_id,
                                 bits_write=True)
                     return request
@@ -972,7 +952,7 @@ class LogixDriver(CIPDriver):
                     parsed['bit'] = bit
                     parsed['elements'] = elements
                     parsed['tag_info'] = tag_info
-                    rp = tag_request_path(plc_tag, self._tags, self.use_instance_ids)
+                    rp = tag_request_path(plc_tag, self._tags, self._cfg['use_instance_ids'])
                     parsed['rp'] = rp
                     if rp is None:
                         parsed['error'] = 'Failed to create request path'
