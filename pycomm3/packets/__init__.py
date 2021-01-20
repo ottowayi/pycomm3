@@ -24,7 +24,6 @@
 
 import logging
 from typing import Tuple, Optional, Union, Sequence
-from ..map import EnumMap
 
 DataFormatType = Sequence[Tuple[Optional[str], Union[str, int]]]
 
@@ -33,29 +32,17 @@ class Packet:
     __log = logging.getLogger(__qualname__)
 
 
-from .responses import (ResponsePacket, SendUnitDataResponsePacket, SendRRDataResponsePacket, ListIdentityResponsePacket,
-                        RegisterSessionResponsePacket, UnRegisterSessionResponsePacket, ReadTagServiceResponsePacket,
-                        MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, GenericConnectedResponsePacket,
-                        WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket, GenericUnconnectedResponsePacket,
-                        get_extended_status, get_service_status)
+# from .responses import (ResponsePacket, SendUnitDataResponsePacket, SendRRDataResponsePacket, ListIdentityResponsePacket,
+#                         RegisterSessionResponsePacket, UnRegisterSessionResponsePacket, ReadTagServiceResponsePacket,
+#                         MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, GenericConnectedResponsePacket,
+#                         WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket, GenericUnconnectedResponsePacket,
+#                         get_extended_status, get_service_status)
 
-from .requests import (RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket, ListIdentityRequestPacket,
-                       RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket,
-                       MultiServiceRequestPacket, ReadTagFragmentedServiceRequestPacket, WriteTagServiceRequestPacket,
-                       WriteTagFragmentedServiceRequestPacket, GenericConnectedRequestPacket, GenericUnconnectedRequestPacket,
-                       request_path, encode_segment)
+# from .requests import (RequestPacket, SendUnitDataRequestPacket, SendRRDataRequestPacket, ListIdentityRequestPacket,
+#                        RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, ReadTagServiceRequestPacket,
+#                        MultiServiceRequestPacket, ReadTagFragmentedServiceRequestPacket, WriteTagServiceRequestPacket,
+#                        WriteTagFragmentedServiceRequestPacket, GenericConnectedRequestPacket, GenericUnconnectedRequestPacket,
+#                        request_path, encode_segment)
 
 
-class RequestTypes(EnumMap):
-    send_unit_data = SendUnitDataRequestPacket
-    send_rr_data = SendRRDataRequestPacket
-    register_session = RegisterSessionRequestPacket
-    unregister_session = UnRegisterSessionRequestPacket
-    list_identity = ListIdentityRequestPacket
-    read_tag = ReadTagServiceRequestPacket
-    multi_request = MultiServiceRequestPacket
-    read_tag_fragmented = ReadTagFragmentedServiceRequestPacket
-    write_tag = WriteTagServiceRequestPacket
-    write_tag_fragmented = WriteTagFragmentedServiceRequestPacket
-    generic_connected = GenericConnectedRequestPacket
-    generic_unconnected = GenericUnconnectedRequestPacket
+

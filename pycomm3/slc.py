@@ -34,7 +34,7 @@ from .const import (CLASS_TYPE, SUCCESS, PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE
                     SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH)
 from .exceptions import DataError, RequestError
 from .tag import Tag
-from .packets import RequestTypes
+from .packets.requests import RequestTypes
 
 AtomicValueType = Union[int, float, bool]
 TagValueType = Union[AtomicValueType, List[Union[AtomicValueType, str]]]

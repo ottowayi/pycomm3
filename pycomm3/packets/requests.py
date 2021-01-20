@@ -23,20 +23,22 @@
 #
 
 import logging
+from itertools import cycle
 from typing import Union
 from reprlib import repr as _r
 
-from . import Packet, DataFormatType
-from . import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceResponsePacket, RegisterSessionResponsePacket,
-               UnRegisterSessionResponsePacket, ListIdentityResponsePacket, SendRRDataResponsePacket,
-               MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket, WriteTagServiceResponsePacket,
-               WriteTagFragmentedServiceResponsePacket, GenericUnconnectedResponsePacket,
+from . import (Packet, DataFormatType, )
+from .responses import (ResponsePacket, SendUnitDataResponsePacket, ReadTagServiceResponsePacket,
+               RegisterSessionResponsePacket, UnRegisterSessionResponsePacket, ListIdentityResponsePacket,
+               SendRRDataResponsePacket, MultiServiceResponsePacket, ReadTagFragmentedServiceResponsePacket,
+               WriteTagServiceResponsePacket, WriteTagFragmentedServiceResponsePacket, GenericUnconnectedResponsePacket,
                GenericConnectedResponsePacket)
 from ..exceptions import CommError, RequestError
 from ..bytes_ import Pack, print_bytes_msg
 from ..const import (EncapsulationCommands, INSUFFICIENT_PACKETS, DataItem, AddressItem, EXTENDED_SYMBOL, ELEMENT_TYPE,
                      Services, CLASS_TYPE, INSTANCE_TYPE, DataType, DataTypeSize, ConnectionManagerServices,
                      ClassCode, Services, STRUCTURE_READ_REPLY, PRIORITY, TIMEOUT_TICKS, ATTRIBUTE_TYPE)
+from ..map import EnumMap
 
 
 class RequestPacket(Packet):
@@ -45,16 +47,15 @@ class RequestPacket(Packet):
     _address_type = None
     _timeout = b'\x0a\x00'  # 10
     _encap_command = None
-    _response_class = ResponsePacket
-    _response_args = ()
-    _response_kwargs = {}
+    response_class = ResponsePacket
     type_ = None
     VERBOSE_DEBUG = False
+    no_response = False
 
-    def __init__(self, driver):
+    def __init__(self):
         super().__init__()
         self._msg = []  # message data
-        self._driver = driver  # TODO: Remove
+        # self._driver = driver  # TODO: Remove
         self.error = None
 
     def add(self, *value: bytes):
@@ -65,13 +66,14 @@ class RequestPacket(Packet):
     def message(self) -> bytes:
         return b''.join(self._msg)
 
-    def _build_request(self):
+    def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int, **kwargs):
         # TODO: should have args for any driver provided data
-        msg = self._build_common_packet_format(addr_data=self._driver._target_cid)
-        header = self._build_header(self._encap_command, len(msg))
+        msg = self._build_common_packet_format(addr_data=target_cid)
+        header = self._build_header(self._encap_command, len(msg), session_id, context, option)
         return header + msg
 
-    def _build_header(self, command, length) -> bytes:
+    @staticmethod
+    def _build_header(command, length, session_id, context, option) -> bytes:
         """ Build the encapsulate message header
 
         The header is 24 bytes fixed length, and includes the command and the length of the optional data portion.
@@ -82,10 +84,10 @@ class RequestPacket(Packet):
             return b''.join([
                 command,
                 Pack.uint(length),  # Length UINT
-                Pack.udint(self._driver._session),  # Session Handle UDINT
+                Pack.udint(session_id),  # Session Handle UDINT
                 b'\x00\x00\x00\x00',  # Status UDINT
-                self._driver._cfg['context'],  # Sender Context 8 bytes
-                Pack.udint(self._driver._cfg['option']),  # Option UDINT
+                context,  # Sender Context 8 bytes
+                Pack.udint(option)  # Option UDINT
             ])
 
         except Exception as err:
@@ -131,12 +133,12 @@ class RequestPacket(Packet):
 
     def send(self) -> ResponsePacket:
         if not self.error:
-            self._send(self._build_request())
+            self._send(self.build_request())
             self.__log.debug(f'Sent: {self!r}')
             reply = self._receive()
-            response = self._response_class(reply, *self._response_args, **self._response_kwargs)
+            response = self.response_class(reply, *self._response_args, **self._response_kwargs)
         else:
-            response = self._response_class(*self._response_args, **self._response_kwargs)
+            response = self.response_class(*self._response_args, **self._response_kwargs)
             response._error = self.error
         self.__log.debug(f'Received: {response!r}')
         return response
@@ -151,18 +153,23 @@ class SendUnitDataRequestPacket(RequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     _message_type = DataItem.connected
     _address_type = AddressItem.connection
-    _response_class = SendUnitDataResponsePacket
+    response_class = SendUnitDataResponsePacket
     _encap_command = EncapsulationCommands.send_unit_data
 
-    def __init__(self, driver):
-        super().__init__(driver)
-        self._msg = [Pack.uint(driver._sequence), ]
+    def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
+                      sequence: cycle = None, **kwargs):
+        self._msg.insert(0, Pack.uint(next(sequence)))
+        return super().build_request(target_cid, session_id, context, option, **kwargs)
+        # # TODO: should have args for any driver provided data
+        # msg = self._build_common_packet_format(addr_data=target_cid)
+        # header = self._build_header(self._encap_command, len(msg), session_id, context, option)
+        # return header + msg
 
 
 class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     type_ = 'read'
-    _response_class = ReadTagServiceResponsePacket
+    response_class = ReadTagServiceResponsePacket
 
     def __init__(self, driver):
         super().__init__(driver)
@@ -186,17 +193,17 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
             Pack.uint(self.elements),
         )
 
-    def send(self):
-        if not self.error:
-            self._send(self._build_request())
-            self.__log.debug(f'Sent: {self!r}')
-            reply = self._receive()
-            response = ReadTagServiceResponsePacket(reply, elements=self.elements, tag_info=self.tag_info, tag=self.tag)
-        else:
-            response = ReadTagServiceResponsePacket(tag=self.tag)
-            response._error = self.error
-        self.__log.debug(f'Received: {response!r}')
-        return response
+    # def send(self):
+    #     if not self.error:
+    #         self._send(self.build_request())
+    #         self.__log.debug(f'Sent: {self!r}')
+    #         reply = self._receive()
+    #         response = ReadTagServiceResponsePacket(reply, elements=self.elements, tag_info=self.tag_info, tag=self.tag)
+    #     else:
+    #         response = ReadTagServiceResponsePacket(tag=self.tag)
+    #         response._error = self.error
+    #     self.__log.debug(f'Received: {response!r}')
+    #     return response
 
     def __repr__(self):
         return f'{self.__class__.__name__}(tag={self.tag!r}, elements={self.elements!r})'
@@ -205,7 +212,7 @@ class ReadTagServiceRequestPacket(SendUnitDataRequestPacket):
 class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     type_ = 'read'
-    _response_class = ReadTagFragmentedServiceResponsePacket
+    response_class = ReadTagFragmentedServiceResponsePacket
 
     def __init__(self, driver):
         super().__init__(driver)
@@ -235,7 +242,7 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                                   self.request_path,
                                   Pack.uint(self.elements),
                                   Pack.dint(offset)])
-                self._send(self._build_request())
+                self._send(self.build_request())
                 self.__log.debug(f'Sent: {self!r} (offset={offset})')
                 reply = self._receive()
                 response = ReadTagFragmentedServiceResponsePacket(reply, self.tag_info, self.elements)
@@ -265,7 +272,7 @@ class ReadTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
 class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     type_ = 'write'
-    _response_class = WriteTagServiceResponsePacket
+    response_class = WriteTagServiceResponsePacket
 
     def __init__(self, driver):
         super().__init__(driver)
@@ -305,7 +312,7 @@ class WriteTagServiceRequestPacket(SendUnitDataRequestPacket):
 class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     type_ = 'write'
-    _response_class = WriteTagFragmentedServiceResponsePacket
+    response_class = WriteTagFragmentedServiceResponsePacket
 
     def __init__(self, driver):
         super().__init__(driver)
@@ -364,7 +371,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
                     segment_bytes
                 ))
 
-                self._send(self._build_request())
+                self._send(self.build_request())
                 self.__log.debug(f'Sent: {self!r} (part={i} offset={offset})')
                 reply = self._receive()
                 response = WriteTagFragmentedServiceResponsePacket(reply)
@@ -387,7 +394,7 @@ class WriteTagFragmentedServiceRequestPacket(SendUnitDataRequestPacket):
 class MultiServiceRequestPacket(SendUnitDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     type_ = 'multi'
-    _response_class = MultiServiceResponsePacket
+    response_class = MultiServiceResponsePacket
 
     def __init__(self, driver):
         super().__init__(driver)
@@ -473,7 +480,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
 
     def send(self):
         if not self._msg_errors:
-            request = self._build_request()
+            request = self.build_request()
             self._send(request)
             self.__log.debug(f'Sent: {self!r}')
             reply = self._receive()
@@ -530,7 +537,7 @@ class SendRRDataRequestPacket(RequestPacket):
     _message_type = DataItem.unconnected
     _address_type = AddressItem.uccm
     _encap_command = EncapsulationCommands.send_rr_data
-    _response_class = SendRRDataResponsePacket
+    response_class = SendRRDataResponsePacket
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
         return super()._build_common_packet_format(addr_data=None)
@@ -539,7 +546,7 @@ class SendRRDataRequestPacket(RequestPacket):
 class RegisterSessionRequestPacket(RequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     _encap_command = EncapsulationCommands.register_session
-    _response_class = RegisterSessionResponsePacket
+    response_class = RegisterSessionResponsePacket
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
         return self.message
@@ -548,7 +555,8 @@ class RegisterSessionRequestPacket(RequestPacket):
 class UnRegisterSessionRequestPacket(RequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     _encap_command = EncapsulationCommands.unregister_session
-    _response_class = UnRegisterSessionResponsePacket
+    response_class = UnRegisterSessionResponsePacket
+    no_response = True
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
         return b''
@@ -560,7 +568,7 @@ class UnRegisterSessionRequestPacket(RequestPacket):
 class ListIdentityRequestPacket(RequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     _encap_command = EncapsulationCommands.list_identity
-    _response_class = ListIdentityResponsePacket
+    response_class = ListIdentityResponsePacket
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
         return b''
@@ -568,15 +576,16 @@ class ListIdentityRequestPacket(RequestPacket):
 
 class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
-    _response_class = GenericConnectedResponsePacket
+    response_class = GenericConnectedResponsePacket
 
-    def __init__(self, driver):
-        super().__init__(driver)
+    def __init__(self):
+        super().__init__()
         self.service = None
         self.class_code = None
         self.instance = None
         self.attribute = None
         self.request_data = None
+        self.data_format = None
 
     def build(self,
               service: Union[int, bytes],
@@ -586,7 +595,7 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
               request_data: bytes = b'',
               data_format: DataFormatType = None):
 
-        self._response_kwargs = {'data_format': data_format}
+        self.data_format = data_format
         self.class_code = class_code
         self.instance = instance
         self.attribute = attribute
@@ -599,15 +608,16 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
 
 class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
-    _response_class = GenericUnconnectedResponsePacket
+    response_class = GenericUnconnectedResponsePacket
 
-    def __init__(self, driver):
-        super().__init__(driver)
+    def __init__(self):
+        super().__init__()
         self.service = None
         self.class_code = None
         self.instance = None
         self.attribute = None
         self.request_data = None
+        self.data_format = None
 
     def build(self,
               service: Union[int, bytes],
@@ -618,7 +628,7 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
               route_path: bytes = b'',
               unconnected_send: bool = False,
               data_format: DataFormatType = None):
-        self._response_kwargs = {'data_format': data_format}
+        self.data_format = data_format
         self.class_code = class_code
         self.instance = instance
         self.attribute = attribute
@@ -680,3 +690,18 @@ def encode_segment(segment: Union[bytes, int], segment_types: dict):
         raise RequestError('Segment value not valid for segment type')
 
     return _type + segment
+
+
+class RequestTypes(EnumMap):
+    send_unit_data = SendUnitDataRequestPacket
+    send_rr_data = SendRRDataRequestPacket
+    register_session = RegisterSessionRequestPacket
+    unregister_session = UnRegisterSessionRequestPacket
+    list_identity = ListIdentityRequestPacket
+    read_tag = ReadTagServiceRequestPacket
+    multi_request = MultiServiceRequestPacket
+    read_tag_fragmented = ReadTagFragmentedServiceRequestPacket
+    write_tag = WriteTagServiceRequestPacket
+    write_tag_fragmented = WriteTagFragmentedServiceRequestPacket
+    generic_connected = GenericConnectedRequestPacket
+    generic_unconnected = GenericUnconnectedRequestPacket

@@ -28,6 +28,7 @@ import logging
 import ipaddress
 import socket
 from functools import wraps
+from itertools import cycle
 from os import urandom
 from typing import Union, Optional
 
@@ -37,9 +38,10 @@ from .bytes_ import Pack, Unpack, print_bytes_msg
 from .const import (PATH_SEGMENTS, ConnectionManagerInstances, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
                     TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
                     ConnectionManagerServices, Services)
-from .packets import DataFormatType, RequestTypes
+from .packets import DataFormatType
+from .packets.requests import RequestTypes, RequestPacket
+from .packets.responses import ResponsePacket
 from .socket_ import Socket
-
 
 
 def with_forward_open(func):
@@ -73,7 +75,6 @@ class CIPDriver:
     """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-
     def __init__(self, path: str, *args, large_packets: bool = True, **kwargs):
         """
         :param path: CIP path to intended target
@@ -100,7 +101,7 @@ class CIPDriver:
                 as of 0.5.1, since it will automatically try a standard Forward Open if the extended one fails**
         """
         self.VERBOSE_DEBUG = False
-        self._sequence_number = 1
+        self._sequence = cycle(range(1, 65535))
         self._sock = kwargs.get('socket', None)
         self._session = kwargs.get('session', None)
         self._connection_opened = False
@@ -160,20 +161,6 @@ class CIPDriver:
         """CIP connection size, ``4000`` if using Extended Forward Open else ``500``"""
         return 4000 if self._cfg['extended forward open'] else 500
 
-    @property
-    def _sequence(self) -> int:
-        """
-        Increment and return the sequence id used with connected messages
-
-        :return: The next sequence number
-        """
-        self._sequence_number += 1
-
-        if self._sequence_number >= 65535:
-            self._sequence_number = 1
-
-        return self._sequence_number
-
     @classmethod
     def list_identity(cls, path) -> Optional[str]:
         """
@@ -199,7 +186,7 @@ class CIPDriver:
         driver = CIPDriver('0.0.0.0')  # dumby driver for creating the list_identity request
         context = driver._cfg['context']
         request = RequestTypes.list_identity(driver)
-        message = request._build_request()
+        message = request.build_request()
         devices = []
 
         for ip in ip_addrs:
@@ -214,7 +201,7 @@ class CIPDriver:
             while True:
                 try:
                     resp = sock.recv(4096)
-                    response = request._response_class(resp)
+                    response = request.response_class(resp)
                     if response and response.raw[12:20] == context:
                         devices.append(response.identity)
                 except Exception:
@@ -223,8 +210,8 @@ class CIPDriver:
         return devices
 
     def _list_identity(self):
-        request = RequestTypes.list_identity(self)
-        response = request.send()
+        request = RequestTypes.list_identity()
+        response = self.send(request)
         return response.identity
 
     def get_module_info(self, slot: int) -> dict:
@@ -280,13 +267,13 @@ class CIPDriver:
             return self._session
 
         self._session = 0
-        request = RequestTypes.register_session(self)
+        request = RequestTypes.register_session()
         request.add(
             self._cfg['protocol version'],
             b'\x00\x00'
         )
 
-        response = request.send()
+        response = self.send(request)
         if response:
             self._session = response.session
             self.__log.info(f"Session = {response.session} has been registered.")
@@ -389,8 +376,8 @@ class CIPDriver:
         """
         Un-registers the current session with the target.
         """
-        request = RequestTypes.unregister_session(self)
-        request.send()
+        request = RequestTypes.unregister_session()
+        self.send(request)
         self._session = None
         self.__log.info('Session Unregistered')
 
@@ -486,27 +473,33 @@ class CIPDriver:
             _kwargs['unconnected_send'] = unconnected_send
 
         req_class = RequestTypes.generic_connected if connected else RequestTypes.generic_unconnected
-        request = req_class(self)
+        request = req_class()
         request.build(**_kwargs)
 
-        response = request.send()
+        # response = request.send()
+        response = self.send(request)
 
         return Tag(name, response.value, None, error=response.error)
 
-    def send(self, request):
+    def send(self, request: RequestPacket) -> ResponsePacket:
         if not request.error:
             # TODO: remove request dependency on the driver
             #       maybe have driver provide the info needed in the build request method
-            self._send(request._build_request())
-            self.__log.debug(f'Sent: {request!r}')
-            reply = self._receive()
+            request_kwargs = {
+                'target_cid': self._target_cid,
+                'session_id': self._session,
+                'context': self._cfg['context'],
+                'option': self._cfg['option'],
+                'sequence': self._sequence
+            }
 
-            # TODO: remove the args and kwargs, response class should take the reply data and original request
-            #       the request has any context the response should need, so no need for individual args
-            response = request._response_class(reply, *request._response_args, **request._response_kwargs)
+            self._send(request.build_request(**request_kwargs))
+            self.__log.debug(f'Sent: {request!r}')
+            reply = None if request.no_response else self._receive()
         else:
-            response = request._response_class(*request._response_args, **request._response_kwargs)
-            response._error = request.error
+            reply = None
+
+        response = request.response_class(request, reply)
         self.__log.debug(f'Received: {response!r}')
         return response
 

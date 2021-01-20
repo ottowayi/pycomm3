@@ -37,7 +37,7 @@ def test_send_returns_appropriate_response_type(packet_cls):
          mock.patch.object(RequestPacket, '_send'), \
          mock.patch.object(RequestPacket, '_receive'):
         response = packet.send()
-        assert isinstance(response, packet._response_class)
+        assert isinstance(response, packet.response_class)
 
 packet_classes = RequestPacket.__subclasses__()
 @pytest.mark.parametrize('packet_cls', packet_classes)

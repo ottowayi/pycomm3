@@ -36,8 +36,9 @@ from ..const import (SUCCESS, INSUFFICIENT_PACKETS, Services, SERVICE_STATUS, EX
 class ResponsePacket(Packet):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, raw_data: bytes = None, *args, **kwargs):
+    def __init__(self, request, raw_data: bytes = None, *args, **kwargs):
         super().__init__()
+        self._request = request
         self.raw = raw_data
         self._error = None
         self.service = None
@@ -100,8 +101,8 @@ class ResponsePacket(Packet):
 class SendUnitDataResponsePacket(ResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, raw_data: bytes = None, *args, **kwargs):
-        super().__init__(raw_data, *args, **kwargs)
+    def __init__(self, request, raw_data: bytes = None, *args, **kwargs):
+        super().__init__(request, raw_data, *args, **kwargs)
 
     def _parse_reply(self):
         try:
@@ -130,8 +131,8 @@ class SendUnitDataResponsePacket(ResponsePacket):
 class SendRRDataResponsePacket(ResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, raw_data: bytes = None, *args, **kwargs):
-        super().__init__(raw_data)
+    def __init__(self, request, raw_data: bytes = None, *args, **kwargs):
+        super().__init__(request, raw_data)
 
     def _parse_reply(self):
         try:
@@ -158,10 +159,11 @@ class SendRRDataResponsePacket(ResponsePacket):
 class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self,  *args, data_format: DataFormatType, **kwargs):
-        self.data_format = data_format
+    def __init__(self, request, raw_data: bytes = None, *args, **kwargs):
+        self.data_format = request.data_format
         self.value = None
-        super().__init__(*args, **kwargs)
+        super().__init__(request, raw_data)
+
 
     def _parse_reply(self):
         super()._parse_reply()
@@ -170,7 +172,7 @@ class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
             self.value = self.data
         elif self.is_valid():
             try:
-                self.value = _parse_data(self.data, self.data_format)
+                self.value = parse_reply_data_by_format(self.data, self.data_format)
             except Exception as err:
                 self._error = f'Failed to parse reply - {err}'
                 self.value = None
@@ -179,10 +181,10 @@ class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
 class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self,  *args, data_format: DataFormatType, **kwargs):
-        self.data_format = data_format
+    def __init__(self, request, raw_data: bytes = None, *args, **kwargs):
+        self.data_format = request.data_format
         self.value = None
-        super().__init__(*args, **kwargs)
+        super().__init__(request, raw_data)
 
     def _parse_reply(self):
         super()._parse_reply()
@@ -191,7 +193,7 @@ class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
             self.value = self.data
         elif self.is_valid():
             try:
-                self.value = _parse_data(self.data, self.data_format)
+                self.value = parse_reply_data_by_format(self.data, self.data_format)
             except Exception as err:
                 self._error = f'Failed to parse reply - {err}'
                 self.value = None
@@ -320,9 +322,9 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 class RegisterSessionResponsePacket(ResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, raw_data: bytes = None, *args, **kwargs):
+    def __init__(self, request, raw_data: bytes = None, *args, **kwargs):
         self.session = None
-        super().__init__(raw_data)
+        super().__init__(request, raw_data)
 
     def _parse_reply(self):
         try:
@@ -374,15 +376,15 @@ class ListIdentityResponsePacket(ResponsePacket):
         ('state', 'USINT')
     )
 
-    def __init__(self, raw_data: bytes = None, *args, **kwargs):
+    def __init__(self, request, raw_data: bytes = None, *args, **kwargs):
         self.identity = {}
-        super().__init__(raw_data)
+        super().__init__(request, raw_data)
 
     def _parse_reply(self):
         try:
             super()._parse_reply()
             self.data = self.raw[26:]
-            self.identity = _parse_data(self.data, self._data_format)
+            self.identity = parse_reply_data_by_format(self.data, self._data_format)
         except Exception as err:
             self.__log.exception('Failed to parse response')
             self._error = f'Failed to parse reply - {err}'
@@ -397,7 +399,7 @@ class ListIdentityResponsePacket(ResponsePacket):
         return f'{self.__class__.__name__}(identity={self.identity!r}, error={self.error!r})'
 
 
-def _parse_data(data, fmt):
+def parse_reply_data_by_format(data, fmt):
     values = {}
     start = 0
     for name, typ in fmt:

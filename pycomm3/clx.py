@@ -39,7 +39,7 @@ from .const import (EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataT
                     MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, Services, SUCCESS, ELEMENT_TYPE,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH,
                     TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DataTypeSize, MIN_VER_EXTERNAL_ACCESS, )
-from .packets import request_path, encode_segment, RequestTypes
+from .packets.requests import request_path, encode_segment, RequestTypes
 
 AtomicValueType = Union[int, float, bool, str]
 TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, 'TagValueType']]
@@ -344,7 +344,7 @@ class LogixDriver(CIPDriver):
                 ]
                 path = b''.join(path)
                 path_size = Pack.usint(len(path) // 2)
-                request = RequestTypes.send_unit_data(self)
+                request = RequestTypes.send_unit_data()
 
                 attributes = [
                     b'\x01\x00',  # Attr. 1: Symbol name
@@ -366,7 +366,7 @@ class LogixDriver(CIPDriver):
                     *attributes
 
                 )
-                response = request.send()
+                response = self.send(request)
                 if not response:
                     raise DataError(f"send_unit_data returned not valid data - {response.error}")
 
@@ -509,7 +509,7 @@ class LogixDriver(CIPDriver):
         get the structure makeup for a specific structure
         """
         if instance_id not in self._cache['id:struct']:
-            request = RequestTypes.send_unit_data(self)
+            request = RequestTypes.send_unit_data()
             req_path = request_path(ClassCode.template_object, Pack.uint(instance_id))
             request.add(
                 Services.get_attribute_list,
@@ -523,7 +523,7 @@ class LogixDriver(CIPDriver):
                 b'\x01\x00',  # Structure Handle We can use this to read and write UINT
             )
 
-            response = request.send()
+            response = self.send(request)
             if not response:
                 raise DataError(f"send_unit_data returned not valid data", response.error)
             _struct = _parse_structure_makeup_attributes(response)
@@ -541,7 +541,7 @@ class LogixDriver(CIPDriver):
         template_raw = b''
         try:
             while True:
-                request = RequestTypes.send_unit_data(self)
+                request = RequestTypes.send_unit_data()
                 req_path = request_path(ClassCode.template_object, instance=Pack.uint(instance_id))
                 request.add(
                     Services.read_tag,
@@ -550,7 +550,7 @@ class LogixDriver(CIPDriver):
                     Pack.dint(offset),
                     Pack.uint(((object_definition_size * 4) - 21) - offset)
                 )
-                response = request.send()
+                response = self.send(request)
 
                 if response.service_status not in (SUCCESS, INSUFFICIENT_PACKETS):
                     raise DataError('Error reading template', response)
