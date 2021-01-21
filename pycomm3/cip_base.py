@@ -192,7 +192,7 @@ class CIPDriver:
             for family, _, _, _, sockaddr in
             socket.getaddrinfo(socket.gethostname(), None)
             if family == socket.AddressFamily.AF_INET
-        ] + [None, ]
+        ]
 
         driver = CIPDriver('0.0.0.0')  # dumby driver for creating the list_identity request
         driver._session = 0
@@ -202,22 +202,32 @@ class CIPDriver:
         devices = []
 
         for ip in ip_addrs:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(1)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            if ip:
-                sock.bind((ip, 0))
+            devices += cls._broadcast_discover(ip, message, context, request)
 
-            sock.sendto(message, ('255.255.255.255', 44818))
+        if not devices:
+            devices += cls._broadcast_discover(None, message, context, request)
 
-            while True:
-                try:
-                    resp = sock.recv(4096)
-                    response = request._response_class(resp)
-                    if response and response.raw[12:20] == context:
-                        devices.append(response.identity)
-                except Exception:
-                    break
+        return devices
+
+    @staticmethod
+    def _broadcast_discover(ip, message, context, request):
+        devices = []
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        if ip:
+            sock.bind((ip, 0))
+
+        sock.sendto(message, ('255.255.255.255', 44818))
+
+        while True:
+            try:
+                resp = sock.recv(4096)
+                response = request._response_class(resp)
+                if response and response.raw[12:20] == context:
+                    devices.append(response.identity)
+            except Exception:
+                break
 
         return devices
 
