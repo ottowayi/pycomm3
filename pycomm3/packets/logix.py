@@ -59,6 +59,11 @@ class ReadTagServiceResponsePacket(TagServiceResponsePacket):
         return f'{self.__class__.__name__}({self.data_type!r}, {_r(self.value)}, {self.service_status!r})'
 
 
+# TODO: remove the request_path arg, the path should be created in the request
+#       it was originally, but then moved outside to make packet size estimation more accurate
+#       but, multi packet will be changed to accept packets and can then use the full message
+#       from the tag packet for tracking size
+
 class ReadTagServiceRequestPacket(TagServiceRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     type_ = 'read'
