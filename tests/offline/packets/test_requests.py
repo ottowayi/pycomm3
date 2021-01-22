@@ -1,5 +1,5 @@
 
-from pycomm3.cip_base import CIPDriver
+from pycomm3.cip_driver import CIPDriver
 from unittest import mock
 
 import pytest

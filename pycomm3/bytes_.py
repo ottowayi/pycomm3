@@ -28,6 +28,7 @@ from .map import EnumMap
 from itertools import chain
 from . import const
 
+
 def _pack_epath(path, pad_len=False):
     if len(path) % 2:
         path += b'\x00'

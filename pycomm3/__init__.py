@@ -33,6 +33,6 @@ from .const import *
 from .bytes_ import Pack, Unpack
 from .tag import Tag
 from .exceptions import PycommError, CommError, DataError, RequestError
-from .cip_base import CIPDriver
-from .clx import LogixDriver
-from .slc import SLCDriver
+from .cip_driver import CIPDriver
+from .logix_driver import LogixDriver
+from .slc_driver import SLCDriver

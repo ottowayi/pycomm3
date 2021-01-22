@@ -1,4 +1,4 @@
-"""Tests for the clx.py file.
+"""Tests for the logix_driver.py file.
 
 There are quite a few methods in the CIPDriver which are difficult to
 read or test due to both code clarity and complexity issues. As well as
@@ -14,7 +14,7 @@ import socket
 from unittest import mock
 
 import pytest
-from pycomm3.cip_base import CIPDriver
+from pycomm3.cip_driver import CIPDriver
 from pycomm3.exceptions import CommError, DataError, PycommError
 from pycomm3.socket_ import Socket
 from pycomm3.tag import Tag

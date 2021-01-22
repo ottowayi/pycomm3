@@ -35,9 +35,11 @@ from typing import Union, Optional
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
 from .bytes_ import Pack, Unpack, print_bytes_msg
-from .const import (PATH_SEGMENTS, ConnectionManagerInstances, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
-                    TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
-                    ConnectionManagerServices, Services)
+
+from .cip import (PATH_SEGMENTS, ConnectionManagerInstances, ClassCode, PRODUCT_TYPES, VENDORS, STATES,
+                  MSG_ROUTER_PATH, ConnectionManagerServices, Services)
+
+from .const import PRIORITY, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS
 from .packets import DataFormatType, RequestPacket, ResponsePacket, RequestTypes
 from .socket_ import Socket
 

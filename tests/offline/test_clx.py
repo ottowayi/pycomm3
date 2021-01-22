@@ -1,4 +1,4 @@
-"""Tests for the clx.py file.
+"""Tests for the logix_driver.py file.
 
 The Logix Driver is beholden to the CIPDriver interface. Only tests
 which bind it to that interface should be allowed here. Tests binding
@@ -15,7 +15,7 @@ pytest --cov=pycomm3 --cov-branch tests/offline/
 ----------- coverage: platform linux, python 3.8.1-final-0 -----------
 Name                           Stmts   Miss Branch BrPart  Cover
 ----------------------------------------------------------------
-pycomm3/clx.py                   798    718    346      0     7%
+pycomm3/logix_driver.py                   798    718    346      0     7%
 
 We're currently at 7% test coverage, I would like to increase that to >=50%
 and then continue to do so for the rest of the modules.
@@ -26,8 +26,8 @@ from pycomm3.const import MICRO800_PREFIX, SUCCESS
 from unittest import mock
 
 import pytest
-from pycomm3.cip_base import CIPDriver
-from pycomm3.clx import LogixDriver, tag_request_path, writable_value, _tag_return_size
+from pycomm3.cip_driver import CIPDriver
+from pycomm3.logix_driver import LogixDriver, tag_request_path, writable_value, _tag_return_size
 from pycomm3.exceptions import CommError, PycommError, RequestError
 from pycomm3.socket_ import Socket
 from pycomm3.tag import Tag

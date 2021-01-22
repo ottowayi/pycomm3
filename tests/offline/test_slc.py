@@ -1,18 +1,18 @@
 """Tests for the SLCDriver
 
-The methods and functions in the slc.py file are extraordinarily
+The methods and functions in the slc_driver.py file are extraordinarily
 difficult to test.
 """
 
 from pycomm3.const import SLC_REPLY_START, SUCCESS
 from pycomm3.packets import ResponsePacket, SendUnitDataResponsePacket, RequestPacket
-from pycomm3.cip_base import CIPDriver
+from pycomm3.cip_driver import CIPDriver
 from unittest import mock
 
 import pytest
 from pycomm3.exceptions import DataError, RequestError
 
-from pycomm3.slc import SLCDriver, _parse_read_reply
+from pycomm3.slc_driver import SLCDriver, _parse_read_reply
 from pycomm3.tag import Tag
 
 CONNECT_PATH = '192.168.1.100/1'

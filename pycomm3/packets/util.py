@@ -4,9 +4,9 @@ from typing import Union, Sequence, Tuple, Optional
 
 from .. import util
 from ..bytes_ import Pack, Unpack
-from ..const import (ClassCode, ConnectionManagerServices, PRIORITY, TIMEOUT_TICKS, CLASS_TYPE, INSTANCE_TYPE,
-                     ATTRIBUTE_TYPE, SERVICE_STATUS, DataType, DataTypeSize, StringTypeLenSize, STRUCTURE_READ_REPLY,
-                     Services, EXTEND_CODES)
+from ..cip import (ClassCode, ConnectionManagerServices, CLASS_TYPE, INSTANCE_TYPE, ATTRIBUTE_TYPE,
+                   SERVICE_STATUS, DataType, DataTypeSize, StringTypeLenSize, Services, EXTEND_CODES)
+from ..const import PRIORITY, TIMEOUT_TICKS, STRUCTURE_READ_REPLY
 from ..exceptions import RequestError
 
 

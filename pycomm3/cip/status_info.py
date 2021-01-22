@@ -22,6 +22,7 @@
 # SOFTWARE.
 #
 
+
 EXTERNAL_ACCESS = {
     0: 'Read/Write',
     1: 'Reserved',

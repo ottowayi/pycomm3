@@ -29,9 +29,9 @@ import re
 from typing import List, Tuple, Optional, Union
 
 from .bytes_ import Pack, Unpack
-from .cip_base import CIPDriver, with_forward_open
-from .const import (CLASS_TYPE, SUCCESS, PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE, PCCC_ERROR_CODE,
-                    SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH)
+from .cip_driver import CIPDriver, with_forward_open
+from .cip import CLASS_TYPE, PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE, PCCC_ERROR_CODE
+from .const import SUCCESS, SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH
 from .exceptions import DataError, RequestError
 from .tag import Tag
 from .packets import RequestTypes
@@ -584,8 +584,6 @@ def parse_tag(tag: str) -> Optional[dict]:
                 'address_field': 3,
                 'element_count': int(element_count) if element_count is not None else 1,
                 'tag': tag_name}
-
-
 
     return None
 

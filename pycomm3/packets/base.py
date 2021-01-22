@@ -3,7 +3,7 @@ from reprlib import repr as _r
 from typing import Optional
 
 from ..const import SUCCESS
-from ..bytes_ import Pack, Unpack, print_bytes_msg
+from ..bytes_ import Pack, Unpack
 from ..exceptions import CommError
 
 __all__ = ['Packet', 'ResponsePacket', 'RequestPacket']

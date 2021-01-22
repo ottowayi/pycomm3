@@ -24,13 +24,11 @@
 import logging
 from itertools import cycle
 
-
 from .base import RequestPacket, ResponsePacket
 from .util import get_service_status, get_extended_status, parse_reply_data_by_format
 
-from ..const import(SUCCESS, INSUFFICIENT_PACKETS, MULTI_PACKET_SERVICES,
-                    Services, DataItem, AddressItem, EncapsulationCommands)
-
+from ..const import SUCCESS, INSUFFICIENT_PACKETS
+from ..cip import MULTI_PACKET_SERVICES, Services, DataItem, AddressItem, EncapsulationCommands
 from ..bytes_ import Pack, Unpack
 
 

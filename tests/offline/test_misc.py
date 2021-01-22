@@ -1,5 +1,5 @@
 import pytest
-from pycomm3.cip_base import parse_connection_path
+from pycomm3.cip_driver import parse_connection_path
 from pycomm3 import RequestError
 
 _simple_path = ('192.168.1.100', b'\x01\x01\x00')
