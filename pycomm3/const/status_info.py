@@ -199,9 +199,6 @@ EXTEND_CODES = {
 }
 
 
-
-
-
 PCCC_ERROR_CODE = {
     -2: "Not Acknowledged (NAK)",
     -3: "No Reponse, Check COM Settings",

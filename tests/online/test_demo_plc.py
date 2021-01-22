@@ -22,3 +22,19 @@ def test_get_time(plc):
 
 def test_set_time(plc):
     assert plc.set_plc_time()
+
+
+def test_discover():
+    from pycomm3 import CIPDriver
+    devices = CIPDriver.discover()
+
+    # status can change based on number of connections or other reasons
+    # just check to make sure it has a value then remove it from the
+    # rest of the device info
+    assert devices[0]['status']
+    del devices[0]['status']
+
+    assert devices == [{'item_type_code': 12, 'item_length': 63, 'encap_protocol_version': 1,
+                        'ip_address': '192.168.1.236', 'vendor_id': 1, 'device_type': 12, 'product_code': 191,
+                        'revision_major': 20, 'revision_minor': 19, 'serial_number': 3223240336,
+                        'product_name': '1769-L23E-QBFC1 Ethernet Port', 'state': 3}]
