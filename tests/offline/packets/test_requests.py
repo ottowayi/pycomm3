@@ -5,16 +5,16 @@ from unittest import mock
 import pytest
 from pycomm3.const import DataType
 from pycomm3.exceptions import CommError, PycommError, RequestError
-from pycomm3.packets.requests import (
+from pycomm3.packets import (
     RequestPacket,
     ReadTagFragmentedServiceRequestPacket,
     WriteTagFragmentedServiceRequestPacket,
     MultiServiceRequestPacket,
     request_path,
-    _make_write_data_tag,
-    _make_write_data_bit
+    make_write_data_tag,
+    make_write_data_bit
 )
-from pycomm3.packets.responses import (
+from pycomm3.packets import (
     ReadTagServiceResponsePacket
 )
 from pycomm3.packets import RequestTypes

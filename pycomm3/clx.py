@@ -39,7 +39,7 @@ from .const import (EXTENDED_SYMBOL, CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataT
                     MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, Services, SUCCESS, ELEMENT_TYPE,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US, KEYSWITCH,
                     TEMPLATE_MEMBER_INFO_LEN, EXTERNAL_ACCESS, DataTypeSize, MIN_VER_EXTERNAL_ACCESS, )
-from .packets.requests import request_path, encode_segment, RequestTypes
+from .packets import request_path, encode_segment, RequestTypes
 
 AtomicValueType = Union[int, float, bool, str]
 TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, 'TagValueType']]
@@ -693,27 +693,27 @@ class LogixDriver(CIPDriver):
                 return_size = _tag_return_size(tag_data) + len(tag_data['rp']) + 4  # 4 = DINT element count
                 if return_size > self.connection_size:
                     _request = RequestTypes.read_tag_fragmented(self)
-                    _request.add(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
-                                 tag_data['tag_info'], request_id)
+                    _request.add(tag_data['plc_tag'], tag_data['elements'],
+                                 tag_data['tag_info'], request_id, tag_data['rp'])
                     requests.append(_request)
                 else:
                     try:
                         return_size += 2  # add 2 bytes for offset list in reply
                         if response_size + return_size < self.connection_size:
-                            if current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
-                                                        tag_data['tag_info'], request_id):
+                            if current_request.add_read(tag_data['plc_tag'], tag_data['elements'],
+                                                        tag_data['tag_info'], request_id, tag_data['rp']):
                                 response_size += return_size
                             else:
                                 response_size = return_size + MULTISERVICE_READ_OVERHEAD
                                 current_request = RequestTypes.multi_request(self)
-                                current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
-                                                         tag_data['tag_info'], request_id)
+                                current_request.add_read(tag_data['plc_tag'], tag_data['elements'],
+                                                         tag_data['tag_info'], request_id, tag_data['rp'])
                                 requests.append(current_request)
                         else:
                             response_size = return_size + MULTISERVICE_READ_OVERHEAD
                             current_request = RequestTypes.multi_request(self)
-                            current_request.add_read(tag_data['plc_tag'], tag_data['rp'], tag_data['elements'],
-                                                     tag_data['tag_info'], request_id)
+                            current_request.add_read(tag_data['plc_tag'], tag_data['elements'],
+                                                     tag_data['tag_info'], request_id, tag_data['rp'])
                             requests.append(current_request)
                     except RequestError:
                         self.__log.exception(f'Failed to build request for {tag_data["request_tag"]} - skipping')
@@ -736,8 +736,8 @@ class LogixDriver(CIPDriver):
             else:
                 request_class = RequestTypes.read_tag
 
-            request = request_class(parsed_tag['plc_tag'], parsed_tag['rp'], parsed_tag['elements'],
-                                    parsed_tag['tag_info'], parsed_tag['request_id'])
+            request = request_class(parsed_tag['plc_tag'], parsed_tag['elements'],
+                                    parsed_tag['tag_info'], parsed_tag['request_id'], parsed_tag['rp'],)
 
             return request
 
@@ -825,19 +825,19 @@ class LogixDriver(CIPDriver):
                 req_size = len(tag_data['write_value']) + len(tag_data['rp']) + 4
                 if req_size > self.connection_size:
                     _request = RequestTypes.write_tag_fragmented(self)
-                    _request.add(tag_data['plc_tag'], tag_data['rp'], tag_data['write_value'], tag_data['elements'],
-                                 tag_data['tag_info'], request_id)
+                    _request.add(tag_data['plc_tag'], tag_data['elements'],
+                                 tag_data['tag_info'], request_id, tag_data['rp'], tag_data['write_value'])
                     requests.append(_request)
                     continue
 
                 try:
-                    if not current_request.add_write(tag_data['plc_tag'], tag_data['rp'], tag_data['write_value'],
-                                                     tag_data['elements'], tag_data['tag_info'], request_id):
+                    if not current_request.add_write(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'],
+                                                     request_id, tag_data['rp'], tag_data['write_value']):
 
                         current_request = RequestTypes.multi_request(self)
                         requests.append(current_request)
-                        current_request.add_write(tag_data['plc_tag'], tag_data['rp'], tag_data['write_value'],
-                                                  tag_data['elements'], tag_data['tag_info'], request_id)
+                        current_request.add_write(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'],
+                                                  request_id, tag_data['rp'], tag_data['write_value'])
 
                 except RequestError:
                     self.__log.exception(f'Failed to build request for {tag_data["request_tag"]} - skipping')
@@ -852,12 +852,12 @@ class LogixDriver(CIPDriver):
                     bit_writes[tag]['request_id'] = _request_id
                     value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
                     rp = tag_request_path(tag, self._tags, self._cfg['use_instance_ids'])
-                    if not current_request.add_write(tag, rp, value, 1, bit_writes[tag]['tag_info'],
-                                                     _request_id, bits_write=True):
+                    if not current_request.add_write(tag, 1, bit_writes[tag]['tag_info'],
+                                                     _request_id, rp, value, bits_write=True):
                         current_request = RequestTypes.multi_request(self)
                         requests.append(current_request)
-                        current_request.add_write(tag, rp, value, 1, bit_writes[tag]['tag_info'],
-                                                  _request_id, bits_write=True)
+                        current_request.add_write(tag, 1, bit_writes[tag]['tag_info'],
+                                                  _request_id, rp, value, bits_write=True)
                 except RequestError:
                     self.__log.exception(f'Failed to build request for {tag} - skipping')
                     continue

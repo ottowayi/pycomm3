@@ -20,10 +20,9 @@ pycomm3/clx.py                   798    718    346      0     7%
 We're currently at 7% test coverage, I would like to increase that to >=50%
 and then continue to do so for the rest of the modules.
 """
-from pycomm3.packets.responses import ResponsePacket
+from pycomm3.packets import ResponsePacket, RequestPacket
 from pycomm3.const import MICRO800_PREFIX, SUCCESS
-from pycomm3.packets.requests import RequestPacket
-import socket
+
 from unittest import mock
 
 import pytest

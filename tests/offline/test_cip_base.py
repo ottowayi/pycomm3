@@ -8,8 +8,8 @@ private API methods to achieve an acceptable test coverage.
 """
 from logging import exception
 from pycomm3.const import SUCCESS
-from pycomm3.packets.responses import RegisterSessionResponsePacket, ResponsePacket, GenericConnectedResponsePacket
-from pycomm3.packets.requests import GenericConnectedRequestPacket, GenericUnconnectedRequestPacket, RegisterSessionRequestPacket, RequestPacket, UnRegisterSessionRequestPacket
+from pycomm3.packets import RegisterSessionResponsePacket, ResponsePacket, GenericConnectedResponsePacket
+from pycomm3.packets import GenericConnectedRequestPacket, GenericUnconnectedRequestPacket, RegisterSessionRequestPacket, RequestPacket, UnRegisterSessionRequestPacket
 import socket
 from unittest import mock
 

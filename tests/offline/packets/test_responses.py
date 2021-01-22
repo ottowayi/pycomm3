@@ -6,7 +6,7 @@ extremely high cyclomatic complexity in the methods and functions here.
 https://www.sonarsource.com/docs/CognitiveComplexity.pdf
 https://en.wikipedia.org/wiki/Cyclomatic_complexity#Definition
 """
-from pycomm3.packets.responses import get_extended_status, parse_read_reply_struct
+from pycomm3.packets import get_extended_status, parse_read_reply_struct
 
 
 def test_unknown_status_size_if_not_branch():

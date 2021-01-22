@@ -5,13 +5,13 @@ difficult to test.
 """
 
 from pycomm3.const import SLC_REPLY_START, SUCCESS
-from pycomm3.packets.responses import ResponsePacket, SendUnitDataResponsePacket
+from pycomm3.packets import ResponsePacket, SendUnitDataResponsePacket, RequestPacket
 from pycomm3.cip_base import CIPDriver
 from unittest import mock
 
 import pytest
 from pycomm3.exceptions import DataError, RequestError
-from pycomm3.packets.requests import RequestPacket
+
 from pycomm3.slc import SLCDriver, _parse_read_reply
 from pycomm3.tag import Tag
 

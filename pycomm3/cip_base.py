@@ -38,9 +38,7 @@ from .bytes_ import Pack, Unpack, print_bytes_msg
 from .const import (PATH_SEGMENTS, ConnectionManagerInstances, PRIORITY, ClassCode, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS,
                     TRANSPORT_CLASS, PRODUCT_TYPES, VENDORS, STATES, MSG_ROUTER_PATH,
                     ConnectionManagerServices, Services)
-from .packets import DataFormatType
-from .packets.requests import RequestTypes, RequestPacket
-from .packets.responses import ResponsePacket
+from .packets import DataFormatType, RequestPacket, ResponsePacket, RequestTypes
 from .socket_ import Socket
 
 
@@ -186,8 +184,9 @@ class CIPDriver:
         driver = CIPDriver('0.0.0.0')  # dumby driver for creating the list_identity request
         driver._session = 0
         context = driver._cfg['context']
-        request = RequestTypes.list_identity(driver)
-        message = request.build_request()
+        option = driver._cfg['option']
+        request = RequestTypes.list_identity()
+        message = request.build_request(None, driver._session, context, option)
         devices = []
 
         for ip in ip_addrs:
@@ -212,11 +211,13 @@ class CIPDriver:
         while True:
             try:
                 resp = sock.recv(4096)
-                response = request._response_class(resp)
+                response = request.response_class(request, resp)
                 if response and response.raw[12:20] == context:
                     devices.append(response.identity)
             except Exception:
                 break
+
+        return devices
 
     def _list_identity(self):
         request = RequestTypes.list_identity()
