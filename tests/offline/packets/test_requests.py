@@ -7,15 +7,15 @@ from pycomm3.const import DataType
 from pycomm3.exceptions import CommError, PycommError, RequestError
 from pycomm3.packets import (
     RequestPacket,
-    ReadTagFragmentedServiceRequestPacket,
-    WriteTagFragmentedServiceRequestPacket,
+    ReadTagFragmentedRequestPacket,
+    WriteTagFragmentedRequestPacket,
     MultiServiceRequestPacket,
     request_path,
     make_write_data_tag,
     make_write_data_bit
 )
 from pycomm3.packets import (
-    ReadTagServiceResponsePacket
+    ReadTagResponsePacket
 )
 from pycomm3.packets import RequestTypes
 
@@ -53,17 +53,17 @@ def test_send_calls__send_and__receive(packet_cls):
 
 def test_ReadTagFragmentedServiceRequestPacket_returns_expected_response_if_error():
     driver = CIPDriver(CONNECT_PATH)
-    packet = ReadTagFragmentedServiceRequestPacket(driver)
+    packet = ReadTagFragmentedRequestPacket(driver)
     packet.error = "Some Error"
 
-    expected_response = ReadTagServiceResponsePacket()
+    expected_response = ReadTagResponsePacket()
     expected_response._error = packet.error
     result = packet.send()
     assert str(result) == str(expected_response)
 
 def test_default_WriteTagFragmentedServiceRequestPacket_attributes():
     driver = CIPDriver(CONNECT_PATH)
-    packet = WriteTagFragmentedServiceRequestPacket(driver)
+    packet = WriteTagFragmentedRequestPacket(driver)
     assert packet.tag is None
     assert packet.value is None
     assert packet.elements is None
@@ -76,7 +76,7 @@ def test_default_WriteTagFragmentedServiceRequestPacket_attributes():
 
 def test_default_WriteTagFragmentedServiceRequestPacket_add_exception_sets_error():
     driver = CIPDriver(CONNECT_PATH)
-    packet = WriteTagFragmentedServiceRequestPacket(driver)
+    packet = WriteTagFragmentedRequestPacket(driver)
     packet.add(1, 1, 1, 1, 1, 1)
     assert packet.error is not None
 

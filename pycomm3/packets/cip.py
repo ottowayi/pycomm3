@@ -46,7 +46,7 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
         self.service = service if isinstance(service, bytes) else bytes([service])
         self.request_data = request_data
         req_path = request_path(class_code, instance, attribute)
-        self.add(self.service, req_path, request_data)
+        self._msg += [self.service, req_path, request_data]
 
 
 class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
@@ -93,8 +93,8 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
         req_path = request_path(class_code, instance, attribute)
 
         if unconnected_send:
-            self.add(wrap_unconnected_send(b''.join((self.service, req_path, request_data)), route_path))
+            msg = [wrap_unconnected_send(b''.join((self.service, req_path, request_data)), route_path), ]
         else:
-            self.add(self.service, req_path, request_data, route_path)
+            msg = [self.service, req_path, request_data, route_path]
 
-
+        self._msg += msg

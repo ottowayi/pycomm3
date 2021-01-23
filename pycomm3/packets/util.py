@@ -4,9 +4,9 @@ from typing import Union, Sequence, Tuple, Optional
 
 from .. import util
 from ..bytes_ import Pack, Unpack
-from ..cip import (ClassCode, ConnectionManagerServices, CLASS_TYPE, INSTANCE_TYPE, ATTRIBUTE_TYPE,
+from ..cip import (ClassCode, ConnectionManagerServices, CLASS_TYPE, INSTANCE_TYPE, ATTRIBUTE_TYPE, ELEMENT_TYPE,
                    SERVICE_STATUS, DataType, DataTypeSize, StringTypeLenSize, Services, EXTEND_CODES)
-from ..const import PRIORITY, TIMEOUT_TICKS, STRUCTURE_READ_REPLY
+from ..const import PRIORITY, TIMEOUT_TICKS, STRUCTURE_READ_REPLY, EXTENDED_SYMBOL
 from ..exceptions import RequestError
 
 
@@ -60,6 +60,70 @@ def encode_segment(segment: Union[bytes, int], segment_types: dict) -> bytes:
     return _type + segment
 
 
+def tag_request_path(tag, tag_cache, use_instance_ids):
+    """
+    It returns the request packed wrapped around the tag passed.
+    If any error it returns none
+    """
+
+    tags = tag.split('.')
+    if tags:
+        base, *attrs = tags
+        base_tag, index = _find_tag_index(base)
+        if use_instance_ids and base_tag in tag_cache:
+            rp = [CLASS_TYPE['8-bit'],
+                  ClassCode.symbol_object,
+                  INSTANCE_TYPE['16-bit'],
+                  Pack.uint(tag_cache[base_tag]['instance_id'])]
+        else:
+            base_len = len(base_tag)
+            rp = [EXTENDED_SYMBOL,
+                  Pack.usint(base_len),
+                  base_tag.encode()]
+            if base_len % 2:
+                rp.append(b'\x00')
+        if index is None:
+            return None
+        else:
+            rp += _encode_tag_index(index)
+
+        for attr in attrs:
+            attr, index = _find_tag_index(attr)
+            tag_length = len(attr)
+            # Create the request path
+            attr_path = [EXTENDED_SYMBOL,
+                         Pack.usint(tag_length),
+                         attr.encode()]
+            # Add pad byte because total length of Request path must be word-aligned
+            if tag_length % 2:
+                attr_path.append(b'\x00')
+            # Add any index
+            if index is None:
+                return None
+            else:
+                attr_path += _encode_tag_index(index)
+            rp += attr_path
+
+        return Pack.epath(b''.join(rp))
+
+    return None
+
+
+def _find_tag_index(tag):
+    if '[' in tag:  # Check if is an array tag
+        t = tag[:len(tag) - 1]  # Remove the last square bracket
+        inside_value = t[t.find('[') + 1:]  # Isolate the value inside bracket
+        index = inside_value.split(',')  # Now split the inside value in case part of multidimensional array
+        tag = t[:t.find('[')]  # Get only the tag part
+    else:
+        index = []
+    return tag, index
+
+
+def _encode_tag_index(index):
+    return [encode_segment(int(idx), ELEMENT_TYPE) for idx in index]
+
+
 def get_service_status(status) -> str:
     return SERVICE_STATUS.get(status, f'Unknown Error ({status:0>2x})')
 
@@ -93,27 +157,27 @@ def get_extended_status(msg, start) -> str:
         return "No Extended Status"
 
 
-def make_write_data_tag(tag_info, value, elements, request_path, fragmented=False):
-    data_type = tag_info['data_type']
-    if tag_info['tag_type'] == 'struct':
-        if not isinstance(value, bytes):
-            raise RequestError('Writing UDTs only supports bytes for value')
-        _dt_value = b'\xA0\x02' + Pack.uint(tag_info['data_type']['template']['structure_handle'])
-        data_type = tag_info['data_type']['name']
+# def make_write_data_tag(tag_info, value, elements, request_path, fragmented=False):
+#     data_type = tag_info['data_type_name']
+#     if tag_info['tag_type'] == 'struct':
+#         if not isinstance(value, bytes):
+#             raise RequestError('Writing UDTs only supports bytes for value')
+#         _dt_value = b'\xA0\x02' + Pack.uint(tag_info['data_type']['template']['structure_handle'])
+#
+#     elif data_type not in DataType:
+#         raise RequestError("Unsupported data type")
+#     else:
+#         _dt_value = Pack.uint(DataType[data_type])
 
-    elif data_type not in DataType:
-        raise RequestError("Unsupported data type")
-    else:
-        _dt_value = Pack.uint(DataType[data_type])
+    # service = Services.write_tag_fragmented if fragmented else Services.write_tag
 
-    service = Services.write_tag_fragmented if fragmented else Services.write_tag
+    # rp = b''.join((service,
+    #                request_path,
+    #                _dt_value,
+    #                Pack.uint(elements),
+    #                value))
+    # return rp, data_type
 
-    rp = b''.join((service,
-                   request_path,
-                   _dt_value,
-                   Pack.uint(elements),
-                   value))
-    return rp, data_type
 
 
 def make_write_data_bit(tag_info, value, request_path):

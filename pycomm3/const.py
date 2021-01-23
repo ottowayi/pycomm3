@@ -26,7 +26,8 @@ HEADER_SIZE = 24
 
 # used to estimate packet size  and determine
 # when to start a new packet
-MULTISERVICE_READ_OVERHEAD = 6
+# 6 bytes for service and request path, 2 bytes for services count
+MULTISERVICE_READ_OVERHEAD = 8
 
 MIN_VER_INSTANCE_IDS = 21  # using Symbol Instance Addressing not supported below version 21
 MIN_VER_LARGE_CONNECTIONS = 20  # >500 byte connections not supported below logix v20

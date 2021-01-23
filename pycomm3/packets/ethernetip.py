@@ -71,7 +71,10 @@ class SendUnitDataRequestPacket(RequestPacket):
 
     def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
                       sequence: cycle = None, **kwargs):
+
         self._msg.insert(0, Pack.uint(next(sequence)))
+        self._message = self._build_message()
+
         return super().build_request(target_cid, session_id, context, option, **kwargs)
 
 
@@ -142,6 +145,10 @@ class RegisterSessionRequestPacket(RequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     _encap_command = EncapsulationCommands.register_session
     response_class = RegisterSessionResponsePacket
+
+    def __init__(self, protocol_version: bytes, option_flags: bytes = b'\x00\x00'):
+        super().__init__()
+        self._msg += [protocol_version, option_flags]
 
     def _build_common_packet_format(self, addr_data=None) -> bytes:
         return self.message

@@ -279,11 +279,7 @@ class CIPDriver:
             return self._session
 
         self._session = 0
-        request = RequestTypes.register_session()
-        request.add(
-            self._cfg['protocol version'],
-            b'\x00\x00'
-        )
+        request = RequestTypes.register_session(self._cfg['protocol version'])
 
         response = self.send(request)
         if response:

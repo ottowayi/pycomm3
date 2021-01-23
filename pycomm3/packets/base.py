@@ -18,7 +18,7 @@ class ResponsePacket(Packet):
 
     def __init__(self, request: 'RequestPacket', raw_data: bytes = None):
         super().__init__()
-        self._request = request
+        self.request = request
         self.raw = raw_data
         self._error = None
         self.service = None
@@ -88,17 +88,22 @@ class RequestPacket(Packet):
 
     def __init__(self):
         super().__init__()
+        self._message = b''
         self._msg = []  # message data
-        # self._driver = driver  # TODO: Remove
         self.error = None
 
     def add(self, *value: bytes):
         self._msg.extend(value)
         return self
 
+    def _build_message(self):
+        return b''.join(self._msg)
+
     @property
     def message(self) -> bytes:
-        return b''.join(self._msg)
+        if not self._message:
+            self._message = self._build_message()
+        return self._message
 
     def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int, **kwargs) -> bytes:
         # TODO: should have args for any driver provided data

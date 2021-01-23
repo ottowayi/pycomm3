@@ -33,12 +33,13 @@ from .ethernetip import (SendUnitDataRequestPacket, SendUnitDataResponsePacket,
                          ListIdentityRequestPacket, ListIdentityResponsePacket)
 from .cip import (GenericConnectedRequestPacket, GenericConnectedResponsePacket,
                   GenericUnconnectedRequestPacket, GenericUnconnectedResponsePacket)
-from .logix import (ReadTagServiceRequestPacket, ReadTagServiceResponsePacket,
-                    ReadTagFragmentedServiceRequestPacket, ReadTagFragmentedServiceResponsePacket,
-                    WriteTagServiceRequestPacket, WriteTagServiceResponsePacket,
-                    WriteTagFragmentedServiceRequestPacket, WriteTagFragmentedServiceResponsePacket,
+from .logix import (ReadTagRequestPacket, ReadTagResponsePacket,
+                    ReadTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
+                    WriteTagRequestPacket, WriteTagResponsePacket,
+                    WriteTagFragmentedRequestPacket, WriteTagFragmentedResponsePacket,
+                    ReadModifyWriteRequestPacket, ReadModifyWriteResponsePacket,
                     MultiServiceRequestPacket, MultiServiceResponsePacket)
-from .util import (DataFormatType, request_path, encode_segment, make_write_data_tag, make_write_data_bit,
+from .util import (DataFormatType, request_path, encode_segment,
                    get_service_status, get_extended_status, parse_read_reply_struct, parse_read_reply,
                    parse_reply_data_by_format, parse_string)
 
@@ -49,10 +50,11 @@ class RequestTypes(EnumMap):
     register_session = RegisterSessionRequestPacket
     unregister_session = UnRegisterSessionRequestPacket
     list_identity = ListIdentityRequestPacket
-    read_tag = ReadTagServiceRequestPacket
+    read_tag = ReadTagRequestPacket
     multi_request = MultiServiceRequestPacket
-    read_tag_fragmented = ReadTagFragmentedServiceRequestPacket
-    write_tag = WriteTagServiceRequestPacket
-    write_tag_fragmented = WriteTagFragmentedServiceRequestPacket
+    read_tag_fragmented = ReadTagFragmentedRequestPacket
+    write_tag = WriteTagRequestPacket
+    write_tag_fragmented = WriteTagFragmentedRequestPacket
     generic_connected = GenericConnectedRequestPacket
     generic_unconnected = GenericUnconnectedRequestPacket
+    read_modify_write = ReadModifyWriteRequestPacket
