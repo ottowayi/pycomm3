@@ -38,6 +38,9 @@ class TagServiceRequestPacket(SendUnitDataRequestPacket):
         self._use_instance_id = use_instance_id
         self.request_path = None
 
+    def tag_only_message(self):
+        return b''.join((self.tag_service, self.request_path, Pack.uint(self.elements)))
+
 
 class ReadTagResponsePacket(TagServiceResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
@@ -78,7 +81,8 @@ class ReadTagRequestPacket(TagServiceRequestPacket):
             self.request_path = tag_request_path(self.tag, self.tag_info, self._use_instance_id)
             if self.request_path is None:
                 self.error = f'Failed to build request path for tag'
-        self._msg += [self.tag_service, self.request_path, Pack.uint(self.elements)]
+        # self._msg += [self.tag_service, self.request_path, Pack.uint(self.elements)]
+        self._msg.append(self.tag_only_message())
 
     #
     # def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
@@ -198,6 +202,11 @@ class ReadTagFragmentedRequestPacket(ReadTagRequestPacket):
 class WriteTagResponsePacket(TagServiceResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
+    def __init__(self, request: 'WriteTagRequestPacket', raw_data: bytes = None):
+        self.value = request.value
+        self.data_type = request.data_type
+        super().__init__(request, raw_data)
+
 
 class WriteTagRequestPacket(TagServiceRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
@@ -206,43 +215,57 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
     tag_service = Services.write_tag
 
     def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any], request_id: int,
-                 use_instance_id: bool = True, value: bytes = b'', request_path: Optional[bytes] = None):
+                 use_instance_id: bool = True, value: bytes = b''):
         super().__init__(tag, elements, tag_info, request_id, use_instance_id)
         self.value = value
         self.data_type = tag_info['data_type_name']
         self._packed_data_type = None
 
-        if request_path:
-            self.request_path = request_path
-        else:
-            self.request_path = tag_request_path(tag, tag_info, use_instance_id)
-
-        if self.request_path is None:
-            self.error = 'Failed to create request path for tag'
-        else:
+        # if request_path:
+        #     self.request_path = request_path
+        # else:
+        #     self.request_path = tag_request_path(tag, tag_info, use_instance_id)
+        #
+        # if self.request_path is None:
+        #     self.error = 'Failed to create request path for tag'
+        # else:
             # if bits_write:
             #     request_path = make_write_data_bit(tag_info, value, self.request_path)
             #     data_type = 'BOOL'
             # else:
             #     request_path, data_type = make_write_data_tag(tag_info, value, elements, self.request_path)
 
-            if tag_info['tag_type'] == 'struct':
-                if not isinstance(value, bytes):
-                    raise RequestError('Writing UDTs only supports bytes for value')
-                self._packed_data_type = b'\xA0\x02' + Pack.uint(tag_info['data_type']['template']['structure_handle'])
+        if tag_info['tag_type'] == 'struct':
+            if not isinstance(value, bytes):
+                raise RequestError('Writing UDTs only supports bytes for value')
+            self._packed_data_type = b'\xA0\x02' + Pack.uint(tag_info['data_type']['template']['structure_handle'])
 
-            elif self.data_type not in DataType:
-                raise RequestError(f"Unsupported data type: {self.data_type!r}")
-            else:
-                self._packed_data_type = Pack.uint(DataType[self.data_type])
+        elif self.data_type not in DataType:
+            raise RequestError(f"Unsupported data type: {self.data_type!r}")
+        else:
+            self._packed_data_type = Pack.uint(DataType[self.data_type])
 
-            self._msg += [
-                self.tag_service,
-                self.request_path,
-                self._packed_data_type,
-                Pack.uint(elements),
-                value
-            ]
+        # self._msg += [
+        #     self.tag_service,
+        #     self.request_path,
+        #     self._packed_data_type,
+        #     Pack.uint(elements),
+        #     value
+        # ]
+
+    def _setup_message(self):
+        super()._setup_message()
+        if self.request_path is None:
+            self.request_path = tag_request_path(self.tag, self.tag_info, self._use_instance_id)
+            if self.request_path is None:
+                self.error = f'Failed to build request path for tag'
+        self._msg += [self.tag_service, self.request_path, self._packed_data_type,
+                      Pack.uint(self.elements), self.value]
+        # self._msg.append(self.tag_only_message())
+
+    def tag_only_message(self):
+        return b''.join((self.tag_service, self.request_path, self._packed_data_type,
+                      Pack.uint(self.elements), self.value))
 
     def __repr__(self):
         return f'{self.__class__.__name__}(tag={self.tag!r}, value={_r(self.value)}, elements={self.elements!r})'
@@ -258,16 +281,31 @@ class WriteTagFragmentedRequestPacket(WriteTagRequestPacket):
     response_class = WriteTagFragmentedResponsePacket
     tag_service = Services.write_tag_fragmented
 
+    def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any],
+                 request_id: int, use_instance_id: bool = True, offset: int = 0, value: bytes = b''):
+        super().__init__(tag, elements, tag_info, request_id, use_instance_id)
+        self.offset = offset
+        self.value = value
+
+    def _setup_message(self):
+        super()._setup_message()
+        self._msg.insert((len(self._msg) - 1), Pack.udint(self.offset))  # offset needs to go before value
+
     @classmethod
-    def from_request(cls, request: WriteTagRequestPacket) -> 'WriteTagFragmentedRequestPacket':
-        return cls(
+    def from_request(cls, request: WriteTagRequestPacket, offset: int = 0, value: bytes = b'') -> 'WriteTagFragmentedRequestPacket':
+        new_request = cls(
             request.tag,
             request.elements,
             request.tag_info,
             request.request_id,
             request._use_instance_id,
-            request.value,
+            offset,
+            value or request.value,
         )
+
+        new_request.request_path = request.request_path
+
+        return new_request
 
     # def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any], request_id: int, request_path, value):
     #     super().__init__(tag, elements, tag_info, request_id, request_path, value)
@@ -380,10 +418,9 @@ class ReadModifyWriteRequestPacket(SendUnitDataRequestPacket):
         self.bits.append(bit)
         self._request_ids.append(request_id)
 
-    def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
-                      sequence: cycle = None, **kwargs):
-
-        self._msg = [
+    def _setup_message(self):
+        super()._setup_message()
+        self._msg += [
             self.tag_service,
             self.request_path,
             Pack.uint(self._mask_size),
@@ -391,7 +428,6 @@ class ReadModifyWriteRequestPacket(SendUnitDataRequestPacket):
             Pack.ulint(self._and_mask)[:self._and_mask]
         ]
 
-        return super().build_request(target_cid, session_id, context, option, sequence, **kwargs)
 
 
 class MultiServiceResponsePacket(SendUnitDataResponsePacket):
@@ -478,8 +514,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
 
         messages = []
         for request in self.requests:
-            request._setup_message()
-            messages.append(b''.join((request.tag_service, request.request_path, Pack.uint(request.elements))))
+            messages.append(request.tag_only_message())
 
         for msg in messages:
             offsets.append(Pack.uint(offset))

@@ -716,7 +716,7 @@ class LogixDriver(CIPDriver):
                     else:
                         results.append(Tag(tag, None, None, result.error))
             except Exception as err:
-                results.append(Tag(tag, None, None, f'Invalid tag request - {err}'))
+                results.append(Tag(tag, None, None, f'Invalid tag request - {err!r}'))
 
         if len(tags) > 1:
             return results
@@ -735,7 +735,7 @@ class LogixDriver(CIPDriver):
         creates a list of multi-request packets
         """
         fragmented_requests = []
-        response_size = MULTISERVICE_READ_OVERHEAD
+        # response_size = MULTISERVICE_READ_OVERHEAD
         # current_request = RequestTypes.multi_request()
         # requests.append(current_request)
         read_requests = []  # [ (request, response_size), ...]
@@ -748,27 +748,32 @@ class LogixDriver(CIPDriver):
 
             request = RequestTypes.read_tag(tag_data['plc_tag'], tag_data['elements'],
                                             tag_data['tag_info'], request_id, self._cfg['use_instance_ids'])
-            return_size = _tag_return_size(tag_data) + len(request.message) + 2  # 2 for the offset in a multi request
+            request.build_message()
+            # TODO: this isn't very accurate right now, the message len is not part of the response
+            # so we may be fragmenting more than needed
+            return_size = _tag_return_size(tag_data) + len(request.message) + 2  # response overhead  # TODO make const
             if return_size > self.connection_size:
                 request = RequestTypes.read_tag_fragmented.from_request(request)
                 fragmented_requests.append(request)
             else:
                 read_requests.append((request, return_size))
 
-        read_requests.sort(key=lambda x: x[1], reverse=True)  # largest to smallest return size
+        # read_requests.sort(key=lambda x: x[1], reverse=True)
+        # TODO: this should try and combine these into the fewest packets
         grouped_requests = [[], ]
         current_group = grouped_requests[0]
         current_response_size = MULTISERVICE_READ_OVERHEAD
         for req, resp_size in read_requests:
             if current_response_size + resp_size > self.connection_size:
                 current_group = []
+                grouped_requests.append(current_group)
                 current_response_size = MULTISERVICE_READ_OVERHEAD
 
             current_group.append(req)
             current_response_size += resp_size
 
         multi_requests = [
-            RequestTypes.multi_request(group)
+            RequestTypes.multi_request(group, )
             for group in grouped_requests
         ]
 
@@ -901,59 +906,104 @@ class LogixDriver(CIPDriver):
         else:
             return self._write_build_multi_requests(parsed_tags)
 
-    def _write_build_multi_requests(self, parsed_tags, bit_writes):
-        requests = []
-        current_request = RequestTypes.multi_request(self)
-        requests.append(current_request)
+    def _write_build_multi_requests(self, parsed_tags):
+        # requests = []
+        # current_request = RequestTypes.multi_request(self)
+        # requests.append(current_request)
+        fragmented_requests = []
+        write_requests = []
+        bit_writes = {}
 
         for request_id, tag_data in parsed_tags.items():
             if tag_data.get('error') is None:
 
-                if _bit_request(tag_data, bit_writes):
+                bit = tag_data.get('bit')
+                if bit is not None:
+                    if tag_data['plc_tag'] not in bit_writes:
+                        request = RequestTypes.read_modify_write(
+                            tag_data['plc_tag'],
+                            tag_data['tag_info'],
+                            -1 * (1 + len(bit_writes)),
+                            self._cfg['use_instance_ids'],
+                        )
+                        bit_writes[tag_data['plc_tag']] = request
+                    else:
+                        request = bit_writes[tag_data['plc_tag']]
+
+                    request.set_bit(bit, tag_data['value'], tag_data['request_id'])
                     continue
 
                 tag_data['write_value'] = writable_value(tag_data)
-                req_size = len(tag_data['write_value']) + len(tag_data['rp']) + 4
+                request = RequestTypes.write_tag(tag_data['plc_tag'], tag_data['elements'],
+                                                 tag_data['tag_info'], request_id, self._cfg['use_instance_ids'],
+                                                 tag_data['write_value'])
+                request.build_message()
+
+                req_size = len(request.message)
                 if req_size > self.connection_size:
-                    _request = RequestTypes.write_tag_fragmented(self)
-                    _request.add(tag_data['plc_tag'], tag_data['elements'],
-                                 tag_data['tag_info'], request_id, tag_data['rp'], tag_data['write_value'])
-                    requests.append(_request)
-                    continue
+                    request = RequestTypes.write_tag_fragmented.from_request(request)
+                    # request.build_message()
+                    fragmented_requests.append(request)
+                else:
+                    write_requests.append(request)
+                    # _request = RequestTypes.write_tag_fragmented(self)
+                    # _request.add(tag_data['plc_tag'], tag_data['elements'],
+                    #              tag_data['tag_info'], request_id, tag_data['rp'], tag_data['write_value'])
+                    # requests.append(_request)
+                    # continue
 
-                try:
-                    if not current_request.add_write(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'],
-                                                     request_id, tag_data['rp'], tag_data['write_value']):
+        grouped_requests = [[], ]
+        current_group = grouped_requests[0]
+        current_response_size = MULTISERVICE_READ_OVERHEAD
+        for req in write_requests:
+            if current_response_size + len(req.message) > self.connection_size:
+                current_group = []
+                grouped_requests.append(current_group)
+                current_response_size = MULTISERVICE_READ_OVERHEAD
 
-                        current_request = RequestTypes.multi_request(self)
-                        requests.append(current_request)
-                        current_request.add_write(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'],
-                                                  request_id, tag_data['rp'], tag_data['write_value'])
+            current_group.append(req)
+            current_response_size += len(req.message)
 
-                except RequestError:
-                    self.__log.exception(f'Failed to build request for {tag_data["request_tag"]} - skipping')
-                    continue
+        multi_requests = [
+            RequestTypes.multi_request(group, )
+            for group in grouped_requests
+            if group
+        ]
 
-        if bit_writes:
-            for i, tag in enumerate(bit_writes):
-                try:
-                    # multiple requests are merged into a single request for bit writes
-                    # so create a new request_id for those and then we'll restore the original ones later
-                    _request_id = f'bit-write-{i}'
-                    bit_writes[tag]['request_id'] = _request_id
-                    value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
-                    rp = tag_request_path(tag, self._tags, self._cfg['use_instance_ids'])
-                    if not current_request.add_write(tag, 1, bit_writes[tag]['tag_info'],
-                                                     _request_id, rp, value, bits_write=True):
-                        current_request = RequestTypes.multi_request(self)
-                        requests.append(current_request)
-                        current_request.add_write(tag, 1, bit_writes[tag]['tag_info'],
-                                                  _request_id, rp, value, bits_write=True)
-                except RequestError:
-                    self.__log.exception(f'Failed to build request for {tag} - skipping')
-                    continue
+        return multi_requests + fragmented_requests + [request for request in bit_writes.values()]
+                # try:
+                #     if not current_request.add_write(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'],
+                #                                      request_id, tag_data['rp'], tag_data['write_value']):
+                #
+                #         current_request = RequestTypes.multi_request(self)
+                #         requests.append(current_request)
+                #         current_request.add_write(tag_data['plc_tag'], tag_data['elements'], tag_data['tag_info'],
+                #                                   request_id, tag_data['rp'], tag_data['write_value'])
+                #
+                # except RequestError:
+                #     self.__log.exception(f'Failed to build request for {tag_data["request_tag"]} - skipping')
+                #     continue
 
-        return (r for r in requests if (r.type_ == 'multi' and r.tags) or r.type_ == 'write')
+        # if bit_writes:
+        #     for i, tag in enumerate(bit_writes):
+        #         try:
+        #             # multiple requests are merged into a single request for bit writes
+        #             # so create a new request_id for those and then we'll restore the original ones later
+        #             _request_id = f'bit-write-{i}'
+        #             bit_writes[tag]['request_id'] = _request_id
+        #             value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
+        #             rp = tag_request_path(tag, self._tags, self._cfg['use_instance_ids'])
+        #             if not current_request.add_write(tag, 1, bit_writes[tag]['tag_info'],
+        #                                              _request_id, rp, value, bits_write=True):
+        #                 current_request = RequestTypes.multi_request(self)
+        #                 requests.append(current_request)
+        #                 current_request.add_write(tag, 1, bit_writes[tag]['tag_info'],
+        #                                           _request_id, rp, value, bits_write=True)
+        #         except RequestError:
+        #             self.__log.exception(f'Failed to build request for {tag} - skipping')
+        #             continue
+
+        # return (r for r in requests if (r.type_ == 'multi' and r.tags) or r.type_ == 'write')
 
     def _write_build_single_request(self, parsed_tag):
         if parsed_tag.get('error'):
@@ -981,6 +1031,7 @@ class LogixDriver(CIPDriver):
                                                  parsed_tag['request_id'],
                                                  self._cfg['use_instance_ids'],
                                                  parsed_tag['write_value'],)
+                request.build_message()
 
                 req_size = len(parsed_tag['write_value']) + len(request.message)
                 if req_size > self.connection_size:
@@ -1180,7 +1231,32 @@ class LogixDriver(CIPDriver):
         return failed_response
 
     def _send_write_fragmented(self, request: WriteTagFragmentedRequestPacket) -> WriteTagFragmentedResponsePacket:
-        ...
+        if not request.error:
+            responses = []
+            request.build_message()
+            segment_size = self.connection_size - (len(request.message) - len(request.value))
+            # pack_func = Pack[request.data_type] if request.tag_info['tag_type'] == 'atomic' else lambda x: x
+            segments = (request.value[i: i + segment_size]
+                        for i in range(0, len(request.value), segment_size))
+
+            offset = 0
+            for segment in segments:
+                # segment_bytes = b''.join(pack_func(s) for s in segment) if not isinstance(segment, bytes) else segment
+                _request = RequestTypes.write_tag_fragmented.from_request(request, offset, segment)
+                _response = super().send(_request)
+                offset += len(segment)
+                responses.append(_response)
+
+            if all(responses):
+                final_response = responses[-1]
+                self.__log.debug(f'Reassembled Response: {final_response!r}')
+                return final_response
+
+
+        failed_response = WriteTagFragmentedResponsePacket(request, None)
+        failed_response._error = request.error or 'One or more fragment responses failed'
+        self.__log.debug(f'Reassembled Response: {failed_response!r}')
+        return failed_response
 
 
 
