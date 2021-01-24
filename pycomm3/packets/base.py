@@ -31,6 +31,8 @@ class ResponsePacket(Packet):
 
         if raw_data is not None:
             self._parse_reply()
+        else:
+            self._error = 'No response data received'
 
     def __bool__(self):
         return self.is_valid()
@@ -88,28 +90,30 @@ class RequestPacket(Packet):
 
     def __init__(self):
         super().__init__()
-        self._message = b''
+        self.message = b''
         self._msg = []  # message data
+        self._added = []
         self.error = None
 
     def add(self, *value: bytes):
-        self._msg.extend(value)
+        self._added.extend(value)
         return self
 
-    def _build_message(self):
-        return b''.join(self._msg)
+    def _setup_message(self):
+        ...
 
-    @property
-    def message(self) -> bytes:
-        if not self._message:
-            self._message = self._build_message()
-        return self._message
+    def build_message(self):
+        self._setup_message()
+        self._msg += self._added
+        self.message = b''.join(self._msg)
+        return self.message
 
     def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int, **kwargs) -> bytes:
         # TODO: should have args for any driver provided data
-        msg = self._build_common_packet_format(addr_data=target_cid)
-        header = self._build_header(self._encap_command, len(msg), session_id, context, option)
-        return header + msg
+        msg = self.build_message()
+        common = self._build_common_packet_format(msg, addr_data=target_cid)
+        header = self._build_header(self._encap_command, len(common), session_id, context, option)
+        return header + common
 
     @staticmethod
     def _build_header(command, length, session_id, context, option) -> bytes:
@@ -132,9 +136,9 @@ class RequestPacket(Packet):
         except Exception as err:
             raise CommError('Failed to build request header') from err
 
-    def _build_common_packet_format(self, addr_data=None) -> bytes:
+    def _build_common_packet_format(self, message, addr_data=None) -> bytes:
         addr_data = b'\x00\x00' if addr_data is None else Pack.uint(len(addr_data)) + addr_data
-        msg = self.message
+
         return b''.join([
             b'\x00\x00\x00\x00',  # Interface Handle: shall be 0 for CIP
             self._timeout,
@@ -142,8 +146,8 @@ class RequestPacket(Packet):
             self._address_type,
             addr_data,
             self._message_type,
-            Pack.uint(len(msg)),
-            msg
+            Pack.uint(len(message)),
+            message
         ])
 
     def __repr__(self):

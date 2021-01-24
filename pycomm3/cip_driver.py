@@ -489,8 +489,6 @@ class CIPDriver:
 
     def send(self, request: RequestPacket) -> ResponsePacket:
         if not request.error:
-            # TODO: remove request dependency on the driver
-            #       maybe have driver provide the info needed in the build request method
             request_kwargs = {
                 'target_cid': self._target_cid,
                 'session_id': self._session,

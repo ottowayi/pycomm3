@@ -40,7 +40,9 @@ from .cip import (CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES,
 from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US,
                     TEMPLATE_MEMBER_INFO_LEN, MIN_VER_EXTERNAL_ACCESS, )
-from .packets import request_path, encode_segment, RequestTypes
+from .packets import (request_path, encode_segment, RequestTypes, RequestPacket, ReadTagFragmentedRequestPacket,
+                      WriteTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket, WriteTagFragmentedResponsePacket,
+                      ResponsePacket)
 
 AtomicValueType = Union[int, float, bool, str]
 TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, 'TagValueType']]
@@ -239,6 +241,51 @@ class LogixDriver(CIPDriver):
         except Exception as err:
             raise DataError('Failed to get PLC info') from err
 
+    def get_plc_time(self, fmt: str='%A, %B %d, %Y %I:%M:%S%p') -> Tag:
+        """
+        Gets the current time of the PLC system clock. The ``value`` attribute will be a dict containing the time in
+        3 different forms, *datetime* is a Python datetime.datetime object, *microseconds* is the integer value epoch time,
+        and *string* is the *datetime* formatted using ``strftime`` and the ``fmt`` parameter.
+
+        :param fmt: format string for converting the time to a string
+        :return: a Tag object with the current time
+        """
+        tag = self.generic_message(
+            service=Services.get_attribute_list,
+            class_code=ClassCode.wall_clock_time,
+            instance=b'\x01',
+            request_data=b'\x01\x00\x0B\x00',
+            data_format=[(None, 6), ('us', 'ULINT'), ]
+        )
+        if tag:
+            _time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
+            value = {'datetime': _time, 'microseconds': tag.value['us'], 'string': _time.strftime(fmt)}
+        else:
+            value = None
+        return Tag('__GET_PLC_TIME__', value, None, error=tag.error)
+
+    def set_plc_time(self, microseconds: Optional[int] = None) -> Tag:
+        """
+        Set the time of the PLC system clock.
+
+        :param microseconds: None to use client PC clock, else timestamp in microseconds to set the PLC clock to
+        :return: Tag with status of request
+        """
+        if microseconds is None:
+            microseconds = int(time.time() * SEC_TO_US)
+
+        request_data = b''.join([
+            b'\x01\x00',  # attribute count
+            b'\x06\x00',  # attribute
+            Pack.ulint(microseconds),
+        ])
+        return self.generic_message(
+            service=Services.set_attribute_list,
+            class_code=ClassCode.wall_clock_time,
+            instance=b'\x01',
+            request_data=request_data, name='__SET_PLC_TIME__'
+        )
+
     @with_forward_open
     def get_tag_list(self, program: str = None, cache: bool = True) -> List[dict]:
         """
@@ -345,7 +392,6 @@ class LogixDriver(CIPDriver):
                     path,
                     Pack.uint(len(attributes)),
                     *attributes
-
                 )
                 response = self.send(request)
                 if not response:
@@ -961,7 +1007,6 @@ class LogixDriver(CIPDriver):
         #             self.__log.exception(f'Failed to build request for {tag} - skipping')
         #             return None
 
-
     def get_tag_info(self, tag_name: str) -> Optional[dict]:
         """
         Returns the tag information for a tag collected during the tag list upload.  Can be a base tag or an attribute.
@@ -1098,50 +1143,45 @@ class LogixDriver(CIPDriver):
                         #                                  tag.get('error', 'Unknown Service Error'))
         return results
 
-    def get_plc_time(self, fmt: str='%A, %B %d, %Y %I:%M:%S%p') -> Tag:
-        """
-        Gets the current time of the PLC system clock. The ``value`` attribute will be a dict containing the time in
-        3 different forms, *datetime* is a Python datetime.datetime object, *microseconds* is the integer value epoch time,
-        and *string* is the *datetime* formatted using ``strftime`` and the ``fmt`` parameter.
-
-        :param fmt: format string for converting the time to a string
-        :return: a Tag object with the current time
-        """
-        tag = self.generic_message(
-            service=Services.get_attribute_list,
-            class_code=ClassCode.wall_clock_time,
-            instance=b'\x01',
-            request_data=b'\x01\x00\x0B\x00',
-            data_format=[(None, 6), ('us', 'ULINT'), ]
-        )
-        if tag:
-            _time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
-            value = {'datetime': _time, 'microseconds': tag.value['us'], 'string': _time.strftime(fmt)}
+    def send(self, request: RequestPacket):
+        if isinstance(request, RequestTypes.read_tag_fragmented):
+            return self._send_read_fragmented(request)
+        elif isinstance(request, RequestTypes.write_tag_fragmented):
+            return self._send_write_fragmented(request)
         else:
-            value = None
-        return Tag('__GET_PLC_TIME__', value, None, error=tag.error)
+            return super().send(request)
 
-    def set_plc_time(self, microseconds: Optional[int] = None) -> Tag:
-        """
-        Set the time of the PLC system clock.
+    def _send_read_fragmented(self, request: ReadTagFragmentedRequestPacket) -> ReadTagFragmentedResponsePacket:
+        # TODO: determine best approach here, will probably require more work in the
+        #       driver send method to handle the fragmenting
+        if not request.error:
+            offset = 0
+            responses = []
+            while offset is not None:
+                response: ReadTagFragmentedResponsePacket = super().send(request)
+                responses.append(response)
+                if response.service_status == INSUFFICIENT_PACKETS:
+                    offset += len(response.value_bytes)
+                    request = RequestTypes.read_tag_fragmented.from_request(request, offset)
+                else:
+                    offset = None
 
-        :param microseconds: None to use client PC clock, else timestamp in microseconds to set the PLC clock to
-        :return: Tag with status of request
-        """
-        if microseconds is None:
-            microseconds = int(time.time() * SEC_TO_US)
+            if all(responses):
+                final_response = responses[-1]
+                final_response.value_bytes = b''.join(resp.value_bytes for resp in responses)
+                final_response.parse_value()
 
-        request_data = b''.join([
-            b'\x01\x00',  # attribute count
-            b'\x06\x00',  # attribute
-            Pack.ulint(microseconds),
-        ])
-        return self.generic_message(
-            service=Services.set_attribute_list,
-            class_code=ClassCode.wall_clock_time,
-            instance=b'\x01',
-            request_data=request_data, name='__SET_PLC_TIME__'
-        )
+                self.__log.debug(f'Reassembled Response: {final_response!r}')
+                return final_response
+
+        failed_response = ReadTagFragmentedResponsePacket(request, None)
+        failed_response._error = request.error or 'One or more fragment responses failed'
+        self.__log.debug(f'Reassembled Response: {failed_response!r}')
+        return failed_response
+
+    def _send_write_fragmented(self, request: WriteTagFragmentedRequestPacket) -> WriteTagFragmentedResponsePacket:
+        ...
+
 
 
 def _parse_plc_info(data):

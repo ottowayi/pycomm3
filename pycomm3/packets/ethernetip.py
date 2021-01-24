@@ -69,11 +69,17 @@ class SendUnitDataRequestPacket(RequestPacket):
     response_class = SendUnitDataResponsePacket
     _encap_command = EncapsulationCommands.send_unit_data
 
+    def __init__(self):
+        super().__init__()
+        self._sequence = 0
+
+    def _setup_message(self):
+        super()._setup_message()
+        self._msg.append(Pack.uint(self._sequence))
+
     def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
                       sequence: cycle = None, **kwargs):
-
-        self._msg.insert(0, Pack.uint(next(sequence)))
-        self._message = self._build_message()
+        self._sequence = next(sequence)
 
         return super().build_request(target_cid, session_id, context, option, **kwargs)
 
@@ -113,8 +119,8 @@ class SendRRDataRequestPacket(RequestPacket):
     _encap_command = EncapsulationCommands.send_rr_data
     response_class = SendRRDataResponsePacket
 
-    def _build_common_packet_format(self, addr_data=None) -> bytes:
-        return super()._build_common_packet_format(addr_data=None)
+    def _build_common_packet_format(self, message, addr_data=None) -> bytes:
+        return super()._build_common_packet_format(message, addr_data=None)
 
 
 class RegisterSessionResponsePacket(ResponsePacket):
@@ -148,10 +154,16 @@ class RegisterSessionRequestPacket(RequestPacket):
 
     def __init__(self, protocol_version: bytes, option_flags: bytes = b'\x00\x00'):
         super().__init__()
-        self._msg += [protocol_version, option_flags]
+        self.protocol_version = protocol_version
+        self.option_flags = option_flags
 
-    def _build_common_packet_format(self, addr_data=None) -> bytes:
-        return self.message
+    def _setup_message(self):
+        self._msg += [self.protocol_version, self.option_flags]
+
+
+    def _build_common_packet_format(self, message, addr_data=None) -> bytes:
+    #     self.build_message()
+        return message
 
 
 class UnRegisterSessionResponsePacket(ResponsePacket):
@@ -167,7 +179,7 @@ class UnRegisterSessionRequestPacket(RequestPacket):
     response_class = UnRegisterSessionResponsePacket
     no_response = True
 
-    def _build_common_packet_format(self, addr_data=None) -> bytes:
+    def _build_common_packet_format(self, message, addr_data=None) -> bytes:
         return b''
 
 
@@ -219,7 +231,7 @@ class ListIdentityRequestPacket(RequestPacket):
     _encap_command = EncapsulationCommands.list_identity
     response_class = ListIdentityResponsePacket
 
-    def _build_common_packet_format(self, addr_data=None) -> bytes:
+    def _build_common_packet_format(self, message, addr_data=None) -> bytes:
         return b''
 
 

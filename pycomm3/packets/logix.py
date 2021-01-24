@@ -1,7 +1,7 @@
 import logging
 from itertools import tee, zip_longest, cycle
 from reprlib import repr as _r
-from typing import Dict, Any, Optional, Sequence
+from typing import Dict, Any, Optional, Sequence, Union
 
 from .ethernetip import SendUnitDataRequestPacket, SendUnitDataResponsePacket
 from .util import (parse_read_reply,  get_service_status, request_path,
@@ -47,10 +47,10 @@ class ReadTagResponsePacket(TagServiceResponsePacket):
         self.data_type = None
         super().__init__(request, raw_data)
 
-    def _parse_reply(self):
+    def _parse_reply(self, dont_parse=False):
         try:
             super()._parse_reply()
-            if self.is_valid():
+            if self.is_valid() and not dont_parse:
                 self.value, self.data_type = parse_read_reply(self.data, self.tag_info, self.elements)
         except Exception as err:
             self.__log.exception('Failed parsing reply data')
@@ -72,18 +72,20 @@ class ReadTagRequestPacket(TagServiceRequestPacket):
     response_class = ReadTagResponsePacket
     tag_service = Services.read_tag
 
-    def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any],
-                 request_id: int, use_instance_id: bool = True, request_path: Optional[bytes] = None):
-        super().__init__(tag, elements, tag_info, request_id, use_instance_id)
-        if request_path:
-            self.request_path = request_path
-        else:
-            self.request_path = tag_request_path(tag, tag_info, use_instance_id)
-
+    def _setup_message(self):
+        super()._setup_message()
         if self.request_path is None:
-            self._error = 'Failed to create request path for tag'
-
+            self.request_path = tag_request_path(self.tag, self.tag_info, self._use_instance_id)
+            if self.request_path is None:
+                self.error = f'Failed to build request path for tag'
         self._msg += [self.tag_service, self.request_path, Pack.uint(self.elements)]
+
+    #
+    # def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
+    #                   sequence: cycle = None, **kwargs):
+    #
+    #
+    #     return super().build_request(target_cid, session_id, context, option, sequence, **kwargs)
 
 
 class ReadTagFragmentedResponsePacket(ReadTagResponsePacket):
@@ -92,23 +94,24 @@ class ReadTagFragmentedResponsePacket(ReadTagResponsePacket):
 
     def __init__(self, request: 'ReadTagFragmentedRequestPacket', raw_data: bytes = None):
         self.value = None
-        self.data_type = None
-        self._value_bytes = None
+        self._data_type = None
+        self.value_bytes = None
+
         super().__init__(request, raw_data)
 
     def _parse_reply(self):
-        super()._parse_reply()
+        super()._parse_reply(dont_parse = True)
         if self.data[:2] == STRUCTURE_READ_REPLY:
-            self._value_bytes = self.data[4:]
+            self.value_bytes = self.data[4:]
             self._data_type = self.data[:4]
         else:
-            self._value_bytes = self.data[2:]
+            self.value_bytes = self.data[2:]
             self._data_type = self.data[:2]
 
-    def parse_bytes(self):
+    def parse_value(self):
         try:
             if self.is_valid():
-                self.value, self.data_type = parse_read_reply(self._data_type + self._value_bytes,
+                self.value, self.data_type = parse_read_reply(self._data_type + self.value_bytes,
                                                               self.request.tag_info, self.request.elements)
             else:
                 self.value, self.data_type = None, None
@@ -129,16 +132,30 @@ class ReadTagFragmentedRequestPacket(ReadTagRequestPacket):
     response_class = ReadTagFragmentedResponsePacket
     tag_service = Services.read_tag_fragmented
 
+    def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any],
+                 request_id: int, use_instance_id: bool = True, offset: int = 0):
+        super().__init__(tag, elements, tag_info, request_id, use_instance_id)
+        self.offset = offset
+
+    def _setup_message(self):
+        super()._setup_message()
+        self._msg.append(Pack.udint(self.offset))
+
     @classmethod
-    def from_request(cls, request: ReadTagRequestPacket) -> 'ReadTagFragmentedRequestPacket':
-        return cls(
+    def from_request(cls, request: Union[ReadTagRequestPacket, 'ReadTagFragmentedRequestPacket'], offset=0) -> 'ReadTagFragmentedRequestPacket':
+        new_request = cls(
             request.tag,
             request.elements,
             request.tag_info,
             request.request_id,
             request._use_instance_id,
-            request.request_path
+            offset
         )
+        new_request.request_path = request.request_path
+
+        return new_request
+
+
 
     def send(self):
         # TODO: determine best approach here, will probably require more work in the
@@ -438,7 +455,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         super().__init__()
         self.requests = requests
         self.request_path = request_path(ClassCode.message_router, 1)
-        self._msg += [Services.multiple_service_request, self.request_path]
+
         # self._msg.extend((
         #     Services.multiple_service_request,  # the Request Service
         #     Pack.usint(2),  # the Request Path Size length in word
@@ -448,16 +465,21 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         #     b'\x01',  # Instance 1
         # ))
 
-    def _build_message(self):
+    def _setup_message(self):
+        super()._setup_message()
+        self._msg += [Services.multiple_service_request, self.request_path]
+
+    def build_message(self):
+        super().build_message()
         num_requests = len(self.requests)
         self._msg.append(Pack.uint(num_requests))
         offset = 2 + (num_requests * 2)
         offsets = []
 
-        messages = [
-            b''.join([request.tag_service, request.request_path, Pack.uint(request.elements), ])
-            for request in self.requests
-        ]
+        messages = []
+        for request in self.requests:
+            request._setup_message()
+            messages.append(b''.join((request.tag_service, request.request_path, Pack.uint(request.elements))))
 
         for msg in messages:
             offsets.append(Pack.uint(offset))
