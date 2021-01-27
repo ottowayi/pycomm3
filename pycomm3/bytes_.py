@@ -222,20 +222,34 @@ class Unpack(EnumMap):
     pccc_l: Callable[[bytes], int] = dint
 
 
-def print_bytes_msg(msg, info=''):
-    out = info
-    new_line = True
-    line = 0
-    column = 0
-    for idx, ch in enumerate(msg):
-        if new_line:
-            out += "\n({:0>4d}) ".format(line * 10)
-            new_line = False
-        out += "{:0>2x} ".format(ch)
-        if column == 9:
-            new_line = True
-            column = 0
-            line += 1
-        else:
-            column += 1
-    return out
+def _to_hex(bites, join=' '):
+    return join.join((f"{b:0>2x}" for b in bites))
+
+
+def _to_ascii(bites, placeholder='•'):
+    return ''.join(f'{chr(b)}' if 33 <= b <= 254 else placeholder for b in bites)
+
+
+def print_bytes_msg(msg, bytes_per_line=10):
+    lines = (msg[i:i + bytes_per_line] for i in range(0, len(msg), bytes_per_line))
+
+    width = bytes_per_line * 3  # 2 for hex value, 1 for space between
+
+    formatted_lines = (
+        f'({i * bytes_per_line:0>4d}) {_to_hex(line).ljust(width)}    {_to_ascii(line)}'
+        for i, line in enumerate(lines)
+    )
+
+    return '\n'.join(formatted_lines)
+
+
+class PacketLazyFormatter:
+
+    def __init__(self, data):
+        self._data = data
+
+    def __str__(self):
+        return print_bytes_msg(self._data)
+
+    def __len__(self):
+        return len(self._data)
