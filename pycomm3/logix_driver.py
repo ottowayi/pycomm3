@@ -1203,8 +1203,6 @@ class LogixDriver(CIPDriver):
             return super().send(request)
 
     def _send_read_fragmented(self, request: ReadTagFragmentedRequestPacket) -> ReadTagFragmentedResponsePacket:
-        # TODO: determine best approach here, will probably require more work in the
-        #       driver send method to handle the fragmenting
         if not request.error:
             offset = 0
             responses = []
@@ -1235,13 +1233,11 @@ class LogixDriver(CIPDriver):
             responses = []
             request.build_message()
             segment_size = self.connection_size - (len(request.message) - len(request.value))
-            # pack_func = Pack[request.data_type] if request.tag_info['tag_type'] == 'atomic' else lambda x: x
             segments = (request.value[i: i + segment_size]
                         for i in range(0, len(request.value), segment_size))
 
             offset = 0
             for segment in segments:
-                # segment_bytes = b''.join(pack_func(s) for s in segment) if not isinstance(segment, bytes) else segment
                 _request = RequestTypes.write_tag_fragmented.from_request(request, offset, segment)
                 _response = super().send(_request)
                 offset += len(segment)
@@ -1249,15 +1245,13 @@ class LogixDriver(CIPDriver):
 
             if all(responses):
                 final_response = responses[-1]
-                self.__log.debug(f'Reassembled Response: {final_response!r}')
+                self.__log.debug(f'Final Response: {final_response!r}')
                 return final_response
-
 
         failed_response = WriteTagFragmentedResponsePacket(request, None)
         failed_response._error = request.error or 'One or more fragment responses failed'
         self.__log.debug(f'Reassembled Response: {failed_response!r}')
         return failed_response
-
 
 
 def _parse_plc_info(data):

@@ -34,7 +34,7 @@ from typing import Union, Optional
 
 from .exceptions import DataError, CommError, RequestError
 from .tag import Tag
-from .bytes_ import Pack, Unpack, print_bytes_msg
+from .bytes_ import Pack, Unpack, print_bytes_msg, PacketLazyFormatter
 
 from .cip import (PATH_SEGMENTS, ConnectionManagerInstances, ClassCode, PRODUCT_TYPES, VENDORS, STATES,
                   MSG_ROUTER_PATH, ConnectionManagerServices, Services)
@@ -52,7 +52,7 @@ def with_forward_open(func):
         opened = False
         if not self._forward_open():
             if self._cfg['extended forward open']:
-                logger = logging.getLogger('pycomm3.clx.LogixDriver')
+                logger = logging.getLogger('pycomm3.cip_driver')
                 logger.info('Extended Forward Open failed, attempting standard Forward Open.')
                 self._cfg['extended forward open'] = False
                 if self._forward_open():
@@ -498,19 +498,18 @@ class CIPDriver:
             }
 
             self._send(request.build_request(**request_kwargs))
-            self.__log.debug(f'Sent: {request!r}')
+            self.__log.debug(f'Sent: %r', request)
             reply = None if request.no_response else self._receive()
         else:
             reply = None
 
         response = request.response_class(request, reply)
-        self.__log.debug(f'Received: {response!r}')
+        self.__log.debug(f'Received: %r', response)
         return response
 
     def _send(self, message):
         try:
-            if self.VERBOSE_DEBUG:
-                self.__log.debug(print_bytes_msg(message, '>>> SEND >>>'))
+            self.__log.verbose('>>> SEND >>> \n%s', PacketLazyFormatter(message))
             self._sock.send(message)
         except Exception as err:
             raise CommError('failed to send message') from err
@@ -521,8 +520,7 @@ class CIPDriver:
         except Exception as err:
             raise CommError('failed to receive reply') from err
         else:
-            if self.VERBOSE_DEBUG:
-                self.__log.debug(print_bytes_msg(reply, '<<< RECEIVE <<<'))
+            self.__log.verbose('>>> RECEIVE >>> \n%s', PacketLazyFormatter(reply))
             return reply
 
 

@@ -29,6 +29,9 @@ from typing import NamedTuple, Any, Optional
 from reprlib import repr as _r
 
 
+__all__ = ['Tag']
+
+
 class Tag(NamedTuple):
     tag: str
     value: Any
