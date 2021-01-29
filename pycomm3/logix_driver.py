@@ -31,7 +31,7 @@ import time
 from typing import List, Tuple, Optional, Union, Mapping, Dict
 
 from . import util
-from .exceptions import DataError, CommError, RequestError
+from .exceptions import ResponseError, CommError, RequestError
 from .tag import Tag
 from .bytes_ import Pack, Unpack
 from .cip_driver import CIPDriver, with_forward_open
@@ -211,10 +211,10 @@ class LogixDriver(CIPDriver):
                 self._info['name'] = response.value['program_name']
                 return self._info['name']
             else:
-                raise DataError(f'response did not return valid data - {response.error}')
+                raise ResponseError(f'response did not return valid data - {response.error}')
 
         except Exception as err:
-            raise DataError('failed to get the plc name') from err
+            raise ResponseError('failed to get the plc name') from err
 
     def get_plc_info(self) -> dict:
         """
@@ -236,10 +236,10 @@ class LogixDriver(CIPDriver):
                 self._info = {**self._info, **info}
                 return info
             else:
-                raise DataError(f'get_plc_info did not return valid data - {response.error}')
+                raise ResponseError(f'get_plc_info did not return valid data - {response.error}')
 
         except Exception as err:
-            raise DataError('Failed to get PLC info') from err
+            raise ResponseError('Failed to get PLC info') from err
 
     def get_plc_time(self, fmt: str='%A, %B %d, %Y %I:%M:%S%p') -> Tag:
         """
@@ -395,13 +395,13 @@ class LogixDriver(CIPDriver):
                 )
                 response = self.send(request)
                 if not response:
-                    raise DataError(f"send_unit_data returned not valid data - {response.error}")
+                    raise ResponseError(f"send_unit_data returned not valid data - {response.error}")
 
                 last_instance = self._parse_instance_attribute_list(response, tag_list)
             return tag_list
 
         except Exception as err:
-            raise DataError('failed to get attribute list') from err
+            raise ResponseError('failed to get attribute list') from err
 
     def _parse_instance_attribute_list(self, response, tag_list):
         """ extract the tags list from the message received"""
@@ -450,7 +450,7 @@ class LogixDriver(CIPDriver):
                                  'dimensions': [dim1, dim2, dim3]})
 
         except Exception as err:
-            raise DataError('failed to parse instance attribute list') from err
+            raise ResponseError('failed to parse instance attribute list') from err
 
         if response.service_status == SUCCESS:
             last_instance = -1
@@ -529,7 +529,7 @@ class LogixDriver(CIPDriver):
 
             return user_tags
         except Exception as err:
-            raise DataError('failed isolating user tags') from err
+            raise ResponseError('failed isolating user tags') from err
 
     def _get_structure_makeup(self, instance_id):
         """
@@ -552,7 +552,7 @@ class LogixDriver(CIPDriver):
 
             response = self.send(request)
             if not response:
-                raise DataError(f"send_unit_data returned not valid data", response.error)
+                raise ResponseError(f"send_unit_data returned not valid data", response.error)
             _struct = _parse_structure_makeup_attributes(response)
             self._cache['id:struct'][instance_id] = _struct
             self._cache['handle:id'][_struct['structure_handle']] = instance_id
@@ -580,7 +580,7 @@ class LogixDriver(CIPDriver):
                 response = self.send(request)
 
                 if response.service_status not in (SUCCESS, INSUFFICIENT_PACKETS):
-                    raise DataError('Error reading template', response)
+                    raise ResponseError('Error reading template', response)
 
                 template_raw += response.data
 
@@ -590,7 +590,7 @@ class LogixDriver(CIPDriver):
                 offset += len(response.data)
 
         except Exception as err:
-            raise DataError('Failed to read template') from err
+            raise ResponseError('Failed to read template') from err
         else:
             return template_raw
 
@@ -609,7 +609,7 @@ class LogixDriver(CIPDriver):
                 else:
                     member_names.append(name)
         except (ValueError, UnicodeDecodeError) as err:
-            raise DataError(f'Unable to decode template or member names') from err
+            raise ResponseError(f'Unable to decode template or member names') from err
 
         predefine = template_name is None
         if predefine:
@@ -672,7 +672,7 @@ class LogixDriver(CIPDriver):
                     self._cache['id:udt'][instance_id] = data_type
                     self._data_types[data_type['name']] = data_type
             except Exception as err:
-                raise DataError('Failed to get data type information') from err
+                raise ResponseError('Failed to get data type information') from err
 
         return self._cache['id:udt'][instance_id]
 
@@ -1164,7 +1164,7 @@ class LogixDriver(CIPDriver):
             try:
                 # response = request.send()
                 response = self.send(request)
-            except (RequestError, DataError) as err:
+            except (RequestError, ResponseError) as err:
                 self.__log.exception('Error sending request')
                 if request.type_ != 'multi':
                     results[request.request_id] = Tag(request.tag, None, None, str(err))
@@ -1312,7 +1312,7 @@ def _parse_structure_makeup_attributes(response):
         return structure
 
     except Exception as err:
-        raise DataError('failed to parse structure attributes') from err
+        raise ResponseError('failed to parse structure attributes') from err
 
 
 def writable_value(parsed_tag: dict) -> bytes:

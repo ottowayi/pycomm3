@@ -32,7 +32,7 @@ from .bytes_ import Pack, Unpack
 from .cip_driver import CIPDriver, with_forward_open
 from .cip import CLASS_TYPE, PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE, PCCC_ERROR_CODE
 from .const import SUCCESS, SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH
-from .exceptions import DataError, RequestError
+from .exceptions import ResponseError, RequestError
 from .tag import Tag
 from .packets import RequestTypes
 
@@ -116,7 +116,7 @@ class SLCDriver(CIPDriver):
 
         try:
             return _parse_read_reply(_tag, response.raw[SLC_REPLY_START:])
-        except DataError as err:
+        except ResponseError as err:
             self.__log.exception(f'Failed to parse read reply for {_tag["tag"]}')
             return Tag(_tag['tag'], None, _tag['file_type'], str(err))
 
@@ -219,9 +219,9 @@ class SLCDriver(CIPDriver):
                 data = self._read_whole_file_directory(sys0_info)
                 return _parse_file0(sys0_info, data)
             else:
-                raise DataError('Failed to read file directory size')
+                raise ResponseError('Failed to read file directory size')
         else:
-            raise DataError('Failed to read processor type')
+            raise ResponseError('Failed to read processor type')
 
     def _get_file_directory_size(self, sys0_info):
         msg_request = [
@@ -290,7 +290,7 @@ class SLCDriver(CIPDriver):
             else:
                 msg = f'Error reading File 0 contents: {status}'
                 self.__log.error(msg)
-                raise DataError(msg)
+                raise ResponseError(msg)
 
         return file0_data
 
@@ -400,7 +400,7 @@ def _parse_read_reply(tag, data) -> Tag:
             else:
                 return Tag(tag['tag'], values_list[0], tag['file_type'], None)
     except Exception as err:
-        raise DataError('Failed parsing tag read reply') from err
+        raise ResponseError('Failed parsing tag read reply') from err
 
 
 def parse_tag(tag: str) -> Optional[dict]:

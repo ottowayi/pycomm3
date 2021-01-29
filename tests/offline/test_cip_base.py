@@ -15,7 +15,7 @@ from unittest import mock
 
 import pytest
 from pycomm3.cip_driver import CIPDriver
-from pycomm3.exceptions import CommError, DataError, PycommError
+from pycomm3.exceptions import CommError, ResponseError, PycommError
 from pycomm3.socket_ import Socket
 from pycomm3.tag import Tag
 
@@ -24,7 +24,7 @@ CONNECT_PATH = '192.168.1.100/1'
 def test_cip_get_module_info_raises_data_error_if_response_falsy():
     with mock.patch.object(CIPDriver, 'generic_message') as mock_generic_message:
         mock_generic_message.return_value = False
-        with pytest.raises(DataError):
+        with pytest.raises(ResponseError):
             driver = CIPDriver(CONNECT_PATH)
             driver.get_module_info(1)
 

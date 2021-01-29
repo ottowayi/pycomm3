@@ -32,7 +32,7 @@ from itertools import cycle
 from os import urandom
 from typing import Union, Optional
 
-from .exceptions import DataError, CommError, RequestError
+from .exceptions import ResponseError, CommError, RequestError
 from .tag import Tag
 from .bytes_ import Pack, Unpack, print_bytes_msg, PacketLazyFormatter
 
@@ -62,7 +62,7 @@ def with_forward_open(func):
 
         if not opened:
             msg = f'Target did not connected. {func.__name__} will not be executed.'
-            raise DataError(msg)
+            raise ResponseError(msg)
         return func(self, *args, **kwargs)
 
     return wrapped
@@ -241,10 +241,10 @@ class CIPDriver:
             if response:
                 return _parse_identity_object(response.value)
             else:
-                raise DataError(f'generic_message did not return valid data - {response.error}')
+                raise ResponseError(f'generic_message did not return valid data - {response.error}')
 
         except Exception as err:
-            raise DataError('error getting module info') from err
+            raise ResponseError('error getting module info') from err
 
     def open(self):
         """

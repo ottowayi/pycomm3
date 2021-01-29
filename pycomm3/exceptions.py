@@ -37,6 +37,12 @@ class CommError(PycommError):
 
 class DataError(PycommError):
     """
+    For exceptions raised during binary encoding/decoding of data
+    """
+
+
+class ResponseError(PycommError):
+    """
     For exceptions raised during handling for responses to requests
     """
 
