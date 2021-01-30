@@ -163,7 +163,7 @@ class FileObjectInstanceAttributes(EnumMap):
     file_revision = Attribute(5, (('major', 'USINT'), ('minor', 'USINT'), ))
     file_size = Attribute(6, (('file_size', 'UDINT'), ))
     file_checksum = Attribute(7, (('file_checksum', 'INT'), ))
-    invocation_method = Attribute(8, (('invocation_metho', 'USINT'), ))
+    invocation_method = Attribute(8, (('invocation_method', 'USINT'), ))
     file_save_params = Attribute(9, (('file_save_params', 'BYTE'), ))
     file_type = Attribute(10, (('file_type', 'USINT'), ))
     file_encoding_format = Attribute(11, (('file_encoding_format', 'USINT'), ))

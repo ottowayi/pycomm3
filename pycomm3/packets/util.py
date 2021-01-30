@@ -1,3 +1,27 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+
 import ipaddress
 from itertools import chain
 from typing import Union, Sequence, Tuple, Optional
@@ -155,29 +179,6 @@ def get_extended_status(msg, start) -> str:
         return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
     except LookupError:
         return "No Extended Status"
-
-
-# def make_write_data_tag(tag_info, value, elements, request_path, fragmented=False):
-#     data_type = tag_info['data_type_name']
-#     if tag_info['tag_type'] == 'struct':
-#         if not isinstance(value, bytes):
-#             raise RequestError('Writing UDTs only supports bytes for value')
-#         _dt_value = b'\xA0\x02' + Pack.uint(tag_info['data_type']['template']['structure_handle'])
-#
-#     elif data_type not in DataType:
-#         raise RequestError("Unsupported data type")
-#     else:
-#         _dt_value = Pack.uint(DataType[data_type])
-
-    # service = Services.write_tag_fragmented if fragmented else Services.write_tag
-
-    # rp = b''.join((service,
-    #                request_path,
-    #                _dt_value,
-    #                Pack.uint(elements),
-    #                value))
-    # return rp, data_type
-
 
 
 def make_write_data_bit(tag_info, value, request_path):

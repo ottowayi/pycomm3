@@ -10,7 +10,7 @@ from pycomm3.cip_driver import CIPDriver
 from unittest import mock
 
 import pytest
-from pycomm3.exceptions import DataError, RequestError
+from pycomm3.exceptions import ResponseError, RequestError
 
 from pycomm3.slc_driver import SLCDriver, _parse_read_reply
 from pycomm3.tag import Tag
@@ -75,5 +75,5 @@ def test_slc_get_processor_type_returns_none_if_parsing_exception():
 def test__parse_read_reply_raises_dataerror_if_exception():
     driver = SLCDriver(CONNECT_PATH)
 
-    with pytest.raises(DataError):
+    with pytest.raises(ResponseError):
         _parse_read_reply('bad', 'data')

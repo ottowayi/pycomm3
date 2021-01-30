@@ -24,7 +24,7 @@
 
 from ..map import EnumMap
 from ..bytes_ import Pack, Unpack
-
+import json
 
 __all__ = ['EncapsulationCommands', 'ConnectionManagerServices', 'Services', 'MULTI_PACKET_SERVICES',
            'FileObjectServices']

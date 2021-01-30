@@ -50,7 +50,8 @@ def _logix_string_encode(string):
 
 
 def _string_encode(string):
-    return Pack.uint(len(string)) + b''.join([_pack_char(x) for x in string])
+    return Pack.uint(len(string)) + string.encode('iso-8859-1')
+    # return Pack.uint(len(string)) + b''.join([_pack_char(x) for x in string])
 
 
 def _stringi_encode(string):
@@ -105,9 +106,11 @@ def _short_string_decode(str_data):
 
 
 def _decode_string(str_bytes):
-    return ''.join(
-        chr(v + 256) if v < 0 else chr(v) for v in str_bytes
-    )
+    # return ''.join(
+    #     chr(v + 256) if v < 0 else chr(v) for v in str_bytes
+    # )
+
+    return str_bytes.decode('iso-8859-1')
 
 
 def _decode_pccc_ascii(data):
@@ -222,21 +225,20 @@ class Unpack(EnumMap):
     pccc_l: Callable[[bytes], int] = dint
 
 
-def _to_hex(bites, join=' '):
-    return join.join((f"{b:0>2x}" for b in bites))
+def _to_hex(bites):
+    return ' '.join((f"{b:0>2x}" for b in bites))
 
 
-def _to_ascii(bites, placeholder='•'):
-    return ''.join(f'{chr(b)}' if 33 <= b <= 254 else placeholder for b in bites)
+def _to_ascii(bites):
+    return ''.join(f'{chr(b)}' if 33 <= b <= 254 else '•' for b in bites)
 
 
-def print_bytes_msg(msg, bytes_per_line=10):
-    lines = (msg[i:i + bytes_per_line] for i in range(0, len(msg), bytes_per_line))
-
-    width = bytes_per_line * 3  # 2 for hex value, 1 for space between
+def print_bytes_msg(msg):
+    line_len = 16
+    lines = (msg[i:i + line_len] for i in range(0, len(msg), line_len))
 
     formatted_lines = (
-        f'({i * bytes_per_line:0>4d}) {_to_hex(line).ljust(width)}    {_to_ascii(line)}'
+        f'({i * line_len:0>4x}) {_to_hex(line): <48}    {_to_ascii(line)}'
         for i, line in enumerate(lines)
     )
 
@@ -253,3 +255,4 @@ class PacketLazyFormatter:
 
     def __len__(self):
         return len(self._data)
+

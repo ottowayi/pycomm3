@@ -1,3 +1,27 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+
 import logging
 from reprlib import repr as _r
 from typing import Optional
@@ -10,7 +34,7 @@ __all__ = ['Packet', 'ResponsePacket', 'RequestPacket']
 
 
 class Packet:
-    __log = logging.getLogger(__qualname__)
+    __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
 
 class ResponsePacket(Packet):
@@ -109,7 +133,6 @@ class RequestPacket(Packet):
         return self.message
 
     def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int, **kwargs) -> bytes:
-        # TODO: should have args for any driver provided data
         msg = self.build_message()
         common = self._build_common_packet_format(msg, addr_data=target_cid)
         header = self._build_header(self._encap_command, len(common), session_id, context, option)

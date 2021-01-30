@@ -1,15 +1,37 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+
 import logging
-from itertools import tee, zip_longest, cycle
+from itertools import tee, zip_longest
 from reprlib import repr as _r
-from typing import Dict, Any, Optional, Sequence, Union
+from typing import Dict, Any, Sequence, Union
 
 from .ethernetip import SendUnitDataRequestPacket, SendUnitDataResponsePacket
-from .util import (parse_read_reply,  get_service_status, request_path,
-                   get_extended_status, tag_request_path)
-
+from .util import parse_read_reply, request_path, tag_request_path
 from ..bytes_ import Pack, Unpack
-from ..cip import CLASS_TYPE, INSTANCE_TYPE, DataType, ClassCode, Services, DataTypeSize
-from ..const import INSUFFICIENT_PACKETS, STRUCTURE_READ_REPLY, SUCCESS
+from ..cip import DataType, ClassCode, Services, DataTypeSize
+from ..const import STRUCTURE_READ_REPLY
 from ..exceptions import RequestError
 
 
@@ -81,15 +103,8 @@ class ReadTagRequestPacket(TagServiceRequestPacket):
             self.request_path = tag_request_path(self.tag, self.tag_info, self._use_instance_id)
             if self.request_path is None:
                 self.error = f'Failed to build request path for tag'
-        # self._msg += [self.tag_service, self.request_path, Pack.uint(self.elements)]
         self._msg.append(self.tag_only_message())
 
-    #
-    # def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
-    #                   sequence: cycle = None, **kwargs):
-    #
-    #
-    #     return super().build_request(target_cid, session_id, context, option, sequence, **kwargs)
 
 
 class ReadTagFragmentedResponsePacket(ReadTagResponsePacket):
@@ -159,42 +174,6 @@ class ReadTagFragmentedRequestPacket(ReadTagRequestPacket):
 
         return new_request
 
-
-
-    def send(self):
-        # TODO: determine best approach here, will probably require more work in the
-        #       driver send method to handle the fragmenting
-        if not self.error:
-            offset = 0
-            responses = []
-            while offset is not None:
-                self._msg.extend([Services.read_tag_fragmented,
-                                  self.request_path,
-                                  Pack.uint(self.elements),
-                                  Pack.dint(offset)])
-                self._send(self.build_request())
-                self.__log.debug(f'Sent: {self!r} (offset={offset})')
-                reply = self._receive()
-                response = ReadTagFragmentedResponsePacket(reply, self.tag_info, self.elements)
-                self.__log.debug(f'Received: {response!r}')
-                responses.append(response)
-                if response.service_status == INSUFFICIENT_PACKETS:
-                    offset += len(response.bytes_)
-                    self._msg = [Pack.uint(self._driver._sequence)]
-                else:
-                    offset = None
-            if all(responses):
-                final_response = responses[-1]
-                final_response.bytes_ = b''.join(resp.bytes_ for resp in responses)
-                final_response.parse_bytes()
-                self.__log.debug(f'Reassembled Response: {final_response!r}')
-                return final_response
-
-        failed_response = ReadTagResponsePacket()
-        failed_response._error = self.error or 'One or more fragment responses failed'
-        self.__log.debug(f'Reassembled Response: {failed_response!r}')
-        return failed_response
-
     def __repr__(self):
         return f'{self.__class__.__name__}(tag={self.tag!r}, elements={self.elements!r})'
 
@@ -221,20 +200,6 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
         self.data_type = tag_info['data_type_name']
         self._packed_data_type = None
 
-        # if request_path:
-        #     self.request_path = request_path
-        # else:
-        #     self.request_path = tag_request_path(tag, tag_info, use_instance_id)
-        #
-        # if self.request_path is None:
-        #     self.error = 'Failed to create request path for tag'
-        # else:
-            # if bits_write:
-            #     request_path = make_write_data_bit(tag_info, value, self.request_path)
-            #     data_type = 'BOOL'
-            # else:
-            #     request_path, data_type = make_write_data_tag(tag_info, value, elements, self.request_path)
-
         if tag_info['tag_type'] == 'struct':
             if not isinstance(value, bytes):
                 raise RequestError('Writing UDTs only supports bytes for value')
@@ -245,14 +210,6 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
         else:
             self._packed_data_type = Pack.uint(DataType[self.data_type])
 
-        # self._msg += [
-        #     self.tag_service,
-        #     self.request_path,
-        #     self._packed_data_type,
-        #     Pack.uint(elements),
-        #     value
-        # ]
-
     def _setup_message(self):
         super()._setup_message()
         if self.request_path is None:
@@ -261,11 +218,10 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
                 self.error = f'Failed to build request path for tag'
         self._msg += [self.tag_service, self.request_path, self._packed_data_type,
                       Pack.uint(self.elements), self.value]
-        # self._msg.append(self.tag_only_message())
 
     def tag_only_message(self):
         return b''.join((self.tag_service, self.request_path, self._packed_data_type,
-                      Pack.uint(self.elements), self.value))
+                         Pack.uint(self.elements), self.value))
 
     def __repr__(self):
         return f'{self.__class__.__name__}(tag={self.tag!r}, value={_r(self.value)}, elements={self.elements!r})'
@@ -307,76 +263,12 @@ class WriteTagFragmentedRequestPacket(WriteTagRequestPacket):
 
         return new_request
 
-    # def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any], request_id: int, request_path, value):
-    #     super().__init__(tag, elements, tag_info, request_id, request_path, value)
-    #     self.request_path = request_path
-    #     self.segment_size = None
-    #     self.data_type = tag_info['data_type_name']
-    #
-    #     try:
-    #         if tag_info['tag_type'] == 'struct':
-    #             self._packed_type = STRUCTURE_READ_REPLY + Pack.uint(
-    #                 tag_info['data_type']['template']['structure_handle'])
-    #         else:
-    #             self._packed_type = Pack.uint(DataType[self.data_type])
-    #
-    #         if self.request_path is None:
-    #             self.error = 'Invalid Tag Request Path'
-    #     except Exception as err:
-    #         self.__log.exception('Failed adding request')
-    #         self.error = err
-
-    def send(self):
-        if not self.error:
-            responses = []
-            segment_size = self._driver.connection_size - (len(self.request_path) + len(self._packed_type)
-                                                           + 9)  # 9 = len of other stuff in the path
-
-            pack_func = Pack[self.data_type] if self.tag_info['tag_type'] == 'atomic' else lambda x: x
-            segments = (self.value[i: i +segment_size]
-                        for i in range(0, len(self.value), segment_size))
-
-            offset = 0
-            elements_packed = Pack.uint(self.elements)
-
-            for i, segment in enumerate(segments, start=1):
-                segment_bytes = b''.join(pack_func(s) for s in segment) if not isinstance(segment, bytes) else segment
-                self._msg.extend((
-                    Services.write_tag_fragmented,
-                    self.request_path,
-                    self._packed_type,
-                    elements_packed,
-                    Pack.dint(offset),
-                    segment_bytes
-                ))
-
-                self._send(self.build_request())
-                self.__log.debug(f'Sent: {self!r} (part={i} offset={offset})')
-                reply = self._receive()
-                response = WriteTagFragmentedResponsePacket(reply)
-                self.__log.debug(f'Received: {response!r}')
-                responses.append(response)
-                offset += len(segment_bytes)
-                self._msg = [Pack.uint(self._driver._sequence), ]
-
-            if all(responses):
-                final_response = responses[-1]
-                self.__log.debug(f'Reassembled Response: {final_response!r}')
-                return final_response
-
-        failed_response = WriteTagFragmentedResponsePacket()
-        failed_response._error = self.error or 'One or more fragment responses failed'
-        self.__log.debug(f'Reassembled Response: {failed_response!r}')
-        return failed_response
-
 
 class ReadModifyWriteResponsePacket(WriteTagResponsePacket):
     ...
 
 
 class ReadModifyWriteRequestPacket(SendUnitDataRequestPacket):
-
-    # TODO: remove the bits_write from write tag, this class will replace those
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     type_ = 'write'
     response_class = ReadModifyWriteResponsePacket
@@ -429,7 +321,6 @@ class ReadModifyWriteRequestPacket(SendUnitDataRequestPacket):
         ]
 
 
-
 class MultiServiceResponsePacket(SendUnitDataResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
@@ -455,34 +346,12 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
         for data, request in zip(reply_data, self.request.requests):
             response = request.response_class(request, padding + data)
             self.responses.append(response)
-        #     service = data[0:1]
-        #     service_status = data[2]
-        #     tag['service_status'] = service_status
-        #     if service_status != SUCCESS:
-        #         tag['error'] = f'{get_service_status(service_status)} - {get_extended_status(data, 2)}'
-        #
-        #     if Services.get(Services.from_reply(service)) == Services.read_tag:
-        #         if service_status == SUCCESS:
-        #             value, dt = parse_read_reply(data[4:], tag['tag_info'], tag['elements'])
-        #         else:
-        #             value, dt = None, None
-        #
-        #         values.append(value)
-        #         tag['value'] = value
-        #         tag['data_type'] = dt
-        #     else:
-        #         tag['value'] = None
-        #         tag['data_type'] = None
-        #
-        # self.values = values
 
     def __repr__(self):
         return f'{self.__class__.__name__}(values={_r(self.values)}, error={self.error!r})'
 
 
 class MultiServiceRequestPacket(SendUnitDataRequestPacket):
-    # TODO:  this class should wrap the other tag request packets
-    #        the add method should take other requests instead of builing them itself
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
     type_ = 'multi'
     response_class = MultiServiceResponsePacket
@@ -491,15 +360,6 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         super().__init__()
         self.requests = requests
         self.request_path = request_path(ClassCode.message_router, 1)
-
-        # self._msg.extend((
-        #     Services.multiple_service_request,  # the Request Service
-        #     Pack.usint(2),  # the Request Path Size length in word
-        #     CLASS_TYPE["8-bit"],
-        #     ClassCode.message_router,
-        #     INSTANCE_TYPE["8-bit"],
-        #     b'\x01',  # Instance 1
-        # ))
 
     def _setup_message(self):
         super()._setup_message()
@@ -511,7 +371,6 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         self._msg.append(Pack.uint(num_requests))
         offset = 2 + (num_requests * 2)
         offsets = []
-
         messages = []
         for request in self.requests:
             messages.append(request.tag_only_message())
@@ -521,89 +380,3 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
             offset += len(msg)
 
         return b''.join(self._msg + offsets + messages)
-
-    # def build_message(self, tags):
-    #     rp_list, errors = [], []
-    #     for tag in tags:
-    #         if tag['rp'] is None:
-    #             errors.append(f'Unable to create request path {tag["tag"]}')
-    #         else:
-    #             rp_list.append(tag['rp'])
-    #
-    #     offset = len(rp_list) * 2 + 2
-    #     offsets = []
-    #     for rp in rp_list:
-    #         offsets.append(Pack.uint(offset))
-    #         offset += len(rp)
-    #
-    #     msg = self._msg + [Pack.uint(len(rp_list))] + offsets + rp_list
-    #     return b''.join(msg)
-
-    # def add_read(self, tag, request_path, elements, tag_info, request_id):
-    #     # TODO: maybe instead of these methods, the multi-packet uses multiple normal ReadRequests
-    #     #       and combines them as needed
-    #     if request_path is not None:
-    #         rp = Services.read_tag + request_path + Pack.uint(elements)
-    #         _tag = {
-    #             'tag': tag,
-    #             'elements': elements,
-    #             'tag_info': tag_info,
-    #             'rp': rp,
-    #             'service': 'read',
-    #             'request_id': request_id
-    #         }
-    #         message = self.build_message(self.tags + [_tag])
-    #         if len(message) < self._driver.connection_size:
-    #             self._message = message
-    #             self.tags.append(_tag)
-    #             return True
-    #         else:
-    #             return False
-    #     else:
-    #         self.__log.error(f'Failed to create request path for {tag}')
-    #         raise RequestError('Failed to create request path')
-    #
-    # def add_write(self, tag, request_path, value, elements, tag_info, request_id, bits_write=None):
-    #     if request_path is not None:
-    #         if bits_write:
-    #             data_type = tag_info['data_type']
-    #             request_path = make_write_data_bit(tag_info, value, request_path)
-    #         else:
-    #             request_path, data_type = make_write_data_tag(tag_info, value, elements, request_path)
-    #
-    #         _tag = {'tag': tag, 'elements': elements, 'tag_info': tag_info, 'rp': request_path, 'service': 'write',
-    #                 'value': value, 'data_type': data_type, 'request_id': request_id}
-    #
-    #         message = self.build_message(self.tags + [_tag])
-    #         if len(message) < self._driver.connection_size:
-    #             self._message = message
-    #             self.tags.append(_tag)
-    #             return True
-    #         else:
-    #             return False
-    #
-    #     else:
-    #         self.__log.error(f'Failed to create request path for {tag}')
-    #         raise RequestError('Failed to create request path')
-    #
-    # def send(self):
-    #     if not self._msg_errors:
-    #         request = self.build_request()
-    #         self._send(request)
-    #         self.__log.debug(f'Sent: {self!r}')
-    #         reply = self._receive()
-    #         response = MultiServiceResponsePacket(reply, tags=self.tags)
-    #     else:
-    #         self.error = f'Failed to create request path for: {", ".join(self._msg_errors)}'
-    #         response = MultiServiceResponsePacket()
-    #         response._error = self.error
-    #
-    #     self.__log.debug(f'Received: {response!r}')
-    #     return response
-
-
-
-
-
-
-

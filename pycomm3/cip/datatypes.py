@@ -22,18 +22,24 @@
 # SOFTWARE.
 #
 
+from struct import pack, unpack
+import reprlib
 from ..map import EnumMap
+from typing import Any, Sequence
+from ..exceptions import DataError
 
 __all__ = ['StringTypeLenSize', 'DataTypeSize', 'DataType', 'PCCC_DATA_TYPE',
            'PCCC_DATA_SIZE', 'PCCC_CT']
+
+
+
+
 
 
 class StringTypeLenSize(EnumMap):
     short_string = 1
     string = 2
     logix_string = 4
-
-
 class DataTypeSize(EnumMap):
     bool = 1
     sint = 1
