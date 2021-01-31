@@ -72,7 +72,8 @@ class LogixDriver(CIPDriver):
                 port numbers and will be replaced with the correct value.
 
         :param init_tags: if True (default), uploads all controller-scoped tag definitions on connect
-        :param init_program_tags: if True, uploads all program-scoped tag definitions on connect
+        :param init_program_tags: if False, bypasses uploading program-scoped tags. set to False if there are a lot of program tags and you aren't
+                using any of them to decrease tag upload times.
 
         .. tip::
 
