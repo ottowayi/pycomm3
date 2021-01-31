@@ -28,7 +28,7 @@ from .base import RequestPacket, ResponsePacket
 from .util import get_service_status, get_extended_status, parse_reply_data_by_format
 
 from ..const import SUCCESS, INSUFFICIENT_PACKETS
-from ..cip import MULTI_PACKET_SERVICES, Services, DataItem, AddressItem, EncapsulationCommands
+from ..cip import MULTI_PACKET_SERVICES, Services, DataItem, AddressItem, EncapsulationCommands, data_types as TYPES
 from ..bytes_ import Pack, Unpack
 
 
@@ -185,23 +185,24 @@ class UnRegisterSessionRequestPacket(RequestPacket):
 
 class ListIdentityResponsePacket(ResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
-    _data_format = (
-        ('item_type_code', 'UINT'),
-        ('item_length', 'UINT'),
-        ('encap_protocol_version', 'UINT'),
-        (None, 4),
-        ('ip_address', 'IP'),
-        (None, 8),
-        ('vendor_id', 'UINT'),
-        ('device_type', 'UINT'),
-        ('product_code', 'UINT'),
-        ('revision_major', 'USINT'),
-        ('revision_minor', 'USINT'),
-        ('status', 'WORD'),
-        ('serial_number', 'UDINT'),
-        ('product_name', 'SHORT_STRING'),
-        ('state', 'USINT')
-    )
+    _data_format_ = TYPES.struct((
+        TYPES.UINT('item_type_code'),
+        TYPES.UINT('item_length'),
+        TYPES.UINT('encap_protocol_version'),
+        TYPES.n_bytes(4),
+        TYPES.IP_ADDR('ip_address'),
+        TYPES.n_bytes(8),
+        TYPES.UINT('vendor_id'),
+        TYPES.UINT('device_type'),
+        TYPES.UINT('product_code'),
+        TYPES.USINT('revision_major'),
+        TYPES.USINT('revision_minor'),
+        TYPES.WORD('status'),
+        TYPES.UDINT('serial_number'),
+        TYPES.SHORT_STRING('product_name'),
+        TYPES.USINT('state')
+
+    ))
 
     def __init__(self, request: 'ListIdentityRequestPacket', raw_data: bytes = None):
         self.identity = {}
@@ -211,7 +212,7 @@ class ListIdentityResponsePacket(ResponsePacket):
         try:
             super()._parse_reply()
             self.data = self.raw[26:]
-            self.identity = parse_reply_data_by_format(self.data, self._data_format)
+            self.identity = self._data_format_.decode(self.data)
         except Exception as err:
             self.__log.exception('Failed to parse response')
             self._error = f'Failed to parse reply - {err}'

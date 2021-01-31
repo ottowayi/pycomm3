@@ -41,6 +41,12 @@ class DataError(PycommError):
     """
 
 
+class BufferEmptyError(DataError):
+    """
+    Raised when trying to decode an empty buffer
+    """
+
+
 class ResponseError(PycommError):
     """
     For exceptions raised during handling for responses to requests
