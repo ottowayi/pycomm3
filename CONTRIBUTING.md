@@ -77,6 +77,7 @@ Some suggested contributions include:
 
 It can be tough to decide whether functionality should be added to the library or shown as an example.  New features 
 should apply to generally to almost all devices for a driver or implement new functionality that cannot be done externally.
+If submitting an example, please include name/username/email/etc in a comment/docstring if you wish to be credited.
 
 Here are a couple examples of changes and why they were added either as a feature or example:
 
