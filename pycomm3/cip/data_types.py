@@ -37,10 +37,28 @@ class DataType:
 
     @classmethod
     def encode(cls, value: Any) -> bytes:
+        try:
+            return cls._encode(value)
+        except Exception as err:
+            raise DataError(f'Error packing {value!r} as {cls.__name__}') from err
+
+    @classmethod
+    def _encode(cls, value: Any) -> bytes:
         ...
 
     @classmethod
     def decode(cls, buffer: _BufferType) -> Any:
+        try:
+            stream = _as_stream(buffer)
+            return cls._decode(stream)
+        except Exception as err:
+            if isinstance(err, BufferEmptyError):
+                raise
+            else:
+                raise DataError(f'Error unpacking {_repr(buffer)} as {cls.__name__}') from err
+
+    @classmethod
+    def _decode(cls, stream: BytesIO) -> Any:
         ...
 
     def __repr__(self) -> str:
@@ -53,25 +71,15 @@ class ElementaryDataType(DataType):
     _format: str = ''
 
     @classmethod
-    def encode(cls, value: Any) -> bytes:
-        try:
-            return pack(cls._format, value)
-        except Exception as err:
-            raise DataError(f'Error packing {value!r} as {cls.__name__}') from err
+    def _encode(cls, value: Any) -> bytes:
+        return pack(cls._format, value)
 
     @classmethod
-    def decode(cls, buffer: _BufferType) -> Any:
-        try:
-            stream = _as_stream(buffer)
-            data = stream.read(cls.size)
-            if not data:
-                raise BufferEmptyError()
-            return unpack(cls._format, data)[0]
-        except Exception as err:
-            if isinstance(Exception, BufferEmptyError):
-                raise
-            else:
-                raise DataError(f'Error unpacking {_repr(buffer)} as {cls.__name__}') from err
+    def _decode(cls, stream: BytesIO) -> Any:
+        data = stream.read(cls.size)
+        if not data:
+            raise BufferEmptyError()
+        return unpack(cls._format, data)[0]
 
 
 class BOOL(ElementaryDataType):
@@ -79,12 +87,11 @@ class BOOL(ElementaryDataType):
     size = 1
 
     @classmethod
-    def encode(cls, value: Any) -> bytes:
+    def _encode(cls, value: Any) -> bytes:
         return b'\xFF' if value else b'\x00'
 
     @classmethod
-    def decode(cls, buffer: bytes) -> bool:
-        stream = _as_stream(buffer)
+    def _decode(cls, stream: BytesIO) -> bool:
         data = stream.read(cls.size)
         if not data:
             raise BufferEmptyError()
@@ -151,10 +158,8 @@ class LREAL(ElementaryDataType):
     _format = '<d'
 
 
-class STIME(ElementaryDataType):
+class STIME(DINT):
     code = 0xcc
-    size = 4
-    _format = '<i'
 
 
 class DATE(UINT):
@@ -177,15 +182,8 @@ class DATE_AND_TIME(ElementaryDataType):
             raise DataError(f'Error packing {time!r} as {cls.__name__}') from err
 
     @classmethod
-    def decode(cls, buffer: bytes, offset: int = 0) -> Tuple[int, int]:
-        try:
-            stream = _as_stream(buffer)
-            return UDINT.decode(stream), UINT.decode(stream)
-        except Exception as err:
-            if isinstance(err, BufferEmptyError):
-                raise
-            else:
-                raise DataError(f'Error unpacking {_repr(buffer)} as {cls.__name__}') from err
+    def _decode(cls, stream: BytesIO) -> Tuple[int, int]:
+        return UDINT.decode(stream), UINT.decode(stream)
 
 
 class StringDataType(ElementaryDataType):
@@ -193,27 +191,17 @@ class StringDataType(ElementaryDataType):
     encoding = 'iso-8859-1'
 
     @classmethod
-    def encode(cls, value: str) -> bytes:
-        try:
-            return cls.len_type.encode(len(value)) + value.encode(cls.encoding)
-        except Exception as err:
-            raise DataError(f'Error packing {value!r} as {cls.__name__}') from err
+    def _encode(cls, value: str) -> bytes:
+        return cls.len_type.encode(len(value)) + value.encode(cls.encoding)
 
     @classmethod
-    def decode(cls, buffer: _BufferType) -> str:
-        try:
-            stream = _as_stream(buffer)
-            str_len = cls.len_type.decode(stream)
-            str_data = stream.read(str_len)
-            if not str_data:
-                raise BufferEmptyError()
+    def _decode(cls, stream: BytesIO) -> str:
+        str_len = cls.len_type.decode(stream)
+        str_data = stream.read(str_len)
+        if not str_data:
+            raise BufferEmptyError()
 
-            return str_data.decode(cls.encoding)
-        except Exception as err:
-            if isinstance(err, BufferEmptyError):
-                raise
-            else:
-                raise DataError(f'Error unpacking {_repr(buffer)} as {cls.__name__}') from err
+        return str_data.decode(cls.encoding)
 
 
 class LOGIX_STRING(StringDataType):
@@ -228,25 +216,15 @@ class STRING(StringDataType):
 class BytesDataType(ElementaryDataType):
 
     @classmethod
-    def encode(cls, value: bytes) -> bytes:
-        try:
-            return value[:cls.size]
-        except Exception as err:
-            raise DataError(f'Error packing {value!r} as {cls.__name__}') from err
+    def _encode(cls, value: bytes) -> bytes:
+        return value[:cls.size]
 
     @classmethod
-    def decode(cls, buffer: _BufferType) -> bytes:
-        try:
-            stream = _as_stream(buffer)
-            data = stream.read(cls.size)
-            if not data:
-                raise BufferEmptyError()
-            return data
-        except Exception as err:
-            if isinstance(err, BufferEmptyError):
-                raise
-            else:
-                raise DataError(f'Error unpacking {_repr(buffer)} as {cls.__name__}') from err
+    def _decode(cls, stream: BytesIO) -> bytes:
+        data = stream.read(cls.size)
+        if len(data) < cls.size:
+            raise BufferEmptyError()
+        return data
 
 
 def n_bytes(count: int, name: str = ''):
@@ -307,8 +285,7 @@ class STRINGN(StringDataType):
         ...
 
     @classmethod
-    def decode(cls, buffer: _BufferType) -> Any:
-        stream = _as_stream(buffer)
+    def _decode(cls, stream: BytesIO) -> Any:
         char_size = UINT.decode(stream)
         char_count = UINT.decode(stream)
 
@@ -317,17 +294,11 @@ class STRINGN(StringDataType):
         except KeyError as err:
             raise DataError(f'Unsupported character size: {char_size}') from err
         else:
-            try:
-                data = stream.read(char_count * char_size)
-                if not data:
-                    raise BufferEmptyError()
+            data = stream.read(char_count * char_size)
+            if not data:
+                raise BufferEmptyError()
 
-                return data.decode(encoding)
-            except Exception as err:
-                if isinstance(err, BufferEmptyError):
-                    raise
-                else:
-                    raise DataError(f'Error unpacking {_repr(buffer)} as {cls.__name__}') from err
+            return data.decode(encoding)
 
 
 class SHORT_STRING(StringDataType):
@@ -341,6 +312,26 @@ class TIME(DINT):
 
 class EPATH(ElementaryDataType):
     code = 0xdc
+    padded = False
+
+    @classmethod
+    def encode(cls, segments: Sequence['CIPSegment']) -> bytes:
+        try:
+            return b''.join(segment.encode(segment, padded=cls.padded) for segment in segments)
+        except Exception as err:
+            raise DataError(f'Error packing {reprlib.repr(segments)} as {cls.__name__}') from err
+
+    @classmethod
+    def decode(cls, buffer: _BufferType) -> Sequence['CIPSegment']:
+        raise NotImplementedError('Decoding EPATHs not supported')
+
+
+class PADDED_EPATH(EPATH):
+    padded = True
+
+
+class PACKED_EPATH(EPATH):
+    padded = False
 
 
 class ENGUNIT(WORD):
@@ -428,15 +419,7 @@ class STRINGI(StringDataType):
 
 
 class DerivedDataType(DataType):
-    struct = ()
-
-    @classmethod
-    def encode(cls, value: Any) -> bytes:
-        ...
-
-    @classmethod
-    def decode(cls, buffer: _BufferType) -> Any:
-        ...
+    ...
 
 
 def array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
@@ -509,29 +492,18 @@ def struct(members_: Sequence[DataType], name: str = '') -> 'Struct':
         members = members_
 
         @classmethod
-        def encode(cls, values: Dict[str, Any]) -> bytes:
-            try:
-                for typ in cls.members:
-                    return b''.join(typ.encode(values[typ.name]))
-            except Exception as err:
-                raise DataError(f'Error packing {reprlib.repr(values)} into {cls.__name__}]') from err
+        def _encode(cls, values: Dict[str, Any]) -> bytes:
+            return b''.join(typ.encode(values[typ.name]) for typ in cls.members)
 
         @classmethod
-        def decode(cls, buffer: _BufferType) -> Dict[str, Any]:
-            try:
-                stream = _as_stream(buffer)
-                values = {
-                    typ.name: typ.decode(stream)
-                    for typ in cls.members
-                }
-                values.pop('', None)
-                values.pop(None, None)
-                return values
-            except Exception as err:
-                if isinstance(err, BufferEmptyError):
-                    raise
-                else:
-                    raise DataError(f'Error unpacking into {cls.__name__} from {_repr(buffer)}') from err
+        def _decode(cls, stream: BytesIO) -> Any:
+            values = {
+                typ.name: typ.decode(stream)
+                for typ in cls.members
+            }
+            values.pop('', None)
+            values.pop(None, None)
+            return values
 
     return Struct(name)
 
@@ -539,22 +511,124 @@ def struct(members_: Sequence[DataType], name: str = '') -> 'Struct':
 class IP_ADDR(DerivedDataType):
 
     @classmethod
-    def encode(cls, value: str) -> bytes:
-        try:
-            return ipaddress.IPv4Address(value).packed
-        except Exception as err:
-            raise DataError(f'Error packing {value!r} into {cls.__name__}') from err
+    def _encode(cls, value: str) -> bytes:
+        return ipaddress.IPv4Address(value).packed
 
     @classmethod
-    def decode(cls, buffer: _BufferType) -> str:
+    def _decode(cls, stream: BytesIO) -> Any:
+        data = stream.read(4)
+        if not data:
+            raise BufferEmptyError()
+        return ipaddress.IPv4Address(data).exploded
+
+
+class CIPSegment(DataType):
+    #   Segment      Segment
+    #    Type        Format
+    # [7, 6, 5] [4, 3, 2, 1, 0]
+    segment_type = 0b_000_00000
+
+    @classmethod
+    def encode(cls, segment: 'LogicalSegment', padded: bool = False) -> bytes:
         try:
-            stream = _as_stream(buffer)
-            data = stream.read(4)
-            if not data:
-                raise BufferEmptyError()
-            return ipaddress.IPv4Address(data).exploded
+            return cls._encode(segment, padded)
         except Exception as err:
-            if isinstance(err, BufferEmptyError):
-                raise
+            raise DataError(f'Error packing {reprlib.repr(segment)} as {cls.__name__}') from err
+
+
+class PortSegment(CIPSegment):
+    #   Segment   Extended      Port
+    #    Type    Link Addr   Identifier
+    # [7, 6, 5]     [4]     [3, 2, 1, 0]
+    segment_type = 0b_000_0_0000
+    extended_link = 0b_000_1_0000
+
+    port_segments = {
+        'backplane': 0b_000_0_0001,
+        'bp': 0b_000_0_0001,
+        'enet': 0b_000_0_0010,
+        'dhrio-a': 0b_000_0_0010,
+        'dhrio-b': 0b_000_0_0011,
+        'dnet': 0b_000_0_0010,
+        'cnet': 0b_000_0_0010,
+        'dh485-a': 0b_000_0_0010,
+        'dh485-b': 0b_000_0_0011,
+    }
+
+
+class LogicalSegment(CIPSegment):
+    segment_type = 0b_001_00000
+
+    #  Segment      Logical    Logical
+    #   Type          Type     Format
+    # [7, 6, 5]    [4, 3, 2]   [1, 0]
+    logical_types = {
+        'class_id': 0b_000_000_00,
+        'instance_id': 0b_000_001_00,
+        'member_id': 0b_000_010_00,
+        'connection_point': 0b_000_011_00,
+        'attribute_id': 0b_000_100_00,
+        'special': 0b_000_101_00,
+        'service_id': 0b_000_110_00
+    }
+
+    logical_format = {
+        1: 0b_000_000_00,  # 8-bit
+        2: 0b_000_000_01,  # 16-bit
+        4: 0b_000_000_11,  # 32-bit
+    }
+    # 32-bit only valid for Instance ID and Connection Point types
+
+    def __init__(self, logical_value: Union[int, bytes], logical_type: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logical_value = logical_value
+        self.logical_type = logical_type
+
+    @classmethod
+    def _encode(cls, segment: 'LogicalSegment', padded: bool = False) -> bytes:
+        _type = cls.logical_types.get(segment.logical_type)
+        _value = segment.logical_value
+        if _type is None:
+            raise DataError('Invalid logical type')
+
+        if isinstance(_value, int):
+            if _value <= 0xff:
+                _value = USINT.encode(_value)
+            elif _value <= 0xffff:
+                _value = UINT.encode(_value)
+            elif _value <= 0xffff_ffff:
+                _value = UDINT.encode(_value)
             else:
-                raise DataError(f'Error unpacking into {cls.__name__} from {_repr(buffer)} ') from err
+                raise DataError(f'Invalid segment value: {segment!r}')
+
+        _fmt = cls.logical_format.get(len(_value))
+
+        if _fmt is None:
+            raise DataError(f'Segment value not valid for segment type')
+
+        _segment = bytes([cls.segment_type | _type | _fmt])
+        if padded and (len(_segment) + len(_value)) % 2:
+            _segment += b'\x00'
+
+        return _segment + _value
+
+
+
+class NetworkSegment(CIPSegment):
+    segment_type = 0b_010_00000
+
+
+class SymbolicSegment(CIPSegment):
+    segment_type = 0b_011_00000
+
+
+class DataSegment(CIPSegment):
+    segment_type = 0b_100_00000
+
+
+class ConstructedDataTypeSegment(CIPSegment):
+    segment_type = 0b_101_00000
+
+
+class ElementaryDataTypeSegment(CIPSegment):
+    segment_type = 0b_110_00000
