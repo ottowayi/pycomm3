@@ -55,7 +55,7 @@ class LogixDriver(CIPDriver):
     """
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
-    def __init__(self, path: str, *args, init_tags: bool = True, init_program_tags: bool = False, **kwargs):
+    def __init__(self, path: str, *args, init_tags: bool = True, init_program_tags: bool = True, **kwargs):
         """
         :param path: CIP path to intended target
 
@@ -72,7 +72,8 @@ class LogixDriver(CIPDriver):
                 port numbers and will be replaced with the correct value.
 
         :param init_tags: if True (default), uploads all controller-scoped tag definitions on connect
-        :param init_program_tags: if True, uploads all program-scoped tag definitions on connect
+        :param init_program_tags: if False, bypasses uploading program-scoped tags. set to False if there are a lot of program tags and you aren't
+                using any of them to decrease tag upload times.
 
         .. tip::
 
@@ -875,7 +876,7 @@ class LogixDriver(CIPDriver):
                 if request_data.get('error'):
                     results.append(Tag(tag, None, None, request_data['error']))
                     continue
-                    
+
                 bit = parsed_requests[i].get('bit')
                 result = write_results[i]
                 data_type = request_data['tag_info']['data_type_name']
