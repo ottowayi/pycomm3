@@ -89,7 +89,7 @@ def main():
     root.title('Pycomm3 GUI - Connection/Read Tester')
     root.geometry('800x600')
 
-    # variable used for the Get Tags listbox to iterrate through structures
+    # variable used for the Get Tags listbox to iterate through structures
     currentTagLine = IntVar()
 
     # boolean variables used to enable/disable buttons and initiate connection
@@ -110,7 +110,7 @@ def main():
     lbDevices.pack(anchor=N, side=LEFT, padx=3, pady=3)
 
     # add a scrollbar for the Devices list box
-    scrollbarDevices = Scrollbar(frame1, orient="vertical", command=lbDevices.yview)
+    scrollbarDevices = Scrollbar(frame1, orient='vertical', command=lbDevices.yview)
     scrollbarDevices.pack(anchor=N, side=LEFT, pady=3, ipady=65)
     lbDevices.config(yscrollcommand = scrollbarDevices.set)
 
@@ -127,7 +127,7 @@ def main():
         btnDiscoverDevices['state'] = 'disabled'
 
     # add a scrollbar for the Tags list box
-    scrollbarTags = Scrollbar(frame1, orient="vertical", command=lbTags.yview)
+    scrollbarTags = Scrollbar(frame1, orient='vertical', command=lbTags.yview)
     scrollbarTags.pack(anchor=N, side=RIGHT, padx=3, pady=3, ipady=65)
     lbTags.config(yscrollcommand = scrollbarTags.set)
 
@@ -222,7 +222,7 @@ def start_connection():
         thread1.setDaemon(True)
         thread1.start()
     except Exception as e:
-        print("unable to start thread1 - connection_thread, " + str(e))
+        print('unable to start thread1 - connection_thread, ' + str(e))
 
 def start_discover_devices():
     try:
@@ -230,7 +230,7 @@ def start_discover_devices():
         thread2.setDaemon(True)
         thread2.start()
     except Exception as e:
-        print("unable to start thread2 - device_discovery_thread, " + str(e))
+        print('unable to start thread2 - device_discovery_thread, ' + str(e))
 
 def start_get_tags():
     try:
@@ -238,7 +238,7 @@ def start_get_tags():
         thread3.setDaemon(True)
         thread3.start()
     except Exception as e:
-        print("unable to start thread3 - get_tags_thread, " + str(e))
+        print('unable to start thread3 - get_tags_thread, ' + str(e))
 
 def discoverDevices():
     global comm
@@ -287,19 +287,21 @@ def getTags():
 
                 for tag, _def in comm.tags.items():
                     #-----------------------------------------------------------------------
+                    # Extract dimensions and format them for displaying
+                    #-----------------------------------------------------------------------
 
-                    dimensions = ""
+                    dimensions = ''
                     dim = _def['dim']
 
                     if dim != 0:
                         dims = str(_def['dimensions'])[1:-1].split(',')
 
                         if dim == 1:
-                            dimensions = "[" + dims[0] + "]"
+                            dimensions = '[' + dims[0] + ']'
                         elif dim == 2:
-                            dimensions = "[" + dims[0] + "," + dims[1] + "]"
+                            dimensions = '[' + dims[0] + ',' + dims[1] + ']'
                         else:
-                            dimensions = "[" + dims[0] + "," + dims[1] + "," + dims[2] + "]"
+                            dimensions = '[' + dims[0] + ',' + dims[1] + ',' + dims[2] + ']'
 
                     #-----------------------------------------------------------------------
                     # If structure then process this and all subsequent structures
@@ -309,12 +311,12 @@ def getTags():
                         structureDataType = _def['data_type']['name']
                         structureSize = _def['data_type']['template']['structure_size']
 
-                        lbTags.insert(currentTagLine.get(), tag + dimensions + " (" + structureDataType + ")" + " (" + str(structureSize) + " bytes)")
+                        lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
                         currentTagLine.set(currentTagLine.get() + 1)
 
                         struct_members(_def['data_type']['internal_tags'], currentTagLine.get(), j)
                     else:
-                        lbTags.insert(currentTagLine.get(), tag + dimensions + " (" + _def['data_type'] + ")")
+                        lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + _def['data_type'] + ')')
 
                     #-----------------------------------------------------------------------
 
@@ -340,19 +342,19 @@ def struct_members(it, i, j):
             structureDataType = tag['data_type']['name']
             structureSize = tag['data_type']['template']['structure_size']
 
-            add_Tag(j, "- " + key + " (" + structureDataType + ")" + " (" + str(structureSize) + " bytes)")
+            add_Tag(j, '- ' + key + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
 
             currentTagLine.set(i + 1)
 
             struct_members(tag['data_type']['internal_tags'], currentTagLine.get(), j + 1)
         else:
-            if tag['data_type'] == "BOOL":
-                add_Tag(j, "- " + key + " (offset " + str(tag['offset']) + ")" + " (bit " + str(tag['bit']) + ")" + " (" + tag['data_type'] + ")")
+            if tag['data_type'] == 'BOOL':
+                add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (bit ' + str(tag['bit']) + ')' + ' (' + tag['data_type'] + ')')
             else:
                 if tag['array'] > 0:
-                    add_Tag(j, "- " + key + "[" + str(tag['array']) + "]" + " (offset " + str(tag['offset']) + ")" + " (" + tag['data_type'] + ")")
+                    add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
                 else:
-                    add_Tag(j, "- " + key + " (offset " + str(tag['offset']) + ")" + " (" + tag['data_type'] + ")")
+                    add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
 
             currentTagLine.set(currentTagLine.get() + 1)
 
@@ -361,7 +363,7 @@ def struct_members(it, i, j):
 def add_Tag(j, string):
     #insert multiple of 2 spaces, depending on the structure depth, to simulate the tree appearance
     k = 2 * j + len(string)
-    lbTags.insert(currentTagLine.get(), (" " * k + string)[-k:])
+    lbTags.insert(currentTagLine.get(), (' ' * k + string)[-k:])
 
 def comm_check():
     global comm
@@ -384,10 +386,10 @@ def comm_check():
         processorSlot = port
 
     try:
-        comm = LogixDriver(ipAddress + "/" + str(processorSlot))
+        comm = LogixDriver(ipAddress + '/' + str(processorSlot))
         comm.open()
         connected = True
-        lbPLCMessage.insert(1, "Connected --> keyswitch:  " + comm.info['keyswitch'])
+        lbPLCMessage.insert(1, 'Connected --> keyswitch:  ' + comm.info['keyswitch'])
         lbPLCError.delete(0, 'end')
         btnConnect['state'] = 'disabled'
         if btnStop['state'] == 'disabled':
@@ -430,7 +432,7 @@ def startUpdateValue():
                     sbProcessorSlot['state'] = 'disabled'
                     tbTag['state'] = 'disabled'
                     results = comm.read(*myTag)
-                    allValues = ""
+                    allValues = ''
                     for tag in results:
                         allValues += str(tag.value) + ', '
                     tagValue['text'] = allValues[:-2]
@@ -471,13 +473,13 @@ def tag_paste():
     tbTag.icursor('end')
 
 def ip_copy():
-    if (lbDevices.get(ANCHOR)).split(" ")[0] == "IP":
+    if (lbDevices.get(ANCHOR)).split(' ')[0] == 'IP':
         root.clipboard_clear()
-        listboxSelectedIPAddress = (lbDevices.get(ANCHOR)).split(" ")[2]
+        listboxSelectedIPAddress = (lbDevices.get(ANCHOR)).split(' ')[2]
         root.clipboard_append(listboxSelectedIPAddress)
 
 def ip_menu(event, tbIPAddress):
-    if (root.clipboard_get() != "") and (type(root.clipboard_get()) is str) and (tbIPAddress['state'] == 'normal'):
+    if (root.clipboard_get() != '') and (type(root.clipboard_get()) is str) and (tbIPAddress['state'] == 'normal'):
         tbIPAddress.select_range(0, 'end')
         popup_menu_tbIPAddress.post(event.x_root, event.y_root)
 
