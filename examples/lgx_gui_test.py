@@ -4,7 +4,7 @@ Connection/Read Test App by GitHubDragonFly (see the screenshots here: https://g
 - A simple Tkinter window to display discovered devices, tags and their values.
 - Adjust the resolution by changing the values in this line below: root.geometry('800x600')
 - Designed for reading only, either a single or multiple tags.
-- Make sure to enter the correct IP Address and Processor Slot for your network.
+- Make sure to set the correct IP Address and Processor Slot for your network.
 - The Connection, Device Discovery and Get Tags are all set to work on separate threads.
 - Double clicking the device discovery window line with the IP Address will copy that IP to the clipboard.
 - Non-traditional "Paste" option was provided for the IP Adress and Tag entry boxes.
@@ -13,10 +13,11 @@ Connection/Read Test App by GitHubDragonFly (see the screenshots here: https://g
   - CT_STRINGArray[0]{5} - request 5 consecutive values from this string array starting at index 0.
   - CT_STRING, CT_DINT, CT_REAL - read each of these comma separated tags (this is the app's default startup option).
 - The code itself will attempt to extract all the values from the received responses (which are in the dictionary format).
+- The bottom corners listboxes are designed to show successful connection (left box) and errors (right box).
 
 Notes:
 - Tested in Windows 10 with python 3.9 only.
-- Requires the pycomm3 library with the device discovery function, which when released should be version higher than 0.12.0.
+- If the discover() function is not a part of the library then the Discover Devices button will be disabled.
 
 Tkinter vs tkinter - Reference: https://stackoverflow.com/questions/17843596/difference-between-tkinter-and-tkinter
 '''
@@ -121,6 +122,10 @@ def main():
     btnDiscoverDevices = Button(frame1, text = 'Discover Devices', fg ='green', height=1, width=14, command=start_discover_devices)
     btnDiscoverDevices.pack(anchor=N, side=LEFT, padx=3, pady=3)
 
+    # if the discover() function is not included then disable the Discover Devices button (pycomm3 version 0.12.0 or lower)
+    if getattr(LogixDriver,'discover', 'not present') == 'not present':
+        btnDiscoverDevices['state'] = 'disabled'
+
     # add a scrollbar for the Tags list box
     scrollbarTags = Scrollbar(frame1, orient="vertical", command=lbTags.yview)
     scrollbarTags.pack(anchor=N, side=RIGHT, padx=3, pady=3, ipady=65)
@@ -213,24 +218,27 @@ def main():
 
 def start_connection():
     try:
-       thread1 = connection_thread()
-       thread1.start()
+        thread1 = connection_thread()
+        thread1.setDaemon(True)
+        thread1.start()
     except Exception as e:
-       print("unable to start thread1 - connection_thread, " + str(e))
+        print("unable to start thread1 - connection_thread, " + str(e))
 
 def start_discover_devices():
     try:
-       thread2 = device_discovery_thread()
-       thread2.start()
+        thread2 = device_discovery_thread()
+        thread2.setDaemon(True)
+        thread2.start()
     except Exception as e:
-       print("unable to start thread2 - device_discovery_thread, " + str(e))
+        print("unable to start thread2 - device_discovery_thread, " + str(e))
 
 def start_get_tags():
     try:
-       thread3 = get_tags_thread()
-       thread3.start()
+        thread3 = get_tags_thread()
+        thread3.setDaemon(True)
+        thread3.start()
     except Exception as e:
-       print("unable to start thread3 - get_tags_thread, " + str(e))
+        print("unable to start thread3 - get_tags_thread, " + str(e))
 
 def discoverDevices():
     global comm
