@@ -383,37 +383,21 @@ def comm_check():
         ipAddress = ip
         processorSlot = port
 
-        try:
-            comm = LogixDriver(ipAddress + "/" + str(processorSlot))
-            comm.open()
-            connected = True
-            lbPLCMessage.insert(1, "Connected --> keyswitch:  " + comm.info['keyswitch'])
-            lbPLCError.delete(0, 'end')
-            btnConnect['state'] = 'disabled'
-            if btnStop['state'] == 'disabled':
-                btnStart['state'] = 'normal'
-        except Exception as e:
-            connected = False
-            lbPLCMessage.delete(0, 'end')
-            lbPLCError.insert(1, e)
-            btnConnect['state'] = 'normal'
-            btnStart['state'] = 'disabled'
-    else:
-        try:
-            comm = LogixDriver(ipAddress + "/" + str(processorSlot))
-            comm.open()
-            connected = True
-            lbPLCMessage.insert(1, "Connected --> keyswitch:  " + comm.info['keyswitch'])
-            lbPLCError.delete(0, 'end')
-            btnConnect['state'] = 'disabled'
-            if btnStop['state'] == 'disabled':
-                btnStart['state'] = 'normal'
-        except Exception as e:
-            connected = False
-            lbPLCMessage.delete(0, 'end')
-            lbPLCError.insert(1, e)
-            btnConnect['state'] = 'normal'
-            btnStart['state'] = 'disabled'
+    try:
+        comm = LogixDriver(ipAddress + "/" + str(processorSlot))
+        comm.open()
+        connected = True
+        lbPLCMessage.insert(1, "Connected --> keyswitch:  " + comm.info['keyswitch'])
+        lbPLCError.delete(0, 'end')
+        btnConnect['state'] = 'disabled'
+        if btnStop['state'] == 'disabled':
+            btnStart['state'] = 'normal'
+    except Exception as e:
+        connected = False
+        lbPLCMessage.delete(0, 'end')
+        lbPLCError.insert(1, e)
+        btnConnect['state'] = 'normal'
+        btnStart['state'] = 'disabled'
 
 def startUpdateValue():
     global updateRunning
