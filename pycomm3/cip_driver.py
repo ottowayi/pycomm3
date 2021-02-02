@@ -37,7 +37,7 @@ from .tag import Tag
 from .bytes_ import Pack, Unpack, print_bytes_msg, PacketLazyFormatter
 
 from .cip import (PATH_SEGMENTS, ConnectionManagerInstances, ClassCode, PRODUCT_TYPES, VENDORS, STATES,
-                  MSG_ROUTER_PATH, ConnectionManagerServices, Services)
+                  MSG_ROUTER_PATH, ConnectionManagerServices, Services, data_types as TYPES)
 
 from .const import PRIORITY, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS
 from .packets import DataFormatType, RequestPacket, ResponsePacket, RequestTypes
@@ -532,47 +532,51 @@ def parse_connection_path(path):
             ipaddress.ip_address(ip)
         except ValueError as err:
             raise RequestError(f'Invalid IP Address: {ip}') from err
-        segments = [_parse_cip_path_segment(s) for s in segments]
+        # segments = [_parse_cip_path_segment(s) for s in segments]
 
         if not segments:
-            _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']
+            # _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']
+            _path = [TYPES.PortSegment('bp', 0), ]
         elif len(segments) == 1:
-            _path = [Pack.usint(PATH_SEGMENTS['backplane']), Pack.usint(segments[0])]
+            _path = [TYPES.PortSegment('bp', segments[0])]
+            # _path = [Pack.usint(PATH_SEGMENTS['backplane']), Pack.usint(segments[0])]
         else:
             pairs = (segments[i:i + 2] for i in range(0, len(segments), 2))
-            _path = []
-            for port, dest in pairs:
-                if isinstance(dest, bytes):
-                    port |= 1 << 4  # set Extended Link Address bit, CIP Vol 1 C-1.3
-                    dest_len = len(dest)
-                    if dest_len % 2:
-                        dest += b'\x00'
-                    _path.extend([Pack.usint(port), Pack.usint(dest_len), dest])
-                else:
-                    _path.extend([Pack.usint(port), Pack.usint(dest)])
-
+            _path = [TYPES.PortSegment(port, link) for port, link in pairs]
+            # _path = []
+            # for port, dest in pairs:
+            #     if isinstance(dest, bytes):
+            #         port |= 1 << 4  # set Extended Link Address bit, CIP Vol 1 C-1.3
+            #         dest_len = len(dest)
+            #         if dest_len % 2:
+            #             dest += b'\x00'
+            #         _path.extend([Pack.usint(port), Pack.usint(dest_len), dest])
+            #     else:
+            #         _path.extend([Pack.usint(port), Pack.usint(dest)])
+        epath = TYPES.PADDED_EPATH.encode(_path, length=True)
     except Exception as err:
         raise RequestError(f'Failed to parse connection path: {path}') from err
     else:
-        return ip, Pack.epath(b''.join(_path))
+        return ip, epath
+        # return ip, Pack.epath(b''.join(_path))
 
 
-def _parse_cip_path_segment(segment: str):
-    try:
-        if segment.isnumeric():
-            return int(segment)
-        else:
-            tmp = PATH_SEGMENTS.get(segment.lower())
-            if tmp:
-                return tmp
-            else:
-                try:
-                    ipaddress.ip_address(segment)
-                    return b''.join(Pack.usint(ord(c)) for c in segment)
-                except ValueError as err:
-                    raise RequestError(f'Invalid IP Address Segment: {segment}') from err
-    except Exception as err:
-        raise RequestError(f'Failed to parse path segment: {segment}') from err
+# def _parse_cip_path_segment(segment: str):
+#     try:
+#         if segment.isnumeric():
+#             return int(segment)
+#         else:
+#             tmp = PATH_SEGMENTS.get(segment.lower())
+#             if tmp:
+#                 return tmp
+#             else:
+#                 try:
+#                     ipaddress.ip_address(segment)
+#                     return b''.join(Pack.usint(ord(c)) for c in segment)
+#                 except ValueError as err:
+#                     raise RequestError(f'Invalid IP Address Segment: {segment}') from err
+#     except Exception as err:
+#         raise RequestError(f'Failed to parse path segment: {segment}') from err
 
 
 def _parse_identity_object(reply):

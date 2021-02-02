@@ -175,7 +175,7 @@ class DATE_AND_TIME(ElementaryDataType):
     size = 8
 
     @classmethod
-    def encode(cls, time: int, date: int) -> bytes:
+    def encode(cls, time: int, date: int, *args, **kwargs) -> bytes:
         try:
             return UDINT.encode(time) + UINT.encode(date)
         except Exception as err:
@@ -191,7 +191,7 @@ class StringDataType(ElementaryDataType):
     encoding = 'iso-8859-1'
 
     @classmethod
-    def _encode(cls, value: str) -> bytes:
+    def _encode(cls, value: str, *args, **kwargs) -> bytes:
         return cls.len_type.encode(len(value)) + value.encode(cls.encoding)
 
     @classmethod
@@ -216,7 +216,7 @@ class STRING(StringDataType):
 class BytesDataType(ElementaryDataType):
 
     @classmethod
-    def _encode(cls, value: bytes) -> bytes:
+    def _encode(cls, value: bytes, *args, **kwargs) -> bytes:
         return value[:cls.size]
 
     @classmethod
@@ -315,9 +315,15 @@ class EPATH(ElementaryDataType):
     padded = False
 
     @classmethod
-    def encode(cls, segments: Sequence['CIPSegment']) -> bytes:
+    def encode(cls, segments: Sequence['CIPSegment'], length: bool = False, pad_length: bool = False) -> bytes:
         try:
-            return b''.join(segment.encode(segment, padded=cls.padded) for segment in segments)
+            path = b''.join(segment.encode(segment, padded=cls.padded) for segment in segments)
+            if length:
+                _len = USINT.encode(len(path) // 2)
+                if pad_length:
+                    _len += b'\x00'
+                path = _len + path
+            return path
         except Exception as err:
             raise DataError(f'Error packing {reprlib.repr(segments)} as {cls.__name__}') from err
 
@@ -529,11 +535,15 @@ class CIPSegment(DataType):
     segment_type = 0b_000_00000
 
     @classmethod
-    def encode(cls, segment: 'LogicalSegment', padded: bool = False) -> bytes:
+    def encode(cls, segment: 'CIPSegment', padded: bool = False) -> bytes:
         try:
             return cls._encode(segment, padded)
         except Exception as err:
             raise DataError(f'Error packing {reprlib.repr(segment)} as {cls.__name__}') from err
+
+    @classmethod
+    def decode(cls, buffer: _BufferType) -> Any:
+        raise NotImplementedError('Decoding of CIP Segments not supported')
 
 
 class PortSegment(CIPSegment):
@@ -554,6 +564,40 @@ class PortSegment(CIPSegment):
         'dh485-a': 0b_000_0_0010,
         'dh485-b': 0b_000_0_0011,
     }
+
+    def __init__(self, port: Union[int, str], link_address: Union[int, str, bytes], name: str = ''):
+        super().__init__(name)
+        self.port = port
+        self.link_address = link_address
+
+    @classmethod
+    def _encode(cls, segment: 'PortSegment', padded: bool = False) -> bytes:
+        if isinstance(segment.port, str):
+            port = cls.port_segments[segment.port]
+        else:
+            port = segment.port
+        if isinstance(segment.link_address, str):
+            if segment.link_address.isnumeric():
+                link = USINT.encode(int(segment.link_address))
+            else:
+                ipaddress.ip_address(segment.link_address)
+                link = segment.link_address.encode()
+        elif isinstance(segment.link_address, int):
+            link = USINT.encode(segment.link_address)
+        else:
+            link = segment.link_address
+
+        if len(link) > 1:
+            port |= cls.extended_link
+            _len = USINT.encode(len(link))
+        else:
+            _len = b''
+
+        _segment = USINT.encode(port) + _len + link
+        if len(_segment) % 2:
+            _segment += b'\x00'
+
+        return _segment
 
 
 class LogicalSegment(CIPSegment):
@@ -611,7 +655,6 @@ class LogicalSegment(CIPSegment):
             _segment += b'\x00'
 
         return _segment + _value
-
 
 
 class NetworkSegment(CIPSegment):
