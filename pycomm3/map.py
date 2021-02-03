@@ -25,6 +25,10 @@
 __all__ = ['EnumMap', ]
 
 
+def _default_value_key(value):
+    return value
+
+
 class MapMeta(type):
 
     def __new__(cls, name, bases, classdict):
@@ -36,11 +40,17 @@ class MapMeta(type):
             if not key.startswith('_') and not isinstance(value, (classmethod, staticmethod))
         }
 
+
+
         # also add uppercase keys for each member (if they're not already lowercase)
         lower_members = {key.lower(): value for key, value in members.items() if key.lower() not in members}
 
-        # invert members to a value->key dict
-        value_map = {value: key.lower() for key, value in members.items()}
+        if enumcls.__dict__.get('_bidirectional_', True):
+            # invert members to a value->key dict
+            _value_key = enumcls.__dict__.get('_value_key_', _default_value_key)
+            value_map = {_value_key(value): key.lower() for key, value in members.items()}
+        else:
+            value_map = {}
 
         # merge 3 previous dicts to get member lookup dict
         enumcls._members_ = {**members, **lower_members, **value_map}
@@ -75,12 +85,8 @@ class MapMeta(type):
 
 
 def _key(item):
-    if isinstance(item, str):
-        return item.lower()
-    elif isinstance(item, bytes):
-        return item
-    else:
-        return item
+    return item.lower() if isinstance(item, str) else item
+
 
 
 class EnumMap(metaclass=MapMeta):

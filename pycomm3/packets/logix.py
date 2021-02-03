@@ -101,8 +101,8 @@ class ReadTagRequestPacket(TagServiceRequestPacket):
         super()._setup_message()
         if self.request_path is None:
             self.request_path = tag_request_path(self.tag, self.tag_info, self._use_instance_id)
-            if self.request_path is None:
-                self.error = f'Failed to build request path for tag'
+        if self.request_path is None:
+            self.error = f'Failed to build request path for tag'
         self._msg.append(self.tag_only_message())
 
 
@@ -214,8 +214,8 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
         super()._setup_message()
         if self.request_path is None:
             self.request_path = tag_request_path(self.tag, self.tag_info, self._use_instance_id)
-            if self.request_path is None:
-                self.error = f'Failed to build request path for tag'
+        if self.request_path is None:
+            self.error = f'Failed to build request path for tag'
         self._msg += [self.tag_service, self.request_path, self._packed_data_type,
                       Pack.uint(self.elements), self.value]
 
@@ -298,7 +298,7 @@ class ReadModifyWriteRequestPacket(SendUnitDataRequestPacket):
 
     def set_bit(self, bit: int, value: bool, request_id: int):
         if self.data_type == 'DWORD':
-            bit = bit % 32
+            bit %= 32
 
         if value:
             self._or_mask |= (1 << bit)
@@ -371,10 +371,7 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
         self._msg.append(Pack.uint(num_requests))
         offset = 2 + (num_requests * 2)
         offsets = []
-        messages = []
-        for request in self.requests:
-            messages.append(request.tag_only_message())
-
+        messages = [request.tag_only_message() for request in self.requests]
         for msg in messages:
             offsets.append(Pack.uint(offset))
             offset += len(msg)

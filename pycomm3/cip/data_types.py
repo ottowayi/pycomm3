@@ -6,6 +6,7 @@ from struct import pack, unpack
 from typing import Any, Sequence, Optional, Tuple, Dict, Union, List
 
 from ..exceptions import DataError, BufferEmptyError
+from ..map import EnumMap
 
 _BufferType = Union[BytesIO, bytes]
 
@@ -315,9 +316,11 @@ class EPATH(ElementaryDataType):
     padded = False
 
     @classmethod
-    def encode(cls, segments: Sequence['CIPSegment'], length: bool = False, pad_length: bool = False) -> bytes:
+    def encode(cls, segments: Sequence[Union['CIPSegment', bytes]],
+               length: bool = False, pad_length: bool = False) -> bytes:
         try:
-            path = b''.join(segment.encode(segment, padded=cls.padded) for segment in segments)
+            path = b''.join(segment if isinstance(segment, bytes) else segment.encode(segment, padded=cls.padded)
+                            for segment in segments)
             if length:
                 _len = USINT.encode(len(path) // 2)
                 if pad_length:
@@ -507,8 +510,11 @@ def struct(members_: Sequence[DataType], name: str = '') -> 'Struct':
                 typ.name: typ.decode(stream)
                 for typ in cls.members
             }
+
+            # filter any members w/o a name
             values.pop('', None)
             values.pop(None, None)
+
             return values
 
     return Struct(name)
@@ -696,3 +702,11 @@ class ConstructedDataTypeSegment(CIPSegment):
 
 class ElementaryDataTypeSegment(CIPSegment):
     segment_type = 0b_110_00000
+
+
+class DataTypes(EnumMap):
+    _return_caps_only_ = True
+    _value_key_ = lambda v: v.code
+
+    sint = SINT
+    usint = USINT

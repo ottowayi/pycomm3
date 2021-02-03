@@ -139,9 +139,8 @@ class CIPDriver:
         else:
             if not exc_type:
                 return True
-            else:
-                self.__log.exception('Unhandled Client Error', exc_info=(exc_type, exc_val, exc_tb))
-                return False
+            self.__log.exception('Unhandled Client Error', exc_info=(exc_type, exc_val, exc_tb))
+            return False
 
     def __repr__(self):
         _ = self._info

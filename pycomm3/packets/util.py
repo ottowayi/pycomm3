@@ -55,15 +55,27 @@ def wrap_unconnected_send(message: bytes, route_path: bytes) -> bytes:
 def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
                  attribute: Union[int, bytes] = b'', data: bytes = b'') -> bytes:
 
-    path = [encode_segment(class_code, CLASS_TYPE), encode_segment(instance, INSTANCE_TYPE)]
+    segments = [
+        TYPES.LogicalSegment(class_code, 'class_id'),
+        TYPES.LogicalSegment(instance, 'instance_id'),
+    ]
 
     if attribute:
-        path.append(encode_segment(attribute, ATTRIBUTE_TYPE))
+        segments.append(TYPES.LogicalSegment(attribute, 'attribute_id'))
 
-    if data:
-        path.append(data)
+    return TYPES.PADDED_EPATH.encode(segments, length=True)
 
-    return Pack.epath(b''.join(path))
+    # path = [encode_segment(class_code, CLASS_TYPE), encode_segment(instance, INSTANCE_TYPE)]
+    #
+    # if attribute:
+    #     path.append(encode_segment(attribute, ATTRIBUTE_TYPE))
+    #
+    # if data:
+    #     path.append(data)
+    #
+    #
+    #
+    # return Pack.epath(b''.join(path))
 
 
 def encode_segment(segment: Union[bytes, int], segment_types: dict) -> bytes:

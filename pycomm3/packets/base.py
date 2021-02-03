@@ -65,15 +65,13 @@ class ResponsePacket(Packet):
     def error(self) -> Optional[str]:
         if self.is_valid():
             return None
-        else:
-            if self._error is None:
-                if self.command_status not in (None, SUCCESS):
-                    return self.command_extended_status()
-                if self.service_status not in (None, SUCCESS):
-                    return self.service_extended_status()
-                return 'Unknown Error'
-            else:
-                return self._error
+        if self._error is not None:
+            return self._error
+        if self.command_status not in (None, SUCCESS):
+            return self.command_extended_status()
+        if self.service_status not in (None, SUCCESS):
+            return self.service_extended_status()
+        return 'Unknown Error'
 
     def is_valid(self) -> bool:
         return all((
