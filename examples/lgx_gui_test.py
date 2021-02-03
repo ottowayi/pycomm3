@@ -346,7 +346,7 @@ def struct_members(it, i, j):
 
             currentTagLine.set(i + 1)
 
-            struct_members(tag['data_type']['internal_tags'], currentTagLine.get(), j + 1)
+            struct_members(tag['data_type']['internal_tags'], currentTagLine.get() + 1, j + 1)
         else:
             if tag['data_type'] == 'BOOL':
                 add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (bit ' + str(tag['bit']) + ')' + ' (' + tag['data_type'] + ')')
