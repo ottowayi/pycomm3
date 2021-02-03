@@ -24,6 +24,7 @@ Tkinter vs tkinter - Reference: https://stackoverflow.com/questions/17843596/dif
 
 import threading
 import socket
+import pycomm3
 
 from struct import *
 from pycomm3 import *
@@ -55,6 +56,8 @@ class connection_thread(threading.Thread):
 myTag = ['CT_STRING', 'CT_DINT', 'CT_REAL']
 ipAddress = '192.168.1.24'
 processorSlot = 3
+
+ver = pycomm3.__version__
 
 def main():
     '''
@@ -125,6 +128,7 @@ def main():
     # if the discover() function is not included then disable the Discover Devices button (pycomm3 version 0.12.0 or lower)
     if getattr(LogixDriver,'discover', 'not present') == 'not present':
         btnDiscoverDevices['state'] = 'disabled'
+        lbDevices.insert(1, 'discover() function unavailable')
 
     # add a scrollbar for the Tags list box
     scrollbarTags = Scrollbar(frame1, orient='vertical', command=lbTags.yview)
@@ -177,16 +181,24 @@ def main():
 
     tbTag.place(anchor=CENTER, relx=0.5, rely=0.42)
 
-    # add a frame to hold bottom widgets
+    # add a frame to hold the label for pycomm3 version
     frame2 = Frame(root, background='navy')
-    frame2.pack(side=BOTTOM, fill=X)
+    frame2.pack(fill=X)
+
+    # create a label to show pycomm3 version
+    lblVersion = Label(frame2, text='pycomm3 ver. ' + ver, fg='grey', bg='navy', font='Helvetica 8')
+    lblVersion.pack(side=LEFT, padx=2)
+
+    # add a frame to hold bottom widgets
+    frame3 = Frame(root, background='navy')
+    frame3.pack(side=BOTTOM, fill=X)
 
     # add a list box for PLC error messages
-    lbPLCError = Listbox(frame2, justify=CENTER, height=1, width=45, fg='red', bg='lightgrey')
+    lbPLCError = Listbox(frame3, justify=CENTER, height=1, width=45, fg='red', bg='lightgrey')
     lbPLCError.pack(anchor=S, side=RIGHT, padx=3, pady=3)
 
     # add a list box for PLC connection messages
-    lbPLCMessage = Listbox(frame2, justify=CENTER, height=1, width=45, fg='blue', bg='lightgrey')
+    lbPLCMessage = Listbox(frame3, justify=CENTER, height=1, width=45, fg='blue', bg='lightgrey')
     lbPLCMessage.pack(anchor=S, side=LEFT, padx=3, pady=3)
 
     # add the Connect button
