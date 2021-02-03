@@ -65,10 +65,11 @@ def main():
     '''
     global root
     global comm
-    global tagValue
+    global driverSelection
     global selectedProcessorSlot
     global selectedIPAddress
     global selectedTag
+    global tagValue
     global currentTagLine
     global connected
     global updateRunning
@@ -84,6 +85,7 @@ def main():
     global sbProcessorSlot
     global tbIPAddress
     global tbTag
+    global popup_menu_drivers
     global popup_menu_tbTag
     global popup_menu_tbIPAddress
 
@@ -147,7 +149,7 @@ def main():
 
     # create a label and a text box for the IPAddress entry
     lblIPAddress = Label(root, text='IP Address', fg='white', bg='navy', font='Helvetica 9')
-    lblIPAddress.place(anchor=CENTER, relx=0.5, rely=0.115)
+    lblIPAddress.place(anchor=CENTER, relx=0.5, rely=0.085)
     selectedIPAddress = StringVar()
     tbIPAddress = Entry(root, justify=CENTER, textvariable=selectedIPAddress)
     selectedIPAddress.set(ipAddress)
@@ -157,15 +159,15 @@ def main():
     popup_menu_tbIPAddress.add_command(label='Paste', command=ip_paste)
     tbIPAddress.bind('<Button-3>', lambda event: ip_menu(event, tbIPAddress))
 
-    tbIPAddress.place(anchor=CENTER, relx=0.5, rely=0.15)
+    tbIPAddress.place(anchor=CENTER, relx=0.5, rely=0.12)
 
     # create a label and a spinbox for the ProcessorSlot entry
     lblProcessorSlot = Label(root, text='Processor Slot', fg='white', bg='navy', font='Helvetica 9')
-    lblProcessorSlot.place(anchor=CENTER, relx=0.5, rely=0.215)
+    lblProcessorSlot.place(anchor=CENTER, relx=0.5, rely=0.165)
     selectedProcessorSlot = StringVar()
     sbProcessorSlot = Spinbox(root, width=10, justify=CENTER, from_ = 0, to = 20, increment=1, textvariable=selectedProcessorSlot, state='readonly')
     selectedProcessorSlot.set(processorSlot)
-    sbProcessorSlot.place(anchor=CENTER, relx=0.5, rely=0.25)
+    sbProcessorSlot.place(anchor=CENTER, relx=0.5, rely=0.2)
 
     # create a label and a text box for the Tag entry
     lblTag = Label(root, text='Tag(s) To Read', fg='white', bg='navy', font='Helvetica 9')
@@ -181,13 +183,23 @@ def main():
 
     tbTag.place(anchor=CENTER, relx=0.5, rely=0.42)
 
-    # add a frame to hold the label for pycomm3 version
+    # add a frame to hold the label for pycomm3 version and the driver choices OptionMenu (combobox)
     frame2 = Frame(root, background='navy')
     frame2.pack(fill=X)
 
     # create a label to show pycomm3 version
-    lblVersion = Label(frame2, text='pycomm3 ver. ' + ver, fg='grey', bg='navy', font='Helvetica 8')
-    lblVersion.pack(side=LEFT, padx=2)
+    lblVersion = Label(frame2, text='pycomm3 version ' + ver, fg='grey', bg='navy', font='Helvetica 9')
+    lblVersion.pack(side=LEFT, padx=3)
+
+    # create the driver selection variable
+    driverSelection = StringVar()
+    driverChoices = { 'LogixDriver','SLCDriver'}
+    driverSelection.set('LogixDriver')
+    driverSelection.trace('w', driver_selector)
+
+    # create the driver selection popup menu
+    popup_menu_drivers = OptionMenu(frame2, driverSelection, *driverChoices)
+    popup_menu_drivers.pack(side=RIGHT, padx=3)
 
     # add a frame to hold bottom widgets
     frame3 = Frame(root, background='navy')
@@ -228,6 +240,22 @@ def main():
     except Exception as e:
         pass
 
+def driver_selector(*args):
+    if driverSelection.get() == 'SLCDriver':
+        lbTags.delete(0, 'end') #clear the tags listbox
+        lbPLCMessage.delete(0, 'end') #clear the connection message listbox
+        lbPLCError.delete(0, 'end') #clear the error message listbox
+        btnGetTags['state'] = 'disabled'
+        sbProcessorSlot['state'] = 'disabled'
+        selectedIPAddress.set('192.168.1.10')
+    else:
+        btnGetTags['state'] = 'normal'
+        sbProcessorSlot['state'] = 'normal'
+        selectedIPAddress.set('192.168.1.24')
+
+    selectedTag.set('')
+    start_connection()
+
 def start_connection():
     try:
         thread1 = connection_thread()
@@ -259,6 +287,9 @@ def discoverDevices():
 
     try:
         if not comm is None:
+            if not comm.connected:
+                start_connection()
+
             devices = comm.discover()
 
             if str(devices) == '[]':
@@ -398,10 +429,16 @@ def comm_check():
         processorSlot = port
 
     try:
-        comm = LogixDriver(ipAddress + '/' + str(processorSlot))
-        comm.open()
+        if driverSelection.get() == 'LogixDriver':
+            comm = LogixDriver(ipAddress + '/' + str(processorSlot))
+            comm.open()
+            lbPLCMessage.insert(1, 'Connected --> keyswitch:  ' + comm.info['keyswitch'])
+        else:
+            comm = SLCDriver(ipAddress)
+            comm.open()
+            lbPLCMessage.insert(1, 'Connected to: ' + ipAddress)
+
         connected = True
-        lbPLCMessage.insert(1, 'Connected --> keyswitch:  ' + comm.info['keyswitch'])
         lbPLCError.delete(0, 'end')
         btnConnect['state'] = 'disabled'
         if btnStop['state'] == 'disabled':
@@ -432,7 +469,7 @@ def startUpdateValue():
                 for tag in tags:
                     myTag.append(str(tag).replace(' ', ''))
             else:
-                myTag.append(tag)
+                myTag.append(displayTag.replace(' ', ''))
 
             if not updateRunning:
                 updateRunning = True
@@ -443,11 +480,15 @@ def startUpdateValue():
                     tbIPAddress['state'] = 'disabled'
                     sbProcessorSlot['state'] = 'disabled'
                     tbTag['state'] = 'disabled'
+                    popup_menu_drivers['state'] = 'disabled'
                     results = comm.read(*myTag)
                     allValues = ''
-                    for tag in results:
-                        allValues += str(tag.value) + ', '
-                    tagValue['text'] = allValues[:-2]
+                    if len(myTag) == 1:
+                        tagValue['text'] = results.value
+                    else:
+                        for tag in results:
+                            allValues += str(tag.value) + ', '
+                        tagValue['text'] = allValues[:-2]
                     root.after(500, startUpdateValue)
                 except Exception as e:
                     lbPLCMessage.delete(0, 'end')
@@ -468,6 +509,7 @@ def stopUpdateValue():
         tbIPAddress['state'] = 'normal'
         sbProcessorSlot['state'] = 'normal'
         tbTag['state'] = 'normal'
+        popup_menu_drivers['state'] = 'normal'
 
 def tag_menu(event, tbTag):
     try:
