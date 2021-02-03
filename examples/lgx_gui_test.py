@@ -243,8 +243,6 @@ def main():
 def driver_selector(*args):
     if driverSelection.get() == 'SLCDriver':
         lbTags.delete(0, 'end') #clear the tags listbox
-        lbPLCMessage.delete(0, 'end') #clear the connection message listbox
-        lbPLCError.delete(0, 'end') #clear the error message listbox
         btnGetTags['state'] = 'disabled'
         sbProcessorSlot['state'] = 'disabled'
         selectedIPAddress.set('192.168.1.10')
@@ -253,6 +251,8 @@ def driver_selector(*args):
         sbProcessorSlot['state'] = 'normal'
         selectedIPAddress.set('192.168.1.24')
 
+    lbPLCMessage.delete(0, 'end') #clear the connection message listbox
+    lbPLCError.delete(0, 'end') #clear the error message listbox
     selectedTag.set('')
     start_connection()
 
