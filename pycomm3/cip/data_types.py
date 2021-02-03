@@ -666,7 +666,28 @@ class SymbolicSegment(CIPSegment):
 
 
 class DataSegment(CIPSegment):
+    #   Segment      Segment
+    #    Type       Sub-Type
+    # [7, 6, 5] [4, 3, 2, 1, 0]
     segment_type = 0b_100_00000
+    extended_symbol = 0b_000_10001
+
+    def __init__(self, data: Union[str, bytes], name: str = ''):
+        super().__init__(name)
+        self.data = data
+
+    @classmethod
+    def _encode(cls, segment: 'DataSegment', padded: bool = False) -> bytes:
+        _segment = cls.segment_type
+        if not isinstance(segment.data, str):
+            return USINT.encode(_segment) + USINT.encode(len(segment.data)) + segment.data
+
+        _segment |= cls.extended_symbol
+        _data = segment.data.encode()
+        _len = len(_data)
+        if _len % 2:
+            _data += b'\x00'
+        return USINT.encode(_segment) + USINT.encode(_len) + _data
 
 
 class ConstructedDataTypeSegment(CIPSegment):

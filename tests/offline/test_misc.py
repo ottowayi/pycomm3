@@ -45,6 +45,7 @@ _bad_paths = [
     '192.168.1.100/backplane/1/10.11.12.13/bp/0'
 ]
 
+
 @pytest.mark.parametrize('path', _bad_paths)
 def test_bad_plc_paths(path):
     with pytest.raises(RequestError):

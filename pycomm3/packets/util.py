@@ -29,7 +29,8 @@ from typing import Union, Sequence, Tuple, Optional
 from .. import util
 from ..bytes_ import Pack, Unpack
 from ..cip import (ClassCode, ConnectionManagerServices, CLASS_TYPE, INSTANCE_TYPE, ATTRIBUTE_TYPE, ELEMENT_TYPE,
-                   SERVICE_STATUS, DataType, DataTypeSize, StringTypeLenSize, Services, EXTEND_CODES)
+                   SERVICE_STATUS, DataType, DataTypeSize, StringTypeLenSize, Services, EXTEND_CODES,
+                   data_types as TYPES)
 from ..const import PRIORITY, TIMEOUT_TICKS, STRUCTURE_READ_REPLY, EXTENDED_SYMBOL
 from ..exceptions import RequestError
 
@@ -91,44 +92,70 @@ def tag_request_path(tag, tag_cache, use_instance_ids):
     """
 
     tags = tag.split('.')
+    # segments = []
     if tags:
         base, *attrs = tags
         base_tag, index = _find_tag_index(base)
         if use_instance_ids and base_tag in tag_cache:
-            rp = [CLASS_TYPE['8-bit'],
-                  ClassCode.symbol_object,
-                  INSTANCE_TYPE['16-bit'],
-                  Pack.uint(tag_cache[base_tag]['instance_id'])]
+            # rp = [CLASS_TYPE['8-bit'],
+            #       ClassCode.symbol_object,
+            #       INSTANCE_TYPE['16-bit'],
+            #       Pack.uint(tag_cache[base_tag]['instance_id'])]
+            segments = [
+                TYPES.LogicalSegment(ClassCode.symbol_object, 'class_id'),
+                TYPES.LogicalSegment(tag_cache[base_tag]['instance_id'], 'instance_id')
+            ]
         else:
-            base_len = len(base_tag)
-            rp = [EXTENDED_SYMBOL,
-                  Pack.usint(base_len),
-                  base_tag.encode()]
-            if base_len % 2:
-                rp.append(b'\x00')
+            # base_len = len(base_tag)
+            # rp = [EXTENDED_SYMBOL,
+            #       Pack.usint(base_len),
+            #       base_tag.encode()]
+            # if base_len % 2:
+            #     rp.append(b'\x00')
+
+            segments = [
+                TYPES.DataSegment(base_tag),
+            ]
         if index is None:
             return None
-        else:
-            rp += _encode_tag_index(index)
+        # rp += _encode_tag_index(index)
+        segments += [
+            TYPES.LogicalSegment(int(idx), 'member_id')
+            for idx in index
+        ]
 
         for attr in attrs:
             attr, index = _find_tag_index(attr)
-            tag_length = len(attr)
-            # Create the request path
-            attr_path = [EXTENDED_SYMBOL,
-                         Pack.usint(tag_length),
-                         attr.encode()]
-            # Add pad byte because total length of Request path must be word-aligned
-            if tag_length % 2:
-                attr_path.append(b'\x00')
-            # Add any index
-            if index is None:
-                return None
-            else:
-                attr_path += _encode_tag_index(index)
-            rp += attr_path
+            # tag_length = len(attr)
+            # # Create the request path
+            # attr_path = [EXTENDED_SYMBOL,
+            #              Pack.usint(tag_length),
+            #              attr.encode()]
+            attr_segments = [
+                TYPES.DataSegment(attr)
+            ]
+            attr_segments += [
+                TYPES.LogicalSegment(int(idx), 'member_id')
+                for idx in index
+            ]
+            # # Add pad byte because total length of Request path must be word-aligned
+            # if tag_length % 2:
+            #     attr_path.append(b'\x00')
+            # # Add any index
+            # if index is None:
+            #     return None
+            # else:
+            #     attr_path += _encode_tag_index(index)
+            # rp += attr_path
+            segments += attr_segments
 
-        return Pack.epath(b''.join(rp))
+        # old_ = Pack.epath(b''.join(rp))
+        # if new_ != old_:
+        #     print(tag)
+        #     print(new_)
+        #     print(old_)
+
+        return TYPES.PADDED_EPATH.encode(segments, length=True)
 
     return None
 

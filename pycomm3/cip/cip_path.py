@@ -24,6 +24,7 @@
 
 from ..map import EnumMap
 from .object_library import ClassCode
+from . import data_types as TYPES
 
 __all__ = ['ELEMENT_TYPE', 'CLASS_TYPE', 'INSTANCE_TYPE', 'ATTRIBUTE_TYPE',
            'PATH_SEGMENTS', 'MSG_ROUTER_PATH', 'DataItem', 'AddressItem']
@@ -71,7 +72,11 @@ PATH_SEGMENTS = {
     'dh485-b': 0x03,
 }
 
-MSG_ROUTER_PATH = b''.join([CLASS_TYPE['8-bit'], ClassCode.message_router, INSTANCE_TYPE['8-bit'], b'\x01'])
+# MSG_ROUTER_PATH = b''.join([CLASS_TYPE['8-bit'], ClassCode.message_router, INSTANCE_TYPE['8-bit'], b'\x01'])
+MSG_ROUTER_PATH = TYPES.PACKED_EPATH.encode((
+                    TYPES.LogicalSegment(ClassCode.message_router, 'class_id'),
+                    TYPES.LogicalSegment(0x01, 'instance_id')
+                  ))
 
 
 class DataItem(EnumMap):
