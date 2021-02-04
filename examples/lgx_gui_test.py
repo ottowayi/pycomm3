@@ -4,14 +4,15 @@ Connection/Read Test App by GitHubDragonFly (see the screenshots here: https://g
 - A simple Tkinter window to display discovered devices, tags and their values.
 - Adjust the resolution by changing the values in this line below: root.geometry('800x600')
 - Designed for reading only, either a single or multiple tags.
-- Make sure to set the correct IP Address and Processor Slot for your network.
+- Make sure to set the correct path for your PLC (https://pycomm3.readthedocs.io/en/latest/logixdriver.html).
 - The Connection, Device Discovery and Get Tags are all set to work on separate threads.
 - Double clicking the device discovery window line with the IP Address will copy that IP to the clipboard.
-- Non-traditional "Paste" option was provided for the IP Adress and Tag entry boxes.
+- Non-traditional "Paste" option was provided for the Path and Tag entry boxes.
 - Since the addressing is in the Tag format then it follows the rules of the pycomm3 library itself.
   For requesting multiple values use a tag format like this:
   - CT_STRINGArray[0]{5} - request 5 consecutive values from this string array starting at index 0.
   - CT_STRING, CT_DINT, CT_REAL - read each of these comma separated tags (this is the app's default startup option).
+  This is applicable for both LogixDriver and SLCDriver.
 - The code itself will attempt to extract all the values from the received responses (which are in the dictionary format).
 - The bottom corners listboxes are designed to show successful connection (left box) and errors (right box).
 
@@ -54,8 +55,7 @@ class connection_thread(threading.Thread):
 
 # startup default values
 myTag = ['CT_STRING', 'CT_DINT', 'CT_REAL']
-ipAddress = '192.168.1.24'
-processorSlot = 3
+path = '192.168.1.24/3'
 
 ver = pycomm3.__version__
 
@@ -66,8 +66,7 @@ def main():
     global root
     global comm
     global driverSelection
-    global selectedProcessorSlot
-    global selectedIPAddress
+    global selectedPath
     global selectedTag
     global tagValue
     global currentTagLine
@@ -82,12 +81,12 @@ def main():
     global lbTags
     global lbPLCError
     global lbPLCMessage
-    global sbProcessorSlot
-    global tbIPAddress
+    global tbPath
     global tbTag
+    global chbtnState
     global popup_menu_drivers
     global popup_menu_tbTag
-    global popup_menu_tbIPAddress
+    global popup_menu_tbPath
 
     root = Tk()
     root.config(background='navy')
@@ -147,27 +146,19 @@ def main():
     tagValue = Label(root, text='~', fg='yellow', bg='navy', font='Helvetica 18', width=52, relief=SUNKEN)
     tagValue.place(anchor=CENTER, relx=0.5, rely=0.5)
 
-    # create a label and a text box for the IPAddress entry
-    lblIPAddress = Label(root, text='IP Address', fg='white', bg='navy', font='Helvetica 9')
-    lblIPAddress.place(anchor=CENTER, relx=0.5, rely=0.085)
-    selectedIPAddress = StringVar()
-    tbIPAddress = Entry(root, justify=CENTER, textvariable=selectedIPAddress)
-    selectedIPAddress.set(ipAddress)
+    # create a label and a text box for the path entry
+    lblPath = Label(root, text='Path', fg='white', bg='navy', font='Helvetica 9')
+    lblPath.place(anchor=CENTER, relx=0.5, rely=0.1)
+    selectedPath = StringVar()
+    tbPath = Entry(root, justify=CENTER, textvariable=selectedPath, width=32)
+    selectedPath.set(path)
 
     # add the "Paste" menu on the mouse right-click
-    popup_menu_tbIPAddress = Menu(tbIPAddress, tearoff=0)
-    popup_menu_tbIPAddress.add_command(label='Paste', command=ip_paste)
-    tbIPAddress.bind('<Button-3>', lambda event: ip_menu(event, tbIPAddress))
+    popup_menu_tbPath = Menu(tbPath, tearoff=0)
+    popup_menu_tbPath.add_command(label='Paste', command=path_paste)
+    tbPath.bind('<Button-3>', lambda event: ip_menu(event, tbPath))
 
-    tbIPAddress.place(anchor=CENTER, relx=0.5, rely=0.12)
-
-    # create a label and a spinbox for the ProcessorSlot entry
-    lblProcessorSlot = Label(root, text='Processor Slot', fg='white', bg='navy', font='Helvetica 9')
-    lblProcessorSlot.place(anchor=CENTER, relx=0.5, rely=0.165)
-    selectedProcessorSlot = StringVar()
-    sbProcessorSlot = Spinbox(root, width=10, justify=CENTER, from_ = 0, to = 20, increment=1, textvariable=selectedProcessorSlot, state='readonly')
-    selectedProcessorSlot.set(processorSlot)
-    sbProcessorSlot.place(anchor=CENTER, relx=0.5, rely=0.2)
+    tbPath.place(anchor=CENTER, relx=0.5, rely=0.14)
 
     # create a label and a text box for the Tag entry
     lblTag = Label(root, text='Tag(s) To Read', fg='white', bg='navy', font='Helvetica 9')
@@ -244,12 +235,10 @@ def driver_selector(*args):
     if driverSelection.get() == 'SLCDriver':
         lbTags.delete(0, 'end') #clear the tags listbox
         btnGetTags['state'] = 'disabled'
-        sbProcessorSlot['state'] = 'disabled'
-        selectedIPAddress.set('192.168.1.10')
+        selectedPath.set('192.168.1.10')
     else:
         btnGetTags['state'] = 'normal'
-        sbProcessorSlot['state'] = 'normal'
-        selectedIPAddress.set('192.168.1.24')
+        selectedPath.set('192.168.1.24/3')
 
     lbPLCMessage.delete(0, 'end') #clear the connection message listbox
     lbPLCError.delete(0, 'end') #clear the error message listbox
@@ -411,11 +400,9 @@ def add_Tag(j, string):
 def comm_check():
     global comm
     global connected
-    global ipAddress
-    global processorSlot
+    global path
 
-    ip = selectedIPAddress.get()
-    port = int(selectedProcessorSlot.get())
+    pth = selectedPath.get()
 
     try:
         if not comm is None:
@@ -424,19 +411,18 @@ def comm_check():
     except Exception as e:
         pass
 
-    if (ipAddress != ip or processorSlot != port):
-        ipAddress = ip
-        processorSlot = port
+    if (path != pth):
+        path = pth
 
     try:
         if driverSelection.get() == 'LogixDriver':
-            comm = LogixDriver(ipAddress + '/' + str(processorSlot))
+            comm = LogixDriver(path)
             comm.open()
-            lbPLCMessage.insert(1, 'Connected --> keyswitch:  ' + comm.info['keyswitch'])
+            lbPLCMessage.insert(1, 'Connected: ' + comm.info['device_type'] + ' , ' + comm.info['keyswitch'])
         else:
-            comm = SLCDriver(ipAddress)
+            comm = SLCDriver(path)
             comm.open()
-            lbPLCMessage.insert(1, 'Connected to: ' + ipAddress)
+            lbPLCMessage.insert(1, 'Connected to: ' + path)
 
         connected = True
         lbPLCError.delete(0, 'end')
@@ -457,19 +443,20 @@ def startUpdateValue():
     Call ourself to update the screen
     '''
 
-    if (ipAddress != selectedIPAddress.get() or processorSlot != int(selectedProcessorSlot.get())):
+    if (path != selectedPath.get()):
         start_connection()
     else:
-        displayTag = selectedTag.get()
+        displayTag = (selectedTag.get()).replace(' ', '')
 
         if displayTag != '':
             myTag = []
             if ',' in displayTag:
                 tags = displayTag.split(',')
                 for tag in tags:
-                    myTag.append(str(tag).replace(' ', ''))
+                    if not str(tag) == '':
+                        myTag.append(str(tag))
             else:
-                myTag.append(displayTag.replace(' ', ''))
+                myTag.append(displayTag)
 
             if not updateRunning:
                 updateRunning = True
@@ -477,18 +464,22 @@ def startUpdateValue():
                 try:
                     btnStart['state'] = 'disabled'
                     btnStop['state'] = 'normal'
-                    tbIPAddress['state'] = 'disabled'
-                    sbProcessorSlot['state'] = 'disabled'
+                    tbPath['state'] = 'disabled'
                     tbTag['state'] = 'disabled'
                     popup_menu_drivers['state'] = 'disabled'
-                    results = comm.read(*myTag)
-                    allValues = ''
-                    if len(myTag) == 1:
-                        tagValue['text'] = results.value
-                    else:
-                        for tag in results:
-                            allValues += str(tag.value) + ', '
-                        tagValue['text'] = allValues[:-2]
+
+                    try:
+                        results = comm.read(*myTag)
+                        allValues = ''
+                        if len(myTag) == 1:
+                            tagValue['text'] = results.value
+                        else:
+                            for tag in results:
+                                allValues += str(tag.value) + ', '
+                            tagValue['text'] = allValues[:-2]
+                    except Exception as e:
+                        print(e)
+
                     root.after(500, startUpdateValue)
                 except Exception as e:
                     lbPLCMessage.delete(0, 'end')
@@ -506,8 +497,7 @@ def stopUpdateValue():
         tagValue['text'] = '~'
         btnStart['state'] = 'normal'
         btnStop['state'] = 'disabled'
-        tbIPAddress['state'] = 'normal'
-        sbProcessorSlot['state'] = 'normal'
+        tbPath['state'] = 'normal'
         tbTag['state'] = 'normal'
         popup_menu_drivers['state'] = 'normal'
 
@@ -529,19 +519,19 @@ def tag_paste():
 def ip_copy():
     if (lbDevices.get(ANCHOR)).split(' ')[0] == 'IP':
         root.clipboard_clear()
-        listboxSelectedIPAddress = (lbDevices.get(ANCHOR)).split(' ')[2]
-        root.clipboard_append(listboxSelectedIPAddress)
+        listboxSelectedPath = (lbDevices.get(ANCHOR)).split(' ')[2]
+        root.clipboard_append(listboxSelectedPath)
 
-def ip_menu(event, tbIPAddress):
-    if (root.clipboard_get() != '') and (type(root.clipboard_get()) is str) and (tbIPAddress['state'] == 'normal'):
-        tbIPAddress.select_range(0, 'end')
-        popup_menu_tbIPAddress.post(event.x_root, event.y_root)
+def ip_menu(event, tbPath):
+    if (root.clipboard_get() != '') and (type(root.clipboard_get()) is str) and (tbPath['state'] == 'normal'):
+        tbPath.select_range(0, 'end')
+        popup_menu_tbPath.post(event.x_root, event.y_root)
 
-def ip_paste():
-    # user clicked the "Paste" option so paste the IP Address from the clipboard
-    selectedIPAddress.set(root.clipboard_get())
-    tbIPAddress.select_range(0, 'end')
-    tbIPAddress.icursor('end')
+def path_paste():
+    # user clicked the "Paste" option so paste the clipboard contents
+    selectedPath.set(root.clipboard_get())
+    tbPath.select_range(0, 'end')
+    tbPath.icursor('end')
 
 if __name__=='__main__':
     main()
