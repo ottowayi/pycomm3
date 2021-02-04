@@ -83,7 +83,6 @@ def main():
     global lbPLCMessage
     global tbPath
     global tbTag
-    global chbtnState
     global popup_menu_drivers
     global popup_menu_tbTag
     global popup_menu_tbPath
@@ -156,7 +155,7 @@ def main():
     # add the "Paste" menu on the mouse right-click
     popup_menu_tbPath = Menu(tbPath, tearoff=0)
     popup_menu_tbPath.add_command(label='Paste', command=path_paste)
-    tbPath.bind('<Button-3>', lambda event: ip_menu(event, tbPath))
+    tbPath.bind('<Button-3>', lambda event: path_menu(event, tbPath))
 
     tbPath.place(anchor=CENTER, relx=0.5, rely=0.14)
 
@@ -522,7 +521,7 @@ def ip_copy():
         listboxSelectedPath = (lbDevices.get(ANCHOR)).split(' ')[2]
         root.clipboard_append(listboxSelectedPath)
 
-def ip_menu(event, tbPath):
+def path_menu(event, tbPath):
     if (root.clipboard_get() != '') and (type(root.clipboard_get()) is str) and (tbPath['state'] == 'normal'):
         tbPath.select_range(0, 'end')
         popup_menu_tbPath.post(event.x_root, event.y_root)
