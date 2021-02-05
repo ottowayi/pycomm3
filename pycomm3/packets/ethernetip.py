@@ -25,11 +25,12 @@ import logging
 from itertools import cycle
 
 from .base import RequestPacket, ResponsePacket
-from .util import get_service_status, get_extended_status, parse_reply_data_by_format
+from .util import get_service_status, get_extended_status
 
 from ..const import SUCCESS, INSUFFICIENT_PACKETS
-from ..cip import MULTI_PACKET_SERVICES, Services, DataItem, AddressItem, EncapsulationCommands, data_types as TYPES
+from ..cip import (MULTI_PACKET_SERVICES, Services, DataItem, AddressItem, EncapsulationCommands )
 from ..bytes_ import Pack, Unpack
+from ..custom_types import ListIdentityObject
 
 
 class SendUnitDataResponsePacket(ResponsePacket):
@@ -160,9 +161,7 @@ class RegisterSessionRequestPacket(RequestPacket):
     def _setup_message(self):
         self._msg += [self.protocol_version, self.option_flags]
 
-
     def _build_common_packet_format(self, message, addr_data=None) -> bytes:
-    #     self.build_message()
         return message
 
 
@@ -185,24 +184,6 @@ class UnRegisterSessionRequestPacket(RequestPacket):
 
 class ListIdentityResponsePacket(ResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
-    _data_format_ = TYPES.struct((
-        TYPES.UINT('item_type_code'),
-        TYPES.UINT('item_length'),
-        TYPES.UINT('encap_protocol_version'),
-        TYPES.n_bytes(4),
-        TYPES.IP_ADDR('ip_address'),
-        TYPES.n_bytes(8),
-        TYPES.UINT('vendor_id'),
-        TYPES.UINT('device_type'),
-        TYPES.UINT('product_code'),
-        TYPES.USINT('revision_major'),
-        TYPES.USINT('revision_minor'),
-        TYPES.WORD('status'),
-        TYPES.UDINT('serial_number'),
-        TYPES.SHORT_STRING('product_name'),
-        TYPES.USINT('state')
-
-    ))
 
     def __init__(self, request: 'ListIdentityRequestPacket', raw_data: bytes = None):
         self.identity = {}
@@ -212,7 +193,7 @@ class ListIdentityResponsePacket(ResponsePacket):
         try:
             super()._parse_reply()
             self.data = self.raw[26:]
-            self.identity = self._data_format_.decode(self.data)
+            self.identity = ListIdentityObject.decode(self.data)
         except Exception as err:
             self.__log.exception('Failed to parse response')
             self._error = f'Failed to parse reply - {err}'
@@ -234,5 +215,3 @@ class ListIdentityRequestPacket(RequestPacket):
 
     def _build_common_packet_format(self, message, addr_data=None) -> bytes:
         return b''
-
-

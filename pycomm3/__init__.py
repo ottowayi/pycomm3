@@ -58,4 +58,4 @@ from .tag import Tag
 from .exceptions import *
 from .cip_driver import CIPDriver
 from .logix_driver import LogixDriver
-from .slc_driver import SLCDriver
+# from .slc_driver import SLCDriver

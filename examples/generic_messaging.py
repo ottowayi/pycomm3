@@ -14,7 +14,7 @@ def read_pf525_parameter():
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_format=[('AccelTime', 'INT'), ],
+            data_type=[('AccelTime', 'INT'), ],
             name='pf525_param'
         )
         print(param)
@@ -51,7 +51,7 @@ def enbt_ok_led_status():
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_format=[('Value', 'INT'), ],
+            data_type=[('Value', 'INT'), ],
             name='OK LED Status'
         )
         # The LED Status is returned as a binary representation on bits 4, 5, 6, and 7. The decimal equivalents are:
@@ -78,7 +78,7 @@ def link_status():
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_format=[('LinkStatus', 'INT'), ],
+            data_type=[('LinkStatus', 'INT'), ],
             name='LinkStatus'
         )
         # Prints the binary representation of the link status. The definition of the bits are:
@@ -108,7 +108,7 @@ def stratix_power_status():
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_format=[('Power Status', 'INT'), ],
+            data_type=[('Power Status', 'INT'), ],
             name='Power Status'
         )
         # Returns a binary representation of the power status. Bit 0 is PWR A, Bit 1 is PWR B. If 1, power is applied. If 0, power is off.
@@ -130,7 +130,7 @@ def ip_config():
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_format=[('IP Config', 'INT'), ],
+            data_type=[('IP Config', 'INT'), ],
             name='IP_config'
         )
 
@@ -152,7 +152,7 @@ def get_mac_address():
             class_code=ClassCode.ethernet_link,
             instance=1,
             attribute=3,
-            data_format=(('MAC', 'USINT[6]'), ),
+            data_type=(('MAC', 'USINT[6]'),),
             connected=False
         )
 

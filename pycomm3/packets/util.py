@@ -25,14 +25,17 @@
 import ipaddress
 from itertools import chain
 from typing import Union, Sequence, Tuple, Optional
+from io import BytesIO
 
 from .. import util
 from ..bytes_ import Pack, Unpack
-from ..cip import (ClassCode, ConnectionManagerServices, CLASS_TYPE, INSTANCE_TYPE, ATTRIBUTE_TYPE, ELEMENT_TYPE,
-                   SERVICE_STATUS, DataType, DataTypeSize, StringTypeLenSize, Services, EXTEND_CODES,
+from ..cip import (ClassCode, ConnectionManagerServices, SERVICE_STATUS, DataType,
+                   Services, EXTEND_CODES, DataTypes,
                    data_types as TYPES)
-from ..const import PRIORITY, TIMEOUT_TICKS, STRUCTURE_READ_REPLY, EXTENDED_SYMBOL
+from ..const import PRIORITY, TIMEOUT_TICKS, STRUCTURE_READ_REPLY
 from ..exceptions import RequestError
+
+DataTypeSize, StringTypeLenSize = None, None
 
 
 def wrap_unconnected_send(message: bytes, route_path: bytes) -> bytes:
@@ -78,23 +81,23 @@ def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
     # return Pack.epath(b''.join(path))
 
 
-def encode_segment(segment: Union[bytes, int], segment_types: dict) -> bytes:
-    if isinstance(segment, int):
-        if segment <= 0xff:
-            segment = Pack.usint(segment)
-        elif segment <= 0xffff:
-            segment = Pack.uint(segment)
-        elif segment <= 0xfffffffff:
-            segment = Pack.dint(segment)
-        else:
-            raise RequestError('Invalid segment value')
-
-    _type = segment_types.get(len(segment))
-
-    if _type is None:
-        raise RequestError('Segment value not valid for segment type')
-
-    return _type + segment
+# def encode_segment(segment: Union[bytes, int], segment_types: dict) -> bytes:
+#     if isinstance(segment, int):
+#         if segment <= 0xff:
+#             segment = Pack.usint(segment)
+#         elif segment <= 0xffff:
+#             segment = Pack.uint(segment)
+#         elif segment <= 0xfffffffff:
+#             segment = Pack.dint(segment)
+#         else:
+#             raise RequestError('Invalid segment value')
+#
+#     _type = segment_types.get(len(segment))
+#
+#     if _type is None:
+#         raise RequestError('Segment value not valid for segment type')
+#
+#     return _type + segment
 
 
 def tag_request_path(tag, tag_cache, use_instance_ids):
@@ -183,8 +186,8 @@ def _find_tag_index(tag):
     return tag, index
 
 
-def _encode_tag_index(index):
-    return [encode_segment(int(idx), ELEMENT_TYPE) for idx in index]
+# def _encode_tag_index(index):
+#     return [encode_segment(int(idx), ELEMENT_TYPE) for idx in index]
 
 
 def get_service_status(status) -> str:
@@ -220,65 +223,66 @@ def get_extended_status(msg, start) -> str:
         return "No Extended Status"
 
 
-def make_write_data_bit(tag_info, value, request_path):
-    mask_size = DataTypeSize.get(tag_info['data_type'])
-    if mask_size is None:
-        raise RequestError(f'Invalid data type {tag_info["data_type"]} for writing bits')
+# def make_write_data_bit(tag_info, value, request_path):
+#     mask_size = DataTypeSize.get(tag_info['data_type'])
+#     if mask_size is None:
+#         raise RequestError(f'Invalid data type {tag_info["data_type"]} for writing bits')
+#
+#     or_mask, and_mask = value
+#     return b''.join((
+#         Services.read_modify_write,
+#         request_path,
+#         Pack.uint(mask_size),
+#         Pack.ulint(or_mask)[:mask_size],
+#         Pack.ulint(and_mask)[:mask_size]
+#         ))
 
-    or_mask, and_mask = value
-    return b''.join((
-        Services.read_modify_write,
-        request_path,
-        Pack.uint(mask_size),
-        Pack.ulint(or_mask)[:mask_size],
-        Pack.ulint(and_mask)[:mask_size]
-        ))
-
-
-DataFormatType = Sequence[Tuple[Optional[str], Union[str, int]]]
-
-
-def parse_reply_data_by_format(data, fmt: DataFormatType):
-    values = {}
-    start = 0
-    for name, typ in fmt:
-        if isinstance(typ, int):
-            value = data[start: start + typ]
-            start += typ
-        elif typ == '*':
-            values[name] = data[start:]
-            break
-        elif typ == 'IP':
-            value = ipaddress.IPv4Address(data[start: start + 4]).exploded
-            start += 4
-        else:
-            typ, cnt = util.get_array_index(typ)
-            unpack_func = Unpack[typ]
-
-            if typ == 'STRINGI':
-                value, langs, data_size = unpack_func(data[start:])
-
-            elif typ in StringTypeLenSize:
-                value = unpack_func(data[start:])
-                data_size = len(value) + StringTypeLenSize[typ]
-
-            else:
-                data_size = DataTypeSize[typ]
-                if cnt:
-                    value = tuple(unpack_func(data[i:]) for i in range(start, data_size * cnt, data_size))
-                    data_size *= cnt
-                else:
-                    value = unpack_func(data[start:])
-
-            start += data_size
-
-        if name:
-            values[name] = value
-
-    return values
+#
+# DataFormatType = Sequence[Tuple[Optional[str], Union[str, int]]]
+#
+#
+# def parse_reply_data_by_format(data, fmt: DataFormatType):
+#     values = {}
+#     start = 0
+#     for name, typ in fmt:
+#         if isinstance(typ, int):
+#             value = data[start: start + typ]
+#             start += typ
+#         elif typ == '*':
+#             values[name] = data[start:]
+#             break
+#         elif typ == 'IP':
+#             value = ipaddress.IPv4Address(data[start: start + 4]).exploded
+#             start += 4
+#         else:
+#             typ, cnt = util.get_array_index(typ)
+#             unpack_func = Unpack[typ]
+#
+#             if typ == 'STRINGI':
+#                 value, langs, data_size = unpack_func(data[start:])
+#
+#             elif typ in StringTypeLenSize:
+#                 value = unpack_func(data[start:])
+#                 data_size = len(value) + StringTypeLenSize[typ]
+#
+#             else:
+#                 data_size = DataTypeSize[typ]
+#                 if cnt:
+#                     value = tuple(unpack_func(data[i:]) for i in range(start, data_size * cnt, data_size))
+#                     data_size *= cnt
+#                 else:
+#                     value = unpack_func(data[start:])
+#
+#             start += data_size
+#
+#         if name:
+#             values[name] = value
+#
+#     return values
 
 
 def parse_read_reply(data, data_type, elements):
+
     if data[:2] == STRUCTURE_READ_REPLY:
         data = data[4:]
         size = data_type['data_type']['template']['structure_size']
@@ -289,18 +293,18 @@ def parse_read_reply(data, data_type, elements):
         else:
             value = parse_read_reply_struct(data, data_type['data_type'])
     else:
-        datatype = DataType[Unpack.uint(data[:2])]
-        dt_name = datatype
+        datatype = DataTypes.get_type(DataTypes.uint.decode(data[:2]))
+        dt_name = str(datatype)
         if elements > 1:
-            func = Unpack[datatype]
-            size = DataTypeSize[datatype]
+            size = datatype.size
             data = data[2:]
-            value = [func(data[i:i + size]) for i in range(0, len(data), size)]
-            if datatype == 'DWORD':
+            value = [datatype.decode(data[i:i + size]) for i in range(0, len(data), size)]
+            if datatype == TYPES.DWORD:
                 value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
         else:
-            value = Unpack[datatype](data[2:])
-            if datatype == 'DWORD':
+            # value = Unpack[datatype](data[2:])
+            value = datatype.decode(data[2:])
+            if datatype == TYPES.DWORD:
                 value = dword_to_bool_array(value)
 
     if dt_name == 'DWORD':

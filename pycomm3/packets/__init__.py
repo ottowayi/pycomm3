@@ -39,9 +39,9 @@ from .logix import (ReadTagRequestPacket, ReadTagResponsePacket,
                     WriteTagFragmentedRequestPacket, WriteTagFragmentedResponsePacket,
                     ReadModifyWriteRequestPacket, ReadModifyWriteResponsePacket,
                     MultiServiceRequestPacket, MultiServiceResponsePacket)
-from .util import (DataFormatType, request_path, encode_segment,
+from .util import (request_path,
                    get_service_status, get_extended_status, parse_read_reply_struct, parse_read_reply,
-                   parse_reply_data_by_format, parse_string)
+                   parse_string)
 
 
 class RequestTypes(EnumMap):

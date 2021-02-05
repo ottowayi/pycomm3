@@ -24,24 +24,24 @@
 
 __all__ = ['CIPDriver', 'with_forward_open', 'parse_connection_path', ]
 
-import logging
 import ipaddress
+import logging
 import socket
 from functools import wraps
 from itertools import cycle
 from os import urandom
 from typing import Union, Optional
 
-from .exceptions import ResponseError, CommError, RequestError
-from .tag import Tag
-from .bytes_ import Pack, Unpack, print_bytes_msg, PacketLazyFormatter
-
-from .cip import (PATH_SEGMENTS, ConnectionManagerInstances, ClassCode, PRODUCT_TYPES, VENDORS, STATES,
-                  MSG_ROUTER_PATH, ConnectionManagerServices, Services, data_types as TYPES)
-
+from .bytes_ import PacketLazyFormatter
+from .cip import (ConnectionManagerInstances, ClassCode,
+                  MSG_ROUTER_PATH, ConnectionManagerServices, Services,
+                  PortSegment, PADDED_EPATH, DataType, UDINT, UINT)
 from .const import PRIORITY, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS
-from .packets import DataFormatType, RequestPacket, ResponsePacket, RequestTypes
+from .custom_types import LogixIdentityObject
+from .exceptions import ResponseError, CommError, RequestError
+from .packets import RequestPacket, ResponsePacket, RequestTypes
 from .socket_ import Socket
+from .tag import Tag
 
 
 def with_forward_open(func):
@@ -117,8 +117,8 @@ class CIPDriver:
             'port': 0xAF12,  # 44818
             'timeout': 10,
             'ip address': ip,
-            # is cip_path the right term?  or request_path? or something else?
-            'cip_path': _path[1:],  # leave out the len, we sometimes add to the path later
+            # is cip_path the right term?  or something else?
+            'cip_path': _path,
             'option': 0,
             'cid': b'\x27\x04\x19\x71',
             'csn': b'\x27\x04',
@@ -234,11 +234,12 @@ class CIPDriver:
                 service=Services.get_attributes_all,
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 connected=False, unconnected_send=True,
-                route_path=Pack.epath(Pack.usint(PATH_SEGMENTS['bp']) + Pack.usint(slot), pad_len=True)
+                route_path=PADDED_EPATH.encode((PortSegment('bp', slot), ), length=True, pad_length=True),
+                # route_path=Pack.epath(Pack.usint(PATH_SEGMENTS['bp']) + Pack.usint(slot), pad_len=True)
             )
 
             if response:
-                return _parse_identity_object(response.value)
+                return LogixIdentityObject.decode(response.value)
             else:
                 raise ResponseError(f'generic_message did not return valid data - {response.error}')
 
@@ -305,11 +306,11 @@ class CIPDriver:
         init_net_params = 0b_0100_0010_0000_0000  # CIP Vol 1 - 3-5.5.1.1
 
         if self._cfg['extended forward open']:
-            net_params = Pack.udint((self.connection_size & 0xFFFF) | init_net_params << 16)
+            net_params = UDINT.encode((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
-            net_params = Pack.uint((self.connection_size & 0x01FF) | init_net_params)
+            net_params = UINT.encode((self.connection_size & 0x01FF) | init_net_params)
 
-        route_path = Pack.epath(self._cfg['cip_path'] + MSG_ROUTER_PATH)
+        route_path = PADDED_EPATH.encode(self._cfg['cip_path'] + MSG_ROUTER_PATH, length=True)
         service = (ConnectionManagerServices.forward_open
                    if not self._cfg['extended forward open']
                    else ConnectionManagerServices.large_forward_open)
@@ -400,7 +401,7 @@ class CIPDriver:
         if self._session == 0:
             raise CommError("A session need to be registered before to call forward_close.")
 
-        route_path = Pack.epath(self._cfg['cip_path'] + MSG_ROUTER_PATH, pad_len=True)
+        route_path = PADDED_EPATH.encode(self._cfg['cip_path'] + MSG_ROUTER_PATH, length=True, pad_length=True)
 
         forward_close_msg = [
             PRIORITY,
@@ -433,7 +434,7 @@ class CIPDriver:
                         instance: Union[int, bytes],
                         attribute: Union[int, bytes] = b'',
                         request_data: bytes = b'',
-                        data_format: Optional[DataFormatType] = None,
+                        data_type: Optional[DataType] = None,
                         name: str = 'generic',
                         connected: bool = True,
                         unconnected_send: bool = False,
@@ -446,7 +447,7 @@ class CIPDriver:
         :param instance: instance ID of the class
         :param attribute: (optional) attribute ID for the service/class/instance
         :param request_data: (optional) any additional data required for the request
-        :param data_format: (reads only) If provided, a read response will automatically be unpacked into the attributes
+        :param data_type: (reads only) If provided, a read response will automatically be unpacked into the attributes
                             defined, must be a sequence of tuples, (attribute name, data_type).
                             If name is ``None`` or an empty string, it will be ignored. If data-type is an ``int`` it will
                             not be unpacked, but left as ``bytes``.  Data will be returned as a ``dict``.
@@ -468,12 +469,12 @@ class CIPDriver:
             'instance': instance,
             'attribute': attribute,
             'request_data': request_data,
-            'data_format': data_format,
+            'data_type': data_type,
         }
 
         if not connected:
             if route_path is True:
-                _kwargs['route_path'] = Pack.epath(self._cfg['cip_path'], pad_len=True)
+                _kwargs['route_path'] = PADDED_EPATH.encode(self._cfg['cip_path'], length=True, pad_length=True)
             elif route_path:
                 _kwargs['route_path'] = route_path
 
@@ -535,13 +536,13 @@ def parse_connection_path(path):
 
         if not segments:
             # _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']
-            _path = [TYPES.PortSegment('bp', 0), ]
+            _path = [PortSegment('bp', 0), ]
         elif len(segments) == 1:
-            _path = [TYPES.PortSegment('bp', segments[0])]
+            _path = [PortSegment('bp', segments[0])]
             # _path = [Pack.usint(PATH_SEGMENTS['backplane']), Pack.usint(segments[0])]
         else:
             pairs = (segments[i:i + 2] for i in range(0, len(segments), 2))
-            _path = [TYPES.PortSegment(port, link) for port, link in pairs]
+            _path = [PortSegment(port, link) for port, link in pairs]
             # _path = []
             # for port, dest in pairs:
             #     if isinstance(dest, bytes):
@@ -552,11 +553,11 @@ def parse_connection_path(path):
             #         _path.extend([Pack.usint(port), Pack.usint(dest_len), dest])
             #     else:
             #         _path.extend([Pack.usint(port), Pack.usint(dest)])
-        epath = TYPES.PADDED_EPATH.encode(_path, length=True)
+        # epath = PADDED_EPATH.encode(_path, length=True)
     except Exception as err:
         raise RequestError(f'Failed to parse connection path: {path}') from err
     else:
-        return ip, epath
+        return ip, _path
         # return ip, Pack.epath(b''.join(_path))
 
 
@@ -578,30 +579,30 @@ def parse_connection_path(path):
 #         raise RequestError(f'Failed to parse path segment: {segment}') from err
 
 
-def _parse_identity_object(reply):
-    vendor = Unpack.uint(reply[:2])
-    product_type = Unpack.uint(reply[2:4])
-    product_code = Unpack.uint(reply[4:6])
-    major_fw = int(reply[6])
-    minor_fw = int(reply[7])
-    status = f'{Unpack.uint(reply[8:10]):0{16}b}'
-    serial_number = f'{Unpack.udint(reply[10:14]):0{8}x}'
-    product_name_len = int(reply[14])
-    tmp = 15 + product_name_len
-    device_type = reply[15:tmp].decode()
-
-    state = Unpack.uint(reply[tmp:tmp + 4]) if reply[tmp:] else -1  # some modules don't return a state
-
-    return {
-        'vendor': VENDORS.get(vendor, 'UNKNOWN'),
-        'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
-        'product_code': product_code,
-        'version_major': major_fw,
-        'version_minor': minor_fw,
-        'revision': f'{major_fw}.{minor_fw}',
-        'serial': serial_number,
-        'device_type': device_type,
-        'status': status,
-        'state': STATES.get(state, 'UNKNOWN'),
-    }
+# def _parse_identity_object(reply):
+#     vendor = UINT.decode(reply[:2])
+#     product_type = UINT.decode(reply[2:4])
+#     product_code = UINT.decode(reply[4:6])
+#     major_fw = int(reply[6])
+#     minor_fw = int(reply[7])
+#     status = f'{Unpack.uint(reply[8:10]):0{16}b}'
+#     serial_number = f'{Unpack.udint(reply[10:14]):0{8}x}'
+#     product_name_len = int(reply[14])
+#     tmp = 15 + product_name_len
+#     device_type = reply[15:tmp].decode()
+#
+#     state = Unpack.uint(reply[tmp:tmp + 4]) if reply[tmp:] else -1  # some modules don't return a state
+#
+#     return {
+#         'vendor': VENDORS.get(vendor, 'UNKNOWN'),
+#         'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
+#         'product_code': product_code,
+#         'version_major': major_fw,
+#         'version_minor': minor_fw,
+#         'revision': f'{major_fw}.{minor_fw}',
+#         'serial': serial_number,
+#         'device_type': device_type,
+#         'status': status,
+#         'state': STATES.get(state, 'UNKNOWN'),
+#     }
 

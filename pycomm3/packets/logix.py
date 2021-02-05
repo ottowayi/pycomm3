@@ -30,9 +30,11 @@ from typing import Dict, Any, Sequence, Union
 from .ethernetip import SendUnitDataRequestPacket, SendUnitDataResponsePacket
 from .util import parse_read_reply, request_path, tag_request_path
 from ..bytes_ import Pack, Unpack
-from ..cip import DataType, ClassCode, Services, DataTypeSize
+from ..cip import DataType, ClassCode, Services
 from ..const import STRUCTURE_READ_REPLY
 from ..exceptions import RequestError
+
+DataTypeSize, StringTypeLenSize = None, None
 
 
 class TagServiceResponsePacket(SendUnitDataResponsePacket):

@@ -31,18 +31,18 @@ import time
 from typing import List, Tuple, Optional, Union, Mapping, Dict
 
 from . import util
-from .exceptions import ResponseError, CommError, RequestError
-from .tag import Tag
 from .bytes_ import Pack, Unpack
+from .cip import (CLASS_TYPE, INSTANCE_TYPE, ClassCode, PRODUCT_TYPES, VENDORS,
+                  Services, KEYSWITCH, EXTERNAL_ACCESS, DataTypes, data_types as TYPES, struct, STRING, n_bytes)
 from .cip_driver import CIPDriver, with_forward_open
-from .cip import (CLASS_TYPE, INSTANCE_TYPE, ClassCode, DataType, PRODUCT_TYPES, VENDORS,
-                  Services, ELEMENT_TYPE, KEYSWITCH, EXTERNAL_ACCESS, DataTypeSize)
 from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US,
                     TEMPLATE_MEMBER_INFO_LEN, MIN_VER_EXTERNAL_ACCESS, )
-from .packets import (request_path, encode_segment, RequestTypes, RequestPacket, ReadTagFragmentedRequestPacket,
-                      WriteTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket, WriteTagFragmentedResponsePacket,
-                      ResponsePacket)
+from .exceptions import ResponseError, CommError, RequestError
+from .packets import (request_path, RequestTypes, RequestPacket, ReadTagFragmentedRequestPacket,
+                      WriteTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
+                      WriteTagFragmentedResponsePacket)
+from .tag import Tag
 
 AtomicValueType = Union[int, float, bool, str]
 TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, 'TagValueType']]
@@ -92,6 +92,8 @@ class LogixDriver(CIPDriver):
         self._cfg['use_instance_ids'] = True
         self._init_args = {'init_tags': init_tags,
                            'init_program_tags': init_program_tags}
+
+        self._types = {}  # custom data types for udts/structs
 
     def __enter__(self):
         self.open()
@@ -200,13 +202,15 @@ class LogixDriver(CIPDriver):
 
         :return:  the controller program name
         """
+
         try:
             response = self.generic_message(
                 service=Services.get_attribute_list,
                 class_code=ClassCode.program_name,
                 instance=b'\x01\x00',  # instance 1
                 request_data=b'\x01\x00\x01\x00',  # num attributes, attribute 1 (program name)
-                data_format=((None, 6), ('program_name', 'STRING')),
+                data_type=struct((n_bytes(6), STRING('program_name')))
+                # ((None, 6), ('program_name', 'STRING')),
             )
             if response:
                 self._info['name'] = response.value['program_name']
@@ -221,15 +225,18 @@ class LogixDriver(CIPDriver):
         """
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
         """
+        from .custom_types import LogixIdentityObject
+
         try:
             response = self.generic_message(
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 service=Services.get_attributes_all,
-                data_format=[
-                    ('vendor', 'UINT'), ('product_type', 'UINT'), ('product_code', 'UINT'),
-                    ('version_major', 'SINT'), ('version_minor', 'USINT'), ('_keyswitch', 2),
-                    ('serial', 'UDINT'), ('device_type', 'SHORT_STRING')
-                ],
+                data_type=LogixIdentityObject,
+                # data_format=[
+                #     ('vendor', 'UINT'), ('product_type', 'UINT'), ('product_code', 'UINT'),
+                #     ('version_major', 'SINT'), ('version_minor', 'USINT'), ('_keyswitch', 2),
+                #     ('serial', 'UDINT'), ('device_type', 'SHORT_STRING')
+                # ],
                 connected=False, unconnected_send=not self._micro800)
 
             if response:
@@ -256,7 +263,7 @@ class LogixDriver(CIPDriver):
             class_code=ClassCode.wall_clock_time,
             instance=b'\x01',
             request_data=b'\x01\x00\x0B\x00',
-            data_format=[(None, 6), ('us', 'ULINT'), ]
+            data_type=[(None, 6), ('us', 'ULINT'), ]
         )
         if tag:
             _time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value['us'])
@@ -356,12 +363,15 @@ class LogixDriver(CIPDriver):
             while last_instance != -1:
                 # Creating the Message Request Packet
                 path = []
+                segments = []
                 if program:
                     if not program.startswith('Program:'):
                         program = f'Program:{program}'
                     path = [EXTENDED_SYMBOL, Pack.usint(len(program)), program.encode('utf-8')]
+                    segments = [TYPES.DataSegment(program), ]
                     if len(program) % 2:
                         path.append(b'\x00')
+
 
                 # just manually build the request path b/c there my be the extended symbol portion
                 path += [
@@ -371,8 +381,19 @@ class LogixDriver(CIPDriver):
                     INSTANCE_TYPE["16-bit"],  # Instance Segment: 16 Bit instance 0x25
                     Pack.uint(last_instance),  # The instance
                 ]
+                segments += [
+                    TYPES.LogicalSegment(ClassCode.symbol_object, 'class_id'),
+                    TYPES.LogicalSegment(last_instance, 'instance_id')
+                ]
                 path = b''.join(path)
+                new_path = TYPES.PADDED_EPATH.encode(segments, length=True)
                 path_size = Pack.usint(len(path) // 2)
+                old_path = path_size + path
+                # print('-----------------------------------------')
+                # print(f'Same:{old_path == new_path}')
+                # print(f'old: {old_path!r}')
+                # print(f'new: {new_path!r}')
+                # print('-----------------------------------------')
                 request = RequestTypes.send_unit_data()
 
                 attributes = [
@@ -389,8 +410,9 @@ class LogixDriver(CIPDriver):
 
                 request.add(
                     Services.get_instance_attribute_list,
-                    path_size,
-                    path,
+                    new_path,
+                    # path_size,
+                    # path,
                     Pack.uint(len(attributes)),
                     *attributes
                 )
@@ -643,10 +665,10 @@ class LogixDriver(CIPDriver):
         member = {'offset': Unpack.udint(info[4:])}
         tag_type = 'atomic'
 
-        data_type = DataType.get(typ)
+        data_type = DataTypes.get(typ)
         if data_type is None:
             instance_id = typ & 0b0000_1111_1111_1111
-            data_type = DataType.get(instance_id)
+            data_type = DataTypes.get(instance_id)
         if data_type is None:
             tag_type = 'struct'
             data_type = self._get_data_type(instance_id)
@@ -1352,7 +1374,7 @@ def writable_value(parsed_tag: dict) -> bytes:
 def _tag_return_size(tag_data):
     tag_info = tag_data['tag_info']
     if tag_info['tag_type'] == 'atomic':
-        size = DataTypeSize[tag_info['data_type']]
+        size = DataTypes[tag_info['data_type']].size
     else:
         size = tag_info['data_type']['template']['structure_size']
 
@@ -1444,34 +1466,34 @@ def _pack_structure(value, data_type):
     return bytes(data)
 
 
-def _bit_request(tag_data, bit_requests):
-    if tag_data.get('bit') is None:
-        return None
-
-    if tag_data['plc_tag'] not in bit_requests:
-        bit_requests[tag_data['plc_tag']] = {'and_mask': 0xFFFFFFFF,
-                                             'or_mask': 0x00000000,
-                                             'bits': [], 'request_ids': [],
-                                             'tag_info': tag_data['tag_info']}
-
-    bits_ = bit_requests[tag_data['plc_tag']]
-    typ_, bit = tag_data['bit']
-    bits_['bits'].append(bit)
-    bits_['request_ids'].append(tag_data['request_id'])
-
-    if typ_ == 'bool_array':
-        bit = bit % 32
-
-    # update both masks so if same bit written to multiple times
-    # only the last one is accurate/used
-    if tag_data['value']:
-        bits_['or_mask'] |= (1 << bit)
-        bits_['and_mask'] |= (1 << bit)
-    else:
-        bits_['and_mask'] &= ~(1 << bit)
-        bits_['or_mask'] &= ~(1 << bit)
-
-    return True
+# def _bit_request(tag_data, bit_requests):
+#     if tag_data.get('bit') is None:
+#         return None
+#
+#     if tag_data['plc_tag'] not in bit_requests:
+#         bit_requests[tag_data['plc_tag']] = {'and_mask': 0xFFFFFFFF,
+#                                              'or_mask': 0x00000000,
+#                                              'bits': [], 'request_ids': [],
+#                                              'tag_info': tag_data['tag_info']}
+#
+#     bits_ = bit_requests[tag_data['plc_tag']]
+#     typ_, bit = tag_data['bit']
+#     bits_['bits'].append(bit)
+#     bits_['request_ids'].append(tag_data['request_id'])
+#
+#     if typ_ == 'bool_array':
+#         bit = bit % 32
+#
+#     # update both masks so if same bit written to multiple times
+#     # only the last one is accurate/used
+#     if tag_data['value']:
+#         bits_['or_mask'] |= (1 << bit)
+#         bits_['and_mask'] |= (1 << bit)
+#     else:
+#         bits_['and_mask'] &= ~(1 << bit)
+#         bits_['or_mask'] &= ~(1 << bit)
+#
+#     return True
 
 
 def _create_tag(name, raw_tag):
@@ -1495,9 +1517,9 @@ def _create_tag(name, raw_tag):
     else:
         new_tag['tag_type'] = 'atomic'
         datatype = raw_tag['symbol_type'] & 0b_0000_0000_1111_1111
-        new_tag['data_type'] = DataType.get(datatype)
+        new_tag['data_type'] = DataTypes.get(datatype)
         new_tag['data_type_name'] = new_tag['data_type']
-        if datatype == DataType.bool:
+        if datatype == DataTypes.bool.code:  # TODO: make sure this is right
             new_tag['bit_position'] = (raw_tag['symbol_type'] & 0b_0000_0111_0000_0000) >> 8
 
     return new_tag

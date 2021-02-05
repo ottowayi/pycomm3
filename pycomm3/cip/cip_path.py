@@ -24,20 +24,12 @@
 
 from ..map import EnumMap
 from .object_library import ClassCode
-from . import data_types as TYPES
+from .data_types import LogicalSegment
 
-__all__ = ['ELEMENT_TYPE', 'CLASS_TYPE', 'INSTANCE_TYPE', 'ATTRIBUTE_TYPE',
+__all__ = ['CLASS_TYPE', 'INSTANCE_TYPE', 'ATTRIBUTE_TYPE',
            'PATH_SEGMENTS', 'MSG_ROUTER_PATH', 'DataItem', 'AddressItem']
 
 
-ELEMENT_TYPE = {
-    "8-bit": b'\x28',
-    "16-bit": b'\x29\x00',
-    "32-bit": b'\x2a\x00\x00\x00',
-    1: b'\x28',
-    2: b'\x29\x00',
-    3: b'\x2a\x00\x00\x00',
-}
 
 CLASS_TYPE = {
     "8-bit": b'\x20',
@@ -73,10 +65,10 @@ PATH_SEGMENTS = {
 }
 
 # MSG_ROUTER_PATH = b''.join([CLASS_TYPE['8-bit'], ClassCode.message_router, INSTANCE_TYPE['8-bit'], b'\x01'])
-MSG_ROUTER_PATH = TYPES.PACKED_EPATH.encode((
-                    TYPES.LogicalSegment(ClassCode.message_router, 'class_id'),
-                    TYPES.LogicalSegment(0x01, 'instance_id')
-                  ))
+MSG_ROUTER_PATH = [
+    LogicalSegment(ClassCode.message_router, 'class_id'),
+    LogicalSegment(0x01, 'instance_id')
+]
 
 
 class DataItem(EnumMap):

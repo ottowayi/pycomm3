@@ -11,6 +11,17 @@ from ..map import EnumMap
 _BufferType = Union[BytesIO, bytes]
 
 
+__all__ = ['DataType', 'ElementaryDataType', 'BOOL', 'SINT', 'INT', 'DINT', 'LINT',
+           'USINT', 'UINT', 'UDINT', 'ULINT', 'REAL', 'LREAL', 'STIME', 'DATE',
+           'TIME_OF_DAY', 'DATE_AND_TIME', 'StringDataType', 'LOGIX_STRING', 'STRING',
+           'BytesDataType', 'n_bytes', 'BYTE', 'WORD', 'DWORD', 'LWORD', 'STRING2', 'FTIME',
+           'LTIME', 'ITIME', 'STRINGN', 'SHORT_STRING', 'TIME', 'EPATH', 'PACKED_EPATH',
+           'PADDED_EPATH', 'ENGUNIT', 'STRINGI', 'DerivedDataType', 'array', 'struct',
+           'CIPSegment', 'PortSegment', 'LogicalSegment', 'NetworkSegment',
+           'SymbolicSegment', 'DataSegment', 'ConstructedDataTypeSegment',
+           'ElementaryDataTypeSegment', 'DataTypes', 'BufferEmptyError']
+
+
 def _repr(buffer: _BufferType) -> str:
     if isinstance(buffer, BytesIO):
         return repr(buffer.getvalue())
@@ -31,7 +42,12 @@ def _as_stream(buffer: _BufferType):
     return buffer
 
 
-class DataType:
+class _ClassReprMeta(type):
+    def __repr__(cls):
+        return cls.__name__
+
+
+class DataType(metaclass=_ClassReprMeta):
 
     def __init__(self, name: Optional[str] = None):
         self.name = name
@@ -63,7 +79,9 @@ class DataType:
         ...
 
     def __repr__(self) -> str:
-        return self.__class__.__name__
+        return f'{self.__class__.__name__}(name={self.name!r})'
+
+    __str__ = __repr__
 
 
 class ElementaryDataType(DataType):
@@ -490,13 +508,13 @@ def array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
                 if isinstance(err, BufferEmptyError):
                     raise
                 else:
-                    raise DataError(f'Error unpacking into {cls.element_type}[{cls.length}] from {_repr(buffer)}') from err
+                    raise DataError(
+                        f'Error unpacking into {cls.element_type}[{cls.length}] from {_repr(buffer)}') from err
 
     return Array(name)
 
 
 def struct(members_: Sequence[DataType], name: str = '') -> 'Struct':
-
     class Struct(DerivedDataType):
         members = members_
 
@@ -520,18 +538,7 @@ def struct(members_: Sequence[DataType], name: str = '') -> 'Struct':
     return Struct(name)
 
 
-class IP_ADDR(DerivedDataType):
 
-    @classmethod
-    def _encode(cls, value: str) -> bytes:
-        return ipaddress.IPv4Address(value).packed
-
-    @classmethod
-    def _decode(cls, stream: BytesIO) -> Any:
-        data = stream.read(4)
-        if not data:
-            raise BufferEmptyError()
-        return ipaddress.IPv4Address(data).exploded
 
 
 class CIPSegment(DataType):
@@ -627,6 +634,7 @@ class LogicalSegment(CIPSegment):
         2: 0b_000_000_01,  # 16-bit
         4: 0b_000_000_11,  # 32-bit
     }
+
     # 32-bit only valid for Instance ID and Connection Point types
 
     def __init__(self, logical_value: Union[int, bytes], logical_type: str, *args, **kwargs):
@@ -704,9 +712,61 @@ class ElementaryDataTypeSegment(CIPSegment):
     segment_type = 0b_110_00000
 
 
+def _by_type_code(typ: ElementaryDataType):
+    return typ.code
+
+
 class DataTypes(EnumMap):
     _return_caps_only_ = True
-    _value_key_ = lambda v: v.code
+    _value_key_ = _by_type_code
 
+    bool = BOOL
     sint = SINT
+    int = INT
+    dint = DINT
+    lint = LINT
+
     usint = USINT
+    uint = UINT
+    udint = UDINT
+    ulint = ULINT
+
+    real = REAL
+    lreal = LREAL
+
+    stime = STIME
+    date = DATE
+    time_of_day = TIME_OF_DAY
+    date_and_time = DATE_AND_TIME
+
+    logix_string = LOGIX_STRING
+    string = STRING
+
+    byte = BYTE
+    word = WORD
+    dword = DWORD
+    lword = LWORD
+
+    string2 = STRING2
+
+    ftime = FTIME
+    ltime = LTIME
+    itime = ITIME
+
+    stringn = STRINGN
+    short_string = SHORT_STRING
+
+    time = TIME
+
+    padded_epath = PADDED_EPATH
+    packed_epath = PACKED_EPATH
+
+    engunit = ENGUNIT
+
+    stringi = STRINGI
+
+    @classmethod
+    def get_type(cls, type_code):
+        return cls[cls[type_code]]
+
+

@@ -149,7 +149,7 @@ def test_generic_message_builds_req_with_no_route_path():
             instance=EXPECTED_CALL_ARGS['instance'],
             attribute=EXPECTED_CALL_ARGS['attribute'],
             request_data=EXPECTED_CALL_ARGS['request_data'],
-            data_format=EXPECTED_CALL_ARGS['data_format']
+            data_type=EXPECTED_CALL_ARGS['data_format']
         )
         mock_build.assert_called_once_with(**EXPECTED_CALL_ARGS)
 
@@ -196,7 +196,7 @@ def test_generic_message_builds_req_with_route_path_bytes():
             instance=EXPECTED_CALL_ARGS['instance'],
             attribute=EXPECTED_CALL_ARGS['attribute'],
             request_data=EXPECTED_CALL_ARGS['request_data'],
-            data_format=EXPECTED_CALL_ARGS['data_format'],
+            data_type=EXPECTED_CALL_ARGS['data_format'],
             route_path=EXPECTED_CALL_ARGS['route_path'],
             unconnected_send=EXPECTED_CALL_ARGS['unconnected_send'],
             connected=False  # Send us down the route_path code path.

@@ -39,9 +39,6 @@ class MapMeta(type):
             key: value for key, value in classdict.items()
             if not key.startswith('_') and not isinstance(value, (classmethod, staticmethod))
         }
-
-
-
         # also add uppercase keys for each member (if they're not already lowercase)
         lower_members = {key.lower(): value for key, value in members.items() if key.lower() not in members}
 
@@ -77,7 +74,7 @@ class MapMeta(type):
         return val
 
     def __contains__(cls, item):
-        return cls._members_.__contains__(item.lower() if isinstance(item, (str, bytes)) else item)
+        return cls._members_.__contains__(item.lower() if isinstance(item, str) else item)
 
     @property
     def attributes(cls):
