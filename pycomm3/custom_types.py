@@ -3,10 +3,10 @@ import ipaddress
 from io import BytesIO
 from typing import Any, Union
 
-from .cip import (DataType, ElementaryDataType, DerivedDataType, BufferEmptyError, struct, UINT, USINT,
-                            SINT, UDINT, SHORT_STRING, n_bytes, WORD)
+from .cip import (DataType, ElementaryDataType, DerivedDataType, BufferEmptyError, Struct, UINT, USINT,
+                  SINT, UDINT, SHORT_STRING, n_bytes, WORD, Array)
 
-__all__ = ['IPAddress', 'LogixIdentityObject', 'ListIdentityObject']
+__all__ = ['IPAddress', 'LogixIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes']
 
 
 class IPAddress(DerivedDataType):
@@ -25,7 +25,7 @@ class IPAddress(DerivedDataType):
 
 # TODO: not just logix, make generic
 #       added custom decode methods for status, product_type, etc lookups
-LogixIdentityObject = struct(name='LogixIdentityObject', members_=(
+LogixIdentityObject = Struct(
     UINT('vendor'),
     UINT('product_type'),
     UINT('product_code'),
@@ -34,9 +34,9 @@ LogixIdentityObject = struct(name='LogixIdentityObject', members_=(
     n_bytes(2, '_keyswitch'),
     UDINT('serial'),
     SHORT_STRING('device_type')
-))
+)
 
-ListIdentityObject = struct((
+ListIdentityObject = Struct(
         UINT('item_type_code'),
         UINT('item_length'),
         UINT('encap_protocol_version'),
@@ -52,4 +52,14 @@ ListIdentityObject = struct((
         UDINT('serial_number'),
         SHORT_STRING('product_name'),
         USINT('state')
-    ))
+)
+
+
+StructTemplateAttributes = Struct(
+    UINT('count'),
+    Struct(UINT('attr_num'), UINT('status'), UDINT('size'))(name='object_definition_size'),
+    Struct(UINT('attr_num'), UINT('status'), UDINT('size'))(name='structure_size'),
+    Struct(UINT('attr_num'), UINT('status'), UINT('count'))(name='member_count'),
+    Struct(UINT('attr_num'), UINT('status'), UINT('handle'))(name='structure_handle'),
+
+)

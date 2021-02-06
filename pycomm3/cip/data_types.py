@@ -13,10 +13,10 @@ _BufferType = Union[BytesIO, bytes]
 
 __all__ = ['DataType', 'ElementaryDataType', 'BOOL', 'SINT', 'INT', 'DINT', 'LINT',
            'USINT', 'UINT', 'UDINT', 'ULINT', 'REAL', 'LREAL', 'STIME', 'DATE',
-           'TIME_OF_DAY', 'DATE_AND_TIME', 'StringDataType', 'LOGIX_STRING', 'STRING',
+           'TIME_OF_DAY', 'DATE_AND_TIME', 'StringDataType', 'LOGIX_STRING', 'sized_string', 'STRING',
            'BytesDataType', 'n_bytes', 'BYTE', 'WORD', 'DWORD', 'LWORD', 'STRING2', 'FTIME',
            'LTIME', 'ITIME', 'STRINGN', 'SHORT_STRING', 'TIME', 'EPATH', 'PACKED_EPATH',
-           'PADDED_EPATH', 'ENGUNIT', 'STRINGI', 'DerivedDataType', 'array', 'struct',
+           'PADDED_EPATH', 'ENGUNIT', 'STRINGI', 'DerivedDataType', 'Array', 'Struct',
            'CIPSegment', 'PortSegment', 'LogicalSegment', 'NetworkSegment',
            'SymbolicSegment', 'DataSegment', 'ConstructedDataTypeSegment',
            'ElementaryDataTypeSegment', 'DataTypes', 'BufferEmptyError']
@@ -226,6 +226,22 @@ class StringDataType(ElementaryDataType):
 class LOGIX_STRING(StringDataType):
     len_type = UDINT
 
+
+def sized_string(size_: int, len_type_: DataType = UDINT):
+
+    class FixedSizeString(StringDataType):
+        size = size_
+        len_type = len_type_
+
+        def _encode(cls, value: str, *args, **kwargs) -> bytes:
+            cls.len_type.encode(len(value)) + value.encode(cls.encoding) + b'\x00' * (cls.size - len(value))
+
+        def _decode(cls, stream: BytesIO) -> str:
+            _len = cls.len_type.decode(stream)
+            _data = stream.read(cls.size)[:_len]
+            return _data.decode(cls.encoding)
+
+    return FixedSizeString
 
 class STRING(StringDataType):
     code = 0xd0
@@ -449,8 +465,13 @@ class DerivedDataType(DataType):
     ...
 
 
-def array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
-          element_type_: DataType, name: str = '') -> 'Array':
+class _ArrayReprMeta(_ClassReprMeta):
+    def __repr__(cls):
+        return f'{cls.element_type}[{cls.length!r}]'
+
+
+def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
+          element_type_: DataType) -> 'Array':
     """
     length_:
         int - fixed length of the array
@@ -458,7 +479,7 @@ def array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
         None - array consumes rest buffer
     """
 
-    class Array(DerivedDataType):
+    class Array(DerivedDataType, metaclass=_ArrayReprMeta):
         _log = logging.getLogger(f'{__module__}.{__qualname__}')
 
         length = length_
@@ -511,11 +532,17 @@ def array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
                     raise DataError(
                         f'Error unpacking into {cls.element_type}[{cls.length}] from {_repr(buffer)}') from err
 
-    return Array(name)
+    return Array
 
 
-def struct(members_: Sequence[DataType], name: str = '') -> 'Struct':
-    class Struct(DerivedDataType):
+class _StructReprMeta(_ClassReprMeta):
+    def __repr__(cls):
+        return f'{cls.__name__}({", ".join(repr(m) for m in cls.members)}'
+
+
+def Struct(*members_: DataType) -> 'Struct':
+
+    class Struct(DerivedDataType, metaclass=_StructReprMeta):
         members = members_
 
         @classmethod
@@ -535,7 +562,7 @@ def struct(members_: Sequence[DataType], name: str = '') -> 'Struct':
 
             return values
 
-    return Struct(name)
+    return Struct
 
 
 
@@ -767,6 +794,10 @@ class DataTypes(EnumMap):
 
     @classmethod
     def get_type(cls, type_code):
-        return cls[cls[type_code]]
+        # try:
+            # return cls[cls[type_code]]
+        return cls.get(cls.get(type_code))
+        # except Exception:
+        #     return None
 
 
