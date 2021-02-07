@@ -2,8 +2,9 @@ import reprlib
 import logging
 import ipaddress
 from io import BytesIO
+from itertools import chain
 from struct import pack, unpack
-from typing import Any, Sequence, Optional, Tuple, Dict, Union, List
+from typing import Any, Sequence, Optional, Tuple, Dict, Union, List, Type
 
 from ..exceptions import DataError, BufferEmptyError
 from ..map import EnumMap
@@ -15,8 +16,8 @@ __all__ = ['DataType', 'ElementaryDataType', 'BOOL', 'SINT', 'INT', 'DINT', 'LIN
            'USINT', 'UINT', 'UDINT', 'ULINT', 'REAL', 'LREAL', 'STIME', 'DATE',
            'TIME_OF_DAY', 'DATE_AND_TIME', 'StringDataType', 'LOGIX_STRING', 'sized_string', 'STRING',
            'BytesDataType', 'n_bytes', 'BYTE', 'WORD', 'DWORD', 'LWORD', 'STRING2', 'FTIME',
-           'LTIME', 'ITIME', 'STRINGN', 'SHORT_STRING', 'TIME', 'EPATH', 'PACKED_EPATH',
-           'PADDED_EPATH', 'ENGUNIT', 'STRINGI', 'DerivedDataType', 'Array', 'Struct',
+           'LTIME', 'ITIME', 'STRINGN', 'SHORT_STRING', 'TIME', 'EPATH', 'PACKED_EPATH', 'BitArrayType',
+           'PADDED_EPATH', 'ENGUNIT', 'STRINGI', 'DerivedDataType', 'Array', 'Struct', 'ArrayType', 'StructType',
            'CIPSegment', 'PortSegment', 'LogicalSegment', 'NetworkSegment',
            'SymbolicSegment', 'DataSegment', 'ConstructedDataTypeSegment',
            'ElementaryDataTypeSegment', 'DataTypes', 'BufferEmptyError']
@@ -233,15 +234,18 @@ def sized_string(size_: int, len_type_: DataType = UDINT):
         size = size_
         len_type = len_type_
 
+        @classmethod
         def _encode(cls, value: str, *args, **kwargs) -> bytes:
             cls.len_type.encode(len(value)) + value.encode(cls.encoding) + b'\x00' * (cls.size - len(value))
 
+        @classmethod
         def _decode(cls, stream: BytesIO) -> str:
             _len = cls.len_type.decode(stream)
             _data = stream.read(cls.size)[:_len]
             return _data.decode(cls.encoding)
 
     return FixedSizeString
+
 
 class STRING(StringDataType):
     code = 0xd0
@@ -269,24 +273,45 @@ def n_bytes(count: int, name: str = ''):
     return BYTES(name)
 
 
-class BYTE(BytesDataType):
+class BitArrayType(ElementaryDataType):
+    host_type = None
+
+    @classmethod
+    def _decode(cls, stream: BytesIO) -> Any:
+        val = cls.host_type.decode(stream)
+        # dword = UDINT.decode(dword) if isinstance(dword, bytes) else dword
+        bits = [x == '1' for x in bin(val)[2:]]
+        bools = [False for _ in range((cls.size * 8) - len(bits))] + bits
+        bools.reverse()
+        return bools
+
+    @classmethod
+    def _encode(cls, value: Any) -> bytes:
+        ...
+
+
+class BYTE(BitArrayType):
     code = 0xd1
     size = 1
+    host_type = USINT
 
 
-class WORD(BytesDataType):
+class WORD(BitArrayType):
     code = 0xd2
     size = 2
+    host_type = UINT
 
 
-class DWORD(BytesDataType):
+class DWORD(BitArrayType):
     code = 0xd3
     size = 4
+    host_type = UDINT
 
 
-class LWORD(BytesDataType):
+class LWORD(BitArrayType):
     code = 0xd4
     size = 8
+    host_type = ULINT
 
 
 class STRING2(StringDataType):
@@ -470,8 +495,12 @@ class _ArrayReprMeta(_ClassReprMeta):
         return f'{cls.element_type}[{cls.length!r}]'
 
 
+class ArrayType(DerivedDataType, metaclass=_ArrayReprMeta):
+    ...
+
+
 def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
-          element_type_: DataType) -> 'Array':
+          element_type_: DataType) -> Type[ArrayType]:
     """
     length_:
         int - fixed length of the array
@@ -479,7 +508,7 @@ def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
         None - array consumes rest buffer
     """
 
-    class Array(DerivedDataType, metaclass=_ArrayReprMeta):
+    class Array(ArrayType):
         _log = logging.getLogger(f'{__module__}.{__qualname__}')
 
         length = length_
@@ -513,24 +542,30 @@ def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
             return _array
 
         @classmethod
-        def decode(cls, buffer: _BufferType) -> List[str]:
+        def decode(cls, buffer: _BufferType, length: Optional[int] = None) -> List[str]:
+            _length = length or cls.length
             try:
                 stream = _as_stream(buffer)
-                if cls.length is None:
+                if _length is None:
                     return cls._decode_all(stream)
 
-                if isinstance(cls.length, DataType):
-                    _len = cls.length.decode(stream)
+                if isinstance(_length, DataType):
+                    _len = _length.decode(stream)
                 else:
-                    _len = cls.length
+                    _len = _length
 
-                return [cls.element_type.decode(stream) for _ in range(cls.length)]
+                _val = [cls.element_type.decode(stream) for _ in range(_length)]
+
+                if issubclass(cls.element_type, BitArrayType):
+                    return list(chain.from_iterable(_val))
+
+                return _val
             except Exception as err:
                 if isinstance(err, BufferEmptyError):
                     raise
                 else:
                     raise DataError(
-                        f'Error unpacking into {cls.element_type}[{cls.length}] from {_repr(buffer)}') from err
+                        f'Error unpacking into {cls.element_type}[{_length}] from {_repr(buffer)}') from err
 
     return Array
 
@@ -540,9 +575,21 @@ class _StructReprMeta(_ClassReprMeta):
         return f'{cls.__name__}({", ".join(repr(m) for m in cls.members)}'
 
 
-def Struct(*members_: DataType) -> 'Struct':
+class StructType(DerivedDataType, metaclass=_StructReprMeta):
+    ...
 
-    class Struct(DerivedDataType, metaclass=_StructReprMeta):
+
+class StructAliasMember(DataType):
+    ...
+
+
+def AliasMember():
+    ...
+
+
+def Struct(*members_: DataType) -> Type[StructType]:
+
+    class Struct(StructType):
         members = members_
 
         @classmethod
@@ -563,9 +610,6 @@ def Struct(*members_: DataType) -> 'Struct':
             return values
 
     return Struct
-
-
-
 
 
 class CIPSegment(DataType):

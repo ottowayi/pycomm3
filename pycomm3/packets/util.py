@@ -30,8 +30,8 @@ from io import BytesIO
 from .. import util
 from ..bytes_ import Pack, Unpack
 from ..cip import (ClassCode, ConnectionManagerServices, SERVICE_STATUS, DataType,
-                   Services, EXTEND_CODES, DataTypes,
-                   data_types as TYPES)
+                   Services, EXTEND_CODES, DataTypes, StringDataType,
+                   data_types as TYPES, ArrayType, UDINT, BitArrayType)
 from ..const import PRIORITY, TIMEOUT_TICKS, STRUCTURE_READ_REPLY
 from ..exceptions import RequestError
 
@@ -282,37 +282,61 @@ def get_extended_status(msg, start) -> str:
 
 
 def parse_read_reply(data, data_type, elements):
+    dt_name = data_type['data_type_name']
+    _type = data_type['type_class']
+    # value = _type.decode(data)
+    is_struct = data[:2] == STRUCTURE_READ_REPLY
+    stream = BytesIO(data[4:] if is_struct else data[2:])
+    if issubclass(_type, ArrayType):
+        _value = _type.decode(stream, length=elements)
 
-    if data[:2] == STRUCTURE_READ_REPLY:
-        data = data[4:]
-        size = data_type['data_type']['template']['structure_size']
-        dt_name = data_type['data_type']['name']
-        if elements > 1:
-            value = [parse_read_reply_struct(data[i: i + size], data_type['data_type'])
-                     for i in range(0, len(data), size)]
-        else:
-            value = parse_read_reply_struct(data, data_type['data_type'])
+        if elements == 1 and not issubclass(_type.element_type, BitArrayType):
+            _value = _value[0]
     else:
-        datatype = DataTypes.get_type(DataTypes.uint.decode(data[:2]))
-        dt_name = str(datatype)
-        if elements > 1:
-            size = datatype.size
-            data = data[2:]
-            value = [datatype.decode(data[i:i + size]) for i in range(0, len(data), size)]
-            if datatype == TYPES.DWORD:
-                value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
-        else:
-            # value = Unpack[datatype](data[2:])
-            value = datatype.decode(data[2:])
-            if datatype == TYPES.DWORD:
-                value = dword_to_bool_array(value)
+        _value = _type.decode(stream)
+        if is_struct and not issubclass(_type, StringDataType):
+            _value = {
+                attr: _value[attr]
+                for attr in data_type['data_type']['attributes']
+            }
+
+    # if data[:2] == STRUCTURE_READ_REPLY:
+    #     data = data[4:]
+    #     size = data_type['data_type']['template']['structure_size']
+    #     dt_name = data_type['data_type']['name']
+    #     if elements > 1:
+    #         value = [parse_read_reply_struct(data[i: i + size], data_type['data_type'])
+    #                  for i in range(0, len(data), size)]
+    #     else:
+    #         value = parse_read_reply_struct(data, data_type['data_type'])
+    # else:
+    #     datatype = DataTypes.get_type(DataTypes.uint.decode(data[:2]))
+    #     dt_name = str(datatype)
+    #     if elements > 1:
+    #         size = datatype.size
+    #         data = data[2:]
+    #         value = [datatype.decode(data[i:i + size]) for i in range(0, len(data), size)]
+    #         if datatype == TYPES.DWORD:
+    #             value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
+    #     else:
+    #         # value = Unpack[datatype](data[2:])
+    #         value = datatype.decode(data[2:])
+    #         if datatype == TYPES.DWORD:
+    #             value = dword_to_bool_array(value)
 
     if dt_name == 'DWORD':
         dt_name = f'BOOL[{elements * 32}]'
+        # if elements > 1:
+        #     _value = list(chain.from_iterable(_value))
+        # if elements == 1:
+        #     _value = dword_to_bool_array(_value)
+        # else:
+        #     _value = list(chain.from_iterable(dword_to_bool_array(val) for val in _value))
+
     elif elements > 1:
         dt_name = f'{dt_name}[{elements}]'
 
-    return value, dt_name
+    return _value, dt_name
 
 
 def parse_read_reply_struct(data, data_type):
@@ -368,7 +392,8 @@ def parse_string(data):
     return ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
 
 
-def dword_to_bool_array(dword):
+def dword_to_bool_array(dword: Union[bytes, int]):
+    dword = UDINT.decode(dword) if isinstance(dword, bytes) else dword
     bits = [x == '1' for x in bin(dword)[2:]]
     bools = [False for _ in range(32 - len(bits))] + bits
     bools.reverse()

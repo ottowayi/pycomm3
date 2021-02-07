@@ -48,7 +48,7 @@ from .packets import (request_path, RequestTypes, RequestPacket, ReadTagFragment
                       WriteTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
                       WriteTagFragmentedResponsePacket)
 from .tag import Tag
-from .custom_types import StructTemplateAttributes
+from .custom_types import StructTemplateAttributes, StructTag
 
 AtomicValueType = Union[int, float, bool, str]
 TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, 'TagValueType']]
@@ -573,6 +573,11 @@ class LogixDriver(CIPDriver):
             new_tag['template_instance_id'] = template_instance_id
             new_tag['data_type'] = self._get_data_type(template_instance_id)
             new_tag['data_type_name'] = new_tag['data_type']['name']
+
+            if new_tag['data_type'].get('string') is not None:
+                # string type created here b/c we need structure size to create it
+                # subtract 4 for .LEN, .DATA could be padded, so use struct size instead of char count
+                new_tag['data_type']['type_class'] = sized_string(new_tag['data_type']['template']['structure_size'] - 4)
         else:
             tag_type = 'atomic'
             datatype = raw_tag['symbol_type'] & 0b_0000_0000_1111_1111
@@ -691,20 +696,28 @@ class LogixDriver(CIPDriver):
         }
 
         _struct_members = []
+        _bit_members = {}
+        _host_members = {}  # {offset: member name}
         for member, info in zip(member_names, member_data):
             if not (member.startswith('ZZZZZZZZZZ') or member.startswith('__')):
                 template['attributes'].append(member)
+            else:
+                _host_members[info['offset']] = member
             template['internal_tags'][member] = info
-            _struct_members.append(info['type_class'](member))
+
+            if info['data_type_name'] == 'BOOL' and info['offset'] in _host_members:
+                _bit_members[member] = (_host_members[info['offset']], info['bit'])
+            else:
+                _struct_members.append(info['type_class'](member))
 
         if template['attributes'] == ['LEN', 'DATA'] and \
-                template['internal_tags']['DATA']['data_type'] == 'SINT' and \
+                template['internal_tags']['DATA']['data_type_name'] == 'SINT' and \
                 template['internal_tags']['DATA'].get('array'):
             template['string'] = template['internal_tags']['DATA']['array']
-            size = template['string']
-            template['type_class'] = sized_string(size)
+            # size = template['string']
+            # template['type_class'] = sized_string(size)
         else:
-            template['type_class'] = Struct(*_struct_members)
+            template['type_class'] = StructTag(*_struct_members, bool_members=_bit_members)
 
         return template
 

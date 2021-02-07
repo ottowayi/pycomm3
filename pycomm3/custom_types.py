@@ -1,10 +1,10 @@
 import ipaddress
 
 from io import BytesIO
-from typing import Any, Union
+from typing import Any, Union, Type, Dict, Tuple
 
 from .cip import (DataType, ElementaryDataType, DerivedDataType, BufferEmptyError, Struct, UINT, USINT,
-                  SINT, UDINT, SHORT_STRING, n_bytes, WORD, Array)
+                  SINT, UDINT, SHORT_STRING, n_bytes, WORD, Array, StructType,)
 
 __all__ = ['IPAddress', 'LogixIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes']
 
@@ -63,3 +63,39 @@ StructTemplateAttributes = Struct(
     Struct(UINT('attr_num'), UINT('status'), UINT('handle'))(name='structure_handle'),
 
 )
+
+
+def StructTag(*members, bool_members: Dict[str, Tuple[str, int]]) -> Type[StructType]:
+    """
+
+    bool_members = {member name: (host member, bit)}
+    """
+
+    _struct = Struct(*members)
+
+    class StructTag(_struct):
+        bits = bool_members
+
+        @classmethod
+        def _decode(cls, stream: BytesIO):
+            values = _struct._decode(stream)
+            hosts = set()
+
+            for bit_member, (host_member, bit) in cls.bits.items():
+                host_value = values[host_member]
+                bit_value = bool(host_value & (1 << bit))
+                values[bit_member] = bit_value
+                hosts.add(host_member)
+
+            return {k: v for k, v in values.items() if k not in hosts}
+
+        @classmethod
+        def _encode(cls):
+            ...
+
+    return StructTag
+
+
+
+
+
