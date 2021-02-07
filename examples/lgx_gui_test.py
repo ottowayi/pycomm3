@@ -467,17 +467,14 @@ def startUpdateValue():
                     tbTag['state'] = 'disabled'
                     popup_menu_drivers['state'] = 'disabled'
 
-                    try:
-                        results = comm.read(*myTag)
-                        allValues = ''
-                        if len(myTag) == 1:
-                            tagValue['text'] = results.value
-                        else:
-                            for tag in results:
-                                allValues += str(tag.value) + ', '
-                            tagValue['text'] = allValues[:-2]
-                    except Exception as e:
-                        print(e)
+                    results = comm.read(*myTag)
+                    allValues = ''
+                    if len(myTag) == 1:
+                        tagValue['text'] = results.value
+                    else:
+                        for tag in results:
+                            allValues += str(tag.value) + ', '
+                        tagValue['text'] = allValues[:-2]
 
                     root.after(500, startUpdateValue)
                 except Exception as e:
