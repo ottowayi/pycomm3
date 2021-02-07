@@ -30,7 +30,7 @@ from typing import Dict, Any, Sequence, Union
 from .ethernetip import SendUnitDataRequestPacket, SendUnitDataResponsePacket
 from .util import parse_read_reply, request_path, tag_request_path
 from ..bytes_ import Pack, Unpack
-from ..cip import DataType, ClassCode, Services
+from ..cip import DataType, ClassCode, Services, DataTypes, UINT
 from ..const import STRUCTURE_READ_REPLY
 from ..exceptions import RequestError
 
@@ -205,12 +205,13 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
         if tag_info['tag_type'] == 'struct':
             if not isinstance(value, bytes):
                 raise RequestError('Writing UDTs only supports bytes for value')
-            self._packed_data_type = b'\xA0\x02' + Pack.uint(tag_info['data_type']['template']['structure_handle'])
+            self._packed_data_type = b'\xA0\x02' + UINT.encode(tag_info['data_type']['template']['structure_handle'])
 
-        elif self.data_type not in DataType:
+        elif self.data_type not in DataTypes:
             raise RequestError(f"Unsupported data type: {self.data_type!r}")
         else:
-            self._packed_data_type = Pack.uint(DataType[self.data_type])
+            # self._packed_data_type = Pack.uint(DataTypes[self.data_type])
+            self._packed_data_type = UINT.encode(DataTypes[self.data_type].code)
 
     def _setup_message(self):
         super()._setup_message()
@@ -290,7 +291,7 @@ class ReadModifyWriteRequestPacket(SendUnitDataRequestPacket):
         self._request_ids = []
         self._and_mask = 0xFFFF_FFFF_FFFF_FFFF
         self._or_mask = 0x0000_0000_0000_0000
-        self._mask_size = DataTypeSize.get(self.data_type)
+        self._mask_size = DataTypes.get(self.data_type).size
 
         if self._mask_size is None:
             raise RequestError(f'Invalid data type {tag_info["data_type"]} for writing bits')

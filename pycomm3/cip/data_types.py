@@ -236,7 +236,7 @@ def sized_string(size_: int, len_type_: DataType = UDINT):
 
         @classmethod
         def _encode(cls, value: str, *args, **kwargs) -> bytes:
-            cls.len_type.encode(len(value)) + value.encode(cls.encoding) + b'\x00' * (cls.size - len(value))
+            return cls.len_type.encode(len(value)) + value.encode(cls.encoding) + b'\x00' * (cls.size - len(value))
 
         @classmethod
         def _decode(cls, stream: BytesIO) -> str:
@@ -279,7 +279,6 @@ class BitArrayType(ElementaryDataType):
     @classmethod
     def _decode(cls, stream: BytesIO) -> Any:
         val = cls.host_type.decode(stream)
-        # dword = UDINT.decode(dword) if isinstance(dword, bytes) else dword
         bits = [x == '1' for x in bin(val)[2:]]
         bools = [False for _ in range((cls.size * 8) - len(bits))] + bits
         bools.reverse()
@@ -287,7 +286,13 @@ class BitArrayType(ElementaryDataType):
 
     @classmethod
     def _encode(cls, value: Any) -> bytes:
-        ...
+        if len(value) != (8 * cls.size):
+            raise DataError(f'boolean arrays must have 32 elements: not {len(value)}')
+        _value = 0
+        for i, val in enumerate(value):
+            if val:
+                _value |= 1 << i
+        return cls.host_type._encode(_value)
 
 
 class BYTE(BitArrayType):
@@ -509,27 +514,32 @@ def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
     """
 
     class Array(ArrayType):
-        _log = logging.getLogger(f'{__module__}.{__qualname__}')
+        # _log = logging.getLogger(f'{__module__}.{__qualname__}')
 
         length = length_
         element_type = element_type_
 
         @classmethod
-        def encode(cls, values: List[Any]) -> bytes:
-            if isinstance(cls.length, int):
-                if len(values) < cls.length:
-                    raise DataError(f'Not enough values to encode array of {cls.element_type}[{cls.length}]')
-                if len(values) > cls.length:
-                    cls._log.warning(f'Too many values supplied, truncating {len(values)} to {cls.length}')
+        def encode(cls, values: List[Any], length: Optional[int] = None) -> bytes:
+            _length = length or cls.length
+            if isinstance(_length, int):
+                if len(values) < _length:
+                    raise DataError(f'Not enough values to encode array of {cls.element_type}[{_length}]')
+                # if len(values) > _length:
+                #     cls._log.warning(f'Too many values supplied, truncating {len(values)} to {_length}')
 
-                _len = cls.length
+                _len = _length
             else:
                 _len = len(values)
 
             try:
+                if issubclass(cls.element_type, BitArrayType):
+                    chunk_size = cls.element_type.size * 8
+                    values = [values[i: i + chunk_size] for i in range(0, len(values), chunk_size)]
+
                 return b''.join(cls.element_type.encode(values[i]) for i in range(_len))
             except Exception as err:
-                raise DataError(f'Error packing {reprlib.repr(values)} into {cls.element_type}[{cls.length}]') from err
+                raise DataError(f'Error packing {reprlib.repr(values)} into {cls.element_type}[{_length}]') from err
 
         @classmethod
         def _decode_all(cls, stream):

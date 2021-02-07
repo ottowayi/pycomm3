@@ -65,7 +65,8 @@ StructTemplateAttributes = Struct(
 )
 
 
-def StructTag(*members, bool_members: Dict[str, Tuple[str, int]]) -> Type[StructType]:
+def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: Dict[str, Type[DataType]],
+              struct_size: int) -> Type[StructType]:
     """
 
     bool_members = {member name: (host member, bit)}
@@ -75,6 +76,8 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]]) -> Type[Struct
 
     class StructTag(_struct):
         bits = bool_members
+        hosts = host_members
+        size = struct_size
 
         @classmethod
         def _decode(cls, stream: BytesIO):
@@ -90,8 +93,26 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]]) -> Type[Struct
             return {k: v for k, v in values.items() if k not in hosts}
 
         @classmethod
-        def _encode(cls):
-            ...
+        def _encode(cls, values: Dict[str, Any]):
+            # make a copy so that private host members aren't added to the original
+            values = {k: v for k, v in values.items()}
+
+            for host in cls.hosts:
+                values[host] = 0
+
+            for bit_member, (host_member, bit) in cls.bits.items():
+                val = values[bit_member]
+                if val:
+                    values[host_member] |= 1 << bit
+                else:
+                    values[host_member] &= ~(1 << bit)
+
+            value = _struct._encode(values)
+
+            if len(value) < cls.size:  # pad to structure size
+                value += b'\x00' * (cls.size - len(value))
+
+            return value
 
     return StructTag
 

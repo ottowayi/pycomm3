@@ -32,13 +32,14 @@ import operator
 from functools import reduce
 
 from io import BytesIO
-from typing import List, Tuple, Optional, Union, Mapping, Dict
+from typing import List, Tuple, Optional, Union, Mapping, Dict, Type, Sequence
 
 from . import util
 # from .bytes_ import Pack, Unpack
 from .cip import (CLASS_TYPE, INSTANCE_TYPE, ClassCode, PRODUCT_TYPES, VENDORS,
                   Services, KEYSWITCH, EXTERNAL_ACCESS, DataTypes, Struct, STRING, n_bytes, ULINT, DataSegment, USINT,
-                  UINT, LogicalSegment, PADDED_EPATH, UDINT, DINT, LOGIX_STRING, sized_string, Array, )
+                  UINT, LogicalSegment, PADDED_EPATH, UDINT, DINT, LOGIX_STRING, sized_string, Array, SHORT_STRING,
+                  DataType, ArrayType, StructType, )
 from .cip_driver import CIPDriver, with_forward_open
 from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US,
@@ -426,38 +427,38 @@ class LogixDriver(CIPDriver):
     def _parse_instance_attribute_list(self, response, tag_list):
         """ extract the tags list from the message received"""
 
-        tags_returned = response.data
-        tags_returned_length = len(tags_returned)
+        stream = BytesIO(response.data)
+        tags_returned_length = stream.getbuffer().nbytes
         idx = count = instance = 0
         # TODO: turn this into an array of struct with new types
         try:
-            while idx < tags_returned_length:
-                instance = UDINT.decode(tags_returned[idx:idx + 4])
-                idx += 4
-                tag_length = UINT.decode(tags_returned[idx:idx + 2])
-                idx += 2
-                tag_name = tags_returned[idx:idx + tag_length]
-                idx += tag_length
-                symbol_type = UINT.decode(tags_returned[idx:idx + 2])
-                idx += 2
+            while stream.tell() < tags_returned_length:
+                instance = UDINT.decode(stream)
+                tag_name = STRING.decode(stream)
+                # tag_length = UINT.decode(stream)
+                # tag_name = stream[idx:idx + tag_length]
+                # idx += tag_length
+                symbol_type = UINT.decode(stream)
+                # idx += 2
                 count += 1
-                symbol_address = UDINT.decode(tags_returned[idx:idx + 4])
-                idx += 4
-                symbol_object_address = UDINT.decode(tags_returned[idx:idx + 4])
-                idx += 4
-                software_control = UDINT.decode(tags_returned[idx:idx + 4])
-                idx += 4
+                symbol_address = UDINT.decode(stream)
+                # idx += 4
+                symbol_object_address = UDINT.decode(stream)
+                # idx += 4
+                software_control = UDINT.decode(stream)
+                # idx += 4
 
-                dim1 = UDINT.decode(tags_returned[idx:idx + 4])
-                idx += 4
-                dim2 = UDINT.decode(tags_returned[idx:idx + 4])
-                idx += 4
-                dim3 = UDINT.decode(tags_returned[idx:idx + 4])
-                idx += 4
+                dim1 = UDINT.decode(stream)
+                # idx += 4
+                dim2 = UDINT.decode(stream)
+                # idx += 4
+                dim3 = UDINT.decode(stream)
+                # idx += 4
 
                 if self.info.get('version_major', 0) >= MIN_VER_EXTERNAL_ACCESS:
-                    access = tags_returned[idx] & 0b_0011
-                    idx += 1
+                    access = USINT.decode(stream)
+                    # access = stream[idx] & 0b_0011
+                    # idx += 1
                 else:
                     access = None
 
@@ -486,7 +487,8 @@ class LogixDriver(CIPDriver):
             user_tags = []
             for tag in all_tags:
                 io_tag = False
-                name = tag['tag_name'].decode()
+                # name = tag['tag_name'].decode()
+                name = tag['tag_name']
 
                 if name.startswith('Program:'):
                     prog_name = name.replace('Program:', '')
@@ -552,7 +554,7 @@ class LogixDriver(CIPDriver):
 
     def _create_tag(self, name, raw_tag):
         copy_keys = ['instance_id', 'symbol_address', 'symbol_object_address', 'software_control',
-                     'external_access', 'dimensions']
+                     'external_access', 'dimensions', ]
         new_tag = {
             'tag_name': name,
             'dim': (raw_tag['symbol_type'] & 0b0110000000000000) >> 13,  # bit 13 & 14, number of array dims
@@ -574,10 +576,11 @@ class LogixDriver(CIPDriver):
             new_tag['data_type'] = self._get_data_type(template_instance_id)
             new_tag['data_type_name'] = new_tag['data_type']['name']
 
-            if new_tag['data_type'].get('string') is not None:
-                # string type created here b/c we need structure size to create it
-                # subtract 4 for .LEN, .DATA could be padded, so use struct size instead of char count
-                new_tag['data_type']['type_class'] = sized_string(new_tag['data_type']['template']['structure_size'] - 4)
+            # if new_tag['data_type'].get('string') is not None:
+            #     # string type created here b/c we need structure size to create it
+            #     # subtract 4 for .LEN, .DATA could be padded, so use struct size instead of char count
+            #     # type_class =
+            #     new_tag['data_type']['type_class'] = sized_string(new_tag['data_type']['template']['structure_size'] - 4)
         else:
             tag_type = 'atomic'
             datatype = raw_tag['symbol_type'] & 0b_0000_0000_1111_1111
@@ -590,6 +593,7 @@ class LogixDriver(CIPDriver):
         _type_class = (new_tag['data_type']['type_class']
                        if tag_type == 'struct' else
                        DataTypes.get(new_tag['data_type']))
+        # _type_class = new_tag['type_class']
 
         if new_tag['dim']:
             total_elements = reduce(operator.mul, new_tag['dimensions'][:new_tag['dim']], 1)
@@ -665,8 +669,8 @@ class LogixDriver(CIPDriver):
         else:
             return template_raw
 
-    def _parse_template_data(self, data, member_count):
-        info_len = member_count * TEMPLATE_MEMBER_INFO_LEN
+    def _parse_template_data(self, data, template):
+        info_len = template['member_count'] * TEMPLATE_MEMBER_INFO_LEN
         info_data = data[:info_len]
         member_data = [self._parse_template_data_member_info(info)
                        for info in (info_data[i:i + TEMPLATE_MEMBER_INFO_LEN]
@@ -689,37 +693,44 @@ class LogixDriver(CIPDriver):
         if template_name == 'ASCIISTRING82':  # internal name for STRING builtin type
             template_name = 'STRING'
 
-        template = {
+        data_type = {
             'name': template_name,  # predefined types put name as first member (DWORD)
             'internal_tags': {},
-            'attributes': []
+            'attributes': [],
+            'template': template,
         }
 
         _struct_members = []
         _bit_members = {}
-        _host_members = {}  # {offset: member name}
+        _host_members = {}  # {offset: (member name, type)}
         for member, info in zip(member_names, member_data):
             if not (member.startswith('ZZZZZZZZZZ') or member.startswith('__')):
-                template['attributes'].append(member)
+                data_type['attributes'].append(member)
             else:
-                _host_members[info['offset']] = member
-            template['internal_tags'][member] = info
+                _host_members[info['offset']] = (member, info['type_class'])
+
+            data_type['internal_tags'][member] = info
 
             if info['data_type_name'] == 'BOOL' and info['offset'] in _host_members:
-                _bit_members[member] = (_host_members[info['offset']], info['bit'])
+                _bit_members[member] = (_host_members[info['offset']][0], info['bit'])
+
             else:
                 _struct_members.append(info['type_class'](member))
 
-        if template['attributes'] == ['LEN', 'DATA'] and \
-                template['internal_tags']['DATA']['data_type_name'] == 'SINT' and \
-                template['internal_tags']['DATA'].get('array'):
-            template['string'] = template['internal_tags']['DATA']['array']
-            # size = template['string']
-            # template['type_class'] = sized_string(size)
-        else:
-            template['type_class'] = StructTag(*_struct_members, bool_members=_bit_members)
 
-        return template
+        if data_type['attributes'] == ['LEN', 'DATA'] and \
+                data_type['internal_tags']['DATA']['data_type_name'] == 'SINT' and \
+                data_type['internal_tags']['DATA'].get('array'):
+            data_type['string'] = data_type['internal_tags']['DATA']['array']
+
+            data_type['type_class'] = sized_string(template['structure_size'] - 4)
+        else:
+            data_type['_struct_members'] = (_struct_members, _bit_members)
+            data_type['type_class'] = StructTag(*_struct_members, bool_members=_bit_members,
+                                                struct_size=template['structure_size'],
+                                                host_members={m: t for m, t in _host_members.values()})
+
+        return data_type
 
     def _parse_template_data_member_info(self, info):
         stream = BytesIO(info)
@@ -762,8 +773,8 @@ class LogixDriver(CIPDriver):
                 template = self._get_structure_makeup(instance_id)  # instance id from type
                 if not template.get('error'):
                     _data = self._read_template(instance_id, template['object_definition_size'])
-                    data_type = self._parse_template_data(_data, template['member_count'])
-                    data_type['template'] = template
+                    data_type = self._parse_template_data(_data, template)
+                    # data_type['template'] = template
                     self._cache['id:udt'][instance_id] = data_type
                     self._data_types[data_type['name']] = data_type
             except Exception as err:
@@ -1422,6 +1433,7 @@ def writable_value(parsed_tag: dict) -> bytes:
         value = parsed_tag['value']
         elements = parsed_tag['elements']
         data_type = parsed_tag['tag_info']['data_type']
+        _type: Type[DataType] = parsed_tag['tag_info']['type_class']
 
         value_elements = elements * 32 if data_type == 'DWORD' else elements
 
@@ -1431,18 +1443,22 @@ def writable_value(parsed_tag: dict) -> bytes:
             if len(value) > value_elements:
                 value = value[:value_elements]
 
-        if parsed_tag['tag_info']['tag_type'] == 'struct':
-            return _writable_value_structure(value, elements, data_type)
-        else:
-            pack_func = Pack[data_type]
-            if data_type == 'DWORD':
-                return b''.join(pack_func(_pack_bool_array(value[i:i+32])) for i in range(0, value_elements, 32))
+        if issubclass(_type, ArrayType):
+            return _type.encode([value, ] if elements == 1 else value, elements)
 
-            else:
-                if elements > 1:
-                    return b''.join(pack_func(value[i]) for i in range(elements))
-                else:
-                    return pack_func(value)
+        return _type.encode(value)
+        # if parsed_tag['tag_info']['tag_type'] == 'struct':
+        #     return _writable_value_structure(value, elements, data_type)
+        # else:
+        #     pack_func = Pack[data_type]
+        #     if data_type == 'DWORD':
+        #         return b''.join(pack_func(_pack_bool_array(value[i:i+32])) for i in range(0, value_elements, 32))
+        #
+        #     else:
+        #         if elements > 1:
+        #             return b''.join(pack_func(value[i]) for i in range(elements))
+        #         else:
+        #             return pack_func(value)
     except Exception as err:
         raise RequestError('Unable to create a writable value') from err
 
