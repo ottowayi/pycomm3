@@ -23,8 +23,7 @@
 #
 
 from ..map import EnumMap
-from ..bytes_ import Pack, Unpack
-import json
+from .data_types import USINT
 
 __all__ = ['EncapsulationCommands', 'ConnectionManagerServices', 'Services', 'MULTI_PACKET_SERVICES',
            'FileObjectServices']
@@ -92,7 +91,7 @@ class Services(EnumMap):
         """
         Get service from reply service code
         """
-        val = cls.get(Pack.usint(Unpack.usint(reply_service) - 128))
+        val = cls.get(USINT.encode(USINT.decode(reply_service) - 128))
         return val
 
 

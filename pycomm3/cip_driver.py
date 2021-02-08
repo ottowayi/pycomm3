@@ -32,14 +32,13 @@ from itertools import cycle
 from os import urandom
 from typing import Union, Optional
 
-from .bytes_ import PacketLazyFormatter
 from .cip import (ConnectionManagerInstances, ClassCode,
                   MSG_ROUTER_PATH, ConnectionManagerServices, Services,
                   PortSegment, PADDED_EPATH, DataType, UDINT, UINT)
 from .const import PRIORITY, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS
 from .custom_types import LogixIdentityObject
 from .exceptions import ResponseError, CommError, RequestError
-from .packets import RequestPacket, ResponsePacket, RequestTypes
+from .packets import RequestPacket, ResponsePacket, RequestTypes, PacketLazyFormatter
 from .socket_ import Socket
 from .tag import Tag
 

@@ -53,9 +53,9 @@ def configure_default_logger():
 
 from ._version import __version__, __version_info__
 from .const import *
-from .bytes_ import Pack, Unpack
+# from .bytes_ import Pack, Unpack
 from .tag import Tag
 from .exceptions import *
 from .cip_driver import CIPDriver
 from .logix_driver import LogixDriver
-# from .slc_driver import SLCDriver
+from .slc_driver import SLCDriver

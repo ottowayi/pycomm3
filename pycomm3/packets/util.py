@@ -22,20 +22,15 @@
 # SOFTWARE.
 #
 
-import ipaddress
-from itertools import chain
-from typing import Union, Sequence, Tuple, Optional
 from io import BytesIO
+from typing import Union
 
-from .. import util
-from ..bytes_ import Pack, Unpack
-from ..cip import (ClassCode, ConnectionManagerServices, SERVICE_STATUS, DataType,
-                   Services, EXTEND_CODES, DataTypes, StringDataType,
-                   data_types as TYPES, ArrayType, UDINT, BitArrayType)
+from ..cip import (ClassCode, ConnectionManagerServices, SERVICE_STATUS, EXTEND_CODES, StringDataType,
+                   ArrayType, UDINT, BitArrayType, LogicalSegment, PADDED_EPATH, DataSegment, UINT, USINT)
 from ..const import PRIORITY, TIMEOUT_TICKS, STRUCTURE_READ_REPLY
-from ..exceptions import RequestError
 
-DataTypeSize, StringTypeLenSize = None, None
+__all__ = ['wrap_unconnected_send', 'request_path', 'tag_request_path', 'get_service_status', 'get_extended_status',
+           'parse_read_reply', 'dword_to_bool_array', 'print_bytes_msg', 'PacketLazyFormatter']
 
 
 def wrap_unconnected_send(message: bytes, route_path: bytes) -> bytes:
@@ -47,7 +42,7 @@ def wrap_unconnected_send(message: bytes, route_path: bytes) -> bytes:
             rp,
             PRIORITY,
             TIMEOUT_TICKS,
-            Pack.uint(msg_len),
+            UINT.encode(msg_len),
             message,
             b'\x00' if msg_len % 2 else b'',
             route_path
@@ -56,17 +51,17 @@ def wrap_unconnected_send(message: bytes, route_path: bytes) -> bytes:
 
 
 def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
-                 attribute: Union[int, bytes] = b'', data: bytes = b'') -> bytes:
+                 attribute: Union[int, bytes] = b'') -> bytes:
 
     segments = [
-        TYPES.LogicalSegment(class_code, 'class_id'),
-        TYPES.LogicalSegment(instance, 'instance_id'),
+        LogicalSegment(class_code, 'class_id'),
+        LogicalSegment(instance, 'instance_id'),
     ]
 
     if attribute:
-        segments.append(TYPES.LogicalSegment(attribute, 'attribute_id'))
+        segments.append(LogicalSegment(attribute, 'attribute_id'))
 
-    return TYPES.PADDED_EPATH.encode(segments, length=True)
+    return PADDED_EPATH.encode(segments, length=True)
 
     # path = [encode_segment(class_code, CLASS_TYPE), encode_segment(instance, INSTANCE_TYPE)]
     #
@@ -117,8 +112,8 @@ def tag_request_path(tag, tag_cache, use_instance_ids):
             #       INSTANCE_TYPE['16-bit'],
             #       Pack.uint(tag_cache[base_tag]['instance_id'])]
             segments = [
-                TYPES.LogicalSegment(ClassCode.symbol_object, 'class_id'),
-                TYPES.LogicalSegment(tag_cache[base_tag]['instance_id'], 'instance_id')
+                LogicalSegment(ClassCode.symbol_object, 'class_id'),
+                LogicalSegment(tag_cache[base_tag]['instance_id'], 'instance_id')
             ]
         else:
             # base_len = len(base_tag)
@@ -129,13 +124,13 @@ def tag_request_path(tag, tag_cache, use_instance_ids):
             #     rp.append(b'\x00')
 
             segments = [
-                TYPES.DataSegment(base_tag),
+                DataSegment(base_tag),
             ]
         if index is None:
             return None
         # rp += _encode_tag_index(index)
         segments += [
-            TYPES.LogicalSegment(int(idx), 'member_id')
+            LogicalSegment(int(idx), 'member_id')
             for idx in index
         ]
 
@@ -147,10 +142,10 @@ def tag_request_path(tag, tag_cache, use_instance_ids):
             #              Pack.usint(tag_length),
             #              attr.encode()]
             attr_segments = [
-                TYPES.DataSegment(attr)
+                DataSegment(attr)
             ]
             attr_segments += [
-                TYPES.LogicalSegment(int(idx), 'member_id')
+                LogicalSegment(int(idx), 'member_id')
                 for idx in index
             ]
             # # Add pad byte because total length of Request path must be word-aligned
@@ -170,7 +165,7 @@ def tag_request_path(tag, tag_cache, use_instance_ids):
         #     print(new_)
         #     print(old_)
 
-        return TYPES.PADDED_EPATH.encode(segments, length=True)
+        return PADDED_EPATH.encode(segments, length=True)
 
     return None
 
@@ -195,7 +190,7 @@ def get_service_status(status) -> str:
 
 
 def get_extended_status(msg, start) -> str:
-    status = Unpack.usint(msg[start:start + 1])
+    status = USINT.decode(msg[start:start + 1])
     # send_rr_data
     # 42 General Status
     # 43 Size of additional status
@@ -205,16 +200,16 @@ def get_extended_status(msg, start) -> str:
     # 48 General Status
     # 49 Size of additional status
     # 50..n additional status
-    extended_status_size = (Unpack.usint(msg[start + 1:start + 2])) * 2
+    extended_status_size = (USINT.decode(msg[start + 1:start + 2])) * 2
     extended_status = 0
     if extended_status_size != 0:
         # There is an additional status
         if extended_status_size == 1:
-            extended_status = Unpack.usint(msg[start + 2:start + 3])
+            extended_status = USINT.decode(msg[start + 2:start + 3])
         elif extended_status_size == 2:
-            extended_status = Unpack.uint(msg[start + 2:start + 4])
+            extended_status = UINT.decode(msg[start + 2:start + 4])
         elif extended_status_size == 4:
-            extended_status = Unpack.dint(msg[start + 2:start + 6])
+            extended_status = UDINT.decode(msg[start + 2:start + 6])
         else:
             return 'Extended Status Size Unknown'
     try:
@@ -339,57 +334,57 @@ def parse_read_reply(data, data_type, elements):
     return _value, dt_name
 
 
-def parse_read_reply_struct(data, data_type):
-    values = {}
-
-    if data_type.get('string'):
-        return parse_string(data)
-
-    for tag, type_def in data_type['internal_tags'].items():
-        datatype = type_def['data_type']
-        array = type_def.get('array')
-        offset = type_def['offset']
-        if type_def['tag_type'] == 'atomic':
-            dt_len = DataTypeSize[datatype]
-            func = Unpack[datatype]
-            if array:
-                ary_data = data[offset:offset + (dt_len * array)]
-                value = [func(ary_data[i:i + dt_len]) for i in range(0, array * dt_len, dt_len)]
-                if datatype == 'DWORD':
-                    value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
-            else:
-                if datatype == 'BOOL':
-                    bit = type_def.get('bit', 0)
-                    value = bool(data[offset] & (1 << bit))
-                else:
-                    value = func(data[offset:offset + dt_len])
-                    if datatype == 'DWORD':
-                        value = dword_to_bool_array(value)
-
-            values[tag] = value
-        elif datatype.get('string'):
-            str_size = datatype['template']['structure_size']
-            if array:
-                array_data = data[offset:offset + (str_size * array)]
-                values[tag] = [parse_string(array_data[i:i+str_size]) for i in range(0, len(array_data), str_size)]
-            else:
-                values[tag] = parse_string(data[offset:offset + str_size])
-        else:
-            struct_size = datatype['template']['structure_size']
-            if array:
-                ary_data = data[offset:offset + (struct_size * array)]
-                values[tag] = [parse_read_reply_struct(ary_data[i:i + struct_size], datatype) for i in
-                               range(0, len(ary_data), struct_size)]
-            else:
-                values[tag] = parse_read_reply_struct(data[offset:offset + struct_size], datatype)
-
-    return {k: v for k, v in values.items() if k in data_type['attributes']}
-
-
-def parse_string(data):
-    str_len = Unpack.dint(data)
-    str_data = data[4:4+str_len]
-    return ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
+# def parse_read_reply_struct(data, data_type):
+#     values = {}
+#
+#     if data_type.get('string'):
+#         return parse_string(data)
+#
+#     for tag, type_def in data_type['internal_tags'].items():
+#         datatype = type_def['data_type']
+#         array = type_def.get('array')
+#         offset = type_def['offset']
+#         if type_def['tag_type'] == 'atomic':
+#             dt_len = DataTypeSize[datatype]
+#             func = Unpack[datatype]
+#             if array:
+#                 ary_data = data[offset:offset + (dt_len * array)]
+#                 value = [func(ary_data[i:i + dt_len]) for i in range(0, array * dt_len, dt_len)]
+#                 if datatype == 'DWORD':
+#                     value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
+#             else:
+#                 if datatype == 'BOOL':
+#                     bit = type_def.get('bit', 0)
+#                     value = bool(data[offset] & (1 << bit))
+#                 else:
+#                     value = func(data[offset:offset + dt_len])
+#                     if datatype == 'DWORD':
+#                         value = dword_to_bool_array(value)
+#
+#             values[tag] = value
+#         elif datatype.get('string'):
+#             str_size = datatype['template']['structure_size']
+#             if array:
+#                 array_data = data[offset:offset + (str_size * array)]
+#                 values[tag] = [parse_string(array_data[i:i+str_size]) for i in range(0, len(array_data), str_size)]
+#             else:
+#                 values[tag] = parse_string(data[offset:offset + str_size])
+#         else:
+#             struct_size = datatype['template']['structure_size']
+#             if array:
+#                 ary_data = data[offset:offset + (struct_size * array)]
+#                 values[tag] = [parse_read_reply_struct(ary_data[i:i + struct_size], datatype) for i in
+#                                range(0, len(ary_data), struct_size)]
+#             else:
+#                 values[tag] = parse_read_reply_struct(data[offset:offset + struct_size], datatype)
+#
+#     return {k: v for k, v in values.items() if k in data_type['attributes']}
+#
+#
+# def parse_string(data):
+#     str_len = Unpack.dint(data)
+#     str_data = data[4:4+str_len]
+#     return ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
 
 
 def dword_to_bool_array(dword: Union[bytes, int]):
@@ -398,3 +393,35 @@ def dword_to_bool_array(dword: Union[bytes, int]):
     bools = [False for _ in range(32 - len(bits))] + bits
     bools.reverse()
     return bools
+
+
+def _to_hex(bites):
+    return ' '.join((f"{b:0>2x}" for b in bites))
+
+
+def _to_ascii(bites):
+    return ''.join(f'{chr(b)}' if 33 <= b <= 254 else '•' for b in bites)
+
+
+def print_bytes_msg(msg):
+    line_len = 16
+    lines = (msg[i:i + line_len] for i in range(0, len(msg), line_len))
+
+    formatted_lines = (
+        f'({i * line_len:0>4x}) {_to_hex(line): <48}    {_to_ascii(line)}'
+        for i, line in enumerate(lines)
+    )
+
+    return '\n'.join(formatted_lines)
+
+
+class PacketLazyFormatter:
+
+    def __init__(self, data):
+        self._data = data
+
+    def __str__(self):
+        return print_bytes_msg(self._data)
+
+    def __len__(self):
+        return len(self._data)

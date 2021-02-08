@@ -26,8 +26,8 @@ import logging
 from reprlib import repr as _r
 from typing import Optional
 
+from ..cip import DINT, UINT, UDINT
 from ..const import SUCCESS
-from ..bytes_ import Pack, Unpack
 from ..exceptions import CommError
 
 __all__ = ['Packet', 'ResponsePacket', 'RequestPacket']
@@ -83,7 +83,7 @@ class ResponsePacket(Packet):
     def _parse_reply(self):
         try:
             self.command = self.raw[:2]
-            self.command_status = Unpack.dint(self.raw[8:12])  # encapsulation status check
+            self.command_status = DINT.decode(self.raw[8:12])  # encapsulation status check
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
 
@@ -147,18 +147,18 @@ class RequestPacket(Packet):
         try:
             return b''.join([
                 command,
-                Pack.uint(length),  # Length UINT
-                Pack.udint(session_id),  # Session Handle UDINT
+                UINT.encode(length),  # Length UINT
+                UDINT.encode(session_id),  # Session Handle UDINT
                 b'\x00\x00\x00\x00',  # Status UDINT
                 context,  # Sender Context 8 bytes
-                Pack.udint(option)  # Option UDINT
+                UDINT.encode(option)  # Option UDINT
             ])
 
         except Exception as err:
             raise CommError('Failed to build request header') from err
 
     def _build_common_packet_format(self, message, addr_data=None) -> bytes:
-        addr_data = b'\x00\x00' if addr_data is None else Pack.uint(len(addr_data)) + addr_data
+        addr_data = b'\x00\x00' if addr_data is None else UINT.encode(len(addr_data)) + addr_data
 
         return b''.join([
             b'\x00\x00\x00\x00',  # Interface Handle: shall be 0 for CIP
@@ -167,7 +167,7 @@ class RequestPacket(Packet):
             self._address_type,
             addr_data,
             self._message_type,
-            Pack.uint(len(message)),
+            UINT.encode(len(message)),
             message
         ])
 

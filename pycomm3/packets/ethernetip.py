@@ -28,8 +28,7 @@ from .base import RequestPacket, ResponsePacket
 from .util import get_service_status, get_extended_status
 
 from ..const import SUCCESS, INSUFFICIENT_PACKETS
-from ..cip import (MULTI_PACKET_SERVICES, Services, DataItem, AddressItem, EncapsulationCommands )
-from ..bytes_ import Pack, Unpack
+from ..cip import (MULTI_PACKET_SERVICES, Services, DataItem, AddressItem, EncapsulationCommands, USINT, UINT, UDINT, )
 from ..custom_types import ListIdentityObject
 
 
@@ -43,7 +42,7 @@ class SendUnitDataResponsePacket(ResponsePacket):
         try:
             super()._parse_reply()
             self.service = Services.get(Services.from_reply(self.raw[46:47]))
-            self.service_status = Unpack.usint(self.raw[48:49])
+            self.service_status = USINT.decode(self.raw[48:49])
             self.data = self.raw[50:]
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
@@ -76,7 +75,7 @@ class SendUnitDataRequestPacket(RequestPacket):
 
     def _setup_message(self):
         super()._setup_message()
-        self._msg.append(Pack.uint(self._sequence))
+        self._msg.append(UINT.encode(self._sequence))
 
     def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
                       sequence: cycle = None, **kwargs):
@@ -95,7 +94,7 @@ class SendRRDataResponsePacket(ResponsePacket):
         try:
             super()._parse_reply()
             self.service = Services.get(Services.from_reply(self.raw[40:41]))
-            self.service_status = Unpack.usint(self.raw[42:43])
+            self.service_status = USINT.decode(self.raw[42:43])
             self.data = self.raw[44:]
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
@@ -134,7 +133,7 @@ class RegisterSessionResponsePacket(ResponsePacket):
     def _parse_reply(self):
         try:
             super()._parse_reply()
-            self.session = Unpack.udint(self.raw[4:8])
+            self.session = UDINT.decode(self.raw[4:8])
         except Exception as err:
             self._error = f'Failed to parse reply - {err}'
 

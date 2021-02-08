@@ -39,7 +39,7 @@ from . import util
 from .cip import (CLASS_TYPE, INSTANCE_TYPE, ClassCode, PRODUCT_TYPES, VENDORS,
                   Services, KEYSWITCH, EXTERNAL_ACCESS, DataTypes, Struct, STRING, n_bytes, ULINT, DataSegment, USINT,
                   UINT, LogicalSegment, PADDED_EPATH, UDINT, DINT, LOGIX_STRING, sized_string, Array, SHORT_STRING,
-                  DataType, ArrayType, StructType, )
+                  DataType, ArrayType, StructType)
 from .cip_driver import CIPDriver, with_forward_open
 from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US,
@@ -672,9 +672,13 @@ class LogixDriver(CIPDriver):
     def _parse_template_data(self, data, template):
         info_len = template['member_count'] * TEMPLATE_MEMBER_INFO_LEN
         info_data = data[:info_len]
-        member_data = [self._parse_template_data_member_info(info)
-                       for info in (info_data[i:i + TEMPLATE_MEMBER_INFO_LEN]
-                                    for i in range(0, info_len, TEMPLATE_MEMBER_INFO_LEN))]
+
+        chunks = (info_data[i:i + TEMPLATE_MEMBER_INFO_LEN]
+                  for i in range(0, info_len, TEMPLATE_MEMBER_INFO_LEN))
+
+        member_data = [self._parse_template_data_member_info(chunk)
+                       for chunk in chunks]
+
         member_names = []
         template_name = None
         try:
@@ -716,7 +720,6 @@ class LogixDriver(CIPDriver):
 
             else:
                 _struct_members.append(info['type_class'](member))
-
 
         if data_type['attributes'] == ['LEN', 'DATA'] and \
                 data_type['internal_tags']['DATA']['data_type_name'] == 'SINT' and \
@@ -1125,7 +1128,6 @@ class LogixDriver(CIPDriver):
                 )
 
                 request.set_bit(bit, parsed_tag['value'], parsed_tag['request_id'])
-                return request
             else:
                 parsed_tag['write_value'] = writable_value(parsed_tag)
 
@@ -1141,26 +1143,10 @@ class LogixDriver(CIPDriver):
                 if req_size > self.connection_size:
                     request = RequestTypes.write_tag_fragmented.from_request(request)
 
-                return request
+            return request
         except RequestError:
             self.__log.exception(f'Failed to build request for {parsed_tag["plc_tag"]} - skipping')
             return None
-
-        #     else:
-        #         # TODO
-        #         try:
-        #             tag = parsed_tag['plc_tag']
-        #             request_id = f'bit-write-0'
-        #             bit_writes[tag]['request_id'] = request_id
-        #             value = bit_writes[tag]['or_mask'], bit_writes[tag]['and_mask']
-        #             request = RequestTypes.write_tag(self)
-        #             rp = tag_request_path(tag, self._tags, self._cfg['use_instance_ids'])
-        #             request.add(tag, rp, value, 1, bit_writes[tag]['tag_info'], request_id,
-        #                         bits_write=True)
-        #             return request
-        #         except RequestError:
-        #             self.__log.exception(f'Failed to build request for {tag} - skipping')
-        #             return None
 
     def get_tag_info(self, tag_name: str) -> Optional[dict]:
         """
@@ -1475,87 +1461,87 @@ def _tag_return_size(tag_data):
     return size
 
 
-def _writable_value_structure(value, elements, data_type):
-    if elements > 1:
-        return b''.join(_pack_structure(val, data_type) for val in value)
-    else:
-        return _pack_structure(value, data_type)
-
-
-def _pack_bool_array(bools):
-    if len(bools) != 32:
-        raise RequestError(f'boolean arrays must have 32 elements: not {len(bools)}')
-    value = 0
-    for i, val in enumerate(bools):
-        if val:
-            value |= 1 << i
-    return value
-
-
-def _pack_string(value, string_len, struct_size):
-    try:
-        sint_array = [b'\x00' for _ in range(struct_size-4)]  # 4 for .LEN
-        if len(value) > string_len:
-            value = value[:string_len]
-        for i, s in enumerate(value):
-            sint_array[i] = Pack.char(s)
-    except Exception as err:
-        raise RequestError('Failed to pack string') from err
-    return Pack.dint(len(value)) + b''.join(sint_array)
-
-
-def _pack_structure(value, data_type):
-    string_len = data_type.get('string')
-
-    if string_len:
-        data = _pack_string(value, string_len, data_type['template']['structure_size'])
-    else:
-        # NOTE:  start with object-definition-size array, then replace sections with offset + data len
-        #        DONT use bytes, needs to be a list for swapping values later on
-        data = [0 for _ in range(data_type['template']['structure_size'])]
-        try:
-            val_is_dict = isinstance(value, Mapping)
-
-            for i, attr in enumerate(data_type['attributes']):
-                val = value[attr] if val_is_dict else value[i]
-
-                dtype = data_type['internal_tags'][attr]
-                offset = dtype['offset']
-
-                ary = dtype.get('array')
-                if dtype['tag_type'] == 'struct':
-                    if ary:
-                        value_bytes = [_pack_structure(val[i], dtype['data_type']) for i in range(ary)]
-                    else:
-                        value_bytes = [_pack_structure(val, dtype['data_type']), ]
-                else:
-                    pack_func = Pack[dtype['data_type']]
-                    bit = dtype.get('bit')
-                    if bit is not None:  # attributes that are aliased to a bit
-                        _byte = data[offset]
-                        if val:
-                            _byte |= 1 << bit
-                        else:
-                            _byte &= ~(1 << bit)
-
-                        data[offset] = _byte
-                        continue
-
-                    elif dtype['data_type'] == 'DWORD':  # boolean arrays
-                        value_bytes = [b''.join(pack_func(_pack_bool_array(val[i:i + 32])) for i in range(0, ary*32, 32)), ]
-                    else:  # all other types
-                        if ary:
-                            value_bytes = [pack_func(val[i]) for i in range(ary)]
-                        else:
-                            value_bytes = [pack_func(val), ]
-
-                val_bytes = list(itertools.chain.from_iterable(value_bytes))
-                data[offset:offset+len(val_bytes)] = val_bytes
-
-        except Exception as err:
-            raise RequestError('Value Invalid for Structure') from err
-
-    return bytes(data)
+# def _writable_value_structure(value, elements, data_type):
+#     if elements > 1:
+#         return b''.join(_pack_structure(val, data_type) for val in value)
+#     else:
+#         return _pack_structure(value, data_type)
+#
+#
+# def _pack_bool_array(bools):
+#     if len(bools) != 32:
+#         raise RequestError(f'boolean arrays must have 32 elements: not {len(bools)}')
+#     value = 0
+#     for i, val in enumerate(bools):
+#         if val:
+#             value |= 1 << i
+#     return value
+#
+#
+# def _pack_string(value, string_len, struct_size):
+#     try:
+#         sint_array = [b'\x00' for _ in range(struct_size-4)]  # 4 for .LEN
+#         if len(value) > string_len:
+#             value = value[:string_len]
+#         for i, s in enumerate(value):
+#             sint_array[i] = Pack.char(s)
+#     except Exception as err:
+#         raise RequestError('Failed to pack string') from err
+#     return Pack.dint(len(value)) + b''.join(sint_array)
+#
+#
+# def _pack_structure(value, data_type):
+#     string_len = data_type.get('string')
+#
+#     if string_len:
+#         data = _pack_string(value, string_len, data_type['template']['structure_size'])
+#     else:
+#         # NOTE:  start with object-definition-size array, then replace sections with offset + data len
+#         #        DONT use bytes, needs to be a list for swapping values later on
+#         data = [0 for _ in range(data_type['template']['structure_size'])]
+#         try:
+#             val_is_dict = isinstance(value, Mapping)
+#
+#             for i, attr in enumerate(data_type['attributes']):
+#                 val = value[attr] if val_is_dict else value[i]
+#
+#                 dtype = data_type['internal_tags'][attr]
+#                 offset = dtype['offset']
+#
+#                 ary = dtype.get('array')
+#                 if dtype['tag_type'] == 'struct':
+#                     if ary:
+#                         value_bytes = [_pack_structure(val[i], dtype['data_type']) for i in range(ary)]
+#                     else:
+#                         value_bytes = [_pack_structure(val, dtype['data_type']), ]
+#                 else:
+#                     pack_func = Pack[dtype['data_type']]
+#                     bit = dtype.get('bit')
+#                     if bit is not None:  # attributes that are aliased to a bit
+#                         _byte = data[offset]
+#                         if val:
+#                             _byte |= 1 << bit
+#                         else:
+#                             _byte &= ~(1 << bit)
+#
+#                         data[offset] = _byte
+#                         continue
+#
+#                     elif dtype['data_type'] == 'DWORD':  # boolean arrays
+#                         value_bytes = [b''.join(pack_func(_pack_bool_array(val[i:i + 32])) for i in range(0, ary*32, 32)), ]
+#                     else:  # all other types
+#                         if ary:
+#                             value_bytes = [pack_func(val[i]) for i in range(ary)]
+#                         else:
+#                             value_bytes = [pack_func(val), ]
+#
+#                 val_bytes = list(itertools.chain.from_iterable(value_bytes))
+#                 data[offset:offset+len(val_bytes)] = val_bytes
+#
+#         except Exception as err:
+#             raise RequestError('Value Invalid for Structure') from err
+#
+#     return bytes(data)
 
 
 # def _bit_request(tag_data, bit_requests):

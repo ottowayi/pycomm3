@@ -29,8 +29,8 @@ from typing import Dict, Any, Sequence, Union
 
 from .ethernetip import SendUnitDataRequestPacket, SendUnitDataResponsePacket
 from .util import parse_read_reply, request_path, tag_request_path
-from ..bytes_ import Pack, Unpack
-from ..cip import DataType, ClassCode, Services, DataTypes, UINT
+
+from ..cip import ClassCode, Services, DataTypes, UINT, UDINT, ULINT
 from ..const import STRUCTURE_READ_REPLY
 from ..exceptions import RequestError
 
@@ -63,7 +63,7 @@ class TagServiceRequestPacket(SendUnitDataRequestPacket):
         self.request_path = None
 
     def tag_only_message(self):
-        return b''.join((self.tag_service, self.request_path, Pack.uint(self.elements)))
+        return b''.join((self.tag_service, self.request_path, UINT.encode(self.elements)))
 
 
 class ReadTagResponsePacket(TagServiceResponsePacket):
@@ -74,7 +74,7 @@ class ReadTagResponsePacket(TagServiceResponsePacket):
         self.data_type = None
         super().__init__(request, raw_data)
 
-    def _parse_reply(self, dont_parse=False):
+    def _parse_reply(self, dont_parse: bool = False):
         try:
             super()._parse_reply()
             if self.is_valid() and not dont_parse:
@@ -87,11 +87,6 @@ class ReadTagResponsePacket(TagServiceResponsePacket):
     def __repr__(self):
         return f'{self.__class__.__name__}({self.data_type!r}, {_r(self.value)}, {self.service_status!r})'
 
-
-# TODO: remove the request_path arg, the path should be created in the request
-#       it was originally, but then moved outside to make packet size estimation more accurate
-#       but, multi packet will be changed to accept packets and can then use the full message
-#       from the tag packet for tracking size
 
 class ReadTagRequestPacket(TagServiceRequestPacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
@@ -108,7 +103,6 @@ class ReadTagRequestPacket(TagServiceRequestPacket):
         self._msg.append(self.tag_only_message())
 
 
-
 class ReadTagFragmentedResponsePacket(ReadTagResponsePacket):
     # TODO
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
@@ -121,7 +115,7 @@ class ReadTagFragmentedResponsePacket(ReadTagResponsePacket):
         super().__init__(request, raw_data)
 
     def _parse_reply(self):
-        super()._parse_reply(dont_parse = True)
+        super()._parse_reply(dont_parse=True)
         if self.data[:2] == STRUCTURE_READ_REPLY:
             self.value_bytes = self.data[4:]
             self._data_type = self.data[:4]
@@ -160,7 +154,7 @@ class ReadTagFragmentedRequestPacket(ReadTagRequestPacket):
 
     def _setup_message(self):
         super()._setup_message()
-        self._msg.append(Pack.udint(self.offset))
+        self._msg.append(UDINT.encode(self.offset))
 
     @classmethod
     def from_request(cls, request: Union[ReadTagRequestPacket, 'ReadTagFragmentedRequestPacket'], offset=0) -> 'ReadTagFragmentedRequestPacket':
@@ -220,11 +214,11 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
         if self.request_path is None:
             self.error = f'Failed to build request path for tag'
         self._msg += [self.tag_service, self.request_path, self._packed_data_type,
-                      Pack.uint(self.elements), self.value]
+                      UINT.encode(self.elements), self.value]
 
     def tag_only_message(self):
         return b''.join((self.tag_service, self.request_path, self._packed_data_type,
-                         Pack.uint(self.elements), self.value))
+                         UINT.encode(self.elements), self.value))
 
     def __repr__(self):
         return f'{self.__class__.__name__}(tag={self.tag!r}, value={_r(self.value)}, elements={self.elements!r})'
@@ -248,7 +242,7 @@ class WriteTagFragmentedRequestPacket(WriteTagRequestPacket):
 
     def _setup_message(self):
         super()._setup_message()
-        self._msg.insert((len(self._msg) - 1), Pack.udint(self.offset))  # offset needs to go before value
+        self._msg.insert((len(self._msg) - 1), UDINT.encode(self.offset))  # offset needs to go before value
 
     @classmethod
     def from_request(cls, request: WriteTagRequestPacket, offset: int = 0, value: bytes = b'') -> 'WriteTagFragmentedRequestPacket':
@@ -318,9 +312,9 @@ class ReadModifyWriteRequestPacket(SendUnitDataRequestPacket):
         self._msg += [
             self.tag_service,
             self.request_path,
-            Pack.uint(self._mask_size),
-            Pack.ulint(self._or_mask)[:self._mask_size],
-            Pack.ulint(self._and_mask)[:self._and_mask]
+            UINT.encode(self._mask_size),
+            ULINT.encode(self._or_mask)[:self._mask_size],
+            ULINT.encode(self._and_mask)[:self._and_mask]
         ]
 
 
@@ -336,9 +330,9 @@ class MultiServiceResponsePacket(SendUnitDataResponsePacket):
 
     def _parse_reply(self):
         super()._parse_reply()
-        num_replies = Unpack.uint(self.data)
+        num_replies = UINT.decode(self.data)
         offset_data = self.data[2:2 + 2 * num_replies]
-        offsets = (Unpack.uint(offset_data[i:i+2]) for i in range(0, len(offset_data), 2))
+        offsets = (UINT.decode(offset_data[i:i+2]) for i in range(0, len(offset_data), 2))
         start, end = tee(offsets)  # split offsets into start/end indexes
         next(end)   # advance end by 1 so 2nd item is the end index for the first item
         reply_data = [self.data[i:j] for i, j in zip_longest(start, end)]
@@ -371,12 +365,12 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
     def build_message(self):
         super().build_message()
         num_requests = len(self.requests)
-        self._msg.append(Pack.uint(num_requests))
+        self._msg.append(UINT.encode(num_requests))
         offset = 2 + (num_requests * 2)
         offsets = []
         messages = [request.tag_only_message() for request in self.requests]
         for msg in messages:
-            offsets.append(Pack.uint(offset))
+            offsets.append(UINT.encode(offset))
             offset += len(msg)
 
         return b''.join(self._msg + offsets + messages)
