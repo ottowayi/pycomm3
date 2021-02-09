@@ -1,5 +1,28 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+
 import reprlib
-import logging
 import ipaddress
 from io import BytesIO
 from itertools import chain
@@ -14,7 +37,7 @@ _BufferType = Union[BytesIO, bytes]
 
 __all__ = ['DataType', 'ElementaryDataType', 'BOOL', 'SINT', 'INT', 'DINT', 'LINT',
            'USINT', 'UINT', 'UDINT', 'ULINT', 'REAL', 'LREAL', 'STIME', 'DATE',
-           'TIME_OF_DAY', 'DATE_AND_TIME', 'StringDataType', 'LOGIX_STRING', 'sized_string', 'STRING',
+           'TIME_OF_DAY', 'DATE_AND_TIME', 'StringDataType', 'LOGIX_STRING', 'STRING',
            'BytesDataType', 'n_bytes', 'BYTE', 'WORD', 'DWORD', 'LWORD', 'STRING2', 'FTIME',
            'LTIME', 'ITIME', 'STRINGN', 'SHORT_STRING', 'TIME', 'EPATH', 'PACKED_EPATH', 'BitArrayType',
            'PADDED_EPATH', 'ENGUNIT', 'STRINGI', 'DerivedDataType', 'Array', 'Struct', 'ArrayType', 'StructType',
@@ -49,6 +72,24 @@ class _ClassReprMeta(type):
 
 
 class DataType(metaclass=_ClassReprMeta):
+    """
+    Base class to represent a CIP data type.
+    Instances of a type are only used when defining the
+    members of a structure.
+
+
+    Each type class provides `encode`/`decode` class methods.
+    If overriding them, they must catch any unhandled exception
+    and raise a DataError from it. For `decode`, `BufferEmptyError`
+    should be reraised immediately without modification.
+    The buffer empty error is needed for decoding arrays of
+    unknown length.  Typically for custom types, overriding the
+    private `_encode`/`_decode` methods are sufficient. The private
+    methods do not need to do any exception handling if using the
+    base public methods.  For `_decode` use the private `_stream_read`
+    method instead of `stream.read`, so that `BufferEmptyError`s are
+    raised appropriately.
+    """
 
     def __init__(self, name: Optional[str] = None):
         self.name = name
@@ -79,6 +120,17 @@ class DataType(metaclass=_ClassReprMeta):
     def _decode(cls, stream: BytesIO) -> Any:
         ...
 
+    @classmethod
+    def _stream_read(cls, stream: BytesIO, size: int):
+        """
+        Reads `size` bytes from `stream`.
+        Raises `BufferEmptyError` if stream returns no data.
+        """
+        data = stream.read(size)
+        if not data:
+            raise BufferEmptyError()
+        return data
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(name={self.name!r})'
 
@@ -86,6 +138,9 @@ class DataType(metaclass=_ClassReprMeta):
 
 
 class ElementaryDataType(DataType):
+    """
+    Type that represents a single primitive value in CIP.
+    """
     code: int = 0x00
     size: int = 0
     _format: str = ''
@@ -96,9 +151,7 @@ class ElementaryDataType(DataType):
 
     @classmethod
     def _decode(cls, stream: BytesIO) -> Any:
-        data = stream.read(cls.size)
-        if not data:
-            raise BufferEmptyError()
+        data = cls._stream_read(stream, cls.size)
         return unpack(cls._format, data)[0]
 
 
@@ -112,9 +165,7 @@ class BOOL(ElementaryDataType):
 
     @classmethod
     def _decode(cls, stream: BytesIO) -> bool:
-        data = stream.read(cls.size)
-        if not data:
-            raise BufferEmptyError()
+        data = cls._stream_read(stream, cls.size)
         return data != b'\x00'
 
 
@@ -217,34 +268,13 @@ class StringDataType(ElementaryDataType):
     @classmethod
     def _decode(cls, stream: BytesIO) -> str:
         str_len = cls.len_type.decode(stream)
-        str_data = stream.read(str_len)
-        if not str_data:
-            raise BufferEmptyError()
+        str_data = cls._stream_read(stream, str_len)
 
         return str_data.decode(cls.encoding)
 
 
 class LOGIX_STRING(StringDataType):
     len_type = UDINT
-
-
-def sized_string(size_: int, len_type_: DataType = UDINT):
-
-    class FixedSizeString(StringDataType):
-        size = size_
-        len_type = len_type_
-
-        @classmethod
-        def _encode(cls, value: str, *args, **kwargs) -> bytes:
-            return cls.len_type.encode(len(value)) + value.encode(cls.encoding) + b'\x00' * (cls.size - len(value))
-
-        @classmethod
-        def _decode(cls, stream: BytesIO) -> str:
-            _len = cls.len_type.decode(stream)
-            _data = stream.read(cls.size)[:_len]
-            return _data.decode(cls.encoding)
-
-    return FixedSizeString
 
 
 class STRING(StringDataType):
@@ -260,9 +290,7 @@ class BytesDataType(ElementaryDataType):
 
     @classmethod
     def _decode(cls, stream: BytesIO) -> bytes:
-        data = stream.read(cls.size)
-        if len(data) < cls.size:
-            raise BufferEmptyError()
+        data = cls._stream_read(stream, cls.size)
         return data
 
 
@@ -359,9 +387,7 @@ class STRINGN(StringDataType):
         except KeyError as err:
             raise DataError(f'Unsupported character size: {char_size}') from err
         else:
-            data = stream.read(char_count * char_size)
-            if not data:
-                raise BufferEmptyError()
+            data = cls._stream_read(stream, char_count * char_size)
 
             return data.decode(encoding)
 
@@ -525,8 +551,6 @@ def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
             if isinstance(_length, int):
                 if len(values) < _length:
                     raise DataError(f'Not enough values to encode array of {cls.element_type}[{_length}]')
-                # if len(values) > _length:
-                #     cls._log.warning(f'Too many values supplied, truncating {len(values)} to {_length}')
 
                 _len = _length
             else:
@@ -586,14 +610,6 @@ class _StructReprMeta(_ClassReprMeta):
 
 
 class StructType(DerivedDataType, metaclass=_StructReprMeta):
-    ...
-
-
-class StructAliasMember(DataType):
-    ...
-
-
-def AliasMember():
     ...
 
 

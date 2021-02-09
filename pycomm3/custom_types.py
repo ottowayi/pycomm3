@@ -1,12 +1,34 @@
 import ipaddress
-
 from io import BytesIO
-from typing import Any, Union, Type, Dict, Tuple
+from typing import Any, Type, Dict, Tuple
 
-from .cip import (DataType, ElementaryDataType, DerivedDataType, BufferEmptyError, Struct, UINT, USINT,
-                  SINT, UDINT, SHORT_STRING, n_bytes, WORD, Array, StructType,)
+from .cip import (DataType, DerivedDataType, BufferEmptyError, Struct, UINT, USINT,
+                  UDINT, SHORT_STRING, n_bytes, WORD, StructType, StringDataType, PRODUCT_TYPES, VENDORS, INT, ULINT)
 
-__all__ = ['IPAddress', 'LogixIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes']
+__all__ = ['IPAddress', 'ModuleIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes',
+           'sized_string', 'Revision', 'StructTag']
+
+
+def sized_string(size_: int, len_type_: DataType = UDINT):
+    """
+    Creates a custom string tag type
+    """
+
+    class FixedSizeString(StringDataType):
+        size = size_
+        len_type = len_type_
+
+        @classmethod
+        def _encode(cls, value: str, *args, **kwargs) -> bytes:
+            return cls.len_type.encode(len(value)) + value.encode(cls.encoding) + b'\x00' * (cls.size - len(value))
+
+        @classmethod
+        def _decode(cls, stream: BytesIO) -> str:
+            _len = cls.len_type.decode(stream)
+            _data = cls._stream_read(stream, cls.size)[:_len]
+            return _data.decode(cls.encoding)
+
+    return FixedSizeString
 
 
 class IPAddress(DerivedDataType):
@@ -23,36 +45,59 @@ class IPAddress(DerivedDataType):
         return ipaddress.IPv4Address(data).exploded
 
 
-# TODO: not just logix, make generic
-#       added custom decode methods for status, product_type, etc lookups
-LogixIdentityObject = Struct(
+class Revision(Struct(
+    USINT('major'),
+    USINT('minor')
+)):
+    ...
+
+
+class ModuleIdentityObject(Struct(
     UINT('vendor'),
-    UINT('product_type'),
+    UINT('device_type'),
     UINT('product_code'),
-    USINT('version_major'),
-    USINT('version_minor'),
-    n_bytes(2, '_keyswitch'),
+    Revision('revision'),
+    n_bytes(2, 'status'),
     UDINT('serial'),
     SHORT_STRING('device_type')
-)
+)):
 
-ListIdentityObject = Struct(
-        UINT('item_type_code'),
-        UINT('item_length'),
-        UINT('encap_protocol_version'),
-        n_bytes(4),
-        IPAddress('ip_address'),
-        n_bytes(8),
-        UINT('vendor_id'),
-        UINT('device_type'),
-        UINT('product_code'),
-        USINT('revision_major'),
-        USINT('revision_minor'),
-        WORD('status'),
-        UDINT('serial_number'),
-        SHORT_STRING('product_name'),
-        USINT('state')
-)
+    @classmethod
+    def _decode(cls, stream: BytesIO):
+        values = super(ModuleIdentityObject, cls)._decode(stream)
+        values['device_type'] = PRODUCT_TYPES.get(values['product_type'], 'UNKNOWN')
+        values['vendor'] = VENDORS.get(values['vendor'], 'UNKNOWN')
+        values['serial'] = f"{values['serial']:08x}"
+
+        return values
+
+
+class ListIdentityObject(Struct(
+    UINT(),
+    UINT(),
+    UINT('encap_protocol_version'),
+    INT(),
+    UINT(),
+    IPAddress('ip_address'),
+    ULINT(),
+    UINT('vendor_id'),
+    UINT('device_type'),
+    UINT('product_code'),
+    Revision('revision'),
+    WORD('status'),
+    UDINT('serial'),
+    SHORT_STRING('product_name'),
+    USINT('state')
+)):
+
+    @classmethod
+    def _decode(cls, stream: BytesIO):
+        values = super(ListIdentityObject, cls)._decode(stream)
+        values['device_type'] = PRODUCT_TYPES.get(values['device_type'], 'UNKNOWN')
+        values['vendor_id'] = VENDORS.get(values['vendor_id'], 'UNKNOWN')
+        values['serial'] = f"{values['serial']:08x}"
+
+        return values
 
 
 StructTemplateAttributes = Struct(
@@ -61,7 +106,6 @@ StructTemplateAttributes = Struct(
     Struct(UINT('attr_num'), UINT('status'), UDINT('size'))(name='structure_size'),
     Struct(UINT('attr_num'), UINT('status'), UINT('count'))(name='member_count'),
     Struct(UINT('attr_num'), UINT('status'), UINT('handle'))(name='structure_handle'),
-
 )
 
 
@@ -71,7 +115,6 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
 
     bool_members = {member name: (host member, bit)}
     """
-
     _struct = Struct(*members)
 
     class StructTag(_struct):

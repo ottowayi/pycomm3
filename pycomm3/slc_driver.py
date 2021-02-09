@@ -29,7 +29,7 @@ import re
 from typing import List, Tuple, Optional, Union
 
 from .cip_driver import CIPDriver, with_forward_open
-from .cip import CLASS_TYPE, PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE, PCCC_ERROR_CODE, USINT, UINT, PCCCDataTypes
+from .cip import PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE, PCCC_ERROR_CODE, USINT, UINT, PCCCDataTypes
 from .const import SUCCESS, SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH
 from .exceptions import ResponseError, RequestError
 from .tag import Tag
@@ -56,7 +56,7 @@ class SLCDriver(CIPDriver):
         return b''.join((
             b'\x4b',
             b'\x02',
-            CLASS_TYPE["8-bit"],
+            b'\x20',  # 8-bit class
             PCCC_PATH,
             b'\x07',
             self._cfg['vid'],

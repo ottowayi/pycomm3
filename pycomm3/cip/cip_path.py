@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,45 +26,9 @@ from ..map import EnumMap
 from .object_library import ClassCode
 from .data_types import LogicalSegment
 
-__all__ = ['CLASS_TYPE', 'INSTANCE_TYPE', 'ATTRIBUTE_TYPE',
-           'PATH_SEGMENTS', 'MSG_ROUTER_PATH', 'DataItem', 'AddressItem']
+__all__ = ['MSG_ROUTER_PATH', 'DataItem', 'AddressItem']
 
 
-
-CLASS_TYPE = {
-    "8-bit": b'\x20',
-    "16-bit": b'\x21\x00',
-    1: b'\x20',  # length of code
-    2: b'\x21\x00'
-}
-
-INSTANCE_TYPE = {
-    "8-bit": b'\x24',
-    "16-bit": b'\x25\x00',
-    1: b'\x24',  # length of code
-    2: b'\x25\x00'
-}
-
-ATTRIBUTE_TYPE = {
-    "8-bit": b'\x30',
-    "16-bit": b'\x31\x00',
-    1: b'\x30',
-    2: b'\x31\x00',
-}
-
-PATH_SEGMENTS = {
-    'backplane': 0x01,
-    'bp': 0x01,
-    'enet': 0x02,
-    'dhrio-a': 0x02,
-    'dhrio-b': 0x03,
-    'dnet': 0x02,
-    'cnet': 0x02,
-    'dh485-a': 0x02,
-    'dh485-b': 0x03,
-}
-
-# MSG_ROUTER_PATH = b''.join([CLASS_TYPE['8-bit'], ClassCode.message_router, INSTANCE_TYPE['8-bit'], b'\x01'])
 MSG_ROUTER_PATH = [
     LogicalSegment(ClassCode.message_router, 'class_id'),
     LogicalSegment(0x01, 'instance_id')
@@ -80,5 +44,3 @@ class AddressItem(EnumMap):
     connection = b'\xa1\x00'
     null = b'\x00\x00'
     uccm = b'\x00\x00'
-
-

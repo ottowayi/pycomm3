@@ -36,7 +36,7 @@ from .cip import (ConnectionManagerInstances, ClassCode,
                   MSG_ROUTER_PATH, ConnectionManagerServices, Services,
                   PortSegment, PADDED_EPATH, DataType, UDINT, UINT)
 from .const import PRIORITY, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS
-from .custom_types import LogixIdentityObject
+from .custom_types import ModuleIdentityObject
 from .exceptions import ResponseError, CommError, RequestError
 from .packets import RequestPacket, ResponsePacket, RequestTypes, PacketLazyFormatter
 from .socket_ import Socket
@@ -113,7 +113,7 @@ class CIPDriver:
             'context': b'_pycomm_',
             'protocol version': b'\x01\x00',
             'rpi': 5000,
-            'port': 0xAF12,  # 44818
+            'port': 44818,
             'timeout': 10,
             'ip address': ip,
             # is cip_path the right term?  or something else?
@@ -238,7 +238,7 @@ class CIPDriver:
             )
 
             if response:
-                return LogixIdentityObject.decode(response.value)
+                return ModuleIdentityObject.decode(response.value)
             else:
                 raise ResponseError(f'generic_message did not return valid data - {response.error}')
 
@@ -446,11 +446,7 @@ class CIPDriver:
         :param instance: instance ID of the class
         :param attribute: (optional) attribute ID for the service/class/instance
         :param request_data: (optional) any additional data required for the request
-        :param data_type: (reads only) If provided, a read response will automatically be unpacked into the attributes
-                            defined, must be a sequence of tuples, (attribute name, data_type).
-                            If name is ``None`` or an empty string, it will be ignored. If data-type is an ``int`` it will
-                            not be unpacked, but left as ``bytes``.  Data will be returned as a ``dict``.
-                            If ``None``, response data will be returned as just ``bytes``.
+        :param data_type: ...
         :param name:  return ``Tag.tag`` value, arbitrary but can be used for tracking returned Tags
         :param connected: ``True`` if service required a CIP connection (forward open), ``False`` to use UCMM
         :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service
@@ -519,7 +515,7 @@ class CIPDriver:
         except Exception as err:
             raise CommError('failed to receive reply') from err
         else:
-            self.__log.verbose('>>> RECEIVE >>> \n%s', PacketLazyFormatter(reply))
+            self.__log.verbose('<<< RECEIVE <<< \n%s', PacketLazyFormatter(reply))
             return reply
 
 

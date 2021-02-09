@@ -25,31 +25,27 @@
 __all__ = ['LogixDriver', ]
 
 import datetime
-import itertools
 import logging
-import time
 import operator
+import time
 from functools import reduce
-
 from io import BytesIO
-from typing import List, Tuple, Optional, Union, Mapping, Dict, Type, Sequence
+from typing import List, Tuple, Optional, Union, Dict, Type
 
 from . import util
-# from .bytes_ import Pack, Unpack
-from .cip import (CLASS_TYPE, INSTANCE_TYPE, ClassCode, PRODUCT_TYPES, VENDORS,
+from .cip import (ClassCode, PRODUCT_TYPES, VENDORS,
                   Services, KEYSWITCH, EXTERNAL_ACCESS, DataTypes, Struct, STRING, n_bytes, ULINT, DataSegment, USINT,
-                  UINT, LogicalSegment, PADDED_EPATH, UDINT, DINT, LOGIX_STRING, sized_string, Array, SHORT_STRING,
-                  DataType, ArrayType, StructType)
+                  UINT, LogicalSegment, PADDED_EPATH, UDINT, DINT, Array, DataType, ArrayType)
 from .cip_driver import CIPDriver, with_forward_open
 from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US,
                     TEMPLATE_MEMBER_INFO_LEN, MIN_VER_EXTERNAL_ACCESS, )
+from .custom_types import StructTemplateAttributes, StructTag, sized_string
 from .exceptions import ResponseError, CommError, RequestError
 from .packets import (request_path, RequestTypes, RequestPacket, ReadTagFragmentedRequestPacket,
                       WriteTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
                       WriteTagFragmentedResponsePacket)
 from .tag import Tag
-from .custom_types import StructTemplateAttributes, StructTag
 
 AtomicValueType = Union[int, float, bool, str]
 TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, 'TagValueType']]
@@ -229,13 +225,13 @@ class LogixDriver(CIPDriver):
         """
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
         """
-        from .custom_types import LogixIdentityObject
+        from .custom_types import ModuleIdentityObject
 
         try:
             response = self.generic_message(
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 service=Services.get_attributes_all,
-                data_type=LogixIdentityObject,
+                data_type=ModuleIdentityObject,
                 # data_format=[
                 #     ('vendor', 'UINT'), ('product_type', 'UINT'), ('product_code', 'UINT'),
                 #     ('version_major', 'SINT'), ('version_minor', 'USINT'), ('_keyswitch', 2),
@@ -246,7 +242,8 @@ class LogixDriver(CIPDriver):
             if not response:
                 raise ResponseError(f'get_plc_info did not return valid data - {response.error}')
 
-            info = _parse_plc_info(response.value)
+            info = response.value
+            info['keyswitch'] = KEYSWITCH.get(info['status'][0], {}).get(info['status'][1], 'UNKNOWN')
             self._info = {**self._info, **info}
             return info
         except Exception as err:
@@ -1344,15 +1341,15 @@ class LogixDriver(CIPDriver):
         return failed_response
 
 
-def _parse_plc_info(data):
-    parsed = {k: v for k, v in data.items() if not k.startswith('_')}
-    parsed['vendor'] = VENDORS.get(parsed['vendor'], 'UNKNOWN')
-    parsed['product_type'] = PRODUCT_TYPES.get(parsed['product_type'], 'UNKNOWN')
-    parsed['revision'] = f"{parsed['version_major']}.{parsed['version_minor']}"
-    parsed['serial'] = f"{parsed['serial']:08x}"
-    parsed['keyswitch'] = KEYSWITCH.get(data['_keyswitch'][0], {}).get(data['_keyswitch'][1], 'UNKNOWN')
-
-    return parsed
+# def _parse_plc_info(data):
+#     parsed = {k: v for k, v in data.items() if not k.startswith('_')}
+#     parsed['vendor'] = VENDORS.get(parsed['vendor'], 'UNKNOWN')
+#     parsed['product_type'] = PRODUCT_TYPES.get(parsed['product_type'], 'UNKNOWN')
+#     parsed['revision'] = f"{parsed['version_major']}.{parsed['version_minor']}"
+#     parsed['serial'] = f"{parsed['serial']:08x}"
+#     parsed['keyswitch'] = KEYSWITCH.get(data['_keyswitch'][0], {}).get(data['_keyswitch'][1], 'UNKNOWN')
+#
+#     return parsed
 
 
 def _parse_structure_makeup_attributes(response):
