@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -234,7 +234,6 @@ class CIPDriver:
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 connected=False, unconnected_send=True,
                 route_path=PADDED_EPATH.encode((PortSegment('bp', slot), ), length=True, pad_length=True),
-                # route_path=Pack.epath(Pack.usint(PATH_SEGMENTS['bp']) + Pack.usint(slot), pad_len=True)
             )
 
             if response:
@@ -527,77 +526,15 @@ def parse_connection_path(path):
             ipaddress.ip_address(ip)
         except ValueError as err:
             raise RequestError(f'Invalid IP Address: {ip}') from err
-        # segments = [_parse_cip_path_segment(s) for s in segments]
 
         if not segments:
-            # _path = [Pack.usint(PATH_SEGMENTS['backplane']), b'\x00']
             _path = [PortSegment('bp', 0), ]
         elif len(segments) == 1:
             _path = [PortSegment('bp', segments[0])]
-            # _path = [Pack.usint(PATH_SEGMENTS['backplane']), Pack.usint(segments[0])]
         else:
             pairs = (segments[i:i + 2] for i in range(0, len(segments), 2))
             _path = [PortSegment(port, link) for port, link in pairs]
-            # _path = []
-            # for port, dest in pairs:
-            #     if isinstance(dest, bytes):
-            #         port |= 1 << 4  # set Extended Link Address bit, CIP Vol 1 C-1.3
-            #         dest_len = len(dest)
-            #         if dest_len % 2:
-            #             dest += b'\x00'
-            #         _path.extend([Pack.usint(port), Pack.usint(dest_len), dest])
-            #     else:
-            #         _path.extend([Pack.usint(port), Pack.usint(dest)])
-        # epath = PADDED_EPATH.encode(_path, length=True)
     except Exception as err:
         raise RequestError(f'Failed to parse connection path: {path}') from err
     else:
         return ip, _path
-        # return ip, Pack.epath(b''.join(_path))
-
-
-# def _parse_cip_path_segment(segment: str):
-#     try:
-#         if segment.isnumeric():
-#             return int(segment)
-#         else:
-#             tmp = PATH_SEGMENTS.get(segment.lower())
-#             if tmp:
-#                 return tmp
-#             else:
-#                 try:
-#                     ipaddress.ip_address(segment)
-#                     return b''.join(Pack.usint(ord(c)) for c in segment)
-#                 except ValueError as err:
-#                     raise RequestError(f'Invalid IP Address Segment: {segment}') from err
-#     except Exception as err:
-#         raise RequestError(f'Failed to parse path segment: {segment}') from err
-
-
-# def _parse_identity_object(reply):
-#     vendor = UINT.decode(reply[:2])
-#     product_type = UINT.decode(reply[2:4])
-#     product_code = UINT.decode(reply[4:6])
-#     major_fw = int(reply[6])
-#     minor_fw = int(reply[7])
-#     status = f'{Unpack.uint(reply[8:10]):0{16}b}'
-#     serial_number = f'{Unpack.udint(reply[10:14]):0{8}x}'
-#     product_name_len = int(reply[14])
-#     tmp = 15 + product_name_len
-#     device_type = reply[15:tmp].decode()
-#
-#     state = Unpack.uint(reply[tmp:tmp + 4]) if reply[tmp:] else -1  # some modules don't return a state
-#
-#     return {
-#         'vendor': VENDORS.get(vendor, 'UNKNOWN'),
-#         'product_type': PRODUCT_TYPES.get(product_type, 'UNKNOWN'),
-#         'product_code': product_code,
-#         'version_major': major_fw,
-#         'version_minor': minor_fw,
-#         'revision': f'{major_fw}.{minor_fw}',
-#         'serial': serial_number,
-#         'device_type': device_type,
-#         'status': status,
-#         'state': STATES.get(state, 'UNKNOWN'),
-#     }
-

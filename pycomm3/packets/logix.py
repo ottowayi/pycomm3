@@ -204,7 +204,6 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
         elif self.data_type not in DataTypes:
             raise RequestError(f"Unsupported data type: {self.data_type!r}")
         else:
-            # self._packed_data_type = Pack.uint(DataTypes[self.data_type])
             self._packed_data_type = UINT.encode(DataTypes[self.data_type].code)
 
     def _setup_message(self):

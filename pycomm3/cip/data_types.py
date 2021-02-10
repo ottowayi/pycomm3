@@ -540,8 +540,6 @@ def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
     """
 
     class Array(ArrayType):
-        # _log = logging.getLogger(f'{__module__}.{__qualname__}')
-
         length = length_
         element_type = element_type_
 
@@ -864,10 +862,4 @@ class DataTypes(EnumMap):
 
     @classmethod
     def get_type(cls, type_code):
-        # try:
-            # return cls[cls[type_code]]
         return cls.get(cls.get(type_code))
-        # except Exception:
-        #     return None
-
-

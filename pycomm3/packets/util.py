@@ -63,37 +63,6 @@ def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
 
     return PADDED_EPATH.encode(segments, length=True)
 
-    # path = [encode_segment(class_code, CLASS_TYPE), encode_segment(instance, INSTANCE_TYPE)]
-    #
-    # if attribute:
-    #     path.append(encode_segment(attribute, ATTRIBUTE_TYPE))
-    #
-    # if data:
-    #     path.append(data)
-    #
-    #
-    #
-    # return Pack.epath(b''.join(path))
-
-
-# def encode_segment(segment: Union[bytes, int], segment_types: dict) -> bytes:
-#     if isinstance(segment, int):
-#         if segment <= 0xff:
-#             segment = Pack.usint(segment)
-#         elif segment <= 0xffff:
-#             segment = Pack.uint(segment)
-#         elif segment <= 0xfffffffff:
-#             segment = Pack.dint(segment)
-#         else:
-#             raise RequestError('Invalid segment value')
-#
-#     _type = segment_types.get(len(segment))
-#
-#     if _type is None:
-#         raise RequestError('Segment value not valid for segment type')
-#
-#     return _type + segment
-
 
 def tag_request_path(tag, tag_cache, use_instance_ids):
     """
@@ -102,33 +71,21 @@ def tag_request_path(tag, tag_cache, use_instance_ids):
     """
 
     tags = tag.split('.')
-    # segments = []
     if tags:
         base, *attrs = tags
         base_tag, index = _find_tag_index(base)
         if use_instance_ids and base_tag in tag_cache:
-            # rp = [CLASS_TYPE['8-bit'],
-            #       ClassCode.symbol_object,
-            #       INSTANCE_TYPE['16-bit'],
-            #       Pack.uint(tag_cache[base_tag]['instance_id'])]
             segments = [
                 LogicalSegment(ClassCode.symbol_object, 'class_id'),
                 LogicalSegment(tag_cache[base_tag]['instance_id'], 'instance_id')
             ]
         else:
-            # base_len = len(base_tag)
-            # rp = [EXTENDED_SYMBOL,
-            #       Pack.usint(base_len),
-            #       base_tag.encode()]
-            # if base_len % 2:
-            #     rp.append(b'\x00')
-
             segments = [
                 DataSegment(base_tag),
             ]
         if index is None:
             return None
-        # rp += _encode_tag_index(index)
+
         segments += [
             LogicalSegment(int(idx), 'member_id')
             for idx in index
@@ -136,11 +93,7 @@ def tag_request_path(tag, tag_cache, use_instance_ids):
 
         for attr in attrs:
             attr, index = _find_tag_index(attr)
-            # tag_length = len(attr)
-            # # Create the request path
-            # attr_path = [EXTENDED_SYMBOL,
-            #              Pack.usint(tag_length),
-            #              attr.encode()]
+
             attr_segments = [
                 DataSegment(attr)
             ]
@@ -148,22 +101,8 @@ def tag_request_path(tag, tag_cache, use_instance_ids):
                 LogicalSegment(int(idx), 'member_id')
                 for idx in index
             ]
-            # # Add pad byte because total length of Request path must be word-aligned
-            # if tag_length % 2:
-            #     attr_path.append(b'\x00')
-            # # Add any index
-            # if index is None:
-            #     return None
-            # else:
-            #     attr_path += _encode_tag_index(index)
-            # rp += attr_path
-            segments += attr_segments
 
-        # old_ = Pack.epath(b''.join(rp))
-        # if new_ != old_:
-        #     print(tag)
-        #     print(new_)
-        #     print(old_)
+            segments += attr_segments
 
         return PADDED_EPATH.encode(segments, length=True)
 
@@ -179,10 +118,6 @@ def _find_tag_index(tag):
     else:
         index = []
     return tag, index
-
-
-# def _encode_tag_index(index):
-#     return [encode_segment(int(idx), ELEMENT_TYPE) for idx in index]
 
 
 def get_service_status(status) -> str:
@@ -218,68 +153,9 @@ def get_extended_status(msg, start) -> str:
         return "No Extended Status"
 
 
-# def make_write_data_bit(tag_info, value, request_path):
-#     mask_size = DataTypeSize.get(tag_info['data_type'])
-#     if mask_size is None:
-#         raise RequestError(f'Invalid data type {tag_info["data_type"]} for writing bits')
-#
-#     or_mask, and_mask = value
-#     return b''.join((
-#         Services.read_modify_write,
-#         request_path,
-#         Pack.uint(mask_size),
-#         Pack.ulint(or_mask)[:mask_size],
-#         Pack.ulint(and_mask)[:mask_size]
-#         ))
-
-#
-# DataFormatType = Sequence[Tuple[Optional[str], Union[str, int]]]
-#
-#
-# def parse_reply_data_by_format(data, fmt: DataFormatType):
-#     values = {}
-#     start = 0
-#     for name, typ in fmt:
-#         if isinstance(typ, int):
-#             value = data[start: start + typ]
-#             start += typ
-#         elif typ == '*':
-#             values[name] = data[start:]
-#             break
-#         elif typ == 'IP':
-#             value = ipaddress.IPv4Address(data[start: start + 4]).exploded
-#             start += 4
-#         else:
-#             typ, cnt = util.get_array_index(typ)
-#             unpack_func = Unpack[typ]
-#
-#             if typ == 'STRINGI':
-#                 value, langs, data_size = unpack_func(data[start:])
-#
-#             elif typ in StringTypeLenSize:
-#                 value = unpack_func(data[start:])
-#                 data_size = len(value) + StringTypeLenSize[typ]
-#
-#             else:
-#                 data_size = DataTypeSize[typ]
-#                 if cnt:
-#                     value = tuple(unpack_func(data[i:]) for i in range(start, data_size * cnt, data_size))
-#                     data_size *= cnt
-#                 else:
-#                     value = unpack_func(data[start:])
-#
-#             start += data_size
-#
-#         if name:
-#             values[name] = value
-#
-#     return values
-
-
 def parse_read_reply(data, data_type, elements):
     dt_name = data_type['data_type_name']
     _type = data_type['type_class']
-    # value = _type.decode(data)
     is_struct = data[:2] == STRUCTURE_READ_REPLY
     stream = BytesIO(data[4:] if is_struct else data[2:])
     if issubclass(_type, ArrayType):
@@ -295,96 +171,13 @@ def parse_read_reply(data, data_type, elements):
                 for attr in data_type['data_type']['attributes']
             }
 
-    # if data[:2] == STRUCTURE_READ_REPLY:
-    #     data = data[4:]
-    #     size = data_type['data_type']['template']['structure_size']
-    #     dt_name = data_type['data_type']['name']
-    #     if elements > 1:
-    #         value = [parse_read_reply_struct(data[i: i + size], data_type['data_type'])
-    #                  for i in range(0, len(data), size)]
-    #     else:
-    #         value = parse_read_reply_struct(data, data_type['data_type'])
-    # else:
-    #     datatype = DataTypes.get_type(DataTypes.uint.decode(data[:2]))
-    #     dt_name = str(datatype)
-    #     if elements > 1:
-    #         size = datatype.size
-    #         data = data[2:]
-    #         value = [datatype.decode(data[i:i + size]) for i in range(0, len(data), size)]
-    #         if datatype == TYPES.DWORD:
-    #             value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
-    #     else:
-    #         # value = Unpack[datatype](data[2:])
-    #         value = datatype.decode(data[2:])
-    #         if datatype == TYPES.DWORD:
-    #             value = dword_to_bool_array(value)
-
     if dt_name == 'DWORD':
         dt_name = f'BOOL[{elements * 32}]'
-        # if elements > 1:
-        #     _value = list(chain.from_iterable(_value))
-        # if elements == 1:
-        #     _value = dword_to_bool_array(_value)
-        # else:
-        #     _value = list(chain.from_iterable(dword_to_bool_array(val) for val in _value))
 
     elif elements > 1:
         dt_name = f'{dt_name}[{elements}]'
 
     return _value, dt_name
-
-
-# def parse_read_reply_struct(data, data_type):
-#     values = {}
-#
-#     if data_type.get('string'):
-#         return parse_string(data)
-#
-#     for tag, type_def in data_type['internal_tags'].items():
-#         datatype = type_def['data_type']
-#         array = type_def.get('array')
-#         offset = type_def['offset']
-#         if type_def['tag_type'] == 'atomic':
-#             dt_len = DataTypeSize[datatype]
-#             func = Unpack[datatype]
-#             if array:
-#                 ary_data = data[offset:offset + (dt_len * array)]
-#                 value = [func(ary_data[i:i + dt_len]) for i in range(0, array * dt_len, dt_len)]
-#                 if datatype == 'DWORD':
-#                     value = list(chain.from_iterable(dword_to_bool_array(val) for val in value))
-#             else:
-#                 if datatype == 'BOOL':
-#                     bit = type_def.get('bit', 0)
-#                     value = bool(data[offset] & (1 << bit))
-#                 else:
-#                     value = func(data[offset:offset + dt_len])
-#                     if datatype == 'DWORD':
-#                         value = dword_to_bool_array(value)
-#
-#             values[tag] = value
-#         elif datatype.get('string'):
-#             str_size = datatype['template']['structure_size']
-#             if array:
-#                 array_data = data[offset:offset + (str_size * array)]
-#                 values[tag] = [parse_string(array_data[i:i+str_size]) for i in range(0, len(array_data), str_size)]
-#             else:
-#                 values[tag] = parse_string(data[offset:offset + str_size])
-#         else:
-#             struct_size = datatype['template']['structure_size']
-#             if array:
-#                 ary_data = data[offset:offset + (struct_size * array)]
-#                 values[tag] = [parse_read_reply_struct(ary_data[i:i + struct_size], datatype) for i in
-#                                range(0, len(ary_data), struct_size)]
-#             else:
-#                 values[tag] = parse_read_reply_struct(data[offset:offset + struct_size], datatype)
-#
-#     return {k: v for k, v in values.items() if k in data_type['attributes']}
-#
-#
-# def parse_string(data):
-#     str_len = Unpack.dint(data)
-#     str_data = data[4:4+str_len]
-#     return ''.join(chr(v + 256) if v < 0 else chr(v) for v in str_data)
 
 
 def dword_to_bool_array(dword: Union[bytes, int]):
