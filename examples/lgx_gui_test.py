@@ -500,11 +500,12 @@ def stopUpdateValue():
 def tag_menu(event, tbTag):
     try:
         old_clip = root.clipboard_get()
-        if (not old_clip is None) and (type(old_clip) is str) and (tbTag['state'] == 'normal'):
-            tbTag.select_range(0, 'end')
-            popup_menu_tbTag.post(event.x_root, event.y_root)
-    except TclError:
-        print('Not a valid string contents on the clipboard!')
+    except:
+        old_clip = None
+
+    if (not old_clip is None) and (type(old_clip) is str) and tbTag['state'] == 'normal':
+        tbTag.select_range(0, 'end')
+        popup_menu_tbTag.post(event.x_root, event.y_root)
 
 def tag_paste():
     # user clicked the "Paste" option so paste the tag from the clipboard
@@ -519,7 +520,12 @@ def ip_copy():
         root.clipboard_append(listboxSelectedPath)
 
 def path_menu(event, tbPath):
-    if (root.clipboard_get() != '') and (type(root.clipboard_get()) is str) and (tbPath['state'] == 'normal'):
+    try:
+        old_clip = root.clipboard_get()
+    except:
+        old_clip = None
+
+    if (not old_clip is None) and (type(old_clip) is str) and tbPath['state'] == 'normal':
         tbPath.select_range(0, 'end')
         popup_menu_tbPath.post(event.x_root, event.y_root)
 
