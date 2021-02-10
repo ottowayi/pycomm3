@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,21 +22,19 @@
 # SOFTWARE.
 #
 
-from typing import NamedTuple, Sequence, Union, Tuple
+from typing import NamedTuple, Union, Type
+
+from .data_types import DataType, Array, Struct, UINT, USINT, WORD, UDINT, SHORT_STRING, STRINGI, INT, BYTE
 from ..map import EnumMap
 
-
-__all__ = ['DataFormat', 'Attribute', 'ConnectionManagerInstances', 'ClassCode',
+__all__ = ['Attribute', 'ConnectionManagerInstances', 'ClassCode',
            'CommonClassAttributes', 'IdentityObjectInstanceAttributes',
            'FileObjectClassAttributes', 'FileObjectInstanceAttributes', 'FileObjectInstances']
 
 
-DataFormat = Tuple[str, Union[str, 'DataFormat']]
-
-
 class Attribute(NamedTuple):
     attr_id: Union[bytes, int]
-    data_format: Sequence[DataFormat]
+    data_format: Union[DataType, Type[DataType]]
 
 
 class ConnectionManagerInstances(EnumMap):
@@ -128,45 +126,43 @@ class ClassCode(EnumMap):
 
 
 class CommonClassAttributes(EnumMap):
-    revision = Attribute(1, (('revision', 'UINT'), ))
-    max_instance = Attribute(2, (('max_instance', 'UINT'), ))
-    number_of_instances = Attribute(3, (('number_of_instances','UINT'), ))
-    optional_attribute_list = Attribute(4, (('count', 'UINT', ),
-                                            ('attributes', 'UINT[]'),))
-    optional_service_list = Attribute(5, (('count', 'UINT'),
-                                          ('services','UINT[]'), ))
-    max_id_number_class_attributes = Attribute(6, 'UINT')
-    max_id_number_instance_attributes = Attribute(7, 'UINT')
+    revision = Attribute(1, UINT('revision'))
+    max_instance = Attribute(2, UINT('max_instance'))
+    number_of_instances = Attribute(3, UINT('number_of_instances'))
+    optional_attribute_list = Attribute(4, Array(UINT('count'), UINT('attributes')))
+    optional_service_list = Attribute(5, Array(UINT('count'), UINT('services')))
+    max_id_number_class_attributes = Attribute(6, UINT)
+    max_id_number_instance_attributes = Attribute(7, UINT)
 
 
 class IdentityObjectInstanceAttributes(EnumMap):
-    vendor_id = Attribute(1, (('vendor_id', 'UINT'),))
-    device_type = Attribute(2, (('device_type', 'UINT'),))
-    product_code = Attribute(3, (('product_code', 'UINT'),))
-    revision = Attribute(4, (('major', 'USINT'), ('minor', 'USINT'), ))
-    status = Attribute(5, (('status', 'WORD'), ))
-    serial_number = Attribute(6, (('serial_number', 'UDINT'), ))
-    product_name = Attribute(7, (('product_name', 'SHORT_STRING'), ))
+    vendor_id = Attribute(1, UINT('vendor_id'))
+    device_type = Attribute(2, UINT('device_type'))
+    product_code = Attribute(3, UINT('product_code'))
+    revision = Attribute(4, Struct(USINT('major'), USINT('minor')))
+    status = Attribute(5, WORD('status'))
+    serial_number = Attribute(6, UDINT('serial_number'))
+    product_name = Attribute(7, SHORT_STRING('product_name'))
 
 
 class FileObjectClassAttributes(EnumMap):
-    directory = Attribute(32, (('instance_number', 'UINT'),
-                               ('instance_name', 'STRINGI'),
-                               ('file_name', 'STRINGI'), ))  # array of struct, len in attr 3
+    directory = Attribute(32, Struct(UINT('instance_number'),
+                                     STRINGI('instance_name'),
+                                     STRINGI('file_name')))  # array of struct, len in attr 3
 
 
 class FileObjectInstanceAttributes(EnumMap):
-    state = Attribute(1, (('state', 'USINT'), ))
-    instance_name = Attribute(2, (('instance_name', 'STRINGI'), ))
-    instance_format_version = Attribute(3, (('instance_format_version', 'UINT'), ))
-    file_name = Attribute(4, (('file_name', 'STRINGI'), ))
-    file_revision = Attribute(5, (('major', 'USINT'), ('minor', 'USINT'), ))
-    file_size = Attribute(6, (('file_size', 'UDINT'), ))
-    file_checksum = Attribute(7, (('file_checksum', 'INT'), ))
-    invocation_method = Attribute(8, (('invocation_method', 'USINT'), ))
-    file_save_params = Attribute(9, (('file_save_params', 'BYTE'), ))
-    file_type = Attribute(10, (('file_type', 'USINT'), ))
-    file_encoding_format = Attribute(11, (('file_encoding_format', 'USINT'), ))
+    state = Attribute(1, USINT('state'))
+    instance_name = Attribute(2, STRINGI('instance_name'))
+    instance_format_version = Attribute(3, UINT('instance_format_version'))
+    file_name = Attribute(4, STRINGI('file_name'))
+    file_revision = Attribute(5, Struct(USINT('major'), USINT('minor')))
+    file_size = Attribute(6, UDINT('file_size'))
+    file_checksum = Attribute(7, INT('file_checksum'))
+    invocation_method = Attribute(8, USINT('invocation_method'))
+    file_save_params = Attribute(9, BYTE('file_save_params'))
+    file_type = Attribute(10, USINT('file_type'))
+    file_encoding_format = Attribute(11, USINT('file_encoding_format'))
 
 
 class FileObjectInstances(EnumMap):
