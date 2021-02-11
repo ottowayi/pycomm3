@@ -27,7 +27,7 @@ from io import BytesIO
 from typing import Any, Type, Dict, Tuple
 
 from .cip import (DataType, DerivedDataType, BufferEmptyError, Struct, UINT, USINT,
-                  UDINT, SHORT_STRING, n_bytes, WORD, StructType, StringDataType, PRODUCT_TYPES, VENDORS, INT, ULINT)
+                  UDINT, SHORT_STRING, n_bytes, WORD, StructType, StringDataType, DEVICE_TYPES, VENDORS, INT, ULINT)
 
 __all__ = ['IPAddress', 'ModuleIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes',
            'sized_string', 'Revision', 'StructTag']
@@ -89,7 +89,7 @@ class ModuleIdentityObject(Struct(
     @classmethod
     def _decode(cls, stream: BytesIO):
         values = super(ModuleIdentityObject, cls)._decode(stream)
-        values['device_type'] = PRODUCT_TYPES.get(values['product_type'], 'UNKNOWN')
+        values['device_type'] = DEVICE_TYPES.get(values['device_type'], 'UNKNOWN')
         values['vendor'] = VENDORS.get(values['vendor'], 'UNKNOWN')
         values['serial'] = f"{values['serial']:08x}"
 
@@ -117,7 +117,7 @@ class ListIdentityObject(Struct(
     @classmethod
     def _decode(cls, stream: BytesIO):
         values = super(ListIdentityObject, cls)._decode(stream)
-        values['device_type'] = PRODUCT_TYPES.get(values['device_type'], 'UNKNOWN')
+        values['device_type'] = DEVICE_TYPES.get(values['device_type'], 'UNKNOWN')
         values['vendor_id'] = VENDORS.get(values['vendor_id'], 'UNKNOWN')
         values['serial'] = f"{values['serial']:08x}"
 

@@ -222,7 +222,7 @@ PCCC_ERROR_CODE = {
 }
 
 
-PRODUCT_TYPES = {
+DEVICE_TYPES = {
     0x00: 'Generic Device (deprecated)',
     0x02: 'AC Drive',
     0x03: 'Motor Overload',

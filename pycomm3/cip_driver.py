@@ -30,9 +30,9 @@ import socket
 from functools import wraps
 from itertools import cycle
 from os import urandom
-from typing import Union, Optional
+from typing import Union, Optional, Tuple, List, Sequence, Type, Any
 
-from .cip import (ConnectionManagerInstances, ClassCode,
+from .cip import (ConnectionManagerInstances, ClassCode, CIPSegment,
                   MSG_ROUTER_PATH, ConnectionManagerServices, Services,
                   PortSegment, PADDED_EPATH, DataType, UDINT, UINT)
 from .const import PRIORITY, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS
@@ -431,12 +431,12 @@ class CIPDriver:
                         class_code: Union[int, bytes],
                         instance: Union[int, bytes],
                         attribute: Union[int, bytes] = b'',
-                        request_data: bytes = b'',
-                        data_type: Optional[DataType] = None,
+                        request_data: Any = b'',
+                        data_type: Optional[Union[Type[DataType], DataType]] = None,
                         name: str = 'generic',
                         connected: bool = True,
                         unconnected_send: bool = False,
-                        route_path: Union[bool, bytes] = True) -> Tag:
+                        route_path: Union[bool, Sequence[CIPSegment], bytes] = True) -> Tag:
         """
         Perform a generic CIP message.  Similar to how MSG instructions work in Logix.
 
@@ -444,13 +444,14 @@ class CIPDriver:
         :param class_code: request object class ID
         :param instance: instance ID of the class
         :param attribute: (optional) attribute ID for the service/class/instance
-        :param request_data: (optional) any additional data required for the request
-        :param data_type: ...
+        :param request_data: (optional) any additional data required for the request.
+                                        Bytes or a value to be encoded by ``data_type``
+        :param data_type: a ``DataType`` class that will be used to decode the response or encode the ``request_data``
         :param name:  return ``Tag.tag`` value, arbitrary but can be used for tracking returned Tags
         :param connected: ``True`` if service required a CIP connection (forward open), ``False`` to use UCMM
         :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service
         :param route_path: (Unconnected Only) ``True`` to use current connection route to destination, ``False`` to ignore,
-                           Or provide a packed EPATH (``bytes``) route to use.
+                           Or provide list of segments to be encoded as a PADDED_EPATH.
         :return: a Tag with the result of the request. (Tag.value for writes will be the request_data)
         """
 
@@ -469,8 +470,10 @@ class CIPDriver:
         if not connected:
             if route_path is True:
                 _kwargs['route_path'] = PADDED_EPATH.encode(self._cfg['cip_path'], length=True, pad_length=True)
-            elif route_path:
+            elif isinstance(route_path, bytes):
                 _kwargs['route_path'] = route_path
+            elif route_path:
+                _kwargs['route_path'] = PADDED_EPATH.encode(route_path, length=True, pad_length=True)
 
             _kwargs['unconnected_send'] = unconnected_send
 
@@ -518,7 +521,12 @@ class CIPDriver:
             return reply
 
 
-def parse_connection_path(path):
+def parse_connection_path(path: str) -> Tuple[str, List[PortSegment]]:
+    """
+    Parses and validates the CIP path into the destination IP and
+    sequence of port/link segments.
+    Returns the IP and a list of PortSegments
+    """
     try:
         path = path.replace('\\', '/')
         ip, *segments = path.split('/')

@@ -23,7 +23,7 @@
 #
 
 import logging
-from typing import Union
+from typing import Union, Any
 
 from .ethernetip import (SendUnitDataResponsePacket, SendUnitDataRequestPacket,
                          SendRRDataRequestPacket, SendRRDataResponsePacket)
@@ -61,7 +61,7 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
                  class_code: Union[int, bytes],
                  instance: Union[int, bytes],
                  attribute: Union[int, bytes] = b'',
-                 request_data: bytes = b'',
+                 request_data: Any = b'',
                  data_type: DataType = None):
         super().__init__()
         self.data_type = data_type
@@ -74,7 +74,8 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
     def _setup_message(self):
         super()._setup_message()
         req_path = request_path(self.class_code, self.instance, self.attribute)
-        self._msg += [self.service, req_path, self.request_data]
+        req_data = self.request_data if isinstance(self.request_data, bytes) else self.data_type.encode(self.request_data)
+        self._msg += [self.service, req_path, req_data]
 
 
 class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
@@ -124,10 +125,11 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
     def _setup_message(self):
         super()._setup_message()
         req_path = request_path(self.class_code, self.instance, self.attribute)
+        req_data = self.request_data if isinstance(self.request_data, bytes) else self.data_type.encode(self.request_data)
 
         if self.unconnected_send:
-            msg = [wrap_unconnected_send(b''.join((self.service, req_path, self.request_data)), self.route_path), ]
+            msg = [wrap_unconnected_send(b''.join((self.service, req_path, req_data)), self.route_path), ]
         else:
-            msg = [self.service, req_path, self.request_data, self.route_path]
+            msg = [self.service, req_path, req_data, self.route_path]
 
         self._msg += msg

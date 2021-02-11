@@ -1,4 +1,4 @@
-from pycomm3 import CIPDriver, Services, Pack, ClassCode
+from pycomm3 import CIPDriver, Services, ClassCode, INT, Array, USINT
 
 
 # Read PF525 Parameter
@@ -11,10 +11,10 @@ def read_pf525_parameter():
             class_code=b'\x93',
             instance=41,  # Parameter 41 = Accel Time
             attribute=b'\x09',
+            data_type=INT,
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_type=[('AccelTime', 'INT'), ],
             name='pf525_param'
         )
         print(param)
@@ -30,7 +30,8 @@ def write_pf525_parameter():
             class_code=b'\x93',
             instance=41,  # Parameter 41 = Accel Time
             attribute=b'\x09',
-            request_data=Pack.int(500),  # = 5 seconds * 100
+            data_type=INT,
+            request_data=500,  # = 5 seconds * 100
             connected=False,
             unconnected_send=True,
             route_path=True,
@@ -48,10 +49,10 @@ def enbt_ok_led_status():
             class_code=b'\x01',  # Values from RA Knowledgebase
             instance=1,  # Values from RA Knowledgebase
             attribute=5,  # Values from RA Knowledgebase
+            data_type=INT,
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_type=[('Value', 'INT'), ],
             name='OK LED Status'
         )
         # The LED Status is returned as a binary representation on bits 4, 5, 6, and 7. The decimal equivalents are:
@@ -61,7 +62,7 @@ def enbt_ok_led_status():
             64: 'flashing red',
             96: 'solid green'
         }
-        print(statuses.get(data.value['Value']), 'unknown')
+        print(statuses.get(data.value), 'unknown')
 
 
 # Read Link Status of any Logix Ethernet Module
@@ -75,10 +76,10 @@ def link_status():
             instance=1,  # For multiport devices, change to "2" for second port, "3" for third port.
                          # For CompactLogix, front port is "1" and back port is "2".
             attribute=2,  # Values from RA Knowledgebase
+            data_type=INT,
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_type=[('LinkStatus', 'INT'), ],
             name='LinkStatus'
         )
         # Prints the binary representation of the link status. The definition of the bits are:
@@ -92,7 +93,7 @@ def link_status():
         #       4 = Manually forced speed and duplex
         #   Bit 5 - Setting Requires Reset - if 1, a manual setting requires resetting of the module
         #   Bit 6 - Local Hardware Fault - 0 indicates no hardware faults, 1 indicates a fault detected. 
-        print(bin(data.value["LinkStatus"]))
+        print(bin(data.value))
 
 
 # Get the status of both power inputs from a Stratix switch.
@@ -108,12 +109,12 @@ def stratix_power_status():
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_type=[('Power Status', 'INT'), ],
+            data_type=INT,
             name='Power Status'
         )
         # Returns a binary representation of the power status. Bit 0 is PWR A, Bit 1 is PWR B. If 1, power is applied. If 0, power is off.
-        pwr_a = 'on' if data.value['Power Status'] & 0b_1 else 'off'
-        pwr_b = 'on' if data.value['Power Status'] & 0b_10 else 'off'
+        pwr_a = 'on' if data.value & 0b_1 else 'off'
+        pwr_b = 'on' if data.value & 0b_10 else 'off'
         print(f'PWR A: {pwr_a}, PWR B: {pwr_b}')
 
 
@@ -130,7 +131,7 @@ def ip_config():
             connected=False,
             unconnected_send=True,
             route_path=True,
-            data_type=[('IP Config', 'INT'), ],
+            data_type=INT,
             name='IP_config'
         )
 
@@ -140,7 +141,7 @@ def ip_config():
             0b_0010: 'DHCP'
         }
 
-        ip_status = data.value['IP Config'] & 0b_1111  # only need the first 4 bits
+        ip_status = data.value & 0b_1111  # only need the first 4 bits
         print(statuses.get(ip_status, 'unknown'))
 
 
@@ -152,11 +153,11 @@ def get_mac_address():
             class_code=ClassCode.ethernet_link,
             instance=1,
             attribute=3,
-            data_type=(('MAC', 'USINT[6]'),),
+            data_type=Array(6, USINT),
             connected=False
         )
 
         if response:
-            return ':'.join(f'{x:0>2x}' for x in response.value['MAC'])
+            return ':'.join(f'{x:0>2x}' for x in response.value)
         else:
             print(f'error getting MAC address - {response.error}')

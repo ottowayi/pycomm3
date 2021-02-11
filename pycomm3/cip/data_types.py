@@ -531,7 +531,7 @@ class ArrayType(DerivedDataType, metaclass=_ArrayReprMeta):
 
 
 def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
-          element_type_: DataType) -> Type[ArrayType]:
+          element_type_: Union[DataType, Type[DataType]]) -> Type[ArrayType]:
     """
     length_:
         int - fixed length of the array
@@ -540,8 +540,8 @@ def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
     """
 
     class Array(ArrayType):
-        length = length_
-        element_type = element_type_
+        length: Union[USINT, UINT, UDINT, ULINT, int, None] = length_
+        element_type: Union[DataType, Type[DataType]] = element_type_
 
         @classmethod
         def encode(cls, values: List[Any], length: Optional[int] = None) -> bytes:
@@ -611,14 +611,17 @@ class StructType(DerivedDataType, metaclass=_StructReprMeta):
     ...
 
 
-def Struct(*members_: DataType) -> Type[StructType]:
+def Struct(*members_: Union[DataType, Type[DataType]]) -> Type[StructType]:
 
     class Struct(StructType):
-        members = members_
+        members: Tuple[Union[DataType, Type[DataType]]] = members_
 
         @classmethod
-        def _encode(cls, values: Dict[str, Any]) -> bytes:
-            return b''.join(typ.encode(values[typ.name]) for typ in cls.members)
+        def _encode(cls, values: Union[Dict[str, Any], Sequence[Any]]) -> bytes:
+            if isinstance(values, dict):
+                return b''.join(typ.encode(values[typ.name]) for typ in cls.members)
+            else:
+                return b''.join(typ.encode(val) for typ, val in zip(cls.members, values))
 
         @classmethod
         def _decode(cls, stream: BytesIO) -> Any:

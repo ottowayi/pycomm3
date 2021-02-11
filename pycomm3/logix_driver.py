@@ -39,7 +39,7 @@ from .cip_driver import CIPDriver, with_forward_open
 from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US,
                     TEMPLATE_MEMBER_INFO_LEN, MIN_VER_EXTERNAL_ACCESS, )
-from .custom_types import StructTemplateAttributes, StructTag, sized_string
+from .custom_types import StructTemplateAttributes, StructTag, sized_string, ModuleIdentityObject
 from .exceptions import ResponseError, CommError, RequestError
 from .packets import (request_path, RequestTypes, RequestPacket, ReadTagFragmentedRequestPacket,
                       WriteTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
@@ -221,7 +221,6 @@ class LogixDriver(CIPDriver):
         """
         Reads basic information from the controller, returns it and stores it in the ``info`` property.
         """
-        from .custom_types import ModuleIdentityObject
 
         try:
             response = self.generic_message(
@@ -273,16 +272,13 @@ class LogixDriver(CIPDriver):
         if microseconds is None:
             microseconds = int(time.time() * SEC_TO_US)
 
-        request_data = b''.join([
-            b'\x01\x00',  # attribute count
-            b'\x06\x00',  # attribute
-            ULINT.encode(microseconds),
-        ])
         return self.generic_message(
             service=Services.set_attribute_list,
             class_code=ClassCode.wall_clock_time,
             instance=b'\x01',
-            request_data=request_data, name='__SET_PLC_TIME__'
+            data_type=Struct(UINT, UINT, ULINT),
+            request_data=[1, 6, microseconds],  # attribute count 1, attribute #6, time
+            name='__SET_PLC_TIME__'
         )
 
     @with_forward_open
@@ -824,9 +820,6 @@ class LogixDriver(CIPDriver):
         return multi_requests + fragmented_requests
 
 
-
-
-
     def _read_build_single_request(self, parsed_tag):
         """
         creates a single read_tag request packet
@@ -1185,6 +1178,7 @@ class LogixDriver(CIPDriver):
         failed_response._error = request.error or 'One or more fragment responses failed'
         self.__log.debug(f'Reassembled Response: {failed_response!r}')
         return failed_response
+
 
 def _parse_structure_makeup_attributes(response):
     """
