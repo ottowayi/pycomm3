@@ -85,6 +85,7 @@ class ResponsePacket(Packet):
             self.command = self.raw[:2]
             self.command_status = DINT.decode(self.raw[8:12])  # encapsulation status check
         except Exception as err:
+            self.__log.exception('Failed to parse reply')
             self._error = f'Failed to parse reply - {err}'
 
     def command_extended_status(self) -> str:
@@ -94,7 +95,8 @@ class ResponsePacket(Packet):
         return 'Unknown Error'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(service={self.service if self.service else None!r}, command={self.command!r}, error={self.error!r})'
+        service = self.service or None
+        return f'{self.__class__.__name__}(service={service!r}, command={self.command!r}, error={self.error!r})'
 
     __str__ = __repr__
 

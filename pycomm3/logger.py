@@ -25,6 +25,8 @@
 import logging
 import sys
 
+__all__ = ['configure_default_logger', 'LOG_VERBOSE']
+
 LOG_VERBOSE = 5
 
 _root = logging.getLogger()

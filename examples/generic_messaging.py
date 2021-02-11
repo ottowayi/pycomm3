@@ -30,8 +30,7 @@ def write_pf525_parameter():
             class_code=b'\x93',
             instance=41,  # Parameter 41 = Accel Time
             attribute=b'\x09',
-            data_type=INT,
-            request_data=500,  # = 5 seconds * 100
+            request_data=INT.encode(500),  # = 5 seconds * 100
             connected=False,
             unconnected_send=True,
             route_path=True,

@@ -48,6 +48,7 @@ class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
             try:
                 self.value = self.data_type.decode(self.data)
             except Exception as err:
+                self.__log.exception('Failed to parse reply')
                 self._error = f'Failed to parse reply - {err}'
                 self.value = None
 
@@ -74,8 +75,7 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
     def _setup_message(self):
         super()._setup_message()
         req_path = request_path(self.class_code, self.instance, self.attribute)
-        req_data = self.request_data if isinstance(self.request_data, bytes) else self.data_type.encode(self.request_data)
-        self._msg += [self.service, req_path, req_data]
+        self._msg += [self.service, req_path, self.request_data]
 
 
 class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
@@ -95,6 +95,7 @@ class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
             try:
                 self.value = self.data_type.decode(self.data)
             except Exception as err:
+                self.__log.exception('Failed to parse reply')
                 self._error = f'Failed to parse reply - {err}'
                 self.value = None
 
@@ -125,11 +126,10 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
     def _setup_message(self):
         super()._setup_message()
         req_path = request_path(self.class_code, self.instance, self.attribute)
-        req_data = self.request_data if isinstance(self.request_data, bytes) else self.data_type.encode(self.request_data)
 
         if self.unconnected_send:
-            msg = [wrap_unconnected_send(b''.join((self.service, req_path, req_data)), self.route_path), ]
+            msg = [wrap_unconnected_send(b''.join((self.service, req_path, self.request_data)), self.route_path), ]
         else:
-            msg = [self.service, req_path, req_data, self.route_path]
+            msg = [self.service, req_path, self.request_data, self.route_path]
 
         self._msg += msg

@@ -34,8 +34,6 @@ from ..cip import ClassCode, Services, DataTypes, UINT, UDINT, ULINT
 from ..const import STRUCTURE_READ_REPLY
 from ..exceptions import RequestError
 
-DataTypeSize, StringTypeLenSize = None, None
-
 
 class TagServiceResponsePacket(SendUnitDataResponsePacket):
     __log = logging.getLogger(f'{__module__}.{__qualname__}')

@@ -375,7 +375,11 @@ class STRINGN(StringDataType):
 
     @classmethod
     def encode(cls, value: str, char_size: int = 1) -> bytes:
-        ...
+        try:
+            encoding = cls.ENCODINGS[char_size]
+            return UINT.encode(char_size) + UINT.encode(len(value)) + value.encode(encoding)
+        except Exception as err:
+            raise DataError(f'Error encoding {value!r} as STRINGN using char. size {char_size}') from err
 
     @classmethod
     def _decode(cls, stream: BytesIO) -> Any:

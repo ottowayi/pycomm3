@@ -23,10 +23,11 @@
 #
 
 from ._version import __version__, __version_info__
+from .logger import *
 from .const import *
 from .tag import Tag
 from .exceptions import *
 from .cip import *
-from .cip_driver import CIPDriver
-from .logix_driver import LogixDriver
-from .slc_driver import SLCDriver
+from .cip_driver import *
+from .logix_driver import *
+from .slc_driver import *

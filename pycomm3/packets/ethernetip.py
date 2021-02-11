@@ -25,12 +25,11 @@
 import logging
 from itertools import cycle
 
-from .base import RequestPacket, ResponsePacket
-from .util import get_service_status, get_extended_status
-
-from ..const import SUCCESS, INSUFFICIENT_PACKETS
-from ..cip import (MULTI_PACKET_SERVICES, Services, DataItem, AddressItem, EncapsulationCommands, USINT, UINT, UDINT, )
+from ..cip import MULTI_PACKET_SERVICES, UDINT, UINT, USINT, AddressItem, DataItem, EncapsulationCommands, Services
+from ..const import INSUFFICIENT_PACKETS, SUCCESS
 from ..custom_types import ListIdentityObject
+from .base import RequestPacket, ResponsePacket
+from .util import get_extended_status, get_service_status
 
 
 class SendUnitDataResponsePacket(ResponsePacket):
@@ -46,6 +45,7 @@ class SendUnitDataResponsePacket(ResponsePacket):
             self.service_status = USINT.decode(self.raw[48:49])
             self.data = self.raw[50:]
         except Exception as err:
+            self.__log.exception('Failed to parse reply')
             self._error = f'Failed to parse reply - {err}'
 
     def is_valid(self) -> bool:
@@ -98,6 +98,7 @@ class SendRRDataResponsePacket(ResponsePacket):
             self.service_status = USINT.decode(self.raw[42:43])
             self.data = self.raw[44:]
         except Exception as err:
+            self.__log.exception('Failed to parse reply')
             self._error = f'Failed to parse reply - {err}'
 
     def is_valid(self) -> bool:
@@ -136,6 +137,7 @@ class RegisterSessionResponsePacket(ResponsePacket):
             super()._parse_reply()
             self.session = UDINT.decode(self.raw[4:8])
         except Exception as err:
+            self.__log.exception('Failed to parse reply')
             self._error = f'Failed to parse reply - {err}'
 
     def is_valid(self) -> bool:

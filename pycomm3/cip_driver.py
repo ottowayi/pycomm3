@@ -445,8 +445,7 @@ class CIPDriver:
         :param instance: instance ID of the class
         :param attribute: (optional) attribute ID for the service/class/instance
         :param request_data: (optional) any additional data required for the request.
-                                        Bytes or a value to be encoded by ``data_type``
-        :param data_type: a ``DataType`` class that will be used to decode the response or encode the ``request_data``
+        :param data_type: a ``DataType`` class that will be used to decode the response, None to return just bytes
         :param name:  return ``Tag.tag`` value, arbitrary but can be used for tracking returned Tags
         :param connected: ``True`` if service required a CIP connection (forward open), ``False`` to use UCMM
         :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service

@@ -74,3 +74,4 @@ target/
 /dev_test.py
 
 /test.py
+tests/**/.hypothesis/
