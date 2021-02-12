@@ -50,6 +50,9 @@ def test_multi_write(plc):
 #     return src
 #
 #
+
+# writing tags by value no longer supported
+# keeping here in case it is added back in the future
 # struct_values_list_tests = [
 #     *[(f'write{tag}', dt, _nested_dict_to_lists(val))
 #       for tag, dt, val in BASE_STRUCT_TESTS if isinstance(val, dict)],

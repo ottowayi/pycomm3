@@ -152,7 +152,7 @@ def get_mac_address():
             class_code=ClassCode.ethernet_link,
             instance=1,
             attribute=3,
-            data_type=Array(6, USINT),
+            data_type=USINT[6],
             connected=False
         )
 

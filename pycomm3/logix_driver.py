@@ -272,12 +272,13 @@ class LogixDriver(CIPDriver):
         if microseconds is None:
             microseconds = int(time.time() * SEC_TO_US)
 
+        _struct = Struct(UINT, UINT, ULINT)
+
         return self.generic_message(
             service=Services.set_attribute_list,
             class_code=ClassCode.wall_clock_time,
             instance=b'\x01',
-            data_type=Struct(UINT, UINT, ULINT),
-            request_data=[1, 6, microseconds],  # attribute count 1, attribute #6, time
+            request_data=_struct.encode([1, 6, microseconds]),  # attribute count 1, attribute #6, time
             name='__SET_PLC_TIME__'
         )
 

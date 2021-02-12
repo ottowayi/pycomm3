@@ -129,10 +129,10 @@ class CommonClassAttributes(EnumMap):
     revision = Attribute(1, UINT('revision'))
     max_instance = Attribute(2, UINT('max_instance'))
     number_of_instances = Attribute(3, UINT('number_of_instances'))
-    optional_attribute_list = Attribute(4, Array(UINT('count'), UINT('attributes')))
-    optional_service_list = Attribute(5, Array(UINT('count'), UINT('services')))
-    max_id_number_class_attributes = Attribute(6, UINT)
-    max_id_number_instance_attributes = Attribute(7, UINT)
+    optional_attribute_list = Attribute(4, UINT[UINT])
+    optional_service_list = Attribute(5, UINT[UINT])
+    max_id_number_class_attributes = Attribute(6, UINT('max_id_class_attrs'))
+    max_id_number_instance_attributes = Attribute(7, UINT('max_id_instance_attrs'))
 
 
 class IdentityObjectInstanceAttributes(EnumMap):

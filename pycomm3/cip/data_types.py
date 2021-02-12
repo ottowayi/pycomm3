@@ -66,12 +66,15 @@ def _as_stream(buffer: _BufferType):
     return buffer
 
 
-class _ClassReprMeta(type):
+class _DataTypeMeta(type):
     def __repr__(cls):
         return cls.__name__
 
+    def __getitem__(cls, item):
+        return Array(item, cls)
 
-class DataType(metaclass=_ClassReprMeta):
+
+class DataType(metaclass=_DataTypeMeta):
     """
     Base class to represent a CIP data type.
     Instances of a type are only used when defining the
@@ -525,7 +528,7 @@ class DerivedDataType(DataType):
     ...
 
 
-class _ArrayReprMeta(_ClassReprMeta):
+class _ArrayReprMeta(_DataTypeMeta):
     def __repr__(cls):
         return f'{cls.element_type}[{cls.length!r}]'
 
@@ -606,7 +609,7 @@ def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
     return Array
 
 
-class _StructReprMeta(_ClassReprMeta):
+class _StructReprMeta(_DataTypeMeta):
     def __repr__(cls):
         return f'{cls.__name__}({", ".join(repr(m) for m in cls.members)}'
 
