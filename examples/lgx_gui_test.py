@@ -53,9 +53,15 @@ class connection_thread(threading.Thread):
    def run(self):
       comm_check()
 
+class update_thread(threading.Thread):
+   def __init__(self):
+      threading.Thread.__init__(self)
+   def run(self):
+      startUpdateValue()
+
 # startup default values
 myTag = ['CT_STRING', 'CT_DINT', 'CT_REAL']
-path = '192.168.1.24/3'
+path = '192.168.1.20/3'
 
 ver = pycomm3.__version__
 
@@ -141,38 +147,6 @@ def main():
     btnGetTags = Button(frame1, text = 'Get Tags', fg ='green', height=1, width=14, command=start_get_tags)
     btnGetTags.pack(anchor=N, side=RIGHT, padx=3, pady=3)
 
-    # create a label to display tag(s) value(s)
-    tagValue = Label(root, text='~', fg='yellow', bg='navy', font='Helvetica 18', width=52, relief=SUNKEN)
-    tagValue.place(anchor=CENTER, relx=0.5, rely=0.5)
-
-    # create a label and a text box for the path entry
-    lblPath = Label(root, text='Path', fg='white', bg='navy', font='Helvetica 9')
-    lblPath.place(anchor=CENTER, relx=0.5, rely=0.1)
-    selectedPath = StringVar()
-    tbPath = Entry(root, justify=CENTER, textvariable=selectedPath, width=32)
-    selectedPath.set(path)
-
-    # add the "Paste" menu on the mouse right-click
-    popup_menu_tbPath = Menu(tbPath, tearoff=0)
-    popup_menu_tbPath.add_command(label='Paste', command=path_paste)
-    tbPath.bind('<Button-3>', lambda event: path_menu(event, tbPath))
-
-    tbPath.place(anchor=CENTER, relx=0.5, rely=0.14)
-
-    # create a label and a text box for the Tag entry
-    lblTag = Label(root, text='Tag(s) To Read', fg='white', bg='navy', font='Helvetica 9')
-    lblTag.place(anchor=CENTER, relx=0.5, rely=0.38)
-    selectedTag = StringVar()
-    tbTag = Entry(root, justify=CENTER, textvariable=selectedTag, font='Helvetica 10', width=90)
-    selectedTag.set(str(myTag)[1:-1].replace('\'', ''))
-
-    # add the "Paste" menu on the mouse right-click
-    popup_menu_tbTag = Menu(tbTag, tearoff=0)
-    popup_menu_tbTag.add_command(label='Paste', command=tag_paste)
-    tbTag.bind('<Button-3>', lambda event: tag_menu(event, tbTag))
-
-    tbTag.place(anchor=CENTER, relx=0.5, rely=0.42)
-
     # add a frame to hold the label for pycomm3 version and the driver choices OptionMenu (combobox)
     frame2 = Frame(root, background='navy')
     frame2.pack(fill=X)
@@ -191,33 +165,73 @@ def main():
     popup_menu_drivers = OptionMenu(frame2, driverSelection, *driverChoices)
     popup_menu_drivers.pack(side=RIGHT, padx=3)
 
-    # add a frame to hold bottom widgets
+    # add a frame to hold center widgets
     frame3 = Frame(root, background='navy')
-    frame3.pack(side=BOTTOM, fill=X)
+    frame3.pack(fill=X)
 
-    # add a list box for PLC error messages
-    lbPLCError = Listbox(frame3, justify=CENTER, height=1, width=45, fg='red', bg='lightgrey')
-    lbPLCError.pack(anchor=S, side=RIGHT, padx=3, pady=3)
+    # create a label and a text box for the Tag entry
+    lblTag = Label(frame3, text='Tag(s) to Read', fg='white', bg='navy', font='Helvetica 9 italic')
+    lblTag.pack(anchor=CENTER, side=TOP, pady=5)
+    selectedTag = StringVar()
+    tbTag = Entry(frame3, justify=CENTER, textvariable=selectedTag, font='Helvetica 11', width=80, relief=RAISED)
+    selectedTag.set(str(myTag)[1:-1].replace('\'', ''))
+
+    # add the 'Paste' menu on the mouse right-click
+    popup_menu_tbTag = Menu(tbTag, tearoff=0)
+    popup_menu_tbTag.add_command(label='Paste', command=tag_paste)
+    tbTag.bind('<Button-3>', lambda event: tag_menu(event, tbTag))
+
+    tbTag.pack(anchor=CENTER, side=TOP)
+
+    # create a label to display the received tag(s) value(s)
+    tagValue = Label(frame3, text='~', fg='yellow', bg='black', font='Helvetica 18', width=52, relief=SUNKEN)
+    tagValue.pack(anchor=CENTER, side=TOP, pady=6)
+
+    # add a frame to hold center buttons
+    frame4 = Frame(root, height=30, background='navy')
+    frame4.pack(fill=X)
+
+    # add a button to start updating tag value
+    btnStart = Button(frame4, text = 'Start Update', state='normal', fg ='blue', height=1, width=9, relief=RAISED, command=start_update)
+    btnStart.place(anchor=CENTER, relx=0.37, rely=0.55)
+
+    # add a button to stop updating tag value
+    btnStop = Button(frame4, text = 'Stop Update', state='disabled', fg ='blue', height=1, width=9, relief=RAISED, command=stop_update)
+    btnStop.place(anchor=CENTER, relx=0.63, rely=0.55)
+
+    # add a frame to hold bottom widgets
+    frame5 = Frame(root, background='navy')
+    frame5.pack(side=BOTTOM, fill=X)
 
     # add a list box for PLC connection messages
-    lbPLCMessage = Listbox(frame3, justify=CENTER, height=1, width=45, fg='blue', bg='lightgrey')
-    lbPLCMessage.pack(anchor=S, side=LEFT, padx=3, pady=3)
+    lbPLCMessage = Listbox(frame5, justify=CENTER, height=1, width=45, fg='blue', bg='lightgrey')
+    lbPLCMessage.pack(side=LEFT, padx=3, pady=3)
 
     # add the Connect button
-    btnConnect = Button(root, text = 'Connect', fg ='green', height=1, width=10, command=start_connection)
-    btnConnect.place(anchor=CENTER, relx=0.43, rely=0.972)
+    btnConnect = Button(frame5, text = 'Connect', fg ='green', height=1, width=8, command=start_connection)
+    btnConnect.pack(side=LEFT, padx=25, pady=3)
+
+    # add a list box for PLC error messages
+    lbPLCError = Listbox(frame5, justify=CENTER, height=1, width=45, fg='red', bg='lightgrey')
+    lbPLCError.pack(side=RIGHT, padx=3, pady=3)
 
     # add the Exit button
-    btnExit = Button(root, text = 'Exit', fg ='red', height=1, width=10, command=root.destroy)
-    btnExit.place(anchor=CENTER, relx=0.57, rely=0.972)
+    btnExit = Button(frame5, text = 'Exit', fg ='red', height=1, width=8, command=root.destroy)
+    btnExit.pack(side=RIGHT, padx=25, pady=3)
 
-    # add the button to start updating tag value
-    btnStart = Button(root, text = 'Start Update', state='normal', fg ='blue', height=1, width=10, command=startUpdateValue)
-    btnStart.place(anchor=CENTER, relx=0.44, rely=0.6)
+    # create a label and a text box for the path entry
+    lblPath = Label(root, text='Path', fg='white', bg='navy', font='Helvetica 9')
+    lblPath.place(anchor=CENTER, relx=0.5, rely=0.1)
+    selectedPath = StringVar()
+    tbPath = Entry(root, justify=CENTER, textvariable=selectedPath, width=32)
+    selectedPath.set(path)
 
-    # add the button to stop updating tag value
-    btnStop = Button(root, text = 'Stop Update', state='disabled', fg ='blue', height=1, width=10, command=stopUpdateValue)
-    btnStop.place(anchor=CENTER, relx=0.56, rely=0.6)
+    # add the "Paste" menu on the mouse right-click
+    popup_menu_tbPath = Menu(tbPath, tearoff=0)
+    popup_menu_tbPath.add_command(label='Paste', command=path_paste)
+    tbPath.bind('<Button-3>', lambda event: path_menu(event, tbPath))
+
+    tbPath.place(anchor=CENTER, relx=0.5, rely=0.14)
 
     start_connection()
 
@@ -267,6 +281,14 @@ def start_get_tags():
         thread3.start()
     except Exception as e:
         print('unable to start thread3 - get_tags_thread, ' + str(e))
+
+def start_update():
+    try:
+        thread4 = update_thread()
+        thread4.setDaemon(True)
+        thread4.start()
+    except Exception as e:
+        print('unable to start thread4 - update_thread, ' + str(e))
 
 def discoverDevices():
     global comm
@@ -485,7 +507,7 @@ def startUpdateValue():
                     start_connection()
                     root.after(2000, startUpdateValue)
 
-def stopUpdateValue():
+def stop_update():
     global updateRunning
    
     if updateRunning:
