@@ -291,16 +291,16 @@ def start_update():
         print('unable to start thread4 - update_thread, ' + str(e))
 
 def discoverDevices():
-    global comm
-
     lbDevices.delete(0, 'end')
 
-    try:
-        if not comm is None:
-            if not comm.connected:
-                start_connection()
+    commDD = None
 
-            devices = comm.discover()
+    try:
+        commDD = LogixDriver(path)
+        commDD.open()
+
+        if commDD.connected:
+            devices = commDD.discover()
 
             if str(devices) == '[]':
                 lbDevices.insert(1, 'No Devices Discovered')
@@ -316,73 +316,82 @@ def discoverDevices():
                     lbDevices.insert(i * 8 + 7, 'Status: ' + str(device['status']))
                     lbDevices.insert(i * 8 + 8, '----------------------------------')
                     i += 1
+
+            if btnConnect['state'] == 'normal':
+                start_connection()
         else:
-            start_connection()
-    except Exception as e:
             lbDevices.insert(1, 'No Devices Discovered')
+    except Exception as e:
+        lbDevices.insert(1, 'No Devices Discovered')
+        if not commDD is None:
+            commDD.close()
+            commDD = None
 
 def getTags():
-    global comm
-
     lbTags.delete(0, 'end') #clear the tags listbox
 
-    if not connected:
-        start_connection()
+    commGT = None
 
     try:
-        if not comm is None:
-            tags = comm.get_tag_list('*') #get all tags
+        commGT = LogixDriver(path)
+        commGT.open()
 
-            currentTagLine.set(1) #start at the first line of the tags listbox
+        tags = commGT.get_tag_list('*') #get all tags
 
-            if not tags is None:
-                j = 1
+        currentTagLine.set(1) #start at the first line of the tags listbox
 
-                for tag, _def in comm.tags.items():
-                    #-----------------------------------------------------------------------
-                    # Extract dimensions and format them for displaying
-                    #-----------------------------------------------------------------------
+        if not tags is None:
+            j = 1
 
-                    dimensions = ''
-                    dim = _def['dim']
+            for tag, _def in commGT.tags.items():
+                #-----------------------------------------------------------------------
+                # Extract dimensions and format them for displaying
+                #-----------------------------------------------------------------------
 
-                    if dim != 0:
-                        dims = str(_def['dimensions'])[1:-1].split(',')
+                dimensions = ''
+                dim = _def['dim']
 
-                        if dim == 1:
-                            dimensions = '[' + dims[0] + ']'
-                        elif dim == 2:
-                            dimensions = '[' + dims[0] + ',' + dims[1] + ']'
-                        else:
-                            dimensions = '[' + dims[0] + ',' + dims[1] + ',' + dims[2] + ']'
+                if dim != 0:
+                    dims = str(_def['dimensions'])[1:-1].split(',')
 
-                    #-----------------------------------------------------------------------
-                    # If structure then process this and all subsequent structures
-                    #-----------------------------------------------------------------------
-
-                    if _def['tag_type'] == 'struct':
-                        structureDataType = _def['data_type']['name']
-                        structureSize = _def['data_type']['template']['structure_size']
-
-                        lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
-                        currentTagLine.set(currentTagLine.get() + 1)
-
-                        struct_members(_def['data_type']['internal_tags'], currentTagLine.get(), j)
+                    if dim == 1:
+                        dimensions = '[' + dims[0] + ']'
+                    elif dim == 2:
+                        dimensions = '[' + dims[0] + ',' + dims[1] + ']'
                     else:
-                        lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + _def['data_type'] + ')')
+                        dimensions = '[' + dims[0] + ',' + dims[1] + ',' + dims[2] + ']'
 
-                    #-----------------------------------------------------------------------
+                #-----------------------------------------------------------------------
+                # If structure then process this and all subsequent structures
+                #-----------------------------------------------------------------------
 
-                    j = 1
+                if _def['tag_type'] == 'struct':
+                    structureDataType = _def['data_type']['name']
+                    structureSize = _def['data_type']['template']['structure_size']
+
+                    lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
                     currentTagLine.set(currentTagLine.get() + 1)
-            else:
-                lbTags.insert(1, 'No Tags Retrieved')
+
+                    struct_members(_def['data_type']['internal_tags'], currentTagLine.get(), j)
+                else:
+                    lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + _def['data_type'] + ')')
+
+                #-----------------------------------------------------------------------
+
+                j = 1
+                currentTagLine.set(currentTagLine.get() + 1)
+
+                if btnConnect['state'] == 'normal':
+                    start_connection()
         else:
             lbTags.insert(1, 'No Tags Retrieved')
     except Exception as e:
         lbPLCMessage.delete(0, 'end')
         lbPLCError.insert(1, e)
         lbTags.insert(1, 'No Tags Retrieved')
+        if not commGT is None:
+            commGT.close()
+            commGT = None
 
 def struct_members(it, i, j):
     # internal tags keys
