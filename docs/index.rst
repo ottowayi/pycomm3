@@ -106,7 +106,7 @@ all implemented based on the Data Access Manual.  The Rockwell KB Article *CIP M
 for using the MSG instruction to perform various Ethernet/IP services. The Rockwell Knowledge Base Article `23341`_ was used to implement feature
 for getting the program name of the controller.  Article `28917`_ was used for collecting other controller information.
 
-.. _Rockwell Developer How-to Guides: https://www.rockwellautomation.com/global/detail.page?pagetitle=Technology-Licensing-Developer-How-To-Guides&content_type=article&docid=f997dd3546ab8a53b86390649d17b89b#gate-44235fb6-1c27-499f-950b-e36e93af98de
+.. _Rockwell Developer How-to Guides: https://www.rockwellautomation.com/en-us/company/news/articles/technology-licensing-developer-how-to-guides.html
 
 .. _23341: https://rockwellautomation.custhelp.com/app/answers/answer_view/a_id/23341
 

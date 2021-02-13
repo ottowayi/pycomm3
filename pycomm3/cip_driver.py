@@ -28,7 +28,6 @@ import ipaddress
 import logging
 import socket
 from functools import wraps
-from itertools import cycle
 from os import urandom
 from typing import Union, Optional, Tuple, List, Sequence, Type, Any
 
@@ -41,6 +40,7 @@ from .exceptions import ResponseError, CommError, RequestError
 from .packets import RequestPacket, ResponsePacket, RequestTypes, PacketLazyFormatter
 from .socket_ import Socket
 from .tag import Tag
+from .util import cycle
 
 
 def with_forward_open(func):
@@ -99,10 +99,10 @@ class CIPDriver:
                 like ENET or ENBT modules or ControlLogix version 19 or lower.  **This argument is no longer required
                 as of 0.5.1, since it will automatically try a standard Forward Open if the extended one fails**
         """
-        self.VERBOSE_DEBUG = False
-        self._sequence = cycle(range(1, 65535))
+
+        self._sequence = cycle(65535, start=1)
         self._sock = kwargs.get('socket', None)
-        self._session = kwargs.get('session', None)
+        self._session = 0
         self._connection_opened = False
         self._target_cid = None
         self._target_is_connected = False
@@ -234,6 +234,7 @@ class CIPDriver:
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 connected=False, unconnected_send=True,
                 route_path=PADDED_EPATH.encode((PortSegment('bp', slot), ), length=True, pad_length=True),
+                name='__module_identity__'
             )
 
             if response:
@@ -276,7 +277,6 @@ class CIPDriver:
         if self._session:
             return self._session
 
-        self._session = 0
         request = RequestTypes.register_session(self._cfg['protocol version'])
 
         response = self.send(request)

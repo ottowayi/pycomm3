@@ -717,6 +717,12 @@ class PortSegment(CIPSegment):
 
         return _segment
 
+    def __eq__(self, other):
+        return self.encode(self) == self.encode(other)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(port={self.port!r}, link_address={self.link_address!r})'
+
 
 class LogicalSegment(CIPSegment):
     segment_type = 0b_001_00000

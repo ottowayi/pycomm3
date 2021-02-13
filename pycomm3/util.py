@@ -57,3 +57,13 @@ def get_array_index(tag: str) -> Tuple[str, int]:
     return tag, idx
 
 
+def cycle(stop, start=0):
+    val = start
+    while True:
+        if val == stop:
+            val = start
+
+        yield val
+        val += 1
+
+
