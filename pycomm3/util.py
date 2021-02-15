@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
-#
 # Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
