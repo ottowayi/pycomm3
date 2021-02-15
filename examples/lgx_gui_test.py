@@ -11,7 +11,7 @@ Connection/Read Test App by GitHubDragonFly (see the screenshots here: https://g
 - Since the addressing is in the Tag format then it follows the rules of the pycomm3 library itself.
   For requesting multiple values use a tag format like this:
   - CT_STRINGArray[0]{5} - request 5 consecutive values from this string array starting at index 0.
-  - CT_STRING, CT_DINT, CT_REAL - read each of these comma separated tags (this is the app's default startup option).
+  - CT_STRING; CT_DINT; CT_REAL - read each of these semicolon separated tags (this is the app's default startup option).
   This is applicable for both LogixDriver and SLCDriver.
 - The code itself will attempt to extract all the values from the received responses (which are in the dictionary format).
 - The bottom corners listboxes are designed to show successful connection (left box) and errors (right box).
@@ -174,7 +174,7 @@ def main():
     lblTag.pack(anchor=CENTER, side=TOP, pady=5)
     selectedTag = StringVar()
     tbTag = Entry(frame3, justify=CENTER, textvariable=selectedTag, font='Helvetica 11', width=80, relief=RAISED)
-    selectedTag.set(str(myTag)[1:-1].replace('\'', ''))
+    selectedTag.set((str(myTag).replace(',', ';'))[1:-1].replace('\'', ''))
 
     # add the 'Paste' menu on the mouse right-click
     popup_menu_tbTag = Menu(tbTag, tearoff=0)
@@ -480,8 +480,8 @@ def startUpdateValue():
 
         if displayTag != '':
             myTag = []
-            if ',' in displayTag:
-                tags = displayTag.split(',')
+            if ';' in displayTag:
+                tags = displayTag.split(';')
                 for tag in tags:
                     if not str(tag) == '':
                         myTag.append(str(tag))
