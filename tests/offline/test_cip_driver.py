@@ -6,16 +6,17 @@ there being no way to control the execution of many of the private
 methods through the public API. This has lead to testing of quite a few
 private API methods to achieve an acceptable test coverage.
 """
-import pytest
 import itertools
-
-from pycomm3 import UDINT
-
 from unittest import mock
-from pycomm3 import CIPDriver, parse_connection_path, CommError, ResponseError, PycommError, DataError, PortSegment, \
-    PADDED_EPATH, RequestError
+
+import pytest
+
+from pycomm3 import (
+    PADDED_EPATH, UDINT, CIPDriver, CommError, DataError, PortSegment, PycommError, RequestError, ResponseError,
+    parse_connection_path)
 from pycomm3.socket_ import Socket
 
+from . import Mocket
 
 CONNECT_PATH = '192.168.1.100/1'
 
@@ -73,29 +74,6 @@ def test_bad_plc_paths(path):
         PADDED_EPATH.encode(segments, length=True)
 
 
-class Mocket:
-    """
-    A mocked socket
-    """
-    def __init__(self, *responses: bytes):
-        self._responses = iter(responses)
-
-    def receive(self) -> bytes:
-        try:
-            return next(self._responses)
-        except StopIteration:
-            return b''
-
-    def send(self, *args, **kwargs):
-        ...
-
-    def close(self, *args, **kwargs):
-        ...
-
-    def connect(self, *args, **kwargs):
-        ...
-
-
 def test_cip_get_module_info_raises_response_error_if_response_falsy():
     with mock.patch.object(CIPDriver, 'generic_message') as mock_generic_message:
         mock_generic_message.return_value = False
@@ -144,16 +122,32 @@ def test_close_raises_commerror_on_any_exception(mock_method, exception):
             driver._session = 1
             driver.close()
 
+def test_context_manager_calls_open_close():
+    with mock.patch.object(CIPDriver, 'open') as mock_close, \
+         mock.patch.object(CIPDriver, 'close') as mock_open:
+        with CIPDriver(CONNECT_PATH) as driver:
+            ...
+        assert mock_open.called
+        assert mock_close.called
+
+
+def test_context_manager_calls_open_close_with_exception():
+    with mock.patch.object(CIPDriver, 'open') as mock_close, \
+         mock.patch.object(CIPDriver, 'close') as mock_open:
+        try:
+            with CIPDriver(CONNECT_PATH) as driver:
+                x = 1 / 0
+        except Exception:
+            ...
+        assert mock_open.called
+        assert mock_close.called
+
 
 def test_close_raises_no_error_on_close_with_registered_session():
-    try:
-        driver = CIPDriver(CONNECT_PATH)
-        driver._session = 1
-        driver._sock = Mocket()
-        driver.close()
-    except PycommError:
-        pytest.fail('Unexpected exception')
-
+    driver = CIPDriver(CONNECT_PATH)
+    driver._session = 1
+    driver._sock = Mocket()
+    driver.close()
 
 def test_close_raises_commerror_on_socket_close_exception():
     with mock.patch.object(Socket, 'close') as mock_close:
@@ -166,12 +160,9 @@ def test_close_raises_commerror_on_socket_close_exception():
 
 def test_close_calls_socket_close_if_socket():
     with mock.patch.object(Mocket, 'close') as mock_close:
-        try:
-            driver = CIPDriver(CONNECT_PATH)
-            driver._sock = Mocket()
-            driver.close()
-        except Exception:
-            pass
+        driver = CIPDriver(CONNECT_PATH)
+        driver._sock = Mocket()
+        driver.close()
         assert mock_close.called
 
 

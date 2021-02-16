@@ -122,9 +122,9 @@ class LogixDriver(CIPDriver):
     def _initialize_driver(self, init_tags, init_program_tags):
         target_identity = self._list_identity()
         self._micro800 = target_identity.get('product_name', '').startswith(MICRO800_PREFIX)
-        self.get_plc_info()
+        self._info = self.get_plc_info()
 
-        self._cfg['use_instance_ids'] = (self.info.get('version_major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
+        self._cfg['use_instance_ids'] = (self.info.get('revision', {}).get('major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
         if not self._micro800:
             self.get_plc_name()
 
@@ -234,7 +234,6 @@ class LogixDriver(CIPDriver):
 
             info = response.value
             info['keyswitch'] = KEYSWITCH.get(info['status'][0], {}).get(info['status'][1], 'UNKNOWN')
-            self._info = {**self._info, **info}
             return info
         except Exception as err:
             raise ResponseError('Failed to get PLC info') from err
@@ -819,7 +818,6 @@ class LogixDriver(CIPDriver):
         ]
 
         return multi_requests + fragmented_requests
-
 
     def _read_build_single_request(self, parsed_tag):
         """

@@ -222,7 +222,7 @@ PCCC_ERROR_CODE = {
 }
 
 
-PRODUCT_TYPES = {
+_PRODUCT_TYPES = {
     0x00: 'Generic Device (deprecated)',
     0x02: 'AC Drive',
     0x03: 'Motor Overload',
@@ -261,9 +261,15 @@ PRODUCT_TYPES = {
     0x32: 'ControlNet Physical Layer Component'
 }
 
+
+PRODUCT_TYPES = {
+    **_PRODUCT_TYPES,
+    **{v: k for k, v in _PRODUCT_TYPES.items()},
+}
+
 #  Taken from PyLogix
 # List originally came from Wireshark /epan/dissectors/packet-cip.c
-VENDORS = {
+_VENDORS = {
     0: 'Reserved',
     1: 'Rockwell Automation/Allen-Bradley',
     2: 'Namco Controls Corp.',
@@ -1480,4 +1486,9 @@ VENDORS = {
     1238: 'Global Engineering Solutions Co., Ltd.',
     1239: 'ALTE Transportation, S.L.',
     1240: 'Penko Engineering B.V.'
+}
+
+VENDORS = {
+    **_VENDORS,
+    **{v: k for k, v in _VENDORS.items()},
 }

@@ -95,6 +95,14 @@ class ModuleIdentityObject(Struct(
 
         return values
 
+    @classmethod
+    def _encode(cls, values: Dict[str, Any]):
+        values = values.copy()
+        values['product_type'] = PRODUCT_TYPES[values['product_type']]
+        values['vendor'] = VENDORS[values['vendor']]
+        values['serial'] = int.from_bytes(bytes.fromhex(values['serial']), 'big')
+        return super(ModuleIdentityObject, cls)._encode(values)
+
 
 class ListIdentityObject(Struct(
     UINT(),
