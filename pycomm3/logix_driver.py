@@ -34,7 +34,8 @@ from typing import List, Tuple, Optional, Union, Dict, Type
 
 from . import util
 from .cip import (ClassCode, Services, KEYSWITCH, EXTERNAL_ACCESS, DataTypes, Struct, STRING, n_bytes, ULINT,
-                  DataSegment, USINT, UINT, LogicalSegment, PADDED_EPATH, UDINT, DINT, Array, DataType, ArrayType)
+                  DataSegment, USINT, UINT, LogicalSegment, PADDED_EPATH, UDINT, DINT, Array, DataType, ArrayType,
+                  PortSegment)
 from .cip_driver import CIPDriver, with_forward_open
 from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US,
@@ -124,11 +125,12 @@ class LogixDriver(CIPDriver):
         self._micro800 = target_identity.get('product_name', '').startswith(MICRO800_PREFIX)
         self._info = self.get_plc_info()
 
-        self._cfg['use_instance_ids'] = (self.info.get('revision', {}).get('major', 0) >= MIN_VER_INSTANCE_IDS) and not self._micro800
+        rev = self.info.get('revision', {}).get('major', 0)
+        self._cfg['use_instance_ids'] = (rev >= MIN_VER_INSTANCE_IDS) and not self._micro800
         if not self._micro800:
             self.get_plc_name()
 
-        if self._micro800:
+        if self._micro800 and self._cfg['cip_path'] and isinstance(self._cfg['cip_path'][-1], PortSegment):
             self._cfg['cip_path'].pop(-1)  # strip off backplane/0 segment, not used for these processors
 
         if init_tags:
