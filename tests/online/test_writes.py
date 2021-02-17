@@ -41,39 +41,36 @@ def test_multi_write(plc):
         assert result.value == value
 
 
-# def _nested_dict_to_lists(src):
-#     if isinstance(src, dict):
-#         return [
-#             _nested_dict_to_lists(value) if isinstance(value, dict) else value
-#             for key, value in src.items()
-#         ]
-#     return src
-#
-#
+def _nested_dict_to_lists(src):
+    if isinstance(src, dict):
+        return [
+            _nested_dict_to_lists(value) if isinstance(value, dict) else value
+            for key, value in src.items()
+        ]
+    return src
 
-# writing tags by value no longer supported
-# keeping here in case it is added back in the future
-# struct_values_list_tests = [
-#     *[(f'write{tag}', dt, _nested_dict_to_lists(val))
-#       for tag, dt, val in BASE_STRUCT_TESTS if isinstance(val, dict)],
-#
-#     *[(f'Program:pycomm3.write_prog{tag}', dt, _nested_dict_to_lists(val))
-#       for tag, dt, val in BASE_STRUCT_TESTS if isinstance(val, dict)],
-# ]
-#
-#
-# @pytest.mark.parametrize('tag_name, data_type, value', struct_values_list_tests)
-# def test_struct_write_value_as_list(plc, tag_name, data_type, value):
-#     """
-#     verify that writing structures using nested lists works as well as dictionaries
-#     """
-#     result = plc.write((tag_name, value))
-#     assert result
-#
-#     read_value = plc.read(tag_name).value
-#     result = plc.write((tag_name, read_value))
-#     assert result
-#     assert plc.read(tag_name).value == read_value
+
+struct_values_list_tests = [
+    *[(f'write{tag}', dt, _nested_dict_to_lists(val))
+      for tag, dt, val in BASE_STRUCT_TESTS if isinstance(val, dict)],
+
+    *[(f'Program:pycomm3.write_prog{tag}', dt, _nested_dict_to_lists(val))
+      for tag, dt, val in BASE_STRUCT_TESTS if isinstance(val, dict)],
+]
+
+
+@pytest.mark.parametrize('tag_name, data_type, value', struct_values_list_tests)
+def test_struct_write_value_as_list(plc, tag_name, data_type, value):
+    """
+    verify that writing structures using nested lists works as well as dictionaries
+    """
+    result = plc.write((tag_name, value))
+    assert result
+
+    read_value = plc.read(tag_name).value
+    result = plc.write((tag_name, read_value))
+    assert result
+    assert plc.read(tag_name).value == read_value
 
 
 def test_duplicate_tags_in_request(plc):

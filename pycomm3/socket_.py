@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -62,10 +62,10 @@ class Socket:
         try:
             if timeout != 0:
                 self.sock.settimeout(timeout)
-            data = self.sock.recv(256)
+            data = self.sock.recv(4096)
             data_len = struct.unpack_from('<H', data, 2)[0]
             while len(data) - HEADER_SIZE < data_len:
-                data += self.sock.recv(256)
+                data += self.sock.recv(4096)
 
             return data
         except socket.error as err:

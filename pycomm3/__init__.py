@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,12 +22,17 @@
 # SOFTWARE.
 #
 
+
+import logging
+logger = logging.getLogger('pycomm3')
+logger.addHandler(logging.NullHandler())
+
+
 from ._version import __version__, __version_info__
-from .logger import *
-from .const import *
+from .const import Services, ClassCode, Services, DataType, ConnectionManagerInstance, ConnectionManagerService
+from .bytes_ import Pack, Unpack
 from .tag import Tag
-from .exceptions import *
-from .cip import *
-from .cip_driver import *
-from .logix_driver import *
-from .slc_driver import *
+from .exceptions import PycommError, CommError, DataError, RequestError
+from .cip_base import CIPDriver
+from .clx import LogixDriver
+from .slc import SLCDriver
