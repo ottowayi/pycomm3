@@ -45,7 +45,7 @@ def initiate_transfer(driver):
         unconnected_send=True,
         connected=False,
         request_data=b'\xFF',  # max transfer size
-        data_format=[
+        data_type=[
             ('FileSize', 'UDINT'),
             ('TransferSize', 'USINT')
         ],
@@ -65,7 +65,7 @@ def upload_file(driver):
             unconnected_send=True,
             connected=False,
             request_data=Pack.usint(i),
-            data_format=[
+            data_type=[
                 ('TransferNumber', 'USINT'),
                 ('PacketType', 'USINT'),
                 ('FileData', '*')
@@ -109,7 +109,7 @@ def get_file_encoding(driver):
         route_path=True,
         unconnected_send=True,
         connected=False,
-        data_format=attr.data_format,
+        data_type=attr.data_type,
     )
     _enc_code = resp.value['file_encoding_format'] if resp else None
     EDS_ENCODINGS = {
@@ -155,7 +155,7 @@ def get_file_name(driver):
         route_path=True,
         unconnected_send=True,
         connected=False,
-        data_format=attr.data_format
+        data_type=attr.data_type
     )
 
     file_name = resp.value['FileName'][0] if resp else None
