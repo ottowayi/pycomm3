@@ -1,7 +1,7 @@
 DEMO_PLC_INFO = {'vendor': 'Rockwell Automation/Allen-Bradley', 'product_type': 'Programmable Logic Controller',
-                 'product_code': 89, 'serial': 'c00fa09b',  'status': b'`0',
-                 'product_name': '1769-L23E-QBFC1 LOGIX5323E-QBFC1', 'revision': {'major': 20, 'minor': 19},
-                 'keyswitch': 'REMOTE RUN', 'name': 'pycomm3_demo',
+                 'product_code': 89, 'version_major': 20, 'version_minor': 19, 'serial': 'c00fa09b',
+                 'device_type': '1769-L23E-QBFC1 LOGIX5323E-QBFC1', 'revision': '20.19', 'keyswitch': 'REMOTE RUN',
+                 'name': 'pycomm3_demo',
                  'programs': {'MainProgram': {'instance_id': 26297, 'routines': ['MainRoutine']},
                               'pycomm3': {'instance_id': 56519,
                                           'routines': ['global_reads', 'program_writes', 'global_writes', 'MAIN',
@@ -22,20 +22,3 @@ def test_get_time(plc):
 
 def test_set_time(plc):
     assert plc.set_plc_time()
-
-
-def test_discover():
-    from pycomm3 import CIPDriver
-    devices = CIPDriver.discover()
-
-    # status can change based on number of connections or other reasons
-    # just check to make sure it has a value then remove it from the
-    # rest of the device info
-    assert devices[0]['status']
-    del devices[0]['status']
-
-    assert devices == [{'encap_protocol_version': 1, 'vendor': 'Rockwell Automation/Allen-Bradley',
-                        'product_type': 'Communications Adapter',
-                        'ip_address': '192.168.1.236', 'product_code': 191,
-                        'revision': {'major': 20, 'minor': 19}, 'serial': 'c01ebe90',
-                        'product_name': '1769-L23E-QBFC1 Ethernet Port', 'state': 3}]

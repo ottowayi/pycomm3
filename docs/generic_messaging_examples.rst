@@ -75,11 +75,3 @@ This message will read the MAC address of ethernet module where the current conn
 
     .. literalinclude:: ../examples/generic_messaging.py
         :pyobject: get_mac_address
-
-
-Upload EDS File
-===============
-
-This example shows how to use generic messaging to upload and save an EDS file from a device.
-
-    .. literalinclude:: ../examples/upload_eds.py

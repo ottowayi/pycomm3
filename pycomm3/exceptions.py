@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,18 +36,6 @@ class CommError(PycommError):
 
 
 class DataError(PycommError):
-    """
-    For exceptions raised during binary encoding/decoding of data
-    """
-
-
-class BufferEmptyError(DataError):
-    """
-    Raised when trying to decode an empty buffer
-    """
-
-
-class ResponseError(PycommError):
     """
     For exceptions raised during handling for responses to requests
     """
