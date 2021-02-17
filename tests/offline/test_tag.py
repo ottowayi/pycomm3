@@ -15,3 +15,8 @@ def test_tag_repr():
 
     _tag = Tag('tag', 100, 'DINT')
     assert eval(repr(_tag)) == _tag
+
+
+def test_tag_falsy_when_no_value_or_error():
+    t = Tag('Dummy_Tag', None, None, None)
+    assert not t

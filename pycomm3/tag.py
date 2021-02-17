@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# const.py - A set of structures and constants used to implement the Ethernet/IP protocol
-#
-# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,6 +25,9 @@
 
 from typing import NamedTuple, Any, Optional
 from reprlib import repr as _r
+
+
+__all__ = ['Tag']
 
 
 class Tag(NamedTuple):
