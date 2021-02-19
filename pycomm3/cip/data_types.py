@@ -529,8 +529,10 @@ class DerivedDataType(DataType):
 
 
 class _ArrayReprMeta(_DataTypeMeta):
-    def __repr__(cls):
+    def __repr__(cls: 'ArrayType'):
         return f'{cls.element_type}[{cls.length!r}]'
+
+    __str__ = __repr__
 
 
 class ArrayType(DerivedDataType, metaclass=_ArrayReprMeta):
@@ -606,12 +608,15 @@ def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
                     raise DataError(
                         f'Error unpacking into {cls.element_type}[{_length}] from {_repr(buffer)}') from err
 
+        def __repr__(self) -> str:
+            return f'{repr(self.__class__)}(name={self.name!r})'
+
     return Array
 
 
 class _StructReprMeta(_DataTypeMeta):
     def __repr__(cls):
-        return f'{cls.__name__}({", ".join(repr(m) for m in cls.members)}'
+        return f'{cls.__name__}({", ".join(repr(m) for m in cls.members)})'
 
 
 class StructType(DerivedDataType, metaclass=_StructReprMeta):

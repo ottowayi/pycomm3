@@ -28,6 +28,7 @@ from .const import *
 from .tag import Tag
 from .exceptions import *
 from .cip import *
+from .custom_types import *
 from .cip_driver import *
 from .logix_driver import *
 from .slc_driver import *

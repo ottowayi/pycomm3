@@ -27,7 +27,8 @@ from io import BytesIO
 from typing import Any, Type, Dict, Tuple
 
 from .cip import (DataType, DerivedDataType, BufferEmptyError, Struct, UINT, USINT,
-                  UDINT, SHORT_STRING, n_bytes, WORD, StructType, StringDataType, PRODUCT_TYPES, VENDORS, INT, ULINT)
+                  UDINT, SHORT_STRING, n_bytes, StructType, StringDataType, PRODUCT_TYPES, VENDORS, INT, ULINT)
+from .cip.data_types import _StructReprMeta
 
 __all__ = ['IPAddress', 'ModuleIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes',
            'sized_string', 'Revision', 'StructTag']
@@ -141,6 +142,12 @@ StructTemplateAttributes = Struct(
 )
 
 
+class _StructTagReprMeta(_StructReprMeta):
+    def __repr__(cls):
+        members = ', '.join(repr(m) for m in cls.members)
+        return f'{cls.__name__}({members}, bool_members={cls.bits!r}, host_members={cls.hosts!r}, struct_size={cls.size!r})'
+
+
 def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: Dict[str, Type[DataType]],
               struct_size: int) -> Type[StructType]:
     """
@@ -149,7 +156,7 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
     """
     _struct = Struct(*members)
 
-    class StructTag(_struct):
+    class StructTag(_struct, metaclass=_StructTagReprMeta):
         bits = bool_members
         hosts = host_members
         size = struct_size
@@ -188,6 +195,7 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
                 value += b'\x00' * (cls.size - len(value))
 
             return value
+
 
     return StructTag
 

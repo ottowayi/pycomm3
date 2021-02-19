@@ -125,8 +125,8 @@ class LogixDriver(CIPDriver):
         self._micro800 = target_identity.get('product_name', '').startswith(MICRO800_PREFIX)
         self._info = self.get_plc_info()
 
-        rev = self.info.get('revision', {}).get('major', 0)
-        self._cfg['use_instance_ids'] = (rev >= MIN_VER_INSTANCE_IDS) and not self._micro800
+
+        self._cfg['use_instance_ids'] = (self.revision_major >= MIN_VER_INSTANCE_IDS) and not self._micro800
         if not self._micro800:
             self.get_plc_name()
 
@@ -135,6 +135,10 @@ class LogixDriver(CIPDriver):
 
         if init_tags:
             self.get_tag_list(program='*' if init_program_tags else None)
+
+    @property
+    def revision_major(self):
+        return self.info.get('revision', {}).get('major', 0)
 
     @property
     def tags(self) -> dict:
@@ -169,7 +173,7 @@ class LogixDriver(CIPDriver):
         - *vendor* - name of hardware vendor, e.g. ``'Rockwell Automation/Allen-Bradley'``
         - *product_type* - typically ``'Programmable Logic Controller'``
         - *product_code* - code identifying the product type
-        - *version_major* - numeric value of major firmware version, e.g. ``28``
+        - *version_major* - numeric value of major firmware version, e.g. ``28`` # TODO - update to revision dict
         - *version_minor* - numeric value of minor firmware version, e.g ``13``
         - *revision* - string value of firmware major and minor version, e.g. ``'28.13'``
         - *serial* - hex string of PLC serial number, e.g. ``'FFFFFFFF'``
@@ -372,7 +376,7 @@ class LogixDriver(CIPDriver):
                     b'\x08\x00'  # Attr. 8 : array dimensions [1,2,3]
                 ]
 
-                if self.info.get('version_major', 0) >= MIN_VER_EXTERNAL_ACCESS:
+                if self.revision_major >= MIN_VER_EXTERNAL_ACCESS:
                     attributes.append(b'\x0a\x00')  # Attr. 10 : external access
 
                 request.add(
@@ -411,7 +415,7 @@ class LogixDriver(CIPDriver):
                 dim2 = UDINT.decode(stream)
                 dim3 = UDINT.decode(stream)
 
-                if self.info.get('version_major', 0) >= MIN_VER_EXTERNAL_ACCESS:
+                if self.revision_major >= MIN_VER_EXTERNAL_ACCESS:
                     access = USINT.decode(stream)
                 else:
                     access = None
