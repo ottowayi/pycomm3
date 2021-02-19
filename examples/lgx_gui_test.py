@@ -17,7 +17,7 @@ Connection/Read Test App by GitHubDragonFly (see the screenshots here: https://g
 - The bottom corners listboxes are designed to show successful connection (left box) and errors (right box).
 
 Notes:
-- Tested in Windows 10 with python 3.9 only.
+- Tested in Windows 10 with python 3.9 and 3.6.8 only.
 - If the discover() function is not a part of the library then the Discover Devices button will be disabled.
 
 Tkinter vs tkinter - Reference: https://stackoverflow.com/questions/17843596/difference-between-tkinter-and-tkinter
@@ -255,7 +255,9 @@ def driver_selector(*args):
 
     lbPLCMessage.delete(0, 'end') #clear the connection message listbox
     lbPLCError.delete(0, 'end') #clear the error message listbox
+
     selectedTag.set('')
+
     start_connection()
 
 def start_connection():
@@ -404,11 +406,14 @@ def struct_members(it, i, j):
             structureDataType = tag['data_type']['name']
             structureSize = tag['data_type']['template']['structure_size']
 
-            add_Tag(j, '- ' + key + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
+            if tag['array'] > 0:
+                add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
+            else:
+                add_Tag(j, '- ' + key + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
 
             currentTagLine.set(i + 1)
 
-            struct_members(tag['data_type']['internal_tags'], currentTagLine.get() + 1, j + 1)
+            i = struct_members(tag['data_type']['internal_tags'], currentTagLine.get() + 1, j + 1)
         else:
             if tag['data_type'] == 'BOOL':
                 add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (bit ' + str(tag['bit']) + ')' + ' (' + tag['data_type'] + ')')
@@ -420,7 +425,7 @@ def struct_members(it, i, j):
 
             currentTagLine.set(currentTagLine.get() + 1)
 
-    return None
+    return currentTagLine.get()
 
 def add_Tag(j, string):
     #insert multiple of 2 spaces, depending on the structure depth, to simulate the tree appearance
