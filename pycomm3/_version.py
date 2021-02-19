@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,5 +22,5 @@
 # SOFTWARE.
 #
 
-__version_info__ = (0, 12, 0)
+__version_info__ = (1, 0, 0, 'b1')
 __version__ = '.'.join(f'{x}' for x in __version_info__)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2020 Ian Ottoway <ian@ottoway.dev>
+# Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
 # Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -55,3 +55,15 @@ def get_array_index(tag: str) -> Tuple[str, int]:
         idx = 0
 
     return tag, idx
+
+
+def cycle(stop, start=0):
+    val = start
+    while True:
+        if val == stop:
+            val = start
+
+        yield val
+        val += 1
+
+
