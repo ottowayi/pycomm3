@@ -45,9 +45,21 @@ logging.verbose = _verbose
 logging.Logger.verbose = _verbose
 
 
-def configure_default_logger(level: int = logging.INFO):
+def configure_default_logger(level: int = logging.INFO, filename=None):
+    """
+    Helper method to configure basic logging.  `level` will set the logging level.
+    To enable the verbose logging (where the contents of every packet sent/received is logged)
+    import the `LOG_VERBOSE` level from the `pycomm3.logger` module.
+
+    To log to a file in addition to the terminal, set `filename` to the desired log file.
+    """
     logger.setLevel(level)
     formatter = logging.Formatter(fmt='{asctime} [{levelname}] {name}.{funcName}(): {message}', style='{')
     handler = logging.StreamHandler(stream=sys.stdout)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+    if filename:
+        file_handler = logging.FileHandler(filename, encoding='utf-8')
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
