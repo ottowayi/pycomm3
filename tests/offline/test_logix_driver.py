@@ -27,7 +27,7 @@ import pytest
 from pycomm3.cip_driver import CIPDriver
 from pycomm3.const import MICRO800_PREFIX, SUCCESS
 from pycomm3.exceptions import CommError, PycommError, RequestError
-from pycomm3.logix_driver import LogixDriver, writable_value
+from pycomm3.logix_driver import LogixDriver, encode_value
 from pycomm3.packets import RequestPacket, ResponsePacket
 from pycomm3.socket_ import Socket
 from pycomm3.tag import Tag
