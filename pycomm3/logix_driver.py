@@ -105,8 +105,14 @@ class LogixDriver(CIPDriver):
         return f'{self.__class__.__name__}(path={self._cip_path}, {init_args})'
 
     def open(self):
-        super().open()
-        self._initialize_driver(**self._init_args)
+        ret = super().open()
+        if ret:
+            try:
+                self._initialize_driver(**self._init_args)
+            except Exception:
+                self.__log.exception('Driver initialization failed')
+                return False
+        return ret
 
     def _initialize_driver(self, init_tags, init_program_tags):
         self.__log.info('Initializing driver...')
