@@ -22,6 +22,8 @@
 # SOFTWARE.
 #
 
+import string
+
 from io import BytesIO
 from typing import Union
 
@@ -64,7 +66,7 @@ def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
     return PADDED_EPATH.encode(segments, length=True)
 
 
-def tag_request_path(tag, tag_cache, use_instance_ids):
+def tag_request_path(tag, tag_info, use_instance_ids):
     """
     It returns the request packed wrapped around the tag passed.
     If any error it returns none
@@ -74,10 +76,10 @@ def tag_request_path(tag, tag_cache, use_instance_ids):
     if tags:
         base, *attrs = tags
         base_tag, index = _find_tag_index(base)
-        if use_instance_ids and base_tag in tag_cache:
+        if use_instance_ids and tag_info.get('instance_id'):
             segments = [
                 LogicalSegment(ClassCode.symbol_object, 'class_id'),
-                LogicalSegment(tag_cache[base_tag]['instance_id'], 'instance_id')
+                LogicalSegment(tag_info['instance_id'], 'instance_id')
             ]
         else:
             segments = [
@@ -192,8 +194,11 @@ def _to_hex(bites):
     return ' '.join((f"{b:0>2x}" for b in bites))
 
 
+PRINTABLE = set(b''.join(bytes(x, 'ascii') for x in (string.ascii_letters, string.digits, string.punctuation, ' ')))
+
+
 def _to_ascii(bites):
-    return ''.join(f'{chr(b)}' if 33 <= b <= 254 else '•' for b in bites)
+    return ''.join(f'{chr(b)}' if b in PRINTABLE else '•' for b in bites)
 
 
 def print_bytes_msg(msg):

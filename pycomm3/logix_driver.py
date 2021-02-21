@@ -208,7 +208,8 @@ class LogixDriver(CIPDriver):
                 class_code=ClassCode.program_name,
                 instance=b'\x01\x00',  # instance 1
                 request_data=b'\x01\x00\x01\x00',  # num attributes, attribute 1 (program name)
-                data_type=Struct(n_bytes(6), STRING('program_name'))
+                data_type=Struct(n_bytes(6), STRING('program_name')),
+                name='get_plc_name',
             )
             if not response:
                 raise ResponseError(f'response did not return valid data - {response.error}')
@@ -228,7 +229,9 @@ class LogixDriver(CIPDriver):
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 service=Services.get_attributes_all,
                 data_type=ModuleIdentityObject,
-                connected=False, unconnected_send=not self._micro800)
+                connected=False, unconnected_send=not self._micro800,
+                name='get_plc_info'
+            )
 
             if not response:
                 raise ResponseError(f'get_plc_info did not return valid data - {response.error}')
