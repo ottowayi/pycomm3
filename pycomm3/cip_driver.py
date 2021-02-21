@@ -265,7 +265,7 @@ class CIPDriver:
         """
         # handle the socket layer
         if self._connection_opened:
-            return
+            return True
         try:
             if self._sock is None:
                 self._sock = Socket()
