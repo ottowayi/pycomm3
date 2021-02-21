@@ -49,7 +49,7 @@ def configure_default_logger(level: int = logging.INFO, filename=None):
     """
     Helper method to configure basic logging.  `level` will set the logging level.
     To enable the verbose logging (where the contents of every packet sent/received is logged)
-    import the `LOG_VERBOSE` level from the `pycomm3.logger` module.
+    import the `LOG_VERBOSE` level from the `pycomm3.logger` module. Default is `logging.INFO`.
 
     To log to a file in addition to the terminal, set `filename` to the desired log file.
     """

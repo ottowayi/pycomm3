@@ -50,7 +50,8 @@ def with_forward_open(func):
     @wraps(func)
     def wrapped(self: CIPDriver, *args, **kwargs):
         if self._target_is_connected:
-            return True
+            return func(self, *args, **kwargs)
+
         logger = logging.getLogger('pycomm3.cip_driver')
         opened = False
         if self._cfg['extended forward open']:
