@@ -96,22 +96,6 @@ class LogixDriver(CIPDriver):
         self._init_args = {'init_tags': init_tags,
                            'init_program_tags': init_program_tags}
 
-    def __enter__(self):
-        self.open()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            self.close()
-        except CommError:
-            self.__log.exception('Error closing connection.')
-            return False
-        else:
-            if not exc_type:
-                return True
-            self.__log.exception('Unhandled Client Error', exc_info=(exc_type, exc_val, exc_tb))
-            return False
-
     def __str__(self):
         _rev = self._info.get('revision', {'major': -1, 'minor': -1})
         return f'Program Name: {self._info.get("name")}, Revision: {_rev}'
