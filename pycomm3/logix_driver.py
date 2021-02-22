@@ -96,37 +96,33 @@ class LogixDriver(CIPDriver):
         self._init_args = {'init_tags': init_tags,
                            'init_program_tags': init_program_tags}
 
-    def __enter__(self):
-        self.open()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            self.close()
-        except CommError:
-            self.__log.exception('Error closing connection.')
-            return False
-        else:
-            if not exc_type:
-                return True
-            self.__log.exception('Unhandled Client Error', exc_info=(exc_type, exc_val, exc_tb))
-            return False
+    def __str__(self):
+        _rev = self._info.get('revision', {'major': -1, 'minor': -1})
+        return f'Program Name: {self._info.get("name")}, Revision: {_rev}'
 
     def __repr__(self):
-        _ = self._info
-        return f"Program Name: {_.get('name')}, Device: {_.get('device_type', 'None')}, Revision: {_.get('revision', 'None')}"
+        init_args = ', '.join(f'{k}={v}' for k, v in self._init_args.items())
+        return f'{self.__class__.__name__}(path={self._cip_path}, {init_args})'
 
     def open(self):
-        super().open()
-        self._initialize_driver(**self._init_args)
+        ret = super().open()
+        if ret:
+            try:
+                self._initialize_driver(**self._init_args)
+            except Exception:
+                self.__log.exception('Driver initialization failed')
+                return False
+        return ret
 
     def _initialize_driver(self, init_tags, init_program_tags):
+        self.__log.info('Initializing driver...')
+
         target_identity = self._list_identity()
+        self.__log.debug('Identified target: %r', target_identity)
         self._micro800 = target_identity.get('product_name', '').startswith(MICRO800_PREFIX)
         self._info = self.get_plc_info()
 
-        rev = self.info.get('revision', {}).get('major', 0)
-        self._cfg['use_instance_ids'] = (rev >= MIN_VER_INSTANCE_IDS) and not self._micro800
+        self._cfg['use_instance_ids'] = (self.revision_major >= MIN_VER_INSTANCE_IDS) and not self._micro800
         if not self._micro800:
             self.get_plc_name()
 
@@ -135,6 +131,15 @@ class LogixDriver(CIPDriver):
 
         if init_tags:
             self.get_tag_list(program='*' if init_program_tags else None)
+
+        self.__log.info("Initialization complete.")
+
+    @property
+    def revision_major(self) -> int:
+        """
+        Returns the major revision for the PLC or 0 if not available
+        """
+        return self.info.get('revision', {}).get('major', 0)
 
     @property
     def tags(self) -> dict:
@@ -169,7 +174,7 @@ class LogixDriver(CIPDriver):
         - *vendor* - name of hardware vendor, e.g. ``'Rockwell Automation/Allen-Bradley'``
         - *product_type* - typically ``'Programmable Logic Controller'``
         - *product_code* - code identifying the product type
-        - *version_major* - numeric value of major firmware version, e.g. ``28``
+        - *version_major* - numeric value of major firmware version, e.g. ``28`` # TODO - update to revision dict
         - *version_minor* - numeric value of minor firmware version, e.g ``13``
         - *revision* - string value of firmware major and minor version, e.g. ``'28.13'``
         - *serial* - hex string of PLC serial number, e.g. ``'FFFFFFFF'``
@@ -209,7 +214,8 @@ class LogixDriver(CIPDriver):
                 class_code=ClassCode.program_name,
                 instance=b'\x01\x00',  # instance 1
                 request_data=b'\x01\x00\x01\x00',  # num attributes, attribute 1 (program name)
-                data_type=Struct(n_bytes(6), STRING('program_name'))
+                data_type=Struct(n_bytes(6), STRING('program_name')),
+                name='get_plc_name',
             )
             if not response:
                 raise ResponseError(f'response did not return valid data - {response.error}')
@@ -229,7 +235,9 @@ class LogixDriver(CIPDriver):
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 service=Services.get_attributes_all,
                 data_type=ModuleIdentityObject,
-                connected=False, unconnected_send=not self._micro800)
+                connected=False, unconnected_send=not self._micro800,
+                name='get_plc_info'
+            )
 
             if not response:
                 raise ResponseError(f'get_plc_info did not return valid data - {response.error}')
@@ -372,7 +380,7 @@ class LogixDriver(CIPDriver):
                     b'\x08\x00'  # Attr. 8 : array dimensions [1,2,3]
                 ]
 
-                if self.info.get('version_major', 0) >= MIN_VER_EXTERNAL_ACCESS:
+                if self.revision_major >= MIN_VER_EXTERNAL_ACCESS:
                     attributes.append(b'\x0a\x00')  # Attr. 10 : external access
 
                 request.add(
@@ -411,7 +419,7 @@ class LogixDriver(CIPDriver):
                 dim2 = UDINT.decode(stream)
                 dim3 = UDINT.decode(stream)
 
-                if self.info.get('version_major', 0) >= MIN_VER_EXTERNAL_ACCESS:
+                if self.revision_major >= MIN_VER_EXTERNAL_ACCESS:
                     access = USINT.decode(stream)
                 else:
                     access = None
@@ -719,7 +727,9 @@ class LogixDriver(CIPDriver):
                     self._cache['id:udt'][instance_id] = data_type
                     self._data_types[data_type['name']] = data_type
             except Exception as err:
-                raise ResponseError('Failed to get data type information') from err
+                self.__log.exception('Failed to get data type')
+                self._cache['id:udt'][instance_id] = {'name': 'no-idea'}
+                # raise ResponseError('Failed to get data type information') from err
 
         return self._cache['id:udt'][instance_id]
 
@@ -928,7 +938,7 @@ class LogixDriver(CIPDriver):
                     request.set_bit(bit, tag_data['value'], tag_data['request_id'])
                     continue
 
-                tag_data['write_value'] = writable_value(tag_data)
+                tag_data['write_value'] = encode_value(tag_data)
                 request = RequestTypes.write_tag(tag_data['plc_tag'], tag_data['elements'],
                                                  tag_data['tag_info'], request_id, self._cfg['use_instance_ids'],
                                                  tag_data['write_value'])
@@ -978,7 +988,7 @@ class LogixDriver(CIPDriver):
 
                 request.set_bit(bit, parsed_tag['value'], parsed_tag['request_id'])
             else:
-                parsed_tag['write_value'] = writable_value(parsed_tag)
+                parsed_tag['write_value'] = encode_value(parsed_tag)
 
                 request = RequestTypes.write_tag(parsed_tag['plc_tag'],
                                                  parsed_tag['elements'],
@@ -1204,7 +1214,7 @@ def _parse_structure_makeup_attributes(response):
         raise ResponseError('failed to parse structure attributes') from err
 
 
-def writable_value(parsed_tag: dict) -> bytes:
+def encode_value(parsed_tag: dict) -> bytes:
     if isinstance(parsed_tag['value'], bytes):
         return parsed_tag['value']
 
