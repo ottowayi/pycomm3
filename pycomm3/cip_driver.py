@@ -449,7 +449,8 @@ class CIPDriver:
                         name: str = 'generic',
                         connected: bool = True,
                         unconnected_send: bool = False,
-                        route_path: Union[bool, Sequence[CIPSegment], bytes] = True) -> Tag:
+                        route_path: Union[bool, Sequence[CIPSegment], bytes] = True,
+                        return_response_packet=False) -> Union[Tag, ResponsePacket]:
         """
         Perform a generic CIP message.  Similar to how MSG instructions work in Logix.
 
@@ -464,6 +465,7 @@ class CIPDriver:
         :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service
         :param route_path: (Unconnected Only) ``True`` to use current connection route to destination, ``False`` to ignore,
                            Or provide list of segments to be encoded as a PADDED_EPATH.
+        :param return_response_packet: returns the ``ResponsePacket`` rather than a ``Tag`` object
         :return: a Tag with the result of the request. (Tag.value for writes will be the request_data)
         """
 
@@ -498,6 +500,10 @@ class CIPDriver:
             self.__log.error('Generic message %r failed: %s', name, response.error)
         else:
             self.__log.info('Generic message %r completed', name)
+
+        if return_response_packet:
+            return response
+
         return Tag(name, response.value, None, error=response.error)
 
     def send(self, request: RequestPacket) -> ResponsePacket:

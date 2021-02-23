@@ -174,9 +174,7 @@ class LogixDriver(CIPDriver):
         - *vendor* - name of hardware vendor, e.g. ``'Rockwell Automation/Allen-Bradley'``
         - *product_type* - typically ``'Programmable Logic Controller'``
         - *product_code* - code identifying the product type
-        - *version_major* - numeric value of major firmware version, e.g. ``28`` # TODO - update to revision dict
-        - *version_minor* - numeric value of minor firmware version, e.g ``13``
-        - *revision* - string value of firmware major and minor version, e.g. ``'28.13'``
+        - *revision* - dict of {'major': <major rev (int)>, 'minor': <minor rev (int)>}
         - *serial* - hex string of PLC serial number, e.g. ``'FFFFFFFF'``
         - *device_type* - string value for PLC device type, e.g. ``'1756-L83E/B'``
         - *keyswitch* - string value representing the current keyswitch position, e.g. ``'REMOTE RUN'``
@@ -269,7 +267,7 @@ class LogixDriver(CIPDriver):
             value = {'datetime': _time, 'microseconds': tag.value['µs'], 'string': _time.strftime(fmt)}
         else:
             value = None
-        return Tag('__GET_PLC_TIME__', value, None, error=tag.error)
+        return Tag('get_plc_time', value, None, error=tag.error)
 
     def set_plc_time(self, microseconds: Optional[int] = None) -> Tag:
         """
@@ -288,7 +286,7 @@ class LogixDriver(CIPDriver):
             class_code=ClassCode.wall_clock_time,
             instance=b'\x01',
             request_data=_struct.encode([1, 6, microseconds]),  # attribute count 1, attribute #6, time
-            name='__SET_PLC_TIME__'
+            name='set_plc_time'
         )
 
     @with_forward_open
@@ -324,6 +322,7 @@ class LogixDriver(CIPDriver):
             self._info['tasks'] = {}
             self._info['modules'] = {}
 
+        self.__log.info('Starting tag list upload...')
         if program == '*':
             tags = self._get_tag_list()
             for prog in self._info['programs']:
@@ -336,10 +335,13 @@ class LogixDriver(CIPDriver):
 
         self._cache = None
 
+        self.__log.info('Completed tag list upload.')
         return tags
 
     def _get_tag_list(self, program=None):
+        self.__log.info(f'Beginning upload of {program or "controller" } tags...')
         all_tags = self._get_instance_attribute_list_service(program)
+        self.__log.info(f'Completed upload of {program or "controller" } tags')
         return self._isolate_user_tags(all_tags, program)
 
     def _get_instance_attribute_list_service(self, program=None):
@@ -353,7 +355,9 @@ class LogixDriver(CIPDriver):
             tag_list = []
             while last_instance != -1:
                 # Creating the Message Request Packet
-                path = []
+                self.__log.debug(f'Getting tags starting with instance {last_instance}')
+                _start_instance = last_instance
+                _num_tags_start = len(tag_list)
                 segments = []
                 if program:
                     if not program.startswith('Program:'):
@@ -394,6 +398,8 @@ class LogixDriver(CIPDriver):
                     raise ResponseError(f"send_unit_data returned not valid data - {response.error}")
 
                 last_instance = self._parse_instance_attribute_list(response, tag_list)
+                self.__log.debug(f'Uploaded {len(tag_list) - _num_tags_start} tags, last instance: {last_instance}')
+
             return tag_list
 
         except Exception as err:
@@ -447,6 +453,7 @@ class LogixDriver(CIPDriver):
     def _isolate_user_tags(self, all_tags, program=None):
         try:
             user_tags = []
+            self.__log.debug(f'Isolating user tags for {program or "controller"} ...')
             for tag in all_tags:
                 io_tag = False
                 name = tag['tag_name']
@@ -509,6 +516,7 @@ class LogixDriver(CIPDriver):
 
                 user_tags.append(self._create_tag(name, tag))
 
+            self.__log.debug(f'Finished isolating tags for {program or "controller" }')
             return user_tags
         except Exception as err:
             raise ResponseError('failed isolating user tags') from err
@@ -558,13 +566,7 @@ class LogixDriver(CIPDriver):
         get the structure makeup for a specific structure
         """
         if instance_id not in self._cache['id:struct']:
-            request = RequestTypes.send_unit_data()
-            req_path = request_path(ClassCode.template_object, instance_id)
-            request.add(
-                Services.get_attribute_list,
-                req_path,
-
-                # service data:
+            attrs = (
                 b'\x04\x00',  # Number of attributes
                 b'\x04\x00',  # Template Object Definition Size UDINT
                 b'\x05\x00',  # Template Structure Size UDINT
@@ -572,7 +574,15 @@ class LogixDriver(CIPDriver):
                 b'\x01\x00',  # Structure Handle We can use this to read and write UINT
             )
 
-            response = self.send(request)
+            response = self.generic_message(
+                service=Services.get_attribute_list,
+                class_code=ClassCode.template_object,
+                instance=instance_id,
+                connected=True,
+                request_data=b''.join(attrs),
+                data_type=StructTemplateAttributes,
+                name=f'_get_structure_makeup(instance_id={instance_id!r})'
+            )
             if not response:
                 raise ResponseError(f"send_unit_data returned not valid data", response.error)
             _struct = _parse_structure_makeup_attributes(response)
@@ -590,16 +600,17 @@ class LogixDriver(CIPDriver):
         template_raw = b''
         try:
             while True:
-                request = RequestTypes.send_unit_data()
-                req_path = request_path(ClassCode.template_object, instance_id)
-                request.add(
-                    Services.read_tag,
-                    req_path,
-                    # service data:
-                    DINT.encode(offset),
-                    UINT.encode(((object_definition_size * 4) - 21) - offset)
+                response = self.generic_message(
+                    service=Services.read_tag,
+                    class_code=ClassCode.template_object,
+                    instance=instance_id,
+                    request_data=b''.join((
+                        DINT.encode(offset),
+                        UINT.encode(((object_definition_size * 4) - 21) - offset)
+                    )),
+                    name=f'_read_template(instance_id={instance_id}, object_definition_size={object_definition_size})',
+                    return_response_packet=True,
                 )
-                response = self.send(request)
 
                 if response.service_status not in (SUCCESS, INSUFFICIENT_PACKETS):
                     raise ResponseError('Error reading template', response)
@@ -619,6 +630,7 @@ class LogixDriver(CIPDriver):
     def _parse_template_data(self, data, template):
         info_len = template['member_count'] * TEMPLATE_MEMBER_INFO_LEN
         info_data = data[:info_len]
+        self.__log.debug(f'Parsing template {template!r} from {data!r}')
 
         chunks = (info_data[i:i + TEMPLATE_MEMBER_INFO_LEN]
                   for i in range(0, info_len, TEMPLATE_MEMBER_INFO_LEN))
@@ -680,6 +692,8 @@ class LogixDriver(CIPDriver):
                                                 struct_size=template['structure_size'],
                                                 host_members={m: t for m, t in _host_members.values()})
 
+        self.__log.debug(f'Completed parsing template as data type {data_type!r}')
+
         return data_type
 
     def _parse_template_data_member_info(self, info):
@@ -720,16 +734,16 @@ class LogixDriver(CIPDriver):
     def _get_data_type(self, instance_id):
         if instance_id not in self._cache['id:udt']:
             try:
+                self.__log.debug(f'Getting data type for id {instance_id}')
                 template = self._get_structure_makeup(instance_id)  # instance id from type
                 if not template.get('error'):
                     _data = self._read_template(instance_id, template['object_definition_size'])
                     data_type = self._parse_template_data(_data, template)
                     self._cache['id:udt'][instance_id] = data_type
                     self._data_types[data_type['name']] = data_type
+                    self.__log.debug(f'Got data type {data_type["name"]} for id {instance_id}')
             except Exception as err:
-                self.__log.exception('Failed to get data type')
-                self._cache['id:udt'][instance_id] = {'name': 'no-idea'}
-                # raise ResponseError('Failed to get data type information') from err
+                raise ResponseError(f'Failed to get data type information for {instance_id}') from err
 
         return self._cache['id:udt'][instance_id]
 
@@ -851,7 +865,7 @@ class LogixDriver(CIPDriver):
         return None
 
     @with_forward_open
-    def write(self, *tags_values: Tuple[str, TagValueType]) -> ReadWriteReturnType:
+    def write(self, *tags_values: Union[str, TagValueType, Tuple[str, TagValueType]]) -> ReadWriteReturnType:
         """
         Write to tag(s). Automatically will split tags into multiple requests by tracking the request and
         response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
@@ -859,9 +873,13 @@ class LogixDriver(CIPDriver):
         count in using curly braces (array{10}).  Also supports full structure writing (when possible), value must be a
         sequence of values or a dict of {attribute: value} matching the exact structure of the destination tag.
 
-        :param tags_values: one or many 2-element tuples (tag name, value)
+        :param tags_values: (tag, value) tuple or sequence of tag and value tuples [(tag, value), ...]
         :return: a single or list of ``Tag`` objects.
         """
+
+        if len(tags_values) == 2 and isinstance(tags_values[0], str):
+            tags_values = ((*tags_values, ), )
+
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
 
@@ -911,6 +929,8 @@ class LogixDriver(CIPDriver):
     def _write_build_requests(self, parsed_tags):
         if len(parsed_tags) != 1 and not self._micro800:
             return self._write_build_multi_requests(parsed_tags)
+
+        # micro800 don't support multi-request packets
         requests = (self._write_build_single_request(parsed_tags[tag]) for tag in parsed_tags)
         return [r for r in requests if r is not None]
 
@@ -1064,6 +1084,7 @@ class LogixDriver(CIPDriver):
                     parsed['error'] = 'Failed to parse tag request'
 
             except RequestError as err:
+                self.__log.exception(f'Failed to parse tag request: {tag}')
                 parsed['error'] = str(err)
 
             finally:
@@ -1197,12 +1218,12 @@ def _parse_structure_makeup_attributes(response):
     """
     structure = {}
 
-    if response.service_status != SUCCESS:
-        structure['error'] = response.service_status
+    if not response:
+        structure['error'] = response.error
         return
 
     try:
-        _struct = StructTemplateAttributes.decode(response.data)
+        _struct = response.value
         structure['object_definition_size'] = _struct['object_definition_size']['size']
         structure['structure_size'] = _struct['structure_size']['size']
         structure['member_count'] = _struct['member_count']['count']
