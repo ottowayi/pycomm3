@@ -188,29 +188,27 @@ class CIPDriver:
         ]
 
         driver = CIPDriver('0.0.0.0')  # dumby driver for creating the list_identity request
-        context = driver._cfg['context']
-        option = driver._cfg['option']
         request = RequestTypes.list_identity()
-        message = request.build_request(None, driver._session, context, option)
+        message = request.build_request(None, driver._session, b'\x00' * 8, 0)
         devices = []
 
         for ip in ip_addrs:
             cls.__log.debug(f'Broadcasting discover for IP: %s', ip)
-            devices += cls._broadcast_discover(ip, message, context, request)
+            devices += cls._broadcast_discover(ip, message, request)
 
         if not devices:
             cls.__log.debug('No devices found so far, attempting broadcast without binding to an IP.')
-            devices += cls._broadcast_discover(None, message, context, request)
+            devices += cls._broadcast_discover(None, message, request)
 
         if devices:
-            cls.__log.info(f'Discovered %d device(s)', len(devices))
+            cls.__log.info(f'Discovered %d device(s): %r', len(devices), devices)
         else:
             cls.__log.info('No Ethernet/IP devices discovered')
 
         return devices
 
     @staticmethod
-    def _broadcast_discover(ip, message, context, request):
+    def _broadcast_discover(ip, message, request):
         devices = []
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(1)
@@ -224,7 +222,7 @@ class CIPDriver:
             try:
                 resp = sock.recv(4096)
                 response = request.response_class(request, resp)
-                if response and response.raw[12:20] == context:
+                if response:
                     devices.append(response.identity)
             except Exception:
                 break
