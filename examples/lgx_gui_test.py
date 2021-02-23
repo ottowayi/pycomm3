@@ -17,15 +17,15 @@ Connection/Read Test App by GitHubDragonFly (see the screenshots here: https://g
 - The bottom corners listboxes are designed to show successful connection (left box) and errors (right box).
 
 Notes:
-- Tested in Windows 10 with python 3.9 and 3.6.8 only.
+- Tested in Windows 10 with python 3.6.8 only.
 - If the discover() function is not a part of the library then the Discover Devices button will be disabled.
 
 Tkinter vs tkinter - Reference: https://stackoverflow.com/questions/17843596/difference-between-tkinter-and-tkinter
 '''
 
 import threading
-import socket
 import pycomm3
+import tkinter.font as tkfont
 
 from struct import *
 from pycomm3 import *
@@ -165,41 +165,7 @@ def main():
     popup_menu_drivers = OptionMenu(frame2, driverSelection, *driverChoices)
     popup_menu_drivers.pack(side=RIGHT, padx=3)
 
-    # add a frame to hold center widgets
-    frame3 = Frame(root, background='navy')
-    frame3.pack(fill=X)
-
-    # create a label and a text box for the Tag entry
-    lblTag = Label(frame3, text='Tag(s) to Read', fg='white', bg='navy', font='Helvetica 9 italic')
-    lblTag.pack(anchor=CENTER, side=TOP, pady=5)
-    selectedTag = StringVar()
-    tbTag = Entry(frame3, justify=CENTER, textvariable=selectedTag, font='Helvetica 11', width=80, relief=RAISED)
-    selectedTag.set((str(myTag).replace(',', ';'))[1:-1].replace('\'', ''))
-
-    # add the 'Paste' menu on the mouse right-click
-    popup_menu_tbTag = Menu(tbTag, tearoff=0)
-    popup_menu_tbTag.add_command(label='Paste', command=tag_paste)
-    tbTag.bind('<Button-3>', lambda event: tag_menu(event, tbTag))
-
-    tbTag.pack(anchor=CENTER, side=TOP)
-
-    # create a label to display the received tag(s) value(s)
-    tagValue = Label(frame3, text='~', fg='yellow', bg='black', font='Helvetica 18', width=52, relief=SUNKEN)
-    tagValue.pack(anchor=CENTER, side=TOP, pady=6)
-
-    # add a frame to hold center buttons
-    frame4 = Frame(root, height=30, background='navy')
-    frame4.pack(fill=X)
-
-    # add a button to start updating tag value
-    btnStart = Button(frame4, text = 'Start Update', state='normal', fg ='blue', height=1, width=9, relief=RAISED, command=start_update)
-    btnStart.place(anchor=CENTER, relx=0.37, rely=0.55)
-
-    # add a button to stop updating tag value
-    btnStop = Button(frame4, text = 'Stop Update', state='disabled', fg ='blue', height=1, width=9, relief=RAISED, command=stop_update)
-    btnStop.place(anchor=CENTER, relx=0.63, rely=0.55)
-
-    # add a frame to hold bottom widgets
+    # add a frame to hold bottom widgets (pack these before the tag value label to limit its expansion)
     frame5 = Frame(root, background='navy')
     frame5.pack(side=BOTTOM, fill=X)
 
@@ -218,6 +184,46 @@ def main():
     # add the Exit button
     btnExit = Button(frame5, text = 'Exit', fg ='red', height=1, width=8, command=root.destroy)
     btnExit.pack(side=RIGHT, padx=25, pady=3)
+
+    # add a frame to hold the tag label, tag entry box and the update buttons
+    frame3 = Frame(root, background='navy')
+    frame3.pack(fill=X)
+
+    # create a label for the Tag entry
+    lblTag = Label(frame3, text='Tag(s) to Read', fg='white', bg='navy', font='Helvetica 9 italic')
+    lblTag.pack(anchor=CENTER, pady=10)
+
+    # add a button to start updating tag value
+    btnStart = Button(frame3, text = 'Start Update', state='normal', bg='lightgrey', fg ='blue', height=1, width=10, relief=RAISED, command=start_update)
+    btnStart.pack(side=LEFT, padx=5, pady=1)
+
+    # add a button to stop updating tag value
+    btnStop = Button(frame3, text = 'Stop Update', state='disabled', bg='lightgrey', fg ='blue', height=1, width=10, relief=RAISED, command=stop_update)
+    btnStop.pack(side=RIGHT, padx=5, pady=1)
+
+    # create a text box for the Tag entry
+    fnt = tkfont.Font(family="Helvetica", size=11, weight="normal")
+    char_width = fnt.measure("0")
+    selectedTag = StringVar()
+    tbTag = Entry(frame3, justify=CENTER, textvariable=selectedTag, font='Helvetica 11', width=(int(800 / char_width) - 24), relief=RAISED)
+    selectedTag.set((str(myTag).replace(',', ';'))[1:-1].replace('\'', ''))
+
+    # add the 'Paste' menu on the mouse right-click
+    popup_menu_tbTag = Menu(tbTag, tearoff=0)
+    popup_menu_tbTag.add_command(label='Paste', command=tag_paste)
+    tbTag.bind('<Button-3>', lambda event: tag_menu(event, tbTag))
+
+    tbTag.place(anchor='center', relx=0.5, rely=0.775)
+
+    # add a frame to hold the tag value label
+    frame4 = Frame(root, height=30, background='navy')
+    frame4.pack(fill=X)
+
+    # create a label to display the received tag(s) value(s)
+    fnt = tkfont.Font(family="Helvetica", size=18, weight="normal")
+    char_width = fnt.measure("0")
+    tagValue = Label(frame4, text='~', fg='yellow', bg='black', font='Helvetica 18', width=(int(800 / char_width - 4.5)), wraplength=800, relief=SUNKEN)
+    tagValue.pack(anchor=CENTER, side=TOP, pady=6)
 
     # create a label and a text box for the path entry
     lblPath = Label(root, text='Path', fg='white', bg='navy', font='Helvetica 9')
@@ -309,14 +315,16 @@ def discoverDevices():
             else:
                 i = 0
                 for device in devices:
-                    lbDevices.insert(i * 8 + 1, 'IP Address: ' + socket.inet_ntoa(pack('<L', unpack_from('<I', device['_socket_address_struct'], 2)[0])))
-                    lbDevices.insert(i * 8 + 2, 'Product Name: ' + device['product_name'])
-                    lbDevices.insert(i * 8 + 3, 'Product Code: ' + str(device['product_code']))
-                    lbDevices.insert(i * 8 + 4, 'Revision: ' +  str(device['revision_major']) + '.' + str(device['revision_minor']))
-                    lbDevices.insert(i * 8 + 5, 'Serial: ' + str(device['serial_number']))
-                    lbDevices.insert(i * 8 + 6, 'State: ' + str(device['state']))
-                    lbDevices.insert(i * 8 + 7, 'Status: ' + str(device['status']))
-                    lbDevices.insert(i * 8 + 8, '----------------------------------')
+                    lbDevices.insert(i * 10 + 1, 'IP Address: ' + device['ip_address'])
+                    lbDevices.insert(i * 10 + 2, 'Vendor: ' + device['vendor'])
+                    lbDevices.insert(i * 10 + 3, 'Product Name: ' + device['product_name'])
+                    lbDevices.insert(i * 10 + 4, 'Product Type: ' + device['product_type'])
+                    lbDevices.insert(i * 10 + 5, 'Product Code: ' + str(device['product_code']))
+                    lbDevices.insert(i * 10 + 6, 'Revision: ' +  str(device['revision']['major']) + '.' + str(device['revision']['minor']))
+                    lbDevices.insert(i * 10 + 7, 'Serial: ' + str(int(device['serial'], 16)))
+                    lbDevices.insert(i * 10 + 8, 'State: ' + str(device['state']))
+                    lbDevices.insert(i * 10 + 9, 'Status: ' + str(int.from_bytes(device['status'], byteorder='little')))
+                    lbDevices.insert(i * 10 + 10, '----------------------------------')
                     i += 1
 
             if btnConnect['state'] == 'normal':
@@ -453,7 +461,7 @@ def comm_check():
         if driverSelection.get() == 'LogixDriver':
             comm = LogixDriver(path)
             comm.open()
-            lbPLCMessage.insert(1, 'Connected: ' + comm.info['device_type'] + ' , ' + comm.info['keyswitch'])
+            lbPLCMessage.insert(1, 'Connected: ' + comm.info['product_name'] + ' , ' + comm.info['keyswitch'])
         else:
             comm = SLCDriver(path)
             comm.open()
@@ -464,12 +472,14 @@ def comm_check():
         btnConnect['state'] = 'disabled'
         if btnStop['state'] == 'disabled':
             btnStart['state'] = 'normal'
+            btnStart['bg'] = 'lime'
     except Exception as e:
         connected = False
         lbPLCMessage.delete(0, 'end')
         lbPLCError.insert(1, e)
         btnConnect['state'] = 'normal'
         btnStart['state'] = 'disabled'
+        btnStart['bg'] = 'lightgrey'
 
 def startUpdateValue():
     global updateRunning
@@ -498,7 +508,9 @@ def startUpdateValue():
             else:
                 try:
                     btnStart['state'] = 'disabled'
+                    btnStart['bg'] = 'lightgrey'
                     btnStop['state'] = 'normal'
+                    btnStop['bg'] = 'lime'
                     tbPath['state'] = 'disabled'
                     tbTag['state'] = 'disabled'
                     popup_menu_drivers['state'] = 'disabled'
@@ -528,7 +540,9 @@ def stop_update():
         updateRunning = False
         tagValue['text'] = '~'
         btnStart['state'] = 'normal'
+        btnStart['bg'] = 'lime'
         btnStop['state'] = 'disabled'
+        btnStop['bg'] = 'lightgrey'
         tbPath['state'] = 'normal'
         tbTag['state'] = 'normal'
         popup_menu_drivers['state'] = 'normal'
