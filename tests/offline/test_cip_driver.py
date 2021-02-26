@@ -29,7 +29,7 @@ _simple_paths = [
     '192.168.1.100/bp/0',
     '192.168.1.100/backplane/0',
     r'192.168.1.100\bp\0',
-    r'192.168.1.100\backplane\0'
+    r'192.168.1.100\backplane\0',
 ]
 
 _route_path = ('192.168.1.100',  [PortSegment(port='backplane', link_address=1),

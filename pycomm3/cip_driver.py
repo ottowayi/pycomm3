@@ -31,11 +31,10 @@ from functools import wraps
 from os import urandom
 from typing import Union, Optional, Tuple, List, Sequence, Type, Any, Dict
 
-from .cip import (ConnectionManagerInstances, ClassCode, CIPSegment,
-                  MSG_ROUTER_PATH, ConnectionManagerServices, Services,
+from .cip import (ConnectionManagerInstances, ClassCode, CIPSegment, ConnectionManagerServices, Services,
                   PortSegment, PADDED_EPATH, DataType, UDINT, UINT)
 
-from .const import PRIORITY, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS
+from .const import PRIORITY, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, MSG_ROUTER_PATH
 from .custom_types import ModuleIdentityObject
 from .exceptions import ResponseError, CommError, RequestError
 from .packets import RequestPacket, ResponsePacket, RequestTypes, PacketLazyFormatter

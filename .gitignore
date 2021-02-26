@@ -62,7 +62,7 @@ target/
 .project
 .settings/
 .pydevproject
-/venv*/
+
 
 # Logix Files, besides main project
 *.BAK000.acd
@@ -70,8 +70,8 @@ target/
 *.Wrk
 *.Sem
 
-# dev testing script
 /dev_test.py
-
 /test.py
 tests/**/.hypothesis/
+/.venv/
+/venv*/

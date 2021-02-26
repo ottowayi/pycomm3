@@ -25,11 +25,24 @@
 import logging
 from itertools import cycle
 
-from ..cip import MULTI_PACKET_SERVICES, UDINT, UINT, USINT, AddressItem, DataItem, EncapsulationCommands, Services
-from ..const import INSUFFICIENT_PACKETS, SUCCESS
-from ..custom_types import ListIdentityObject
 from .base import RequestPacket, ResponsePacket
 from .util import get_extended_status, get_service_status
+
+from ..cip import MULTI_PACKET_SERVICES, UDINT, UINT, USINT, EncapsulationCommands, Services
+from ..const import INSUFFICIENT_PACKETS, SUCCESS
+from ..custom_types import ListIdentityObject
+from ..map import EnumMap
+
+
+class DataItem(EnumMap):
+    connected = b'\xb1\x00'
+    unconnected = b'\xb2\x00'
+
+
+class AddressItem(EnumMap):
+    connection = b'\xa1\x00'
+    null = b'\x00\x00'
+    uccm = b'\x00\x00'
 
 
 class SendUnitDataResponsePacket(ResponsePacket):

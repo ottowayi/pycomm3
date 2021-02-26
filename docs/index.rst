@@ -32,58 +32,50 @@
     :alt: Forks
 
 
+Introduction
+------------
 
-``pycomm3`` is a Python 3 fork of `pycomm`_, which is a native python library for communicating
-with PLCs using Ethernet/IP.  The initial Python 3 translation was done in this fork_, this library
-seeks to continue and expand upon the great work done by the original ``pycomm`` developers.
-`pylogix`_ is another library with similar features (including Python 2 support) for ControlLogix and CompactLogix PLCs.
-Referencing ``pylogix`` code was a big help in implementing some features missing from ``pycomm``.  This library is
-supported on Python 3.6.1 and newer.
-
-This library contains 3 drivers:
-
-LogixDriver
-    This is the main driver for this library, it supports ControlLogix, CompactLogix, and Micro800 PLCs.
-
-SLCDriver
-    **New in version 0.10.0**
-
-    This driver can be used for reading/writing data files in SLC 500 or MicroLogix PLCs.  This driver is an update to the
-    original pycomm SLC driver with some minor changes to make it similar to the LogixDriver. Some of the more advanced
-    or automatic features are not supported.  Even though this driver was newly added, it's considered legacy and it's development
-    will be on a limited basis.
-
-CIPDriver
-    This is the base class for the other two drivers, it handles some common shared services.  It can also be used for
-    generic CIP messaging to other non-PLC devices.
+`pycomm3` started as a Python 3 fork of `pycomm`_, which is a Python 2 library for
+communicating with Allen-Bradley PLCs using Ethernet/IP.  The initial Python 3 port was done
+in this `fork`_ and was used as the base for `pycomm3`.  Since then, the library has been
+almost entirely rewritten and the API is no longer compatible with `pycomm`.  Without the
+hard work done by the original `pycomm` developers, `pycomm3` would not exist.  This
+library seeks to expand upon their great work.
 
 
 .. _pycomm: https://github.com/ruscito/pycomm
 
 .. _fork: https://github.com/bpaterni/pycomm/tree/pycomm3
 
-.. _pylogix: https://github.com/dmroeder/pylogix
+
+Drivers
+-------
+
+`pycomm3` includes 3 drivers: :class:`CIPDriver`, :class:`LogixDriver`, :class:`SLCDriver`.
+
+- :class:`CIPDriver`
+    This driver is the base driver for the library, it handles common CIP services used
+    by the other drivers.  Things like opening/closing a connection, register/unregister sessions,
+    forward open/close services, device discovery, and generic messaging.
+
+- :class:`LogixDriver`
+    This driver supports services specific to ControlLogix, CompactLogix, and Micro800 PLCs.
+    Services like reading/writing tags, uploading the tag list, and getting/setting the PLC time.
+
+- :class:`SLCDriver`
+    This driver supports basic reading/writing data files in a SLC500 or MicroLogix PLCs.  It is
+    a port of the `SlcDriver` from `pycomm` with minimal changes to make the API similar to the
+    other drivers. Currently this driver is considered legacy and it's development will be on
+    a limited basis.
 
 
 Disclaimer
 ----------
 
 PLCs can be used to control heavy or dangerous equipment, this library is provided 'As Is' and makes no guarantees on
-it's reliability in a production environment.  This library makes no promises in the completeness or correctness of the
+its reliability in a production environment.  This library makes no promises in the completeness or correctness of the
 protocol implementations and should not be solely relied upon for critical systems.  The development for this library
 is aimed at providing quick and convenient access for reading/writing data inside Allen-Bradley PLCs.
-
-
-Installation
-------------
-
-This library is distributed on `PyPI`_ and can be installed from ``pip``:
-
-::
-
-   pip install pycomm3
-
-.. _PyPI: https://pypi.org/project/pycomm3/
 
 
 Setup
@@ -92,27 +84,10 @@ The package can be installed from `PyPI`_ using ``pip``: ``pip install pycomm3``
 
 .. _PyPI: https://pypi.org/project/pycomm3/
 
-Optionally, you may configure logging using the Python standard `logging`_ library.
+Optionally, you may configure logging using the Python standard `logging`_ library.  A convenience method is provided
+to help configure basic logging, see the :ref:`usage:Logging` section.
 
 .. _logging: https://docs.python.org/3/library/logging.html
-
-
-Implementation
---------------
-
-The Logix5000 Controller Data Access Manual, available from the `Rockwell Developer How-to Guides`_, was used to implement
-the Ethernet/IP features in this library.  Features like reading tags/arrays, writing tags/arrays, getting the tag list are
-all implemented based on the Data Access Manual.  The Rockwell KB Article *CIP Messages References* `748424`_ lists many useful KB Articles
-for using the MSG instruction to perform various Ethernet/IP services. The Rockwell Knowledge Base Article `23341`_ was used to implement feature
-for getting the program name of the controller.  Article `28917`_ was used for collecting other controller information.
-
-.. _Rockwell Developer How-to Guides: https://www.rockwellautomation.com/en-us/company/news/articles/technology-licensing-developer-how-to-guides.html
-
-.. _23341: https://rockwellautomation.custhelp.com/app/answers/answer_view/a_id/23341
-
-.. _748424: https://rockwellautomation.custhelp.com/app/answers/answer_view/a_id/748424
-
-.. _28917: https://rockwellautomation.custhelp.com/app/answers/answer_view/a_id/28917
 
 
 

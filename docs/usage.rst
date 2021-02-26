@@ -1,45 +1,96 @@
-====================
-LogixDriver Overview
-====================
+============================
+Introduction and Basic Usage
+============================
 
 .. py:currentmodule:: pycomm3
 
 
-Creating the Driver
--------------------
+Creating a Driver
+-----------------
 
-The :class:`pycomm3.LogixDriver` class implements a single Ethernet/IP client connection to a PLC.  The only required
-argument when creating a driver is the CIP path to target PLC.  The ``path`` argument is formatted to appear similar
-to how it would in RSLogix / Logix Designer.  For details on the different options, refer to :meth:`~LogixDriver.__init__`.
+Drivers are simple to create and use, the quickest way is to use them within on context manager (``with`` statement).  Most of the
+examples in the documentation will shown them used in that way. But, if you are using them as part of a larger program
+or creating long-lived connections, you may not want to use the context manager in this case.  When used outside a context
+manager, you will need to call the :meth:`~CIPDriver.open` method first and the :meth:`~CIPDriver.close` method on
+shutdown.  Failing to close the connection could cause issues communicating with the device.  Each driver opens a
+single connection to the device, you may use multiple instances to create multiple connections.  It is also the user's
+responsibility to maintain the connection, the drivers do not implement any periodic handshaking.  The default timeout
+is fairly long, but a long lived connection will need to issue a request usually at least once a minute or the PLC
+may close the connection.
 
->>> from pycomm3 import LogixDriver
->>> with LogixDriver('10.20.30.100') as plc:
->>>     print(plc)
-Program Name: PLCA, Device: 1756-L73/B LOGIX5573, Revision: 24.12
+Each driver requires a ``path`` argument, this is a CIP path to the destination device. The paths used in ``pycomm3`` are
+similar to how they appear in Logix.
 
-Using the driver in a context manager automatically handles opening and closing of the connection to the PLC.  It is not
-required be used with one though.  Simply calling :meth:`~LogixDriver.open` and :meth:`~LogixDriver.close` will work as well.
-This works well when placing the driver in a background thread or making a long-lived connection, since it will keep the
-same connection open and will not require re-uploading all of the tag definitions.
+There are three possible forms:
 
-There is some data that is collected about the target controller when a connection is first established.  Assuming the
-``init_info`` kwarg is set to ``True`` (default) when creating the LogixDriver, it will call both the :meth:`~LogixDriver.get_plc_info`
-and :meth:`~LogixDriver.get_plc_name` methods. :meth:`~LogixDriver.get_plc_info` returns a dict of the info collected
-and stores that information, making it accessible from the :attr:`~LogixDriver.info` property. :meth:`~LogixDriver.get_plc_name`
-will return the name of the program running in the PLC and store it in :attr:`~LogixDriver.info['name']`.
+    IP Address Only (``10.20.30.100``)
+        Use for devices without a backplane (drives, switches, Micro800 PLCs, etc) or for PLCs in slot 0 of a backplane.
+
+    IP Address/Slot (``10.20.30.100/1``)
+        Use for PLCs in a backplane that are not in slot 0.
+
+    CIP Routing Path (``1.2.3.4/backplane/2/enet/6.7.8.9/backplane/0``)
+        This is a full CIP route to a device, it should appear similar to how paths are shown in Logix.  For port selection,
+        use ``backplane`` or ``bp`` for the backplane and ``enet`` for the ethernet port.  Both slash (``/``) and backslash (``\``)
+        are supported.
+
+    .. note::
+
+        Both the IP Address and IP Address/Slot options are shortcuts, they will be replaced with the
+        CIP path automatically.
+
+>>> from pycomm3 import CIPDriver
+>>> with CIPDriver('10.20.30.100') as drive:
+>>>     print(drive)
+Device: AC Drive, Revision: 1.2
+
+Default behavior is to use the *Extended Forward Open* service when opening a connection.  This allows the use of ~4KB of
+data for each request, standard is only 500B.  Although this requires the communications module to be an EN2T or newer
+and the PLC firmware to be version 20 or newer.  Upon opening a connection, the ``LogixDriver`` will attempt an
+*Extended Forward Open*, if that fails it will then try using the standard *Forward Open*.
+
+Creating a LogixDriver
+^^^^^^^^^^^^^^^^^^^^^^
+
+The :class:`LogixDriver` has two additional arguments:
+
+    ``init_tags`` (default ``True``)
+        When true, the driver will upload all tags in the PLC and the definitions for any UDTs and AOIs.
+        These definitions are required for the :meth:`~LogixDriver.read` and :meth:`~LogixDriver.write` methods
+        to work.
+
+    ``init_program_tags`` (default ``True``)
+        When uploading the tag list, if ``True`` all program scoped tags are uploaded.
+        Set ``False`` to upload controller-scoped tags only.  This arg is only checked if ``init_tags`` is ``True``.
+
+
+There is some data that is collected about the target controller when a connection is first established.  It will
+call both the :meth:`~LogixDriver.get_plc_info` and :meth:`~LogixDriver.get_plc_name` methods.
+:meth:`~LogixDriver.get_plc_info` returns a dict of the info collected and stores that information,
+making it accessible from the :attr:`~LogixDriver.info` property. :meth:`~LogixDriver.get_plc_name` will return the name
+of the program running in the PLC and store it in :attr:`~LogixDriver.info['name']`.
 See :attr:`~LogixDriver.info` for details on the specific fields.
 
 Symbol Instance Addressing is a feature that allows more requests to be sent in a single packet by using a short identifier
 for a tag instead of needing to encode the full tag name in the request.  These instance ids are uploaded with the tag definitions.
 But, this feature is only available on v21+ firmwares. If the PLC is on a firmware lower than that, getting the controller info
-will automatically disable that feature. If you disable ``init_info`` and are using a controller on a version lower than 21,
-set the ``plc.use_instance_ids`` attribute to false or your reads/writes will fail.
+will automatically disable that feature.
 
-Default behavior is to use the *Extended Forward Open* service when opening a connection.  This allows the use of ~4KB of data for
-each request, standard is only 500B.  Although this requires the communications module to be an EN2T or newer and the PLC
-firmware to be version 20 or newer.  Upon opening a connection, the ``LogixDriver`` will attempt an *Extended Forward Open*,
-if that fails it will then try using the standard *Forward Open*. To use standard the Forward Open service directly,
-set the ``large_packets`` kwarg to False.
+After the controller info has been retrieved, the driver will begin uploading the tag list. (Assuming the ``init_tags``
+option has not been set ``False``).  Depending on the number of tags, the PLC model, and other factors, this upload
+could take some time to upload.  A very large tag list on an old processor with high CPU utilization could take 10-15 seconds,
+while a small tag list or a new processor might take <1 second.  If you are setting up multiple drivers to the same PLC,
+it can save startup time by uploading the tag list is in the first driver and disabling it in the others.  Then pass the
+tag list to the other drivers from the first one.
+
+::
+
+    from pycomm3 import LogixDriver
+    first_plc = LogixDriver('10.20.30.100')
+    first_plc.open()  # uploads the tag list
+    second_plc = LogixDriver('10.20.30.100', init_tags=False)
+    second_plc._tags = first_plc.tags
+    second_plc.open()  # doesn't upload any tags
 
 
 Tags and Data Types

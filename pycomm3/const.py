@@ -22,7 +22,16 @@
 # SOFTWARE.
 #
 
+from .cip import LogicalSegment, ClassCode
+
+
 HEADER_SIZE = 24
+
+
+MSG_ROUTER_PATH = [
+    LogicalSegment(ClassCode.message_router, 'class_id'),
+    LogicalSegment(0x01, 'instance_id')
+]
 
 # used to estimate packet size  and determine
 # when to start a new packet
