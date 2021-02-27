@@ -60,7 +60,7 @@ def get_array_index(tag: str) -> Tuple[str, int]:
 def cycle(stop, start=0):
     val = start
     while True:
-        if val == stop:
+        if val > stop:
             val = start
 
         yield val

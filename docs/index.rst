@@ -85,7 +85,7 @@ The package can be installed from `PyPI`_ using ``pip``: ``pip install pycomm3``
 .. _PyPI: https://pypi.org/project/pycomm3/
 
 Optionally, you may configure logging using the Python standard `logging`_ library.  A convenience method is provided
-to help configure basic logging, see the :ref:`usage:Logging` section.
+to help configure basic logging, see the :ref:`getting_started:Logging` section.
 
 .. _logging: https://docs.python.org/3/library/logging.html
 
@@ -95,11 +95,9 @@ Contents
 --------
 
 .. toctree::
-   :maxdepth: 3
+    :maxdepth: 3
 
-   usage
-   logixdriver
-   slcdriver
-   cipdriver
-   examples
-   cip_constants
+    getting_started
+    usage/index
+    examples/index
+    api_reference/index

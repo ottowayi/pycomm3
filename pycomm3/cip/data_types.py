@@ -99,6 +99,12 @@ class DataType(metaclass=_DataTypeMeta):
 
     @classmethod
     def encode(cls, value: Any) -> bytes:
+        """
+        Serializes a Python object ``value`` to ``bytes``.
+
+        .. note::
+            Any subclass overriding this method must catch any exception and re-raise a ``DataError``
+        """
         try:
             return cls._encode(value)
         except Exception as err:
@@ -110,6 +116,13 @@ class DataType(metaclass=_DataTypeMeta):
 
     @classmethod
     def decode(cls, buffer: _BufferType) -> Any:
+        """
+        Deserializes a Python object from the ``buffer`` of ``bytes``
+
+        .. note::
+            Any subclass overriding this method must catch any exception and re-raise as a ``DataError``.
+            Except ``BufferEmptyErrors`` they must be re-raised as such, array decoding relies on this.
+        """
         try:
             stream = _as_stream(buffer)
             return cls._decode(stream)
@@ -144,8 +157,8 @@ class ElementaryDataType(DataType):
     """
     Type that represents a single primitive value in CIP.
     """
-    code: int = 0x00
-    size: int = 0
+    code: int = 0x00  #: CIP data type identifier
+    size: int = 0     #: size of type in bytes
     _format: str = ''
 
     @classmethod
@@ -159,6 +172,10 @@ class ElementaryDataType(DataType):
 
 
 class BOOL(ElementaryDataType):
+    """
+    A boolean value, decodes ``0x00`` and ``False`` and ``True`` otherwise.
+    ``True`` encoded as ``0xFF`` and ``False`` as ``0x00``
+    """
     code = 0xc1
     size = 1
 
@@ -173,78 +190,120 @@ class BOOL(ElementaryDataType):
 
 
 class SINT(ElementaryDataType):
+    """
+    Signed 8-bit integer
+    """
     code = 0xc2
     size = 1
     _format = '<b'
 
 
 class INT(ElementaryDataType):
+    """
+    Signed 16-bit integer
+    """
     code = 0xc3
     size = 2
     _format = '<h'
 
 
 class DINT(ElementaryDataType):
+    """
+    Signed 32-bit integer
+    """
     code = 0xc4
     size = 4
     _format = '<i'
 
 
 class LINT(ElementaryDataType):
+    """
+    Signed 64-bit integer
+    """
     code = 0xc5
     size = 8
     _format = '<q'
 
 
 class USINT(ElementaryDataType):
+    """
+    Unsigned 8-bit integer
+    """
     code = 0xc6
     size = 1
     _format = '<B'
 
 
 class UINT(ElementaryDataType):
+    """
+    Unsigned 16-bit integer
+    """
     code = 0xc7
     size = 2
     _format = '<H'
 
 
 class UDINT(ElementaryDataType):
+    """
+    Unsigned 32-bit integer
+    """
     code = 0xc8
     size = 4
     _format = '<I'
 
 
 class ULINT(ElementaryDataType):
+    """
+    Unsigned 64-bit integer
+    """
     code = 0xc9
     size = 8
     _format = '<Q'
 
 
 class REAL(ElementaryDataType):
+    """
+    32-bit floating point
+    """
     code = 0xca
     size = 4
     _format = '<f'
 
 
 class LREAL(ElementaryDataType):
+    """
+    64-bit floating point
+    """
     code = 0xcb
     size = 8
     _format = '<d'
 
 
 class STIME(DINT):
+    """
+    Synchronous time information
+    """
     code = 0xcc
 
 
 class DATE(UINT):
+    """
+    Date information
+    """
     code = 0xcd
 
 
 class TIME_OF_DAY(UDINT):
+    """
+    Time of day
+    """
     code = 0xce
 
 
 class DATE_AND_TIME(ElementaryDataType):
+    """
+    Date and time of day
+    """
     code = 0xcf
     size = 8
 
@@ -261,8 +320,11 @@ class DATE_AND_TIME(ElementaryDataType):
 
 
 class StringDataType(ElementaryDataType):
-    len_type = None
-    encoding = 'iso-8859-1'
+    """
+    Base class for any string type
+    """
+    len_type = None  #: data type of the string length
+    encoding = 'iso-8859-1'  #: encoding of string data
 
     @classmethod
     def _encode(cls, value: str, *args, **kwargs) -> bytes:
@@ -277,6 +339,9 @@ class StringDataType(ElementaryDataType):
 
 
 class LOGIX_STRING(StringDataType):
+    """
+    Character string, 1-byte per character, 4-byte length
+    """
     len_type = UDINT
 
 

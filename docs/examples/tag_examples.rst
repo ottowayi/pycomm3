@@ -11,7 +11,7 @@ a data type definition view :ref:`struct-def`.
 
 Print out the public attributes for all structure types in the PLC:
 
-    .. literalinclude:: ../examples/tags.py
+    .. literalinclude:: ../../examples/tags.py
         :pyobject: find_attributes
 
     >>> find_attributes()
@@ -31,7 +31,7 @@ LogixDriver, for details reference the :ref:`logix-driver-api`.
 
 Example showing how the tag list is stored:
 
-    .. literalinclude:: ../examples/tags.py
+    .. literalinclude:: ../../examples/tags.py
         :pyobject: tag_list_equal
 
     >>> tag_list_equal()
@@ -46,7 +46,7 @@ reference :ref:`tag-def`. Examples below show some methods for filtering the tag
 
 Finding all PID tags:
 
-    .. literalinclude:: ../examples/tags.py
+    .. literalinclude:: ../../examples/tags.py
         :pyobject: find_pids
 
     >>> find_pids()
