@@ -118,8 +118,101 @@ Data Types
 ----------
 
 Data types are a major component of ``pycomm3``, they are classes used to represent any tag or CIP object. They are able to
-encode and decode to and from Python values and bytes. Atomic and structure values along with array of either are supported.
+encode and decode to and from Python values and bytes. Atomic and structure values along with arrays of either are supported.
+Each elementary (primitive) data type is provided as well as some common derived (structure of elementary types) types.
+See the :ref:`api_reference/data_types:Data Types` for all available CIP types and :ref:`api_reference/data_types:Custom Types`
+for any ``pycomm3`` provided custom types.  The type classes provide two class methods: ``encode`` and ``decode``.  These
+are *class* methods, meaning they do not require an instance of they type to be created.  In fact, the only time an
+instance of a type is used is when added members (with a name) to a structure.  The ``encode`` method takes a Python object
+and encodes it to ``bytes``.  The ``decode`` method takes ``bytes`` and returns the corresponding Python object.
 
+
+Elementary Types
+^^^^^^^^^^^^^^^^
+
+Also known as primitives, these types are the building blocks for all CIP data types. These are basic types that store a
+single value, like integers, floats, strings, etc.  All of these types can be imported directly from ``pycomm3``, for a
+full list of the types refer to :ref:`api_reference/data_types:Data Types`.
+
+
+>>> from pycomm3 import DINT, SHORT_STRING
+>>> DINT.encode(112233)
+b'i\xb6\x01\x00'
+>>> DINT.decode(b'\x12\x34\x56\x78')
+2018915346
+>>> SHORT_STRING.encode('Hello there!')
+b'\x0cHello there!'
+>>> SHORT_STRING.decode(b'\x0eGeneral Kenobi')
+'General Kenobi'
+
+
+Structure Types
+^^^^^^^^^^^^^^^
+
+Structures are complex types composed of any number of different elementary or struct member types.
+The :func:`~pycomm3.cip.data_types.Struct` factory is used to create new struct types.  To create a new struct,
+a list of members is required.  Members must be :class:`~pycomm3.cip.data_types.DataType`, either classes (unnamed) or
+instance (named).  Creating named members is really the only time a user would create an instance of a type.
+When decoding a struct, the value is returned as dictionary of ``{member_name: value}``.
+Any unnamed members will be excluded from the return value, also since the return value is a ``dict``, member names
+should be unique.
+
+>>> from pycomm3 import Struct, DINT, STRING, REAL
+>>> MyStruct = Struct(DINT('code'), STRING('name'), REAL('value'))
+>>> struct_values = {
+...     'code': 80,
+...     'name': 'my name',
+...     'value': 123.45
+... }
+>>> MyStruct.encode(struct_values)
+b'P\x00\x00\x00\x07\x00my namef\xe6\xf6B'
+
+>>> YourStruct = Struct(DINT, DINT('code'), DINT('type'))
+>>> YourStruct.decode(your_bytes)  # assume your_bytes is an encoded YourStruct
+{'code': 34, 'type': 73}  # notice the first member is unnamed and not included
+
+Both dictionaries and sequences are supported for encoding structs.  In the first example, we could have done:
+``struct_values = [80, 'my name', 123.45]`` and gotten the same result.  When encoding a struct with multiple unnamed
+members, using a list of values is the easiest solution.  To use a ``dict`` you must include a ``None`` key and value to
+be used for the unnamed members.  But, if there are multiple unnamed members of incompatible types, you will have to use
+a list/sequence instead.
+
+
+Arrays
+^^^^^^
+
+Arrays are a homogenous sequence of a :class:`~pycomm3.cip.data_types.DataType` (either elementary or structs).
+Any type can be used to create an array of that type using the ``[]`` operator or the
+:func:`~pycomm3.cip.data_types.Array` factory.  There are two important components for an array, the *element type* and
+the *length*.  The *element type* is the :class:`~pycomm3.cip.data_types.DataType` and the *length* specifies the
+number of elements. The *length* has 3 options:
+
+Fixed
+    Where the length is specified as an ``int``, the array length is fixed to that number of elements.
+
+    >>> SINT[5].encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])  # notice it only encodes/decodes 5 elements
+    b'\x01\x02\x03\x04\x05'
+    >>> SINT[5].decode(b'\x01\x02\x03\x04\x05\x06\x07\x08\t\n')
+    [1, 2, 3, 4, 5]
+
+Derived
+    Where the length is specified as a :class:`~pycomm3.cip.data_types.DataType`.  When decoding an array, the length
+    will be decoded first using the type specified and then decoded that many elements.  Encoding will encode however many
+    values are supplied, but does not add the encoded length.
+
+    >>> SINT[SINT].encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])  # length type is not used when encoding
+    b'\x01\x02\x03\x04\x05\x06\x07\x08\t\n'
+    >>> SINT[5].decode(b'\x05\x01\x02\x03\x04\x05\x00\x00\x00')
+    [1, 2, 3, 4, 5]
+
+Unbound
+    Where the length is ``None``.  When decoding, the array will consume the entire byte buffer and decode as many
+    elements as possible.  Encoding will encode however many values are supplied.
+
+    >>> SINT[None].encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])  # length type is not used when encoding
+    b'\x01\x02\x03\x04\x05\x06\x07\x08\t\n'
+    >>> SINT[None].decode(b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A')
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 
 Logging
@@ -149,7 +242,7 @@ Produces output similar to::
 
 
 
-``pycomm3`` also uses a custom logging level for verbose logging, this level prints also prints the contents of each
+``pycomm3`` also uses a custom logging level for verbose logging, this level also prints the contents of each
 packet send and received.  If submitting a bug report, this level of logging is the most helpful.
 
 .. code-block::

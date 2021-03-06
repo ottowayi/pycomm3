@@ -4,4 +4,12 @@ Data Types
 
 .. automodule:: pycomm3.cip.data_types
     :members:
-    :undoc-members:
+
+============
+Custom Types
+============
+
+.. automodule:: pycomm3.custom_types
+    :members:
+
+

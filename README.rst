@@ -2,6 +2,8 @@
 pycomm3
 =======
 
+.. <<start>>
+
 .. image:: https://img.shields.io/pypi/v/pycomm3.svg?style=for-the-badge
    :target: https://pypi.python.org/pypi/pycomm3
    :alt: PyPI Version
@@ -14,74 +16,101 @@ pycomm3
    :target: https://pypi.python.org/pypi/pycomm3
    :alt: Python Versions
 
+.. image:: https://img.shields.io/pypi/dm/pycomm3?style=for-the-badge
+   :target: https://pypi.python.org/pypi/pycomm3
+   :alt: Downloads
+
 .. image:: https://readthedocs.org/projects/pycomm3/badge/?version=latest&style=for-the-badge
    :target: https://pycomm3.readthedocs.io/en/latest/
    :alt: Read the Docs
 
+.. image:: https://img.shields.io/github/watchers/ottowayi/pycomm3?style=social
+    :target: https://github.com/ottowayi/pycomm3
+    :alt: Watchers
 
-``pycomm3`` is a Python 3 fork of `pycomm`_, which is a native python library for communicating
-with PLCs using Ethernet/IP.  The initial Python 3 translation was done in this fork_, this library
-seeks to continue and expand upon the great work done by the original ``pycomm`` developers.
-`pylogix`_ is another library with similar features (including Python 2 support) for ControlLogix and CompactLogix PLCs.
-Referencing ``pylogix`` code was a big help in implementing some features missing from ``pycomm``.
+.. image:: https://img.shields.io/github/stars/ottowayi/pycomm3?style=social
+    :target: https://github.com/ottowayi/pycomm3
+    :alt: Stars
 
-This library contains 3 drivers:
+.. image:: https://img.shields.io/github/forks/ottowayi/pycomm3?style=social
+    :target: https://github.com/ottowayi/pycomm3
+    :alt: Forks
 
-LogixDriver
-    This is the main driver for this library, it supports ControlLogix, CompactLogix, and Micro800 PLCs.
 
-SLCDriver
-    **New in version 0.10.0**
+Introduction
+------------
 
-    This driver can be used for reading/writing data files in SLC 500 or MicroLogix PLCs.  This driver is an update to the
-    original pycomm SLC driver with some minor changes to make it similar to the LogixDriver. Some of the more advanced
-    or automatic features are not supported.  Even though this driver was newly added, it's considered legacy and it's development
-    will be on a limited basis.
-
-CIPDriver
-    This is the base class for the other two drivers, it handles some common shared services.  It can also be used for
-    generic CIP messaging to other non-PLC devices.
+``pycomm3`` started as a Python 3 fork of `pycomm`_, which is a Python 2 library for
+communicating with Allen-Bradley PLCs using Ethernet/IP.  The initial Python 3 port was done
+in this `fork`_ and was used as the base for ``pycomm3``.  Since then, the library has been
+almost entirely rewritten and the API is no longer compatible with ``pycomm``.  Without the
+hard work done by the original ``pycomm`` developers, ``pycomm3`` would not exist.  This
+library seeks to expand upon their great work.
 
 
 .. _pycomm: https://github.com/ruscito/pycomm
 
 .. _fork: https://github.com/bpaterni/pycomm/tree/pycomm3
 
-.. _pylogix: https://github.com/dmroeder/pylogix
+
+Drivers
+-------
+
+``pycomm3`` includes 3 drivers: :class:`CIPDriver`, :class:`LogixDriver`, :class:`SLCDriver`.
+
+- :class:`CIPDriver`
+    This driver is the base driver for the library, it handles common CIP services used
+    by the other drivers.  Things like opening/closing a connection, register/unregister sessions,
+    forward open/close services, device discovery, and generic messaging.
+
+- :class:`LogixDriver`
+    This driver supports services specific to ControlLogix, CompactLogix, and Micro800 PLCs.
+    Services like reading/writing tags, uploading the tag list, and getting/setting the PLC time.
+
+- :class:`SLCDriver`
+    This driver supports basic reading/writing data files in a SLC500 or MicroLogix PLCs.  It is
+    a port of the ``SlcDriver`` from ``pycomm`` with minimal changes to make the API similar to the
+    other drivers. Currently this driver is considered legacy and it's development will be on
+    a limited basis.
 
 
 Disclaimer
-==========
+----------
 
 PLCs can be used to control heavy or dangerous equipment, this library is provided 'As Is' and makes no guarantees on
-it's reliability in a production environment.  This library makes no promises in the completeness or correctness of the
+its reliability in a production environment.  This library makes no promises in the completeness or correctness of the
 protocol implementations and should not be solely relied upon for critical systems.  The development for this library
 is aimed at providing quick and convenient access for reading/writing data inside Allen-Bradley PLCs.
 
-Python and OS Support
-=====================
-
-`pycomm3` is a Python 3 only library.  The minimum supported version of Python is 3.6.1 and has been tested up to 3.9.
-There should be no OS specific requirements and should be able to run on any OS that Python is supported on.
-Development and testing is done primarily on Windows 10.  If you encounter an OS-related problem, please open an issue
-in this repository and it will be investigated.
 
 Setup
-=====
-
+-----
 The package can be installed from `PyPI`_ using ``pip``: ``pip install pycomm3`` or ``python -m pip install pycomm3``.
 
 .. _PyPI: https://pypi.org/project/pycomm3/
 
-Optionally, you may configure logging using the Python standard `logging`_ library.
+Optionally, you may configure logging using the Python standard `logging`_ library.  A convenience method is provided
+to help configure basic logging, see the :ref:`getting_started:Logging` section.
 
 .. _logging: https://docs.python.org/3/library/logging.html
+
+
+Python and OS Support
+=====================
+
+``pycomm3`` is a Python 3 only library.  The minimum supported version of Python is 3.6.1 and has been tested up to 3.9.
+There should be no OS specific requirements and should be able to run on any OS that Python is supported on.
+Development and testing is done primarily on Windows 10.  If you encounter an OS-related problem, please open an issue
+in this repository and it will be investigated.
+
+
+.. <<end>>
 
 Documentation
 =============
 
 This README covers a basic overview of the library, full documentation can be found on
-`Read the Docs`_.
+`Read the Docs`_ or by visiting `https://pycomm3.dev <https://pycomm3.dev>`_.
 
 .. _Read the Docs: https://pycomm3.readthedocs.io/en/latest/
 
@@ -91,7 +120,6 @@ Contributions
 If you'd like to contribute or are having an issue, please read the `Contributing`_ guidelines.
 
 .. _Contributing: CONTRIBUTING.md
-
 
 
 LogixDriver
