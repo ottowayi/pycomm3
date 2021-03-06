@@ -38,12 +38,12 @@ _BufferType = Union[BytesIO, bytes]
 __all__ = ['DataType', 'ElementaryDataType', 'BOOL', 'SINT', 'INT', 'DINT', 'LINT',
            'USINT', 'UINT', 'UDINT', 'ULINT', 'REAL', 'LREAL', 'STIME', 'DATE',
            'TIME_OF_DAY', 'DATE_AND_TIME', 'StringDataType', 'LOGIX_STRING', 'STRING',
-           'BytesDataType', 'n_bytes', 'BYTE', 'WORD', 'DWORD', 'LWORD', 'STRING2', 'FTIME',
-           'LTIME', 'ITIME', 'STRINGN', 'SHORT_STRING', 'TIME', 'EPATH', 'PACKED_EPATH', 'BitArrayType',
-           'PADDED_EPATH', 'ENGUNIT', 'STRINGI', 'DerivedDataType', 'Array', 'Struct', 'ArrayType', 'StructType',
+           'BytesDataType', 'n_bytes', 'BitArrayType', 'BYTE', 'WORD', 'DWORD', 'LWORD', 'STRING2', 'FTIME',
+           'LTIME', 'ITIME', 'STRINGN', 'SHORT_STRING', 'TIME', 'EPATH', 'PACKED_EPATH',
+           'PADDED_EPATH', 'ENGUNIT', 'STRINGI', 'DerivedDataType', 'ArrayType', 'Array', 'StructType', 'Struct',
            'CIPSegment', 'PortSegment', 'LogicalSegment', 'NetworkSegment',
            'SymbolicSegment', 'DataSegment', 'ConstructedDataTypeSegment',
-           'ElementaryDataTypeSegment', 'DataTypes', 'BufferEmptyError']
+           'ElementaryDataTypeSegment', 'DataTypes']
 
 
 def _repr(buffer: _BufferType) -> str:
@@ -80,19 +80,20 @@ class DataType(metaclass=_DataTypeMeta):
     Instances of a type are only used when defining the
     members of a structure.
 
-
-    Each type class provides `encode`/`decode` class methods.
+    Each type class provides ``encode`` / ``decode`` class methods.
     If overriding them, they must catch any unhandled exception
-    and raise a DataError from it. For `decode`, `BufferEmptyError`
+    and raise a ``DataError`` from it. For ``decode``, ``BufferEmptyError``
     should be reraised immediately without modification.
     The buffer empty error is needed for decoding arrays of
     unknown length.  Typically for custom types, overriding the
-    private `_encode`/`_decode` methods are sufficient. The private
+    private ``_encode``/``_decode`` methods are sufficient. The private
     methods do not need to do any exception handling if using the
-    base public methods.  For `_decode` use the private `_stream_read`
-    method instead of `stream.read`, so that `BufferEmptyError`s are
+    base public methods.  For ``_decode`` use the private ``_stream_read``
+    method instead of ``stream.read``, so that ``BufferEmptyError`` exceptions are
     raised appropriately.
     """
+
+    name = None  # class attr so class can be used in a struct w/o making an instance
 
     def __init__(self, name: Optional[str] = None):
         self.name = name
@@ -176,7 +177,7 @@ class BOOL(ElementaryDataType):
     A boolean value, decodes ``0x00`` and ``False`` and ``True`` otherwise.
     ``True`` encoded as ``0xFF`` and ``False`` as ``0x00``
     """
-    code = 0xc1
+    code = 0xc1  #: 0xC1
     size = 1
 
     @classmethod
@@ -193,7 +194,7 @@ class SINT(ElementaryDataType):
     """
     Signed 8-bit integer
     """
-    code = 0xc2
+    code = 0xc2  #: 0xC2
     size = 1
     _format = '<b'
 
@@ -202,7 +203,7 @@ class INT(ElementaryDataType):
     """
     Signed 16-bit integer
     """
-    code = 0xc3
+    code = 0xc3  #: 0xC3
     size = 2
     _format = '<h'
 
@@ -211,7 +212,7 @@ class DINT(ElementaryDataType):
     """
     Signed 32-bit integer
     """
-    code = 0xc4
+    code = 0xc4  #: 0xC4
     size = 4
     _format = '<i'
 
@@ -220,7 +221,7 @@ class LINT(ElementaryDataType):
     """
     Signed 64-bit integer
     """
-    code = 0xc5
+    code = 0xc5  #: 0xC5
     size = 8
     _format = '<q'
 
@@ -229,7 +230,7 @@ class USINT(ElementaryDataType):
     """
     Unsigned 8-bit integer
     """
-    code = 0xc6
+    code = 0xc6  #: 0xC6
     size = 1
     _format = '<B'
 
@@ -238,7 +239,7 @@ class UINT(ElementaryDataType):
     """
     Unsigned 16-bit integer
     """
-    code = 0xc7
+    code = 0xc7  #: 0xC7
     size = 2
     _format = '<H'
 
@@ -247,7 +248,7 @@ class UDINT(ElementaryDataType):
     """
     Unsigned 32-bit integer
     """
-    code = 0xc8
+    code = 0xc8  #: 0xC8
     size = 4
     _format = '<I'
 
@@ -256,7 +257,7 @@ class ULINT(ElementaryDataType):
     """
     Unsigned 64-bit integer
     """
-    code = 0xc9
+    code = 0xc9  #: 0xC9
     size = 8
     _format = '<Q'
 
@@ -265,7 +266,7 @@ class REAL(ElementaryDataType):
     """
     32-bit floating point
     """
-    code = 0xca
+    code = 0xca  #: 0xCA
     size = 4
     _format = '<f'
 
@@ -274,7 +275,7 @@ class LREAL(ElementaryDataType):
     """
     64-bit floating point
     """
-    code = 0xcb
+    code = 0xcb  #: 0xCB
     size = 8
     _format = '<d'
 
@@ -283,28 +284,28 @@ class STIME(DINT):
     """
     Synchronous time information
     """
-    code = 0xcc
+    code = 0xcc  #: 0xCC
 
 
 class DATE(UINT):
     """
     Date information
     """
-    code = 0xcd
+    code = 0xcd  #: 0xCD
 
 
 class TIME_OF_DAY(UDINT):
     """
     Time of day
     """
-    code = 0xce
+    code = 0xce  #: 0xCE
 
 
 class DATE_AND_TIME(ElementaryDataType):
     """
     Date and time of day
     """
-    code = 0xcf
+    code = 0xcf  #: 0xCF
     size = 8
 
     @classmethod
@@ -346,11 +347,17 @@ class LOGIX_STRING(StringDataType):
 
 
 class STRING(StringDataType):
-    code = 0xd0
+    """
+    Character string, 1-byte per character, 2-byte length
+    """
+    code = 0xd0  #: 0xD0
     len_type = UINT
 
 
 class BytesDataType(ElementaryDataType):
+    """
+    Base type for placeholder bytes.
+    """
 
     @classmethod
     def _encode(cls, value: bytes, *args, **kwargs) -> bytes:
@@ -363,6 +370,9 @@ class BytesDataType(ElementaryDataType):
 
 
 def n_bytes(count: int, name: str = ''):
+    """
+    Create an instance of a byte string of ``count`` length
+    """
     class BYTES(BytesDataType):
         size = count
 
@@ -370,6 +380,9 @@ def n_bytes(count: int, name: str = ''):
 
 
 class BitArrayType(ElementaryDataType):
+    """
+    Array of bits (Python bools) for ``host_type`` integer value
+    """
     host_type = None
 
     @classmethod
@@ -392,49 +405,76 @@ class BitArrayType(ElementaryDataType):
 
 
 class BYTE(BitArrayType):
-    code = 0xd1
+    """
+    bit string - 8-bits
+    """
+    code = 0xd1  #: 0xD1
     size = 1
     host_type = USINT
 
 
 class WORD(BitArrayType):
-    code = 0xd2
+    """
+    bit string - 16-bits
+    """
+    code = 0xd2  #: 0xD2
     size = 2
     host_type = UINT
 
 
 class DWORD(BitArrayType):
-    code = 0xd3
+    """
+    bit string - 32-bits
+    """
+    code = 0xd3  #: 0xD3
     size = 4
     host_type = UDINT
 
 
 class LWORD(BitArrayType):
-    code = 0xd4
+    """
+    bit string - 64-bits
+    """
+    code = 0xd4  #: 0xD4
     size = 8
     host_type = ULINT
 
 
 class STRING2(StringDataType):
-    code = 0xd5
+    """
+    character string, 2-bytes per character
+    """
+    code = 0xd5  #: 0xD5
     len_type = UINT
     encoding = 'utf-16-le'
 
 
 class FTIME(DINT):
-    code = 0xd6
+    """
+    duration - high resolution
+    """
+    code = 0xd6  #: 0xD6
 
 
 class LTIME(LINT):
-    code = 0xd7
+    """
+    duration - long
+    """
+    code = 0xd7  #: 0xD7
 
 
 class ITIME(INT):
-    code = 0xd8
+    """
+    duration - short
+    """
+    code = 0xd8  #: 0xD8
 
 
 class STRINGN(StringDataType):
-    code = 0xd9
+    """
+    character string, n-bytes per character
+    """
+    code = 0xd9  #: 0xD9
     ENCODINGS = {
         1: 'utf-8',
         2: 'utf-16-le',
@@ -465,16 +505,25 @@ class STRINGN(StringDataType):
 
 
 class SHORT_STRING(StringDataType):
-    code = 0xda
+    """
+    character string, 1-byte per character, 1-byte length
+    """
+    code = 0xda  #: 0xDA
     len_type = USINT
 
 
 class TIME(DINT):
-    code = 0xdb
+    """
+    duration - milliseconds
+    """
+    code = 0xdb  #: 0xDB
 
 
 class EPATH(ElementaryDataType):
-    code = 0xdc
+    """
+    CIP path segments
+    """
+    code = 0xdc  #: 0xDC
     padded = False
 
     @classmethod
@@ -506,12 +555,18 @@ class PACKED_EPATH(EPATH):
 
 
 class ENGUNIT(WORD):
-    code = 0xdd
+    """
+    engineering units
+    """
+    code = 0xdd  #: 0xDD
     # TODO: create lookup table of defined eng. units
 
 
 class STRINGI(StringDataType):
-    code = 0xde
+    """
+    international character string
+    """
+    code = 0xde  #: 0xDE
 
     STRING_TYPES = {
         STRING.code: STRING,
@@ -548,6 +603,9 @@ class STRINGI(StringDataType):
 
     @classmethod
     def encode(cls, *strings: Sequence[Tuple[str, StringDataType, str, int]]) -> bytes:
+        """
+        Encodes ``strings`` to bytes
+        """
         try:
             count = len(strings)
             data = USINT.encode(count)
@@ -590,6 +648,9 @@ class STRINGI(StringDataType):
 
 
 class DerivedDataType(DataType):
+    """
+    Base type for types composed of :class:`ElementaryDataType`
+    """
     ...
 
 
@@ -601,16 +662,21 @@ class _ArrayReprMeta(_DataTypeMeta):
 
 
 class ArrayType(DerivedDataType, metaclass=_ArrayReprMeta):
+    """
+    Base type for an array
+    """
     ...
 
 
 def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
           element_type_: Union[DataType, Type[DataType]]) -> Type[ArrayType]:
     """
-    length_:
-        int - fixed length of the array
-        DataType - length read from beginning of buffer as type
-        None - array consumes rest buffer
+    Creates a new array type from ``element_type_`` of ``length_``.
+
+    ``length_`` can be 3 possible types:
+        - ``int`` - fixed length of the array
+        - ``DataType`` - length read from beginning of buffer as type
+        - ``None`` - unbound array, consumes entire buffer on decode
     """
 
     class Array(ArrayType):
@@ -685,10 +751,21 @@ class _StructReprMeta(_DataTypeMeta):
 
 
 class StructType(DerivedDataType, metaclass=_StructReprMeta):
+    """
+    Base type for a structure
+    """
     ...
 
 
 def Struct(*members_: Union[DataType, Type[DataType]]) -> Type[StructType]:
+    """
+    Creates a new structure type comprised of ``members_``.  Members can be
+    instances of a ``DataType`` with a ``name``.  The decoded value of a struct
+    will a dictionary of ``{member.name: value}``, members without names will be
+    excluded from the return value. To encode a struct, the value should be a
+    dict of ``{member.name: value}`` or a sequence of just values (nesting as needed).
+    Avoid multiple no-name members if planning on encoding the struct using a dict.
+    """
 
     class Struct(StructType):
         members: Tuple[Union[DataType, Type[DataType]]] = members_
@@ -717,13 +794,24 @@ def Struct(*members_: Union[DataType, Type[DataType]]) -> Type[StructType]:
 
 
 class CIPSegment(DataType):
-    #   Segment      Segment
-    #    Type        Format
-    # [7, 6, 5] [4, 3, 2, 1, 0]
+    """
+    Base type for a CIP path segment
+
+    +----+----+----+---+---+---+---+---+
+    | Segment Type | Segment Format    |
+    +====+====+====+===+===+===+===+===+
+    |  7 |  6 | 5  | 4 | 3 | 2 | 1 | 0 |
+    +----+----+----+---+---+---+---+---+
+
+    """
+
     segment_type = 0b_000_00000
 
     @classmethod
     def encode(cls, segment: 'CIPSegment', padded: bool = False) -> bytes:
+        """
+        Encodes an instance of a ``CIPSegment`` to bytes
+        """
         try:
             return cls._encode(segment, padded)
         except Exception as err:
@@ -731,16 +819,27 @@ class CIPSegment(DataType):
 
     @classmethod
     def decode(cls, buffer: _BufferType) -> Any:
+        """
+        .. attention:: Not Implemented
+        """
         raise NotImplementedError('Decoding of CIP Segments not supported')
 
 
 class PortSegment(CIPSegment):
-    #   Segment   Extended      Port
-    #    Type    Link Addr   Identifier
-    # [7, 6, 5]     [4]     [3, 2, 1, 0]
+    """
+    Port segment of a CIP path.
+
+    +----+----+----+--------------------+----+----+----+----+
+    | Segment Type | Extended Link Addr | Port Identifier   |
+    +====+====+====+====================+====+====+====+====+
+    |  7 |  6 | 5  |         4          |  3 |  2 |  1 |  0 |
+    +----+----+----+--------------------+----+----+----+----+
+
+    """
     segment_type = 0b_000_0_0000
     extended_link = 0b_000_1_0000
 
+    #: available port names for use in a CIP path
     port_segments = {
         'backplane': 0b_000_0_0001,
         'bp': 0b_000_0_0001,
@@ -795,11 +894,18 @@ class PortSegment(CIPSegment):
 
 
 class LogicalSegment(CIPSegment):
+    """
+    Logical segment of a CIP path
+
+    +----+----+----+----+----+----+-------+--------+
+    | Segment Type | Logical Type | Logical Format |
+    +====+====+====+====+====+====+=======+========+
+    |  7 |  6 |  5 | 4  |  3 |  2 |   1   |    0   |
+    +----+----+----+----+----+----+-------+--------+
+    """
     segment_type = 0b_001_00000
 
-    #  Segment      Logical    Logical
-    #   Type          Type     Format
-    # [7, 6, 5]    [4, 3, 2]   [1, 0]
+    #: available logical types
     logical_types = {
         'class_id': 0b_000_000_00,
         'instance_id': 0b_000_001_00,
@@ -861,9 +967,13 @@ class SymbolicSegment(CIPSegment):
 
 
 class DataSegment(CIPSegment):
-    #   Segment      Segment
-    #    Type       Sub-Type
-    # [7, 6, 5] [4, 3, 2, 1, 0]
+    """
+    +----+----+----+---+---+---+---+---+
+    | Segment Type | Segment Sub-Type  |
+    +====+====+====+===+===+===+===+===+
+    |  7 |  6 | 5  | 4 | 3 | 2 | 1 | 0 |
+    +----+----+----+---+---+---+---+---+
+    """
     segment_type = 0b_100_00000
     extended_symbol = 0b_000_10001
 
@@ -898,6 +1008,9 @@ def _by_type_code(typ: ElementaryDataType):
 
 
 class DataTypes(EnumMap):
+    """
+    Lookup table/map of elementary data types.  Reverse lookup is by CIP code for data type.
+    """
     _return_caps_only_ = True
     _value_key_ = _by_type_code
 

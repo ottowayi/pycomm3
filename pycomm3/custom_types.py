@@ -26,9 +26,10 @@ import ipaddress
 from io import BytesIO
 from typing import Any, Type, Dict, Tuple
 
-from .cip import (DataType, DerivedDataType, BufferEmptyError, Struct, UINT, USINT,
+from .cip import (DataType, DerivedDataType, Struct, UINT, USINT,
                   UDINT, SHORT_STRING, n_bytes, StructType, StringDataType, PRODUCT_TYPES, VENDORS, INT, ULINT)
 from .cip.data_types import _StructReprMeta
+from .exceptions import BufferEmptyError
 
 __all__ = ['IPAddress', 'ModuleIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes',
            'sized_string', 'Revision', 'StructTag']
@@ -106,13 +107,13 @@ class ModuleIdentityObject(Struct(
 
 
 class ListIdentityObject(Struct(
-    UINT(),
-    UINT(),
+    UINT,
+    UINT,
     UINT('encap_protocol_version'),
-    INT(),
-    UINT(),
+    INT,
+    UINT,
     IPAddress('ip_address'),
-    ULINT(),
+    ULINT,
     UINT('vendor'),
     UINT('product_type'),
     UINT('product_code'),
