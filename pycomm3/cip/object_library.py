@@ -34,7 +34,7 @@ __all__ = ['Attribute', 'ConnectionManagerInstances', 'ClassCode',
 
 class Attribute(NamedTuple):
     attr_id: Union[bytes, int]
-    data_format: Union[DataType, Type[DataType]]
+    data_type: Union[DataType, Type[DataType]]
 
 
 class ConnectionManagerInstances(EnumMap):

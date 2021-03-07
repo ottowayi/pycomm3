@@ -1,4 +1,5 @@
-from pycomm3 import CIPDriver, Services, ClassCode, Pack, FileObjectServices, FileObjectInstances, FileObjectClassAttributes, FileObjectInstanceAttributes
+from pycomm3 import (CIPDriver, Services, ClassCode,  FileObjectServices, FileObjectInstances,
+                     FileObjectInstanceAttributes, Struct, UDINT, USINT, n_bytes)
 import itertools
 import gzip
 from pathlib import Path
@@ -45,10 +46,7 @@ def initiate_transfer(driver):
         unconnected_send=True,
         connected=False,
         request_data=b'\xFF',  # max transfer size
-        data_type=[
-            ('FileSize', 'UDINT'),
-            ('TransferSize', 'USINT')
-        ],
+        data_type=Struct(UDINT('FileSize'), USINT('TransferSize'))
     )
     return resp
 
@@ -64,12 +62,9 @@ def upload_file(driver):
             route_path=True,
             unconnected_send=True,
             connected=False,
-            request_data=Pack.usint(i),
-            data_type=[
-                ('TransferNumber', 'USINT'),
-                ('PacketType', 'USINT'),
-                ('FileData', '*')
-            ],
+            request_data=USINT.encode(i),
+            data_type=Struct(USINT('TransferNumber'), USINT('PacketType'), n_bytes(-1, 'FileData'))
+
         )
 
         if resp:
@@ -111,7 +106,7 @@ def get_file_encoding(driver):
         connected=False,
         data_type=attr.data_type,
     )
-    _enc_code = resp.value['file_encoding_format'] if resp else None
+    _enc_code = resp.value if resp else None
     EDS_ENCODINGS = {
         0: 'binary',
         1: 'zlib'

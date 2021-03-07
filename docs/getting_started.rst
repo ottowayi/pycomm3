@@ -231,7 +231,6 @@ logging level.  ``filename`` (default ``None``) if set, will also log to the spe
     configure_default_logger(filename='c:/tmp/pycomm3.log')
 
 
-
 Produces output similar to::
 
     2021-02-26 14:37:41,389 [DEBUG] pycomm3.cip_driver.CIPDriver.open(): Opening connection to 192.168.1.236
@@ -239,7 +238,6 @@ Produces output similar to::
     2021-02-26 14:37:41,397 [DEBUG] pycomm3.cip_driver.CIPDriver.send(): Received: RegisterSessionResponsePacket(session=184719106, error=None)
     2021-02-26 14:37:41,398 [INFO] pycomm3.cip_driver.CIPDriver._register_session(): Session=184719106 has been registered.
     2021-02-26 14:37:41,398 [INFO] pycomm3.logix_driver.LogixDriver._initialize_driver(): Initializing driver...
-
 
 
 ``pycomm3`` also uses a custom logging level for verbose logging, this level also prints the contents of each

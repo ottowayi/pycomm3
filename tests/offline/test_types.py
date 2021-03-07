@@ -26,6 +26,8 @@ def test_info_encode_decode():
 def test_n_bytes():
     assert n_bytes(10).encode(b'1234567890') == b'1234567890'
     assert n_bytes(10).decode(b'1234567890') == b'1234567890'
+    assert n_bytes(1).encode(b'1234567890') == b'1'
+    assert n_bytes(1).decode(b'1234567890') == b'1'
 
     stream = BytesIO(b'1234567890')
     assert n_bytes(4).decode(stream) == b'1234'

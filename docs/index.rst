@@ -17,3 +17,4 @@ Contents
     usage/index
     examples/index
     api_reference/index
+    cip_reference
