@@ -83,8 +83,8 @@ Writing multiple tags will return a list of Tag objects.
 
 Writing a whole structure is possible too.  As with reading, all attributes are required to NOT have an External Access of None.
 Also, when writing a structure your value must match the structure exactly and provide data for all attributes. The value
-should be a list of values, nesting lists for arrays or other structures with the target.  This example shows a simple
-recipe UDT:
+should be a list of values or a dict of attribute name and value, nesting as needed for arrays or other structures with the target.
+This example shows a simple recipe UDT:
 
 +-------------------+---------------+
 | Attribute         |  Data Type    |

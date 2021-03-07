@@ -20,7 +20,7 @@ While a drive may not be a PLC, we can use generic messaging to read parameters 
         :pyobject: read_pf525_parameter
 
     >>> read_pf525_parameter()
-    pf525_param, {'AccelTime': 500}, None, None
+    pf525_param, 500, None, None
 
     .. literalinclude:: ../../examples/generic_messaging.py
         :pyobject: write_pf525_parameter
