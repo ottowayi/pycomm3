@@ -361,7 +361,7 @@ class BytesDataType(ElementaryDataType):
 
     @classmethod
     def _encode(cls, value: bytes, *args, **kwargs) -> bytes:
-        return value[:cls.size]
+        return value[:cls.size] if cls.size != -1 else value[:]
 
     @classmethod
     def _decode(cls, stream: BytesIO) -> bytes:
@@ -371,7 +371,8 @@ class BytesDataType(ElementaryDataType):
 
 def n_bytes(count: int, name: str = ''):
     """
-    Create an instance of a byte string of ``count`` length
+    Create an instance of a byte string of ``count`` length.
+    Setting ``count`` to ``-1`` will consume the entire remaining buffer.
     """
     class BYTES(BytesDataType):
         size = count
