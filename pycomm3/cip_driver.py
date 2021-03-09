@@ -177,7 +177,11 @@ class CIPDriver:
         return identity
 
     @classmethod
-    def discover(cls):
+    def discover(cls) -> List[Dict[str, Any]]:
+        """
+        Discovers available devices on the current network(s).
+        Returns a list of the discovered devices Identity Object (as ``dict``).
+        """
         cls.__log.info('Discovering devices...')
         ip_addrs = [
             sockaddr[0]
@@ -243,7 +247,7 @@ class CIPDriver:
                 class_code=ClassCode.identity_object, instance=b'\x01',
                 connected=False, unconnected_send=True,
                 route_path=PADDED_EPATH.encode((PortSegment('bp', slot), ), length=True, pad_length=True),
-                name='__module_identity__'
+                name='get_module_info'
             )
 
             if response:
@@ -501,7 +505,7 @@ class CIPDriver:
         if return_response_packet:
             return response
 
-        return Tag(name, response.value, None, error=response.error)
+        return Tag(name, response.value, data_type, error=response.error)
 
     def send(self, request: RequestPacket) -> ResponsePacket:
         if not request.error:

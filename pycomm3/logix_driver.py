@@ -41,8 +41,8 @@ from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US,
                     TEMPLATE_MEMBER_INFO_LEN, MIN_VER_EXTERNAL_ACCESS, )
 from .custom_types import StructTemplateAttributes, StructTag, sized_string, ModuleIdentityObject
-from .exceptions import ResponseError, CommError, RequestError
-from .packets import (request_path, RequestTypes, RequestPacket, ReadTagFragmentedRequestPacket,
+from .exceptions import ResponseError, RequestError
+from .packets import (RequestTypes, RequestPacket, ReadTagFragmentedRequestPacket,
                       WriteTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
                       WriteTagFragmentedResponsePacket)
 from .tag import Tag
@@ -208,17 +208,16 @@ class LogixDriver(CIPDriver):
 
         try:
             response = self.generic_message(
-                service=Services.get_attribute_list,
+                service=Services.get_attributes_all,
                 class_code=ClassCode.program_name,
-                instance=b'\x01\x00',  # instance 1
-                request_data=b'\x01\x00\x01\x00',  # num attributes, attribute 1 (program name)
-                data_type=Struct(n_bytes(6), STRING('program_name')),
+                instance=1,
+                data_type=STRING,
                 name='get_plc_name',
             )
             if not response:
                 raise ResponseError(f'response did not return valid data - {response.error}')
 
-            self._info['name'] = response.value['program_name']
+            self._info['name'] = response.value
             return self._info['name']
         except Exception as err:
             raise ResponseError('failed to get the plc name') from err
