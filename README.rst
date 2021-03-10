@@ -73,11 +73,11 @@ Drivers
     other drivers. Currently this driver is considered legacy and it's development will be on
     a limited basis.
 
-.. _CIPDriver: https://docs.pycomm3.dev/usage/cipdriver.html
+.. _CIPDriver: https://docs.pycomm3.dev/en/latest/usage/cipdriver.html
 
-.. _LogixDriver: https://docs.pycomm3.dev/usage/logixdriver.html
+.. _LogixDriver: https://docs.pycomm3.dev/en/latest/usage/logixdriver.html
 
-.. _SLCDriver: https://docs.pycomm3.dev/usage/slcdriver.html
+.. _SLCDriver: https://docs.pycomm3.dev/en/latest/usage/slcdriver.html
 
 Disclaimer
 ==========
@@ -100,7 +100,7 @@ to help configure basic logging, see the `Logging Section`_ in to docs for more 
 
 .. _logging: https://docs.python.org/3/library/logging.html
 
-.. _Logging Section: https://docs.pycomm3.dev/getting_started.html#logging
+.. _Logging Section: https://docs.pycomm3.dev/en/latest/getting_started.html#logging
 
 
 Python and OS Support
