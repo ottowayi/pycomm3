@@ -22,5 +22,5 @@
 # SOFTWARE.
 #
 
-__version_info__ = (1, 0, 0, 'b1')
+__version_info__ = (0, 12, 0)
 __version__ = '.'.join(f'{x}' for x in __version_info__)

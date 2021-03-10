@@ -1,3 +1,6 @@
+.. _logix-driver-api:
+
+===============
 LogixDriver API
 ===============
 

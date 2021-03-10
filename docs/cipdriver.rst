@@ -1,3 +1,6 @@
+.. _cip-driver-api:
+
+===============
 CIPDriver API
 ===============
 
