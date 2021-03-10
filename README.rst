@@ -103,6 +103,10 @@ There should be no OS specific requirements and should be able to run on any OS 
 Development and testing is done primarily on Windows 10.  If you encounter an OS-related problem, please open an issue
 in this repository and it will be investigated.
 
+.. attention::
+
+    Python 3.6.0 is not supported due to ``NamedTuple`` not supporting
+    `default values and methods <https://docs.python.org/3/library/typing.html#typing.NamedTuple>`_ until 3.6.1
 
 .. <<end>>
 

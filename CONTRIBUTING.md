@@ -1,37 +1,38 @@
-# Contributing to pycomm3
+## Contributing to pycomm3
 
 This document aims to provide a brief guide on how to contribute to `pycomm3`.  
 
-## Who can contribute?
+### Who can contribute?
 
 Anyone! Contributions from any user are welcome.  Contributions aren't limited to changing code. 
 Filing bug reports, asking questions, adding examples or documentation are all ways to contribute.
 New users may find it helpful to start with improving documentation, type hinting, or tests.  
 
-# Asking a question
+## Asking a question
 
 Questions can be submitted as either an issue or a discussion post.  A general question not directly related to the code
 or one that may be beneficial to other users would be most appropriate in the discussions area.  One that is about a 
 specific feature or could turn into a feature request or bug report would be more appropriate as an issue.  If submitting
 a question as an issue, please use the _question_ template.  
 
-# Submitting an Issue
+## Submitting an Issue
 
 No code is perfect, `pycomm3` is no different and user submitted issues aid in improving the quality of this library.
 Before submitting an issue, check to see if someone has already submitted one before so we can avoid duplicate issues. 
 
-## Bug Reports
+### Bug Reports
 
 To submit a bug report, please create an issue using the _Bug Report_ template. Please include as much information as 
 possible relating to the bug.  The more detailed the bug report, the easier and faster it will be to resolve.
 Some details to include:
 - The version of `pycomm3` (easily found with the `pip show pycomm3` command)
 - Model/Firmware/etc if the issue is related to a specific device or firmware version
-- Logs (see the [documentation](https://pycomm3.readthedocs.io/en/latest/usage.html#logging) to configure)
-    - Using the `VERBOSE_DEBUG` option is the most helpful
+- Logs (see the [documentation](https://pycomm3.dev/getting_started.html#logging) to configure)
+  - A helper method is provided to simplify logging configs, including logging to a file  
+  - Using the `LOG_VERBOSE` level is the most helpful
 - Sample code that will reproduce the bug
 
-## Feature Requests
+### Feature Requests
 
 For feature requests or enhancements, please create an issue using the _Feature Request_ template.  New features could be
 things like:
@@ -43,7 +44,7 @@ things like:
 - Removing an old/broken/unsupported feature
 
 
-# Submitting Changes
+## Submitting Changes
 
 Submitting code or documentation changes is another way to contribute.  All contributions should be made in the form of 
 a pull request.  You should fork this repository and clone it to your machine.  All work is done in the `develop` branch 
@@ -73,7 +74,7 @@ Some suggested contributions include:
     - you may include just the example script if you're not comfortable with also updating the docs to include it
     
 
-## New Feature or an Example?
+### New Feature or an Example?
 
 It can be tough to decide whether functionality should be added to the library or shown as an example.  New features 
 should apply to generally to almost all devices for a driver or implement new functionality that cannot be done externally.

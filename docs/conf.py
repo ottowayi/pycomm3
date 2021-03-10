@@ -36,7 +36,10 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx_autodoc_typehints',
     'sphinx.ext.viewcode',
-    'sphinx.ext.autosectionlabel'
+    'sphinx.ext.autosectionlabel',
+    'sphinx.ext.todo',
+    'sphinxemoji.sphinxemoji',
+    'm2r2',
 ]
 
 autosectionlabel_prefix_document = True
@@ -55,8 +58,6 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-# import sphinx_rtd_theme
-# html_theme = "sphinx_rtd_theme"
 html_theme = "furo"
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -73,3 +74,5 @@ pygments_style = 'sphinx'
 master_doc = 'index'
 
 autodoc_member_order = 'bysource'
+
+source_suffix = ['.rst', '.md']
