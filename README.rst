@@ -38,7 +38,7 @@ pycomm3
 
 
 Introduction
-------------
+============
 
 ``pycomm3`` started as a Python 3 fork of `pycomm`_, which is a Python 2 library for
 communicating with Allen-Bradley PLCs using Ethernet/IP.  The initial Python 3 port was done
@@ -54,7 +54,7 @@ library seeks to expand upon their great work.
 
 
 Drivers
--------
+=======
 
 ``pycomm3`` includes 3 drivers: `CIPDriver`_, `LogixDriver`_, `SLCDriver`_.
 
@@ -80,7 +80,7 @@ Drivers
 .. _SLCDriver: https://docs.pycomm3.dev/usage/slcdriver.html
 
 Disclaimer
-----------
+==========
 
 PLCs can be used to control heavy or dangerous equipment, this library is provided 'As Is' and makes no guarantees on
 its reliability in a production environment.  This library makes no promises in the completeness or correctness of the
@@ -89,7 +89,8 @@ is aimed at providing quick and convenient access for reading/writing data insid
 
 
 Setup
------
+=====
+
 The package can be installed from `PyPI`_ using ``pip``: ``pip install pycomm3`` or ``python -m pip install pycomm3``.
 
 .. _PyPI: https://pypi.org/project/pycomm3/
