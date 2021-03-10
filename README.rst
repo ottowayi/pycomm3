@@ -138,13 +138,10 @@ Highlighted Features
 ====================
 
 - ``generic_message`` for extra functionality not directly implemented
-
     - working similar to the MSG instruction in Logix, arguments similar to the MESSAGE properties
     - See the examples section for things like getting/setting drive parameters, IP configuration, or uploading an EDS file
     - used internally to implement some of the other methods (get/set_plc_time, forward open/close, etc)
-
 - simplified data types
-
     - allows use of standard Python types by abstracting CIP implementation details away from the user
     - strings use normal Python ``str`` objects, does not require handling of the ``LEN`` and ``DATA`` attributes separately
     - custom string types are also identified automatically and not limited to just the builtin one
@@ -155,29 +152,20 @@ LogixDriver
 -----------
 
 - simple API, only 1 ``read`` method and 1 ``write`` method for tags.
-
     - does not require using different methods for different data types
     - requires the tag name only, no other information required from the user
     - automatically manages request/response size to pack as many requests into a single packet
     - automatically handles fragmented requests for large tags that can't fit in a single packet
     - both support full structure reading/writing (UDTs, AOIs, etc)
-
         - for ``read`` the ``Tag.value`` will be a ``dict`` of ``{attribute: value}``
         - for ``write`` the value should be a sequence of values or dict of ``{attribute: value}`` , nesting as needed
-
             - does not do partial writes, the value must match the complete structure
             - not recommended for builtin type (TIMER, CONTROL, COUNTER, etc)
-
         - both require no attributes to have an External Access of None
-
-
 - uploads the tag list and data type definitions from the PLC
-
     - no requirement for user to determine tags available (like from an L5X export)
     - definitions are required for ``read``/``write`` methods
-
 - automatically enables/disables different features based on the target PLC
-
     - Extended Forward Open (EN2T or newer and v20+)
     - Symbol Instance Addressing (Logix v21+)
     - detection of Micro800 and disables unsupported features (CIP Path, Ex. Forward Open, Instance Addressing, etc)
