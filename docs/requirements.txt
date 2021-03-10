@@ -2,3 +2,4 @@ sphinx
 sphinx-autodoc-typehints
 furo
 m2r2
+sphinxemoji
