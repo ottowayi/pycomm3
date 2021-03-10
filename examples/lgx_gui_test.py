@@ -25,14 +25,16 @@ Tkinter vs tkinter - Reference: https://stackoverflow.com/questions/17843596/dif
 
 import threading
 import pycomm3
-import tkinter.font as tkfont
+
 
 from struct import *
 from pycomm3 import *
 
 try:
+    import Tkinter.font as tkfont
     from Tkinter import *
 except ImportError:
+    import tkinter.font as tkfont
     from tkinter import *
 
 class device_discovery_thread(threading.Thread):
