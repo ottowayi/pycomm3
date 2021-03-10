@@ -30,15 +30,12 @@ from reprlib import repr as _r
 
 
 class Tag(NamedTuple):
-    tag: str  #: tag name of tag read/written or request name (generic message)
-    value: Any  #: value read/written, may be ``None`` on error
-    type: Optional[str] = None  #: data type of tag
-    error: Optional[str] = None  #: error message if unsuccessful, else ``None``
+    tag: str
+    value: Any
+    type: Optional[str] = None
+    error: Optional[str] = None
 
     def __bool__(self):
-        """
-        ``True`` if both ``value`` is not ``None`` and ``error`` is ``None``, ``False`` otherwise
-        """
         return self.value is not None and self.error is None
 
     def __str__(self):
