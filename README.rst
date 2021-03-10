@@ -56,23 +56,28 @@ library seeks to expand upon their great work.
 Drivers
 -------
 
-``pycomm3`` includes 3 drivers: :class:`CIPDriver`, :class:`LogixDriver`, :class:`SLCDriver`.
+``pycomm3`` includes 3 drivers: `CIPDriver`_, `LogixDriver`_, `SLCDriver`_.
 
-- :class:`CIPDriver`
+- `CIPDriver`_
     This driver is the base driver for the library, it handles common CIP services used
     by the other drivers.  Things like opening/closing a connection, register/unregister sessions,
     forward open/close services, device discovery, and generic messaging.
 
-- :class:`LogixDriver`
+- `LogixDriver`_
     This driver supports services specific to ControlLogix, CompactLogix, and Micro800 PLCs.
     Services like reading/writing tags, uploading the tag list, and getting/setting the PLC time.
 
-- :class:`SLCDriver`
+- `SLCDriver`_
     This driver supports basic reading/writing data files in a SLC500 or MicroLogix PLCs.  It is
     a port of the ``SlcDriver`` from ``pycomm`` with minimal changes to make the API similar to the
     other drivers. Currently this driver is considered legacy and it's development will be on
     a limited basis.
 
+.. _CIPDriver: https://docs.pycomm3.dev/usage/cipdriver.html
+
+.. _LogixDriver: https://docs.pycomm3.dev/usage/logixdriver.html
+
+.. _SLCDriver: https://docs.pycomm3.dev/usage/slcdriver.html
 
 Disclaimer
 ----------
@@ -90,9 +95,11 @@ The package can be installed from `PyPI`_ using ``pip``: ``pip install pycomm3``
 .. _PyPI: https://pypi.org/project/pycomm3/
 
 Optionally, you may configure logging using the Python standard `logging`_ library.  A convenience method is provided
-to help configure basic logging, see the :ref:`getting_started:Logging` section.
+to help configure basic logging, see the `Logging Section`_ in to docs for more information.
 
 .. _logging: https://docs.python.org/3/library/logging.html
+
+.. _Logging Section: https://docs.pycomm3.dev/getting_started.html#logging
 
 
 Python and OS Support
