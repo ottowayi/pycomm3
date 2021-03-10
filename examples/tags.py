@@ -33,7 +33,7 @@ def find_pids():
         pid_tags = [
             tag
             for tag, _def in plc.tags.items()
-            if _def['tag_type'] == 'struct' and _def['data_type']['name'] == 'PID'
+            if _def['data_type_name'] == 'PID'
         ]
 
         print(pid_tags)

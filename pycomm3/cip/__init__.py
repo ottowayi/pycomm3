@@ -22,48 +22,8 @@
 # SOFTWARE.
 #
 
-
-"""
-Various utility functions.
-"""
-
-from typing import Tuple
-
-
-def strip_array(tag: str) -> str:
-    """
-    Strip off the array portion of the tag
-
-    'tag[100]' -> 'tag'
-
-    """
-    if '[' in tag:
-        return tag[:tag.find('[')]
-    return tag
-
-
-def get_array_index(tag: str) -> Tuple[str, int]:
-    """
-    Return tag name and array index from a 1-dim tag request
-
-    'tag[100]' -> ('tag', 100)
-    """
-    if tag.endswith(']') and '[' in tag:
-        tag, _tmp = tag.split('[')
-        idx = int(_tmp[:-1])
-    else:
-        idx = 0
-
-    return tag, idx
-
-
-def cycle(stop, start=0):
-    val = start
-    while True:
-        if val > stop:
-            val = start
-
-        yield val
-        val += 1
-
-
+from .data_types import *
+from .object_library import *
+from .services import *
+from .status_info import *
+from .pccc import *

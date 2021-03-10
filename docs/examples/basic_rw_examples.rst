@@ -7,7 +7,7 @@ Basic Reading
 
 Reading a single tag returns a Tag object.
 
-    .. literalinclude:: ../examples/basic_reads.py
+    .. literalinclude:: ../../examples/basic_reads.py
         :pyobject: read_single
 
     >>> read_single()
@@ -15,7 +15,7 @@ Reading a single tag returns a Tag object.
 
 Reading multiple tags returns a list of Tag objects.
 
-    .. literalinclude:: ../examples/basic_reads.py
+    .. literalinclude:: ../../examples/basic_reads.py
         :pyobject: read_multiple
 
     >>> read_multiple()
@@ -23,10 +23,10 @@ Reading multiple tags returns a list of Tag objects.
 
 An array is represented in a single Tag object, but the ``value`` attribute is a list.
 
-    .. literalinclude:: ../examples/basic_reads.py
+    .. literalinclude:: ../../examples/basic_reads.py
         :pyobject: read_array
 
-    .. literalinclude:: ../examples/basic_reads.py
+    .. literalinclude:: ../../examples/basic_reads.py
         :pyobject: read_array_slice
 
     >>> read_array()
@@ -36,7 +36,7 @@ An array is represented in a single Tag object, but the ``value`` attribute is a
 
 You can read strings just like a normal value, no need to handle the ``LEN`` and ``DATA`` attributes individually.
 
-    .. literalinclude:: ../examples/basic_reads.py
+    .. literalinclude:: ../../examples/basic_reads.py
         :pyobject: read_strings
 
     >>> read_strings()
@@ -45,10 +45,10 @@ You can read strings just like a normal value, no need to handle the ``LEN`` and
 Structures can be read as a whole, assuming that no attributes have External Access set to None. Structure tags will be
 a single Tag object, but the ``value`` attribute will be a ``dict`` of ``{attribute: value}``.
 
-    .. literalinclude:: ../examples/basic_reads.py
+    .. literalinclude:: ../../examples/basic_reads.py
         :pyobject: read_udt
 
-    .. literalinclude:: ../examples/basic_reads.py
+    .. literalinclude:: ../../examples/basic_reads.py
         :pyobject: read_timer
 
     >>> read_udt()
@@ -67,7 +67,7 @@ Basic Writing
 
 Writing a single tag returns a single Tag object response.
 
-    .. literalinclude:: ../examples/basic_writes.py
+    .. literalinclude:: ../../examples/basic_writes.py
         :pyobject: write_single
 
     >>> write_single()
@@ -75,7 +75,7 @@ Writing a single tag returns a single Tag object response.
 
 Writing multiple tags will return a list of Tag objects.
 
-    .. literalinclude:: ../examples/basic_writes.py
+    .. literalinclude:: ../../examples/basic_writes.py
         :pyobject: write_multiple
 
     >>> write_multiple()
@@ -83,8 +83,8 @@ Writing multiple tags will return a list of Tag objects.
 
 Writing a whole structure is possible too.  As with reading, all attributes are required to NOT have an External Access of None.
 Also, when writing a structure your value must match the structure exactly and provide data for all attributes. The value
-should be a list of values, nesting lists for arrays or other structures with the target.  This example shows a simple
-recipe UDT:
+should be a list of values or a dict of attribute name and value, nesting as needed for arrays or other structures with the target.
+This example shows a simple recipe UDT:
 
 +-------------------+---------------+
 | Attribute         |  Data Type    |
@@ -102,5 +102,5 @@ recipe UDT:
 | Name              |  STRING       |
 +-------------------+---------------+
 
-    .. literalinclude:: ../examples/basic_writes.py
+    .. literalinclude:: ../../examples/basic_writes.py
         :pyobject: write_structure

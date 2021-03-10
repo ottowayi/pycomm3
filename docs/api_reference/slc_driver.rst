@@ -1,6 +1,3 @@
-.. _lslc-driver-api:
-
-===============
 SLCDriver API
 ===============
 
