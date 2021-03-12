@@ -25,7 +25,7 @@
 import string
 
 from io import BytesIO
-from typing import Union
+from typing import Union, Optional
 
 from ..cip import (ClassCode, ConnectionManagerServices, SERVICE_STATUS, EXTEND_CODES, StringDataType,
                    ArrayType, UDINT, BitArrayType, LogicalSegment, PADDED_EPATH, DataSegment, UINT, USINT)
@@ -126,8 +126,9 @@ def get_service_status(status) -> str:
     return SERVICE_STATUS.get(status, f'Unknown Error ({status:0>2x})')
 
 
-def get_extended_status(msg, start) -> str:
-    status = USINT.decode(msg[start:start + 1])
+def get_extended_status(msg, start) -> Optional[str]:
+    stream = BytesIO(msg[start:])
+    status = USINT.decode(stream)
     # send_rr_data
     # 42 General Status
     # 43 Size of additional status
@@ -137,22 +138,22 @@ def get_extended_status(msg, start) -> str:
     # 48 General Status
     # 49 Size of additional status
     # 50..n additional status
-    extended_status_size = (USINT.decode(msg[start + 1:start + 2])) * 2
+    extended_status_size = USINT.decode(stream) * 2
     extended_status = 0
     if extended_status_size != 0:
         # There is an additional status
         if extended_status_size == 1:
-            extended_status = USINT.decode(msg[start + 2:start + 3])
+            extended_status = USINT.decode(stream)
         elif extended_status_size == 2:
-            extended_status = UINT.decode(msg[start + 2:start + 4])
+            extended_status = UINT.decode(stream)
         elif extended_status_size == 4:
-            extended_status = UDINT.decode(msg[start + 2:start + 6])
+            extended_status = UDINT.decode(stream)
         else:
-            return 'Extended Status Size Unknown'
+            return '[ERROR] Extended Status Size Unknown'
     try:
         return f'{EXTEND_CODES[status][extended_status]}  ({status:0>2x}, {extended_status:0>2x})'
-    except LookupError:
-        return "No Extended Status"
+    except Exception:
+        return None
 
 
 def parse_read_reply(data, data_type, elements):

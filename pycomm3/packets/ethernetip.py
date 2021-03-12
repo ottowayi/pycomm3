@@ -70,10 +70,20 @@ class SendUnitDataResponsePacket(ResponsePacket):
         ))
 
     def command_extended_status(self) -> str:
-        return f'{get_service_status(self.command_status)} - {get_extended_status(self.raw, 48)}'
+        status = get_service_status(self.command_status)
+        ext_status = get_extended_status(self.raw, 48)
+        if ext_status:
+            return f'{status} - {ext_status}'
+
+        return status
 
     def service_extended_status(self) -> str:
-        return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 48)}'
+        status = get_service_status(self.service_status)
+        ext_status = get_extended_status(self.raw, 48)
+        if ext_status:
+            return f'{status} - {ext_status}'
+
+        return status
 
 
 class SendUnitDataRequestPacket(RequestPacket):
@@ -121,10 +131,20 @@ class SendRRDataResponsePacket(ResponsePacket):
         ))
 
     def command_extended_status(self) -> str:
-        return f'{get_service_status(self.command_status)} - {get_extended_status(self.raw, 42)}'
+        status = get_service_status(self.command_status)
+        ext_status = get_extended_status(self.raw, 42)
+        if ext_status:
+            return f'{status} - {ext_status}'
+
+        return status
 
     def service_extended_status(self) -> str:
-        return f'{get_service_status(self.service_status)} - {get_extended_status(self.raw, 42)}'
+        status = get_service_status(self.service_status)
+        ext_status = get_extended_status(self.raw, 42)
+        if ext_status:
+            return f'{status} - {ext_status}'
+
+        return status
 
 
 class SendRRDataRequestPacket(RequestPacket):
