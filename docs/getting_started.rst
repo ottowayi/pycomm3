@@ -8,8 +8,8 @@ Getting Started
 Creating a Driver
 -----------------
 
-Drivers are simple to create and use, the quickest way is to use them within on context manager (``with`` statement).  Most of the
-examples in the documentation will shown them used in that way. But, if you are using them as part of a larger program
+Drivers are simple to create and use, the quickest way is to use them within a context manager (``with`` statement).  Most of the
+examples in the documentation will shown them used in that way. If you are using them as part of a larger program
 or creating long-lived connections, you may not want to use the context manager in this case.  When used outside a context
 manager, you will need to call the :meth:`~CIPDriver.open` method first and the :meth:`~CIPDriver.close` method on
 shutdown.  Failing to close the connection could cause issues communicating with the device.  Each driver opens a
@@ -44,8 +44,8 @@ There are three possible forms:
 >>>     print(drive)
 Device: AC Drive, Revision: 1.2
 
-Default behavior is to use the *Extended Forward Open* service when opening a connection.  This allows the use of ~4KB of
-data for each request, standard is only 500B.  Although this requires the communications module to be an EN2T or newer
+The default behavior is to use the *Extended Forward Open* service when opening a connection.  This allows the use of ~4KB of
+data for each request, the standard is only ~500 bytes.  Although this requires the communications module to be an EN2T or newer
 and the PLC firmware to be version 20 or newer.  Upon opening a connection, the ``CIPDriver`` will attempt an
 *Extended Forward Open*, if that fails it will then try using the standard *Forward Open*.
 
@@ -71,17 +71,12 @@ making it accessible from the :attr:`~LogixDriver.info` property. :meth:`~LogixD
 of the program running in the PLC and store it in :attr:`~LogixDriver.info['name']`.
 See :attr:`~LogixDriver.info` for details on the specific fields.
 
-Symbol Instance Addressing is a feature that allows more requests to be sent in a single packet by using a short identifier
-for a tag instead of needing to encode the full tag name in the request.  These instance ids are uploaded with the tag definitions.
-But, this feature is only available on v21+ firmwares. If the PLC is on a firmware lower than that, getting the controller info
-will automatically disable that feature.
-
-After the controller info has been retrieved, the driver will begin uploading the tag list. (Assuming the ``init_tags``
-option has not been set ``False``).  Depending on the number of tags, the PLC model, and other factors, this upload
+After the controller info has been retrieved, the driver will begin uploading the tag list unless ``init_tags``
+option has not been set ``False``.  Depending on the number of tags, the PLC model, and other factors, the tag list
 could take some time to upload.  A very large tag list on an old processor with high CPU utilization could take 10-15 seconds,
-while a small tag list or a new processor might take <1 second.  If you are setting up multiple drivers to the same PLC,
-it can save startup time by uploading the tag list is in the first driver and disabling it in the others.  Then pass the
-tag list to the other drivers from the first one.
+while a small tag list or a new processor might take <1 second.  If you are setting up multiple drivers on the same PLC,
+startup time can be saved by uploading the tag list in the first driver and disabling ``init_tags`` in the others.
+Then you can pass the uploaded tag list from the first driver to the other drivers, shown below.
 
 ::
 
