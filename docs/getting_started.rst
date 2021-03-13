@@ -197,7 +197,7 @@ Derived
 
     >>> SINT[SINT].encode([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])  # length type is not used when encoding
     b'\x01\x02\x03\x04\x05\x06\x07\x08\t\n'
-    >>> SINT[5].decode(b'\x05\x01\x02\x03\x04\x05\x00\x00\x00')
+    >>> SINT[SINT].decode(b'\x05\x01\x02\x03\x04\x05\x00\x00\x00')
     [1, 2, 3, 4, 5]
 
 Unbound
