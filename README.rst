@@ -16,17 +16,13 @@ pycomm3
    :target: https://pypi.python.org/pypi/pycomm3
    :alt: Python Versions
 
-.. image:: https://img.shields.io/pypi/dm/pycomm3?style=for-the-badge
-   :target: https://pypi.python.org/pypi/pycomm3
-   :alt: Downloads
-
-.. image:: https://readthedocs.org/projects/pycomm3/badge/?version=latest&style=for-the-badge
-   :target: https://pycomm3.readthedocs.io/en/latest/
-   :alt: Read the Docs
-
 .. raw:: html
 
     <br/>
+    
+.. image:: https://img.shields.io/pypi/dm/pycomm3?style=social
+   :target: https://pypi.python.org/pypi/pycomm3
+   :alt: Downloads
 
 .. image:: https://img.shields.io/github/watchers/ottowayi/pycomm3?style=social
     :target: https://github.com/ottowayi/pycomm3
@@ -43,6 +39,10 @@ pycomm3
 .. raw:: html
 
     <br/>
+
+.. image:: https://readthedocs.org/projects/pycomm3/badge/?version=latest&style=for-the-badge
+   :target: https://pycomm3.readthedocs.io/en/latest/
+   :alt: Read the Docs
 
 .. image:: https://img.shields.io/badge/gitmoji-%20😜%20😍-FFDD67.svg?style=for-the-badge
     :target: https://gitmoji.dev
