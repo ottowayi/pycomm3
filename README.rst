@@ -24,6 +24,10 @@ pycomm3
    :target: https://pypi.python.org/pypi/pycomm3
    :alt: Downloads
 
+.. image:: https://img.shields.io/pypi/dm/pycomm3?style=social
+   :target: https://pypi.python.org/pypi/pycomm3
+   :alt: Downloads
+
 .. image:: https://img.shields.io/github/watchers/ottowayi/pycomm3?style=social
     :target: https://github.com/ottowayi/pycomm3
     :alt: Watchers
@@ -108,7 +112,7 @@ The package can be installed from `PyPI`_ using ``pip``: ``pip install pycomm3``
 .. _PyPI: https://pypi.org/project/pycomm3/
 
 Optionally, you may configure logging using the Python standard `logging`_ library.  A convenience method is provided
-to help configure basic logging, see the `Logging Section`_ in to docs for more information.
+to help configure basic logging, see the `Logging Section`_ in the docs for more information.
 
 .. _logging: https://docs.python.org/3/library/logging.html
 
@@ -118,7 +122,7 @@ to help configure basic logging, see the `Logging Section`_ in to docs for more 
 Python and OS Support
 =====================
 
-``pycomm3`` is a Python 3 only library.  The minimum supported version of Python is 3.6.1 and has been tested up to 3.9.
+``pycomm3`` is a Python 3 only library.  The minimum supported version of Python is 3.6.1 and with support up to 3.9.
 There should be no OS specific requirements and should be able to run on any OS that Python is supported on.
 Development and testing is done primarily on Windows 10.  If you encounter an OS-related problem, please open an issue
 in this repository and it will be investigated.
@@ -218,19 +222,13 @@ Both methods will return ``Tag`` objects to reflect the success or failure of th
 ::
 
     class Tag(NamedTuple):
-        tag: str
-        value: Any
-        type: Optional[str] = None
-        error: Optional[str] = None
+        tag: str  # the name of the tag, does not include ``{<# elements>}`` from request
+        value: Any  # value read or written, may be ``None`` if an error occurred
+        type: Optional[str] = None  # data type of tag, including ``[<# elements>]`` from request
+        error: Optional[str] = None  # ``None`` if successful, else the CIP error or exception thrown
 
-``Tag`` objects are considered successful if the ``value`` is not ``None`` and the ``error`` is ``None``.
-Otherwise, the ``error`` will indicate either the CIP error or exception that was thrown.  ``Tag.__bool__()`` has been implemented in this way.
-``type`` will indicate the data type of the tag and include ``[<length>]`` if multiple array elements are requested.
-``value`` will contain the value of the tag either read or written.
+``Tag`` objects are considered successful (truthy) if the ``value`` is not ``None`` and the ``error`` is ``None``.
 
-Even though strings are technically structures, both reading and writing support automatically converting them to/from
-normal string objects.  Any structures that have only the attributes ``LEN`` (DINT) and ``DATA`` (array of SINT) will
-automatically be treated as strings.
 
 Examples::
 
@@ -251,10 +249,18 @@ Examples::
         plc.write('a_udt_tag', [1, 'a string', ...])  # writing a struct using a list of values
         plc.write('a_udt_tag', {'attr1': 1, 'attr2': 'a string', ...})  # can also use a dict to write a struct
 
+        # Check the results
+        results = plc.read('tag1', 'tag2', 'tag3')
+        if all(results):
+            print('They all worked!')
+        else:
+            for result in results:
+                if not result:
+                    print(f'Reading tag {result.tag} failed with error: {result.error}')
 .. Note::
 
     Tag names for both ``read`` and ``write`` are case-sensitive and are required to be the same as they are named in
-    the controller.  This may change in the future. (pull requests welcome)
+    the controller.  This may change in the future.
 
 
 Unit Testing
