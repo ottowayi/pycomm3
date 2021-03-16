@@ -19,7 +19,7 @@ pycomm3
 .. raw:: html
 
     <br/>
-    
+
 .. image:: https://img.shields.io/pypi/dm/pycomm3?style=social
    :target: https://pypi.python.org/pypi/pycomm3
    :alt: Downloads
@@ -72,7 +72,7 @@ library seeks to expand upon their great work.
 Drivers
 =======
 
-``pycomm3`` includes 3 drivers: `CIPDriver`_, `LogixDriver`_, `SLCDriver`_.
+``pycomm3`` includes 3 drivers:
 
 - `CIPDriver`_
     This driver is the base driver for the library, it handles common CIP services used
@@ -98,7 +98,7 @@ Drivers
 Disclaimer
 ==========
 
-PLCs can be used to control heavy or dangerous equipment, this library is provided 'As Is' and makes no guarantees on
+PLCs can be used to control heavy or dangerous equipment, this library is provided "as is" and makes no guarantees on
 its reliability in a production environment.  This library makes no promises in the completeness or correctness of the
 protocol implementations and should not be solely relied upon for critical systems.  The development for this library
 is aimed at providing quick and convenient access for reading/writing data inside Allen-Bradley PLCs.
@@ -122,10 +122,10 @@ to help configure basic logging, see the `Logging Section`_ in the docs for more
 Python and OS Support
 =====================
 
-``pycomm3`` is a Python 3 only library.  The minimum supported version of Python is 3.6.1 and with support up to 3.9.
-There should be no OS specific requirements and should be able to run on any OS that Python is supported on.
+``pycomm3`` is a Python 3-only library.  The minimum supported version of Python is 3.6.1 and has been tested up to 3.9.
+There should be no OS-specific requirements and should be able to run on any OS that Python is supported on.
 Development and testing is done primarily on Windows 10.  If you encounter an OS-related problem, please open an issue
-in this repository and it will be investigated.
+in the `GitHub repository`_ and it will be investigated.
 
 .. attention::
 
@@ -133,6 +133,8 @@ in this repository and it will be investigated.
     `default values and methods <https://docs.python.org/3/library/typing.html#typing.NamedTuple>`_ until 3.6.1
 
 .. <<end>>
+
+.. _GitHub repository:  https://github.com/ottowayi/pycomm3
 
 Documentation
 =============
@@ -257,6 +259,7 @@ Examples::
             for result in results:
                 if not result:
                     print(f'Reading tag {result.tag} failed with error: {result.error}')
+
 .. Note::
 
     Tag names for both ``read`` and ``write`` are case-sensitive and are required to be the same as they are named in
