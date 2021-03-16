@@ -24,6 +24,10 @@ pycomm3
    :target: https://pycomm3.readthedocs.io/en/latest/
    :alt: Read the Docs
 
+.. raw:: html
+
+    <br/>
+
 .. image:: https://img.shields.io/github/watchers/ottowayi/pycomm3?style=social
     :target: https://github.com/ottowayi/pycomm3
     :alt: Watchers
@@ -35,6 +39,14 @@ pycomm3
 .. image:: https://img.shields.io/github/forks/ottowayi/pycomm3?style=social
     :target: https://github.com/ottowayi/pycomm3
     :alt: Forks
+
+.. raw:: html
+
+    <br/>
+
+.. image:: https://img.shields.io/badge/gitmoji-%20😜%20😍-FFDD67.svg?style=for-the-badge
+    :target: https://gitmoji.dev
+    :alt: Gitmoji
 
 
 Introduction
