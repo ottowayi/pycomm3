@@ -48,7 +48,7 @@ pycomm3
    :target: https://pycomm3.readthedocs.io/en/latest/
    :alt: Read the Docs
 
-.. image:: https://img.shields.io/badge/gitmoji-%20😜%20😍-FFDD67.svg?style=for-the-badge
+.. image:: https://img.shields.io/badge/gitmoji-%20%F0%9F%98%9C%20%F0%9F%98%8D-FFDD67.svg?style=for-the-badge
     :target: https://gitmoji.dev
     :alt: Gitmoji
 
