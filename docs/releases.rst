@@ -2,6 +2,14 @@
 Release History
 ===============
 
+1.0.1
+=====
+
+- |:bug:| Fixed incorrect/no error in response Tag for some failed requests in a multi-request
+- |:recycle:| Minor refactor to status and extended status parsing
+
+
+
 1.0.0
 =====
 
