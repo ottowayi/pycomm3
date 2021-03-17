@@ -190,7 +190,7 @@ class CIPDriver:
             if family == socket.AddressFamily.AF_INET
         ]
 
-        driver = CIPDriver('0.0.0.0')  # dumby driver for creating the list_identity request
+        driver = CIPDriver('0.0.0.0')  # dummy driver for creating the list_identity request
         request = RequestTypes.list_identity()
         message = request.build_request(None, driver._session, b'\x00' * 8, 0)
         devices = []

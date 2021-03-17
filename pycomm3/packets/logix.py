@@ -102,7 +102,6 @@ class ReadTagRequestPacket(TagServiceRequestPacket):
 
 
 class ReadTagFragmentedResponsePacket(ReadTagResponsePacket):
-    # TODO
     __log = logging.getLogger(f'{__module__}.{__qualname__}')
 
     def __init__(self, request: 'ReadTagFragmentedRequestPacket', raw_data: bytes = None):

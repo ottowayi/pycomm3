@@ -1148,7 +1148,7 @@ class LogixDriver(CIPDriver):
                         if resp:
                             results[req.request_id] = Tag(resp.tag, resp.value, resp.data_type, None)
                         else:
-                            results[req.request_id] = Tag(req.tag, None, None, req.error)
+                            results[req.request_id] = Tag(req.tag, None, None, req.error or resp.error)
         return results
 
     def send(self, request: RequestPacket):

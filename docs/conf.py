@@ -19,7 +19,7 @@ import pycomm3
 # -- Project information -----------------------------------------------------
 
 project = 'pycomm3'
-copyright = '2020, Ian Ottoway'
+copyright = '2021, Ian Ottoway'
 author = 'Ian Ottoway'
 
 
