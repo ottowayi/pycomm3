@@ -649,14 +649,14 @@ class LogixDriver(CIPDriver):
             raise ResponseError(f'Unable to decode template or member names') from err
 
         predefine = template_name is None
-        if predefine:
+        if predefine:  # predefined types put name as first member (DWORD)
             template_name = member_names.pop(0)
 
         if template_name == 'ASCIISTRING82':  # internal name for STRING builtin type
             template_name = 'STRING'
 
         data_type = {
-            'name': template_name,  # predefined types put name as first member (DWORD)
+            'name': template_name,
             'internal_tags': {},
             'attributes': [],
             'template': template,
@@ -667,15 +667,26 @@ class LogixDriver(CIPDriver):
         _host_members = {}  # {offset: (member name, type)}
         for member, info in zip(member_names, member_data):
             if not (member.startswith('ZZZZZZZZZZ') or member.startswith('__')):
-                data_type['attributes'].append(member)
+                if predefine and member == 'CTL':
+                    # assumes CTL is the only host member for predefined types
+                    # and treat it as a private attribute
+                    _host_members[info['offset']] = (member, info['type_class'])
+                else:
+                    data_type['attributes'].append(member)
             else:
                 _host_members[info['offset']] = (member, info['type_class'])
 
             data_type['internal_tags'][member] = info
 
-            if info['data_type_name'] == 'BOOL' and info['offset'] in _host_members:
-                _bit_members[member] = (_host_members[info['offset']][0], info['bit'])
-
+            if info['data_type_name'] == 'BOOL':
+                if predefine:
+                    # for predefined types, we assume all 'offsets' refer to the
+                    # bit number of the hidden CTL attribute
+                    _bit_members[member] = (_host_members[0][0], info['bit'])
+                elif info['offset'] in _host_members:
+                    _bit_members[member] = (_host_members[info['offset']][0], info['bit'])
+                else:
+                    _struct_members.append(info['type_class'](member))
             else:
                 _struct_members.append(info['type_class'](member))
 

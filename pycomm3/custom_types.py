@@ -26,7 +26,7 @@ import ipaddress
 from io import BytesIO
 from typing import Any, Type, Dict, Tuple
 
-from .cip import (DataType, DerivedDataType, Struct, UINT, USINT,
+from .cip import (DataType, DerivedDataType, Struct, UINT, USINT, DWORD,
                   UDINT, SHORT_STRING, n_bytes, StructType, StringDataType, PRODUCT_TYPES, VENDORS, INT, ULINT)
 from .cip.data_types import _StructReprMeta
 from .exceptions import BufferEmptyError
@@ -169,7 +169,11 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
 
             for bit_member, (host_member, bit) in cls.bits.items():
                 host_value = values[host_member]
-                bit_value = bool(host_value & (1 << bit))
+                if isinstance(host_value, int):
+                    bit_value = bool(host_value & (1 << bit))
+                else:
+                    bit_value = host_value[bit]
+
                 values[bit_member] = bit_value
                 hosts.add(host_member)
 
@@ -180,15 +184,21 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
             # make a copy so that private host members aren't added to the original
             values = {k: v for k, v in values.items()}
 
-            for host in cls.hosts:
-                values[host] = 0
+            for host, host_type in cls.hosts.items():
+                if host_type == DWORD:
+                    values[host] = [False, ] * 32
+                else:
+                    values[host] = 0
 
             for bit_member, (host_member, bit) in cls.bits.items():
                 val = values[bit_member]
-                if val:
-                    values[host_member] |= 1 << bit
+                if cls.hosts[host_member] == DWORD:
+                    values[host_member][bit] = bool(val)
                 else:
-                    values[host_member] &= ~(1 << bit)
+                    if val:
+                        values[host_member] |= 1 << bit
+                    else:
+                        values[host_member] &= ~(1 << bit)
 
             value = _struct._encode(values)
 
@@ -196,7 +206,6 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
                 value += b'\x00' * (cls.size - len(value))
 
             return value
-
 
     return StructTag
 
