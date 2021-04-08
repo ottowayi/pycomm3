@@ -169,11 +169,11 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
 
             for bit_member, (host_member, bit) in cls.bits.items():
                 host_value = values[host_member]
-                if isinstance(host_value, int):
-                    bit_value = bool(host_value & (1 << bit))
-                else:
+                if cls.hosts[host_member] == DWORD:
                     bit_value = host_value[bit]
-
+                else:
+                    bit_value = bool(host_value & (1 << bit))
+                  
                 values[bit_member] = bit_value
                 hosts.add(host_member)
 
