@@ -338,9 +338,9 @@ class LogixDriver(CIPDriver):
         return tags
 
     def _get_tag_list(self, program=None):
-        self.__log.info(f'Beginning upload of {program or "controller" } tags...')
+        self.__log.info(f'Beginning upload of {program or "controller"} tags...')
         all_tags = self._get_instance_attribute_list_service(program)
-        self.__log.info(f'Completed upload of {program or "controller" } tags')
+        self.__log.info(f'Completed upload of {program or "controller"} tags')
         return self._isolate_user_tags(all_tags, program)
 
     def _get_instance_attribute_list_service(self, program=None):
@@ -515,7 +515,7 @@ class LogixDriver(CIPDriver):
 
                 user_tags.append(self._create_tag(name, tag))
 
-            self.__log.debug(f'Finished isolating tags for {program or "controller" }')
+            self.__log.debug(f'Finished isolating tags for {program or "controller"}')
             return user_tags
         except Exception as err:
             raise ResponseError('failed isolating user tags') from err
@@ -689,7 +689,7 @@ class LogixDriver(CIPDriver):
             data_type['_struct_members'] = (_struct_members, _bit_members)
             data_type['type_class'] = StructTag(*_struct_members, bool_members=_bit_members,
                                                 struct_size=template['structure_size'],
-                                                host_members={m: t for m, t in _host_members.values()})
+                                                host_members={m: t for m, t in _host_members.values()},)
 
         self.__log.debug(f'Completed parsing template as data type {data_type!r}')
 
@@ -774,6 +774,10 @@ class LogixDriver(CIPDriver):
 
                 result = read_results[i]
                 if request_data.get('bit') is None:
+                    if request_data['tag_info']['data_type_name'] == 'DWORD':
+                        num_bools = request_data['bool_elements']
+                        result = Tag(request_data['plc_tag'], result.value[:num_bools], f'BOOL[{num_bools}]',
+                                     result.error)
                     results.append(result)
                 else:
                     if result:
@@ -782,9 +786,9 @@ class LogixDriver(CIPDriver):
                             val = result.value[bit % 32]
                         else:
                             val = bool(result.value & 1 << bit)
-                        results.append(Tag(tag, val, 'BOOL', None))
+                        results.append(Tag(request_data['plc_tag'], val, 'BOOL', None))
                     else:
-                        results.append(Tag(tag, None, None, result.error))
+                        results.append(Tag(request_data['plc_tag'], None, None, result.error))
             except Exception as err:
                 results.append(Tag(tag, None, None, f'Invalid tag request - {err!r}'))
 
@@ -812,8 +816,10 @@ class LogixDriver(CIPDriver):
                 )
                 continue
 
-            request = RequestTypes.read_tag(tag_data['plc_tag'], tag_data['elements'],
-                                            tag_data['tag_info'], request_id, self._cfg['use_instance_ids'])
+            request = RequestTypes.read_tag(tag_data['plc_tag'],
+                                            tag_data['elements'],
+                                            tag_data['tag_info'], request_id,
+                                            self._cfg['use_instance_ids'])
             request.build_message()
             # TODO: this isn't very accurate right now, the message len is not part of the response
             # so we may be fragmenting more than needed
@@ -877,7 +883,7 @@ class LogixDriver(CIPDriver):
         """
 
         if len(tags_values) == 2 and isinstance(tags_values[0], str):
-            tags_values = ((*tags_values, ), )
+            tags_values = ((*tags_values,),)
 
         tags = (tag for (tag, value) in tags_values)
         parsed_requests = self._parse_requested_tags(tags)
@@ -1049,6 +1055,7 @@ class LogixDriver(CIPDriver):
                     return _recurse_attrs(remain, data[curr_tag]['data_type']['internal_tags'])
                 else:
                     return None
+
         try:
             data = self._tags[util.strip_array(base)]
             if not len(attrs):
@@ -1074,13 +1081,7 @@ class LogixDriver(CIPDriver):
             try:
                 parsed_request = self._parse_tag_request(tag)
                 if parsed_request is not None:
-                    plc_tag, bit, elements, tag_info = parsed_request
-                    parsed['plc_tag'] = plc_tag
-                    parsed['bit'] = bit
-                    parsed['elements'] = elements
-                    parsed['tag_info'] = tag_info
-                else:
-                    parsed['error'] = 'Failed to parse tag request'
+                    parsed.update(parsed_request)
 
             except RequestError as err:
                 self.__log.exception(f'Failed to parse tag request: {tag}')
@@ -1090,31 +1091,47 @@ class LogixDriver(CIPDriver):
                 requests[i] = parsed
         return requests
 
-    def _parse_tag_request(self, tag: str) -> Optional[Tuple[str, Optional[int], int, dict]]:
+    def _parse_tag_request(self, tag: str) -> dict:
         try:
             if tag.endswith('}') and '{' in tag:
                 tag, _tmp = tag.split('{')
                 elements = int(_tmp[:-1])
+                implicit_element = False
             else:
                 elements = 1
+                implicit_element = True
 
             bit = None
+            bool_elements = None
 
             base, *attrs = tag.split('.')
             if base.startswith('Program:'):
                 base = f'{base}.{attrs.pop(0)}'
+
             if len(attrs) and attrs[-1].isdigit():
-                _bit = attrs.pop(-1)
-                bit = int(_bit)
+                bit = int(attrs.pop(-1))
                 tag = base if not len(attrs) else f"{base}.{''.join(attrs)}"
+
             tag_info = self._get_tag_info(base, attrs)
 
-            if tag_info['data_type'] == 'DWORD' and elements == 1:
+            if tag_info['data_type'] == 'DWORD':
                 _tag, idx = util.get_array_index(tag)
-                tag = f'{_tag}[{idx // 32}]'
+                if idx is not None:
+                    tag = f'{_tag}[{idx // 32}]'
                 bit = idx
+                if implicit_element:
+                    bool_elements = 1
+                else:
+                    bool_elements = elements
+                    elements = (elements // 32) + (1 if elements % 32 else 0)
 
-            return tag, bit, elements, tag_info
+            return {
+                'plc_tag': tag,
+                'bit': bit,
+                'elements': elements,
+                'tag_info': tag_info,
+                'bool_elements': bool_elements,
+            }
         except RequestError:
             raise
         except Exception as err:
@@ -1248,7 +1265,8 @@ def encode_value(parsed_tag: dict) -> bytes:
 
         if value_elements > 1:
             if len(value) < value_elements:
-                raise RequestError(f'Insufficient data for requested elements, expected {value_elements} and got {len(value)}')
+                raise RequestError(
+                    f'Insufficient data for requested elements, expected {value_elements} and got {len(value)}')
             if len(value) > value_elements:
                 value = value[:value_elements]
 
