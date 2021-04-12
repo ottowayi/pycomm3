@@ -194,7 +194,7 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
         self._packed_data_type = None
 
         if tag_info['tag_type'] == 'struct':
-            if not isinstance(value, bytes):
+            if not isinstance(value, (bytes, bytearray)):
                 raise RequestError('Writing UDTs only supports bytes for value')
             self._packed_data_type = b'\xA0\x02' + UINT.encode(tag_info['data_type']['template']['structure_handle'])
 

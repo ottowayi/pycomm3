@@ -209,10 +209,11 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
                     else:
                         values[host_member] &= ~(1 << bit)
 
-            value = _struct._encode(values)
-
-            if len(value) < cls.size:  # pad to structure size
-                value += b'\x00' * (cls.size - len(value))
+            value = bytearray(cls.size)
+            for member in cls.members:
+                offset = cls._offsets[member]
+                encoded = member.encode(values[member.name])
+                value[offset: offset + len(encoded)] = encoded
 
             return value
 
