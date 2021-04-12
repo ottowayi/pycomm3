@@ -18,12 +18,6 @@ from pycomm3.tag import Tag
 CONNECT_PATH = '192.168.1.100/1'
 
 
-def test_slc_list_identity_raises_notimplementederror():
-    driver = SLCDriver(CONNECT_PATH)
-
-    with pytest.raises(NotImplementedError):
-        driver.list_identity(CONNECT_PATH)
-
 
 def test_slc__read_tag_raises_requesterror_for_none():
     driver = SLCDriver(CONNECT_PATH)
