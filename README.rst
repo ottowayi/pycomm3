@@ -124,9 +124,9 @@ in the `GitHub repository`_ and it will be investigated.
     Python 3.6.0 is not supported due to ``NamedTuple`` not supporting
     `default values and methods <https://docs.python.org/3/library/typing.html#typing.NamedTuple>`_ until 3.6.1
 
-.. <<end>>
-
 .. _GitHub repository:  https://github.com/ottowayi/pycomm3
+
+.. <<end>>
 
 Documentation
 =============
