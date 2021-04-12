@@ -65,10 +65,7 @@ class IPAddress(DerivedDataType):
 
     @classmethod
     def _decode(cls, stream: BytesIO) -> Any:
-        data = stream.read(4)
-        if not data:
-            raise BufferEmptyError()
-        return ipaddress.IPv4Address(data).exploded
+        return ipaddress.IPv4Address(cls._stream_read(stream, 4)).exploded
 
 
 class Revision(Struct(
