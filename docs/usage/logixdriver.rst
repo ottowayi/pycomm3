@@ -238,8 +238,7 @@ For writing a single tag, you can do ``write(<tag name>, <value>)``, but for mul
 is required (``write((<tag1>, <value1>), (<tag2>, <value2>))``). For arrays, the value should be a list of the values to write.
 A ``RequestError`` will be raised if the value list is too short, else it will be truncated if too long.  Writing a
 structure is supported as long as all attributes have Read/Write external access.  The value for a struct should be a
-``dict`` of ``{<attribute name>: <value>}`` or a list of values in the order of the attributes list.  Both methods should
-nest values as needed for any embedded structs.  It is not recommended to write full structures for builtin types,
+``dict`` of ``{<attribute name>: <value>}``, nesting as needed.  It is not recommended to write full structures for builtin types,
 like ``TIMER``, ``PID``, etc.
 
 Write a tag
@@ -263,8 +262,6 @@ Write structures
 
 >>> plc.write('my_udt', {'attr1': 100, 'attr2': [1, 2, 3, 4]})
 Tag(tag='my_udt', value={'attr1': 100, 'attr2': [1, 2, 3, 4]}, type='MyUDT', error=None)
->>> plc.write('my_udt', [100, [1, 2, 3, 4]])
-Tag(tag='my_udt', value=[100, [1, 2, 3, 4]], type='MyUDT', error=None)
 
 Check if all writes were successful
 
