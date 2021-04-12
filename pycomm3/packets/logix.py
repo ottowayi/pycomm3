@@ -209,8 +209,7 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
             self.request_path = tag_request_path(self.tag, self.tag_info, self._use_instance_id)
         if self.request_path is None:
             self.error = f'Failed to build request path for tag'
-        self._msg += [self.tag_service, self.request_path, self._packed_data_type,
-                      UINT.encode(self.elements), self.value]
+        self._msg.append(self.tag_only_message())
 
     def tag_only_message(self):
         return b''.join((self.tag_service, self.request_path, self._packed_data_type,
@@ -236,9 +235,9 @@ class WriteTagFragmentedRequestPacket(WriteTagRequestPacket):
         self.offset = offset
         self.value = value
 
-    def _setup_message(self):
-        super()._setup_message()
-        self._msg.insert((len(self._msg) - 1), UDINT.encode(self.offset))  # offset needs to go before value
+    def tag_only_message(self):
+        return b''.join((self.tag_service, self.request_path, self._packed_data_type,
+                         UINT.encode(self.elements), UDINT.encode(self.offset), self.value))
 
     @classmethod
     def from_request(cls, request: WriteTagRequestPacket, offset: int = 0, value: bytes = b'') -> 'WriteTagFragmentedRequestPacket':

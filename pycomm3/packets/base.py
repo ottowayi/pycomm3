@@ -115,6 +115,7 @@ class RequestPacket(Packet):
     def __init__(self):
         super().__init__()
         self.message = b''
+        self._msg_setup = False
         self._msg = []  # message data
         self._added = []
         self.error = None
@@ -124,11 +125,12 @@ class RequestPacket(Packet):
         return self
 
     def _setup_message(self):
-        ...
+        self._msg_setup = True
 
     def build_message(self):
-        self._setup_message()
-        self._msg += self._added
+        if not self._msg_setup:
+            self._setup_message()
+            self._msg += self._added
         self.message = b''.join(self._msg)
         return self.message
 
