@@ -682,9 +682,9 @@ class LogixDriver(CIPDriver):
                 elif info['offset'] in _host_members:
                     _bit_members[member] = (_host_members[info['offset']][0], info['bit'])
                 else:
-                    _struct_members.append(info['type_class'](member))
+                    _struct_members.append((info['type_class'](member), info['offset']))
             else:
-                _struct_members.append(info['type_class'](member))
+                _struct_members.append((info['type_class'](member), info['offset']))
 
         if data_type['attributes'] == ['LEN', 'DATA'] and \
                 data_type['internal_tags']['DATA']['data_type_name'] == 'SINT' and \

@@ -152,17 +152,28 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
 
     bool_members = {member name: (host member, bit)}
     """
-    _struct = Struct(*members)
+
+    _members = [x[0] for x in members]
+    _offsets_ = {member: offset for (member, offset) in members}
+    _struct = Struct(*_members)
 
     class StructTag(_struct, metaclass=_StructTagReprMeta):
         bits = bool_members
         hosts = host_members
         size = struct_size
+        _offsets = _offsets_
 
         @classmethod
         def _decode(cls, stream: BytesIO):
             stream = BytesIO(stream.read(cls.size))
-            values = _struct._decode(stream)
+            values = {}
+
+            for member in cls.members:
+                offset = cls._offsets[member]
+                if stream.tell() < offset:
+                    stream.read(offset - stream.tell())
+                values[member.name] = member.decode(stream)
+
             hosts = set()
 
             for bit_member, (host_member, bit) in cls.bits.items():
