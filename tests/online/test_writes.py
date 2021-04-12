@@ -1,7 +1,8 @@
 import pytest
 
+from pycomm3 import RequestError
 from tests import tag_only
-from . import BASE_ATOMIC_TESTS, BASE_ATOMIC_ARRAY_TESTS, BASE_STRUCT_TESTS
+from . import BASE_ATOMIC_TESTS, BASE_ATOMIC_ARRAY_TESTS, BASE_STRUCT_TESTS, _bool_array
 
 
 all_write_tests = [
@@ -23,6 +24,26 @@ def test_writes(plc, tag_name, data_type, value):
     assert result.type == data_type
 
     assert result == plc.read(tag_name)  # read the same tag and make sure it matches
+
+
+@pytest.mark.parametrize('tag_name, data_type, value', (
+    ('write_bool_ary1[0]{32}', 'BOOL[32]', _bool_array[:32]),
+    ('write_bool_ary1[32]{32}', 'BOOL[32]', _bool_array[32:64]),
+    ('write_bool_ary1[32]{64}', 'BOOL[64]', _bool_array[32:]),
+))
+def test_bool_array_writes(plc, tag_name, data_type, value):
+    result = plc.write((tag_name, value))
+    assert result
+    assert result.error is None
+    assert result.tag == tag_only(tag_name)
+    assert result.type == data_type
+
+    assert result == plc.read(tag_name)  # read the same tag and make sure it matches
+
+
+def test_bool_array_invalid_writes(plc):
+    result = plc.write('write_bool_ary1[1]{2}', [True, False])
+    assert not result
 
 
 def test_multi_write(plc):
@@ -50,9 +71,9 @@ def test_multi_write(plc):
 #     return src
 #
 #
-
-# writing tags by value no longer supported
-# keeping here in case it is added back in the future
+# #
+# # writing tags by value no longer supported
+# # keeping here in case it is added back in the future
 # struct_values_list_tests = [
 #     *[(f'write{tag}', dt, _nested_dict_to_lists(val))
 #       for tag, dt, val in BASE_STRUCT_TESTS if isinstance(val, dict)],

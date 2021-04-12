@@ -60,7 +60,7 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ('_dint_ary1[0]{30}', 'DINT[30]', _dint_array),
     ('_lint_ary1[0]{10}', 'LINT[10]', _lint_array),
     ('_real_ary1[0]{20}', 'REAL[20]', _real_array),
-    ('_bool_ary1[0]{3}', 'BOOL[96]', _bool_array),  # bool-arrays element count is DWORDs (1 element = 32 bools)
+    ('_bool_ary1[0]{96}', 'BOOL[96]', _bool_array),  # bool-arrays element count is DWORDs (1 element = 32 bools)
 
     ('_dint_2d_ary1[0,0]{25}', 'DINT[25]', _dint_array[:25]),
     ('_dint_3d_ary1[0,0,0]{27}', 'DINT[27]', _dint_array[:27]),
@@ -70,7 +70,7 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ('_dint_ary1{30}', 'DINT[30]', _dint_array),
     ('_lint_ary1{10}', 'LINT[10]', _lint_array),
     ('_real_ary1{20}', 'REAL[20]', _real_array),
-    ('_bool_ary1{3}', 'BOOL[96]', _bool_array),
+    ('_bool_ary1{96}', 'BOOL[96]', _bool_array),
 
     # TODO: add these to tests for 'bad' tags
     # ('_dint_2d_ary1[0]{25}', 'DINT25]', _dint_array[:25]),
@@ -85,7 +85,8 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ('_dint_ary1[6]{20}', 'DINT[20]', _dint_array[6:26]),
     ('_lint_ary1[3]{5}', 'LINT[5]', _lint_array[3:8]),
     ('_real_ary1[18]{2}', 'REAL[2]', _real_array[18:20]),
-    ('_bool_ary1[1]{2}', 'BOOL[64]', _bool_array[32:]),
+
+
     ('_dint_2d_ary1[2,3]{10}', 'DINT[10]', _dint_array[13:23]),
     ('_dint_3d_ary1[1,2,1]{5}', 'DINT[5]', _dint_array[16:21]),
 
@@ -169,7 +170,7 @@ BASE_STRUCT_TESTS = [
 
     # struct of atomic arrays
     ('_udt2', 'pycomm3_AtomicArrayUDT', _udt2_values),
-    ('_udt2.bools{2}', 'BOOL[64]', _udt2_bool_array),
+    ('_udt2.bools{64}', 'BOOL[64]', _udt2_bool_array),
     ('_udt2.bools[5]', 'BOOL', _udt2_bool_array[5]),
     ('_udt2.sints{8}', 'SINT[8]', _udt2_sint_array),
     ('_udt2.sints[5]', 'SINT', _udt2_sint_array[5]),  # also read a single element too

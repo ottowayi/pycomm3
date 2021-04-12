@@ -13,7 +13,7 @@ def test_strip_array_with_no_array_returns_tag():
 
 
 def test_get_array_index_returns_0_idx_with_no_array():
-    EXPECTED = (TEST_TAG, 0)
+    EXPECTED = (TEST_TAG, None)
     assert EXPECTED == get_array_index(TEST_TAG)
 
 
