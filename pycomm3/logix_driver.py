@@ -40,7 +40,7 @@ from .cip_driver import CIPDriver, with_forward_open
 from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD, SUCCESS,
                     INSUFFICIENT_PACKETS, BASE_TAG_BIT, MIN_VER_INSTANCE_IDS, SEC_TO_US,
                     TEMPLATE_MEMBER_INFO_LEN, MIN_VER_EXTERNAL_ACCESS, )
-from .custom_types import StructTemplateAttributes, StructTag, sized_string, ModuleIdentityObject
+from .custom_types import StructTemplateAttributes, StructTag, FixedSizeString, ModuleIdentityObject
 from .exceptions import ResponseError, RequestError
 from .packets import (RequestTypes, RequestPacket, ReadTagFragmentedRequestPacket,
                       WriteTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
@@ -691,7 +691,7 @@ class LogixDriver(CIPDriver):
                 data_type['internal_tags']['DATA'].get('array'):
             data_type['string'] = data_type['internal_tags']['DATA']['array']
 
-            data_type['type_class'] = sized_string(template['structure_size'] - 4)
+            data_type['type_class'] = FixedSizeString(template['structure_size'] - 4)
         else:
             data_type['_struct_members'] = (_struct_members, _bit_members)
             data_type['type_class'] = StructTag(*_struct_members, bool_members=_bit_members,

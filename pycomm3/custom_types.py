@@ -24,7 +24,7 @@
 
 import ipaddress
 from io import BytesIO
-from typing import Any, Type, Dict, Tuple
+from typing import Any, Type, Dict, Tuple, Union
 
 from .cip import (DataType, DerivedDataType, Struct, UINT, USINT, DWORD,
                   UDINT, SHORT_STRING, n_bytes, StructType, StringDataType, PRODUCT_TYPES, VENDORS, INT, ULINT)
@@ -32,10 +32,10 @@ from .cip.data_types import _StructReprMeta
 from .exceptions import BufferEmptyError
 
 __all__ = ['IPAddress', 'ModuleIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes',
-           'sized_string', 'Revision', 'StructTag']
+           'FixedSizeString', 'Revision', 'StructTag']
 
 
-def sized_string(size_: int, len_type_: DataType = UDINT):
+def FixedSizeString(size_: int, len_type_: Union[DataType, Type[DataType]] = UDINT):
     """
     Creates a custom string tag type
     """
@@ -173,7 +173,7 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
                     bit_value = host_value[bit]
                 else:
                     bit_value = bool(host_value & (1 << bit))
-                  
+
                 values[bit_member] = bit_value
                 hosts.add(host_member)
 
