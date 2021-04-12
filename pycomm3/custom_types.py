@@ -164,6 +164,7 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
 
         @classmethod
         def _decode(cls, stream: BytesIO):
+            stream = BytesIO(stream.read(cls.size))
             values = _struct._decode(stream)
             hosts = set()
 

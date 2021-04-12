@@ -133,6 +133,9 @@ _udt2_values_empty = {
     'reals': [REAL(0) for _ in range(10)],
 }
 
+_udt3_values = {'bool': True, 'sint': 100}
+_udt3_values_empty = {'bool': False, 'sint': 0}
+
 
 _str82_part = 'A normal built-in string type'
 _str82_full = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque sodales vel.'
@@ -155,7 +158,9 @@ _nested_udt1_values = {
     'udt2': _udt2_values,
     'udt_ary2': [_udt2_values_empty, _udt2_values, _udt2_values_empty, _udt2_values_empty, _udt2_values_empty],
     'str1': _str82_full,
-    'str_ary1': ['', '', '', '', '']
+    'str_ary1': ['', '', '', '', ''],
+    'udt3': _udt3_values,
+    'udt_ary3': [_udt3_values_empty, _udt3_values_empty, _udt3_values],
 }
 
 BASE_STRUCT_TESTS = [
@@ -188,6 +193,8 @@ BASE_STRUCT_TESTS = [
     ('_nested_udt1.udt_ary1{5}', 'pycomm3_AtomicUDT[5]', _nested_udt1_values['udt_ary1']),
     ('_nested_udt1.udt2', 'pycomm3_AtomicArrayUDT', _nested_udt1_values['udt2']),
     ('_nested_udt1.udt_ary2{5}', 'pycomm3_AtomicArrayUDT[5]', _nested_udt1_values['udt_ary2']),
+    ('_nested_udt1.udt3', 'pycomm3_PaddedUDT', _nested_udt1_values['udt3']),
+    ('_nested_udt1.udt_ary3{3}', 'pycomm3_PaddedUDT[3]', _nested_udt1_values['udt_ary3']),
 
     # strings
     ('_str1', 'STRING', _str82_part),
