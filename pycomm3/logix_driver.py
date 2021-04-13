@@ -797,11 +797,7 @@ class LogixDriver(CIPDriver):
                             data_type = f'BOOL[{bool_elements}]'
                             result = Tag(request_data['user_tag'], bools, data_type, result.error)
                         else:
-                        # if request_data['tag_info']['data_type_name'] == 'DWORD':
                             val = result.value[bit % 32]
-                        # else:
-                        #     val = bool(result.value & 1 << bit)
-
                             result = Tag(request_data['user_tag'], val, 'BOOL', result.error)
                 else:
                     result = Tag(request_data['user_tag'], None, None, result.error)
