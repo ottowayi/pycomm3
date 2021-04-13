@@ -2,10 +2,7 @@ DEMO_PLC_INFO = {'vendor': 'Rockwell Automation/Allen-Bradley', 'product_type': 
                  'product_code': 89, 'serial': 'c00fa09b',
                  'product_name': '1769-L23E-QBFC1 LOGIX5323E-QBFC1', 'revision': {'major': 20, 'minor': 19},
                  'keyswitch': 'REMOTE RUN', 'name': 'pycomm3_demo',
-                 'programs': {'MainProgram': {'instance_id': 26297, 'routines': ['MainRoutine']},
-                              'pycomm3': {'instance_id': 56519,
-                                          'routines': ['global_reads', 'program_writes', 'global_writes', 'MAIN',
-                                                       'program_reads']}}, 'tasks': {'MAIN': {'instance_id': 16174}},
+                 'tasks': {'MAIN': {'instance_id': 16174}},
                  'modules': {'Local': {
                      'slots': {4: {'types': ['C']}, 3: {'types': ['O']}, 2: {'types': ['O']}, 1: {'types': ['I']}}}}}
 
@@ -13,6 +10,10 @@ DEMO_PLC_INFO = {'vendor': 'Rockwell Automation/Allen-Bradley', 'product_type': 
 def test_demo_plc(plc):
     assert 'status' in plc.info
     del plc.info['status']
+
+    assert 'pycomm3' in plc.info['programs']
+    del plc.info['programs']
+
     assert plc.info == DEMO_PLC_INFO
 
 

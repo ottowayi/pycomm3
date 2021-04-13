@@ -133,8 +133,8 @@ _udt2_values_empty = {
     'reals': [REAL(0) for _ in range(10)],
 }
 
-_udt3_values = {'bool': True, 'sint': 100}
-_udt3_values_empty = {'bool': False, 'sint': 0}
+_udt3_values = {'bool1': True, 'sint': 0, 'dint1': -1, 'bool2': False, 'dint2': -1}
+_udt3_values_empty = {'bool1': False, 'sint': 0, 'dint1': 0, 'bool2': False, 'dint2': 0}
 
 
 _str82_part = 'A normal built-in string type'
@@ -187,6 +187,13 @@ BASE_STRUCT_TESTS = [
     ('_udt2.lints[0]', 'LINT', _udt2_lint_array[0]),
     ('_udt2.reals{10}', 'REAL[10]', _udt2_real_array),
     ('_udt2.reals[2]', 'REAL', _udt2_real_array[2]),
+
+    ('_udt3', 'pycomm3_PaddedUDT', _udt3_values),
+    ('_udt3.bool1', 'BOOL', _udt3_values['bool1']),
+    ('_udt3.sint', 'SINT', _udt3_values['sint']),
+    ('_udt3.dint1', 'DINT', _udt3_values['dint1']),
+    ('_udt3.bool2', 'BOOL', _udt3_values['bool2']),
+    ('_udt3.dint2', 'DINT', _udt3_values['dint2']),
 
     ('_nested_udt1', 'pycomm3_NestedUDT', _nested_udt1_values),
     ('_nested_udt1.udt1', 'pycomm3_AtomicUDT', _nested_udt1_values['udt1']),
