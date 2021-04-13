@@ -63,9 +63,6 @@ class SLCDriver(CIPDriver):
             self._cfg['vsn'],
         ))
 
-    def list_identity(cls, path) -> Optional[str]:
-        raise NotImplementedError('list_identity not supported in the SLCDriver')
-
     @with_forward_open
     def read(self, *addresses: str) -> ReadWriteReturnType:
         """

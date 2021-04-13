@@ -24,18 +24,18 @@
 
 import ipaddress
 from io import BytesIO
-from typing import Any, Type, Dict, Tuple
+from typing import Any, Type, Dict, Tuple, Union
 
-from .cip import (DataType, DerivedDataType, Struct, UINT, USINT,
+from .cip import (DataType, DerivedDataType, Struct, UINT, USINT, DWORD,
                   UDINT, SHORT_STRING, n_bytes, StructType, StringDataType, PRODUCT_TYPES, VENDORS, INT, ULINT)
 from .cip.data_types import _StructReprMeta
 from .exceptions import BufferEmptyError
 
 __all__ = ['IPAddress', 'ModuleIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes',
-           'sized_string', 'Revision', 'StructTag']
+           'FixedSizeString', 'Revision', 'StructTag']
 
 
-def sized_string(size_: int, len_type_: DataType = UDINT):
+def FixedSizeString(size_: int, len_type_: Union[DataType, Type[DataType]] = UDINT):
     """
     Creates a custom string tag type
     """
@@ -65,10 +65,7 @@ class IPAddress(DerivedDataType):
 
     @classmethod
     def _decode(cls, stream: BytesIO) -> Any:
-        data = stream.read(4)
-        if not data:
-            raise BufferEmptyError()
-        return ipaddress.IPv4Address(data).exploded
+        return ipaddress.IPv4Address(cls._stream_read(stream, 4)).exploded
 
 
 class Revision(Struct(
@@ -155,21 +152,37 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
 
     bool_members = {member name: (host member, bit)}
     """
-    _struct = Struct(*members)
+
+    _members = [x[0] for x in members]
+    _offsets_ = {member: offset for (member, offset) in members}
+    _struct = Struct(*_members)
 
     class StructTag(_struct, metaclass=_StructTagReprMeta):
         bits = bool_members
         hosts = host_members
         size = struct_size
+        _offsets = _offsets_
 
         @classmethod
         def _decode(cls, stream: BytesIO):
-            values = _struct._decode(stream)
+            stream = BytesIO(stream.read(cls.size))
+            values = {}
+
+            for member in cls.members:
+                offset = cls._offsets[member]
+                if stream.tell() < offset:
+                    stream.read(offset - stream.tell())
+                values[member.name] = member.decode(stream)
+
             hosts = set()
 
             for bit_member, (host_member, bit) in cls.bits.items():
                 host_value = values[host_member]
-                bit_value = bool(host_value & (1 << bit))
+                if cls.hosts[host_member] == DWORD:
+                    bit_value = host_value[bit]
+                else:
+                    bit_value = bool(host_value & (1 << bit))
+
                 values[bit_member] = bit_value
                 hosts.add(host_member)
 
@@ -180,23 +193,29 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
             # make a copy so that private host members aren't added to the original
             values = {k: v for k, v in values.items()}
 
-            for host in cls.hosts:
-                values[host] = 0
+            for host, host_type in cls.hosts.items():
+                if host_type == DWORD:
+                    values[host] = [False, ] * 32
+                else:
+                    values[host] = 0
 
             for bit_member, (host_member, bit) in cls.bits.items():
                 val = values[bit_member]
-                if val:
-                    values[host_member] |= 1 << bit
+                if cls.hosts[host_member] == DWORD:
+                    values[host_member][bit] = bool(val)
                 else:
-                    values[host_member] &= ~(1 << bit)
+                    if val:
+                        values[host_member] |= 1 << bit
+                    else:
+                        values[host_member] &= ~(1 << bit)
 
-            value = _struct._encode(values)
-
-            if len(value) < cls.size:  # pad to structure size
-                value += b'\x00' * (cls.size - len(value))
+            value = bytearray(cls.size)
+            for member in cls.members:
+                offset = cls._offsets[member]
+                encoded = member.encode(values[member.name])
+                value[offset: offset + len(encoded)] = encoded
 
             return value
-
 
     return StructTag
 

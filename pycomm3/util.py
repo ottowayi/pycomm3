@@ -52,7 +52,7 @@ def get_array_index(tag: str) -> Tuple[str, int]:
         tag, _tmp = tag.split('[')
         idx = int(_tmp[:-1])
     else:
-        idx = 0
+        idx = None
 
     return tag, idx
 

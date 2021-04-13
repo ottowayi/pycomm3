@@ -334,6 +334,8 @@ class StringDataType(ElementaryDataType):
     @classmethod
     def _decode(cls, stream: BytesIO) -> str:
         str_len = cls.len_type.decode(stream)
+        if str_len == 0:
+            return ''
         str_data = cls._stream_read(stream, str_len)
 
         return str_data.decode(cls.encoding)
@@ -397,7 +399,7 @@ class BitArrayType(ElementaryDataType):
     @classmethod
     def _encode(cls, value: Any) -> bytes:
         if len(value) != (8 * cls.size):
-            raise DataError(f'boolean arrays must have 32 elements: not {len(value)}')
+            raise DataError(f'boolean arrays must be multiple of 8: not {len(value)}')
         _value = 0
         for i, val in enumerate(value):
             if val:
@@ -698,6 +700,7 @@ def Array(length_: Union[USINT, UINT, UDINT, ULINT, int, None],
             try:
                 if issubclass(cls.element_type, BitArrayType):
                     chunk_size = cls.element_type.size * 8
+                    _len = len(values) // chunk_size
                     values = [values[i: i + chunk_size] for i in range(0, len(values), chunk_size)]
 
                 return b''.join(cls.element_type.encode(values[i]) for i in range(_len))

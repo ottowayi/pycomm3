@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="20.05" TargetName="pycomm3" TargetType="Program" ContainsContext="true" Owner="admin" ExportDate="Mon Jan 18 12:00:25 2021" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="20.05" TargetName="pycomm3" TargetType="Program" ContainsContext="true" Owner="admin" ExportDate="Mon Apr 12 17:58:23 2021" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="pycomm3_demo">
 <DataTypes Use="Context">
 <DataType Name="STRING480" Family="StringFamily" Class="User">
@@ -35,6 +35,17 @@
 <Member Name="reals" DataType="REAL" Dimension="10" Radix="Float" Hidden="false" ExternalAccess="Read/Write"/>
 </Members>
 </DataType>
+<DataType Name="pycomm3_PaddedUDT" Family="NoFamily" Class="User">
+<Members>
+<Member Name="ZZZZZZZZZZpycomm3_Pa0" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="true" ExternalAccess="Read/Write"/>
+<Member Name="bool1" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Pa0" BitNumber="0" ExternalAccess="Read/Write"/>
+<Member Name="sint" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write"/>
+<Member Name="dint1" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write"/>
+<Member Name="ZZZZZZZZZZpycomm3_Pa4" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="true" ExternalAccess="Read/Write"/>
+<Member Name="bool2" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Pa4" BitNumber="0" ExternalAccess="Read/Write"/>
+<Member Name="dint2" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write"/>
+</Members>
+</DataType>
 <DataType Name="pycomm3_NestedUDT" Family="NoFamily" Class="User">
 <Members>
 <Member Name="udt1" DataType="pycomm3_AtomicUDT" Dimension="0" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
@@ -43,12 +54,16 @@
 <Member Name="udt_ary2" DataType="pycomm3_AtomicArrayUDT" Dimension="5" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
 <Member Name="str1" DataType="STRING" Dimension="0" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
 <Member Name="str_ary1" DataType="STRING" Dimension="5" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
+<Member Name="udt3" DataType="pycomm3_PaddedUDT" Dimension="0" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
+<Member Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimension="3" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
 </Members>
 <Dependencies>
 <Dependency Type="DataType" Name="pycomm3_AtomicUDT"/>
 <Dependency Type="DataType" Name="pycomm3_AtomicUDT"/>
 <Dependency Type="DataType" Name="pycomm3_AtomicArrayUDT"/>
 <Dependency Type="DataType" Name="pycomm3_AtomicArrayUDT"/>
+<Dependency Type="DataType" Name="pycomm3_PaddedUDT"/>
+<Dependency Type="DataType" Name="pycomm3_PaddedUDT"/>
 </Dependencies>
 </DataType>
 </DataTypes>
@@ -60,40 +75,40 @@
 </Data>
 </Tag>
 <Tag Name="write_dint_2d_ary1" TagType="Base" DataType="DINT" Dimensions="5 5" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00</Data>
+<Data>00 00 00 00 64 00 00 00 C8 00 00 00 2C 01 00 00 
+90 01 00 00 F4 01 00 00 58 02 00 00 BC 02 00 00 
+20 03 00 00 84 03 00 00 E8 03 00 00 4C 04 00 00 
+B0 04 00 00 14 05 00 00 78 05 00 00 DC 05 00 00 
+40 06 00 00 A4 06 00 00 08 07 00 00 6C 07 00 00 
+D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00 
+60 09 00 00</Data>
 <Data Format="Decorated">
 <Array DataType="DINT" Dimensions="5,5" Radix="Decimal">
 <Element Index="[0,0]" Value="0"/>
-<Element Index="[0,1]" Value="0"/>
-<Element Index="[0,2]" Value="0"/>
-<Element Index="[0,3]" Value="0"/>
-<Element Index="[0,4]" Value="0"/>
-<Element Index="[1,0]" Value="0"/>
-<Element Index="[1,1]" Value="0"/>
-<Element Index="[1,2]" Value="0"/>
-<Element Index="[1,3]" Value="0"/>
-<Element Index="[1,4]" Value="0"/>
-<Element Index="[2,0]" Value="0"/>
-<Element Index="[2,1]" Value="0"/>
-<Element Index="[2,2]" Value="0"/>
-<Element Index="[2,3]" Value="0"/>
-<Element Index="[2,4]" Value="0"/>
-<Element Index="[3,0]" Value="0"/>
-<Element Index="[3,1]" Value="0"/>
-<Element Index="[3,2]" Value="0"/>
-<Element Index="[3,3]" Value="0"/>
-<Element Index="[3,4]" Value="0"/>
-<Element Index="[4,0]" Value="0"/>
-<Element Index="[4,1]" Value="0"/>
-<Element Index="[4,2]" Value="0"/>
-<Element Index="[4,3]" Value="0"/>
-<Element Index="[4,4]" Value="0"/>
+<Element Index="[0,1]" Value="100"/>
+<Element Index="[0,2]" Value="200"/>
+<Element Index="[0,3]" Value="300"/>
+<Element Index="[0,4]" Value="400"/>
+<Element Index="[1,0]" Value="500"/>
+<Element Index="[1,1]" Value="600"/>
+<Element Index="[1,2]" Value="700"/>
+<Element Index="[1,3]" Value="800"/>
+<Element Index="[1,4]" Value="900"/>
+<Element Index="[2,0]" Value="1000"/>
+<Element Index="[2,1]" Value="1100"/>
+<Element Index="[2,2]" Value="1200"/>
+<Element Index="[2,3]" Value="1300"/>
+<Element Index="[2,4]" Value="1400"/>
+<Element Index="[3,0]" Value="1500"/>
+<Element Index="[3,1]" Value="1600"/>
+<Element Index="[3,2]" Value="1700"/>
+<Element Index="[3,3]" Value="1800"/>
+<Element Index="[3,4]" Value="1900"/>
+<Element Index="[4,0]" Value="2000"/>
+<Element Index="[4,1]" Value="2100"/>
+<Element Index="[4,2]" Value="2200"/>
+<Element Index="[4,3]" Value="2300"/>
+<Element Index="[4,4]" Value="2400"/>
 </Array>
 </Data>
 </Tag>
@@ -190,42 +205,42 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 </Data>
 </Tag>
 <Tag Name="write_dint_3d_ary1" TagType="Base" DataType="DINT" Dimensions="3 3 3" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 00 64 00 00 00 C8 00 00 00 2C 01 00 00 
+90 01 00 00 F4 01 00 00 58 02 00 00 BC 02 00 00 
+20 03 00 00 84 03 00 00 E8 03 00 00 4C 04 00 00 
+B0 04 00 00 14 05 00 00 78 05 00 00 DC 05 00 00 
+40 06 00 00 A4 06 00 00 08 07 00 00 6C 07 00 00 
+D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00 
+60 09 00 00 C4 09 00 00 28 0A 00 00</Data>
 <Data Format="Decorated">
 <Array DataType="DINT" Dimensions="3,3,3" Radix="Decimal">
 <Element Index="[0,0,0]" Value="0"/>
-<Element Index="[0,0,1]" Value="0"/>
-<Element Index="[0,0,2]" Value="0"/>
-<Element Index="[0,1,0]" Value="0"/>
-<Element Index="[0,1,1]" Value="0"/>
-<Element Index="[0,1,2]" Value="0"/>
-<Element Index="[0,2,0]" Value="0"/>
-<Element Index="[0,2,1]" Value="0"/>
-<Element Index="[0,2,2]" Value="0"/>
-<Element Index="[1,0,0]" Value="0"/>
-<Element Index="[1,0,1]" Value="0"/>
-<Element Index="[1,0,2]" Value="0"/>
-<Element Index="[1,1,0]" Value="0"/>
-<Element Index="[1,1,1]" Value="0"/>
-<Element Index="[1,1,2]" Value="0"/>
-<Element Index="[1,2,0]" Value="0"/>
-<Element Index="[1,2,1]" Value="0"/>
-<Element Index="[1,2,2]" Value="0"/>
-<Element Index="[2,0,0]" Value="0"/>
-<Element Index="[2,0,1]" Value="0"/>
-<Element Index="[2,0,2]" Value="0"/>
-<Element Index="[2,1,0]" Value="0"/>
-<Element Index="[2,1,1]" Value="0"/>
-<Element Index="[2,1,2]" Value="0"/>
-<Element Index="[2,2,0]" Value="0"/>
-<Element Index="[2,2,1]" Value="0"/>
-<Element Index="[2,2,2]" Value="0"/>
+<Element Index="[0,0,1]" Value="100"/>
+<Element Index="[0,0,2]" Value="200"/>
+<Element Index="[0,1,0]" Value="300"/>
+<Element Index="[0,1,1]" Value="400"/>
+<Element Index="[0,1,2]" Value="500"/>
+<Element Index="[0,2,0]" Value="600"/>
+<Element Index="[0,2,1]" Value="700"/>
+<Element Index="[0,2,2]" Value="800"/>
+<Element Index="[1,0,0]" Value="900"/>
+<Element Index="[1,0,1]" Value="1000"/>
+<Element Index="[1,0,2]" Value="1100"/>
+<Element Index="[1,1,0]" Value="1200"/>
+<Element Index="[1,1,1]" Value="1300"/>
+<Element Index="[1,1,2]" Value="1400"/>
+<Element Index="[1,2,0]" Value="1500"/>
+<Element Index="[1,2,1]" Value="1600"/>
+<Element Index="[1,2,2]" Value="1700"/>
+<Element Index="[2,0,0]" Value="1800"/>
+<Element Index="[2,0,1]" Value="1900"/>
+<Element Index="[2,0,2]" Value="2000"/>
+<Element Index="[2,1,0]" Value="2100"/>
+<Element Index="[2,1,1]" Value="2200"/>
+<Element Index="[2,1,2]" Value="2300"/>
+<Element Index="[2,2,0]" Value="2400"/>
+<Element Index="[2,2,1]" Value="2500"/>
+<Element Index="[2,2,2]" Value="2600"/>
 </Array>
 </Data>
 </Tag>
@@ -268,6 +283,18 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
 </Data>
 </Tag>
+<Tag Name="read_timer1" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 01 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="read_real1" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
 <Data>00 00 00 00</Data>
 <Data Format="Decorated">
@@ -291,6 +318,12 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 <DataValue DataType="REAL" Radix="Float" Value="100.0"/>
 </Data>
 </Tag>
+<Tag Name="TRUE" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Data>01</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
 <Tag Name="write_real_max1" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
 <Data>FD FF 7F 7F</Data>
 <Data Format="Decorated">
@@ -308,6 +341,18 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 <Data>00 00 80 80</Data>
 <Data Format="Decorated">
 <DataValue DataType="REAL" Radix="Float" Value="-1.17549435e-038"/>
+</Data>
+</Tag>
+<Tag Name="write_timer1" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 01 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
 </Data>
 </Tag>
 <Tag Name="write_nested_udt1" TagType="Base" DataType="pycomm3_NestedUDT" Constant="false" ExternalAccess="Read/Write">
@@ -402,6 +447,10 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
@@ -1209,10 +1258,59 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Structure>
 </Element>
 </ArrayMember>
+<StructureMember Name="udt3" DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+</ArrayMember>
 </Structure>
 </Data>
 </Tag>
-<Tag Name="read_int_ary1" TagType="Base" DataType="INT" Dimensions="25" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Tag Name="read_timer2" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Data>44 E9 0D C0 30 75 00 00 87 5E 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="24199"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
+<Tag Name="read_int_ary1" TagType="Produced" DataType="INT" Dimensions="25" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<ProduceInfo PLCMappingFile="7"/>
 <Data>00 00 0A 00 14 00 1E 00 28 00 32 00 3C 00 46 00 
 50 00 5A 00 64 00 6E 00 78 00 82 00 8C 00 96 00 
 A0 00 AA 00 B4 00 BE 00 C8 00 D2 00 DC 00 E6 00 
@@ -1802,6 +1900,12 @@ F0 00</Data>
 <![CDATA['']]>
 </Data>
 </Tag>
+<Tag Name="FALSE" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Data>00</Data>
+<Data Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</Data>
+</Tag>
 <Tag Name="read_dint_3d_ary1" TagType="Base" DataType="DINT" Dimensions="3 3 3" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
 <Data>00 00 00 00 64 00 00 00 C8 00 00 00 2C 01 00 00 
 90 01 00 00 F4 01 00 00 58 02 00 00 BC 02 00 00 
@@ -1840,6 +1944,18 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 <Element Index="[2,2,1]" Value="2500"/>
 <Element Index="[2,2,2]" Value="2600"/>
 </Array>
+</Data>
+</Tag>
+<Tag Name="read_udt3" TagType="Base" DataType="pycomm3_PaddedUDT" Constant="false" ExternalAccess="Read/Write">
+<Data>01 64 00 00 00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
 </Data>
 </Tag>
 <Tag Name="read_real2" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
@@ -2147,6 +2263,18 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 <DataValue DataType="REAL" Radix="Float" Value="-1.17549435e-038"/>
 </Data>
 </Tag>
+<Tag Name="write_timer2" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 30 75 00 00 D8 59 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="23000"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="read_real_min1" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
 <Data>FD FF 7F FF</Data>
 <Data Format="Decorated">
@@ -2308,6 +2436,10 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
@@ -3115,6 +3247,42 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 </Structure>
 </Element>
 </ArrayMember>
+<StructureMember Name="udt3" DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+</ArrayMember>
 </Structure>
 </Data>
 </Tag>
@@ -3225,6 +3393,18 @@ F0 0A 00 00 54 0B 00 00</Data>
 <Data>01</Data>
 <Data Format="Decorated">
 <DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="write_udt3" TagType="Base" DataType="pycomm3_PaddedUDT" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
 </Data>
 </Tag>
 <Tag Name="read_sint2" TagType="Base" DataType="SINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
@@ -4303,6 +4483,10 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
@@ -5107,6 +5291,42 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="DATA" DataType="STRING" Radix="ASCII">
 <![CDATA[]]>
 </DataValueMember>
+</Structure>
+</Element>
+</ArrayMember>
+<StructureMember Name="udt3" DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
 </Structure>
 </Element>
 </ArrayMember>
@@ -5732,6 +5952,18 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Structure>
 </Data>
 </Tag>
+<Tag Name="read_prog_udt3" TagType="Base" DataType="pycomm3_PaddedUDT" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="write_prog_bool1" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
 <Data>00</Data>
 <Data Format="Decorated">
@@ -5860,80 +6092,80 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="write_prog_dint_2d_ary1" TagType="Base" DataType="DINT" Dimensions="5 5" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00</Data>
+<Data>00 00 00 00 64 00 00 00 C8 00 00 00 2C 01 00 00 
+90 01 00 00 F4 01 00 00 58 02 00 00 BC 02 00 00 
+20 03 00 00 84 03 00 00 E8 03 00 00 4C 04 00 00 
+B0 04 00 00 14 05 00 00 78 05 00 00 DC 05 00 00 
+40 06 00 00 A4 06 00 00 08 07 00 00 6C 07 00 00 
+D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00 
+60 09 00 00</Data>
 <Data Format="Decorated">
 <Array DataType="DINT" Dimensions="5,5" Radix="Decimal">
 <Element Index="[0,0]" Value="0"/>
-<Element Index="[0,1]" Value="0"/>
-<Element Index="[0,2]" Value="0"/>
-<Element Index="[0,3]" Value="0"/>
-<Element Index="[0,4]" Value="0"/>
-<Element Index="[1,0]" Value="0"/>
-<Element Index="[1,1]" Value="0"/>
-<Element Index="[1,2]" Value="0"/>
-<Element Index="[1,3]" Value="0"/>
-<Element Index="[1,4]" Value="0"/>
-<Element Index="[2,0]" Value="0"/>
-<Element Index="[2,1]" Value="0"/>
-<Element Index="[2,2]" Value="0"/>
-<Element Index="[2,3]" Value="0"/>
-<Element Index="[2,4]" Value="0"/>
-<Element Index="[3,0]" Value="0"/>
-<Element Index="[3,1]" Value="0"/>
-<Element Index="[3,2]" Value="0"/>
-<Element Index="[3,3]" Value="0"/>
-<Element Index="[3,4]" Value="0"/>
-<Element Index="[4,0]" Value="0"/>
-<Element Index="[4,1]" Value="0"/>
-<Element Index="[4,2]" Value="0"/>
-<Element Index="[4,3]" Value="0"/>
-<Element Index="[4,4]" Value="0"/>
+<Element Index="[0,1]" Value="100"/>
+<Element Index="[0,2]" Value="200"/>
+<Element Index="[0,3]" Value="300"/>
+<Element Index="[0,4]" Value="400"/>
+<Element Index="[1,0]" Value="500"/>
+<Element Index="[1,1]" Value="600"/>
+<Element Index="[1,2]" Value="700"/>
+<Element Index="[1,3]" Value="800"/>
+<Element Index="[1,4]" Value="900"/>
+<Element Index="[2,0]" Value="1000"/>
+<Element Index="[2,1]" Value="1100"/>
+<Element Index="[2,2]" Value="1200"/>
+<Element Index="[2,3]" Value="1300"/>
+<Element Index="[2,4]" Value="1400"/>
+<Element Index="[3,0]" Value="1500"/>
+<Element Index="[3,1]" Value="1600"/>
+<Element Index="[3,2]" Value="1700"/>
+<Element Index="[3,3]" Value="1800"/>
+<Element Index="[3,4]" Value="1900"/>
+<Element Index="[4,0]" Value="2000"/>
+<Element Index="[4,1]" Value="2100"/>
+<Element Index="[4,2]" Value="2200"/>
+<Element Index="[4,3]" Value="2300"/>
+<Element Index="[4,4]" Value="2400"/>
 </Array>
 </Data>
 </Tag>
 <Tag Name="write_prog_dint_3d_ary1" TagType="Base" DataType="DINT" Dimensions="3 3 3" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 00 64 00 00 00 C8 00 00 00 2C 01 00 00 
+90 01 00 00 F4 01 00 00 58 02 00 00 BC 02 00 00 
+20 03 00 00 84 03 00 00 E8 03 00 00 4C 04 00 00 
+B0 04 00 00 14 05 00 00 78 05 00 00 DC 05 00 00 
+40 06 00 00 A4 06 00 00 08 07 00 00 6C 07 00 00 
+D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00 
+60 09 00 00 C4 09 00 00 28 0A 00 00</Data>
 <Data Format="Decorated">
 <Array DataType="DINT" Dimensions="3,3,3" Radix="Decimal">
 <Element Index="[0,0,0]" Value="0"/>
-<Element Index="[0,0,1]" Value="0"/>
-<Element Index="[0,0,2]" Value="0"/>
-<Element Index="[0,1,0]" Value="0"/>
-<Element Index="[0,1,1]" Value="0"/>
-<Element Index="[0,1,2]" Value="0"/>
-<Element Index="[0,2,0]" Value="0"/>
-<Element Index="[0,2,1]" Value="0"/>
-<Element Index="[0,2,2]" Value="0"/>
-<Element Index="[1,0,0]" Value="0"/>
-<Element Index="[1,0,1]" Value="0"/>
-<Element Index="[1,0,2]" Value="0"/>
-<Element Index="[1,1,0]" Value="0"/>
-<Element Index="[1,1,1]" Value="0"/>
-<Element Index="[1,1,2]" Value="0"/>
-<Element Index="[1,2,0]" Value="0"/>
-<Element Index="[1,2,1]" Value="0"/>
-<Element Index="[1,2,2]" Value="0"/>
-<Element Index="[2,0,0]" Value="0"/>
-<Element Index="[2,0,1]" Value="0"/>
-<Element Index="[2,0,2]" Value="0"/>
-<Element Index="[2,1,0]" Value="0"/>
-<Element Index="[2,1,1]" Value="0"/>
-<Element Index="[2,1,2]" Value="0"/>
-<Element Index="[2,2,0]" Value="0"/>
-<Element Index="[2,2,1]" Value="0"/>
-<Element Index="[2,2,2]" Value="0"/>
+<Element Index="[0,0,1]" Value="100"/>
+<Element Index="[0,0,2]" Value="200"/>
+<Element Index="[0,1,0]" Value="300"/>
+<Element Index="[0,1,1]" Value="400"/>
+<Element Index="[0,1,2]" Value="500"/>
+<Element Index="[0,2,0]" Value="600"/>
+<Element Index="[0,2,1]" Value="700"/>
+<Element Index="[0,2,2]" Value="800"/>
+<Element Index="[1,0,0]" Value="900"/>
+<Element Index="[1,0,1]" Value="1000"/>
+<Element Index="[1,0,2]" Value="1100"/>
+<Element Index="[1,1,0]" Value="1200"/>
+<Element Index="[1,1,1]" Value="1300"/>
+<Element Index="[1,1,2]" Value="1400"/>
+<Element Index="[1,2,0]" Value="1500"/>
+<Element Index="[1,2,1]" Value="1600"/>
+<Element Index="[1,2,2]" Value="1700"/>
+<Element Index="[2,0,0]" Value="1800"/>
+<Element Index="[2,0,1]" Value="1900"/>
+<Element Index="[2,0,2]" Value="2000"/>
+<Element Index="[2,1,0]" Value="2100"/>
+<Element Index="[2,1,1]" Value="2200"/>
+<Element Index="[2,1,2]" Value="2300"/>
+<Element Index="[2,2,0]" Value="2400"/>
+<Element Index="[2,2,1]" Value="2500"/>
+<Element Index="[2,2,2]" Value="2600"/>
 </Array>
 </Data>
 </Tag>
@@ -6189,6 +6421,10 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
@@ -6996,6 +7232,42 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 </Structure>
 </Element>
 </ArrayMember>
+<StructureMember Name="udt3" DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+</ArrayMember>
 </Structure>
 </Data>
 </Tag>
@@ -7618,6 +7890,18 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Structure>
 </Data>
 </Tag>
+<Tag Name="write_prog_udt3" TagType="Base" DataType="pycomm3_PaddedUDT" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="_bool_ary1_idx" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
 <Data>5F 00 00 00</Data>
 <Data Format="Decorated">
@@ -7625,14 +7909,14 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="_dint_ary_FAL" TagType="Base" DataType="CONTROL" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 A0 1E 00 00 00 1D 00 00 00</Data>
+<Data>00 00 00 00 1E 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="CONTROL">
 <DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="30"/>
-<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="29"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="EU" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="EM" DataType="BOOL" Value="0"/>
 <DataValueMember Name="ER" DataType="BOOL" Value="0"/>
 <DataValueMember Name="UL" DataType="BOOL" Value="0"/>
@@ -7772,7 +8056,7 @@ Atomic Data Types
 </Rung>
 <Rung Number="6" Type="N">
 <Text>
-<![CDATA[MOV(0,read_real1)MOV(100,read_real2)MOV(3.402823E38,read_real_max1)MOV(-3.402823E38,read_real_min1)MOV(1.1754944E-38,read_real_max2)MOV(-1.1754944E-38,read_real_min2);]]>
+<![CDATA[MOV(0,read_real1)MOV(100,read_real2)MOV(3.40282306e+038,read_real_max1)MOV(-3.40282306e+038,read_real_min1)MOV(1.17549435e-038,read_real_max2)MOV(-1.17549435e-038,read_real_min2);]]>
 </Text>
 </Rung>
 <Rung Number="7" Type="N">
@@ -7858,7 +8142,17 @@ String, UDT, Predefined, etc
 </Rung>
 <Rung Number="21" Type="N">
 <Text>
-<![CDATA[COP(read_udt1,read_nested_udt1.udt1,1)COP(read_udt1,read_nested_udt1.udt_ary1[2],1)COP(read_udt2,read_nested_udt1.udt2,1)COP(read_udt2,read_nested_udt1.udt_ary2[1],1)COP(read_str3,read_nested_udt1.str1,1);]]>
+<![CDATA[OTL(read_udt3.bool1)MOV(0,read_udt3.sint)OTU(read_udt3.bool2)MOV(-1,read_udt3.dint1)MOV(-1,read_udt3.dint2);]]>
+</Text>
+</Rung>
+<Rung Number="22" Type="N">
+<Text>
+<![CDATA[[COP(read_udt1,read_nested_udt1.udt1,1) COP(read_udt1,read_nested_udt1.udt_ary1[2],1) ,COP(read_udt2,read_nested_udt1.udt2,1) COP(read_udt2,read_nested_udt1.udt_ary2[1],1) COP(read_str3,read_nested_udt1.str1,1) ,COP(read_udt3,read_nested_udt1.udt3,1) COP(read_udt3,read_nested_udt1.udt_ary3[2],1) ];]]>
+</Text>
+</Rung>
+<Rung Number="23" Type="N">
+<Text>
+<![CDATA[[XIC(FALSE) TON(read_timer1,?,?) ,XIO(read_timer2.DN) TON(read_timer2,?,?) ];]]>
 </Text>
 </Rung>
 </RLLContent>
@@ -7887,12 +8181,17 @@ write tags are used in the logic so they're included in the exports
 </Rung>
 <Rung Number="3" Type="N">
 <Text>
-<![CDATA[ADD(write_dint_ary1[0],write_dint_max,write_dint_min)ADD(write_dint1,write_dint2,write_int_ary1[0])ADD(write_int_max,write_int_min,write_int1)ADD(write_int2,write_nested_udt1.udt1.sint,write_real_ary1[0])ADD(write_real_max1,write_real_max2,write_real_min1)ADD(write_real_min2,write_real1,write_real2)ADD(write_sint_ary1[0],write_sint_max,write_sint_min)ADD(write_sint1,write_sint2,write_udt1.sint)MOV(write_dint_2d_ary1[0,0],write_dint_3d_ary1[0,0,0])OTE(write_udt2.bools[0]);]]>
+<![CDATA[ADD(write_dint_ary1[0],write_dint_max,write_dint_min)ADD(write_dint1,write_dint2,write_int_ary1[0])ADD(write_int_max,write_int_min,write_int1)ADD(write_int2,write_nested_udt1.udt1.sint,write_real_ary1[0])ADD(write_real_max1,write_real_max2,write_real_min1)ADD(write_real_min2,write_real1,write_real2)ADD(write_sint_ary1[0],write_sint_max,write_sint_min)ADD(write_sint1,write_sint2,write_udt1.sint)MOV(write_dint_2d_ary1[0,0],write_dint_3d_ary1[0,0,0])OTE(write_udt2.bools[0])OTE(write_udt3.bool1);]]>
 </Text>
 </Rung>
 <Rung Number="4" Type="N">
 <Text>
 <![CDATA[CONCAT(write_str_symbols,write_str1,write_str2)CONCAT(write_str3,write_str20_1,write_str20_2)CONCAT(write_str20_3,write_str480_1,write_str480_2)CONCAT(write_str480_3,write_str_ary1[0],write_str480_ary1[0]);]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text>
+<![CDATA[[XIC(FALSE) TON(write_timer1,?,?) ,XIO(write_timer2.DN) TON(write_timer2,?,?) ];]]>
 </Text>
 </Rung>
 </RLLContent>
@@ -7901,10 +8200,15 @@ write tags are used in the logic so they're included in the exports
 <RLLContent>
 <Rung Number="0" Type="N">
 <Text>
-<![CDATA[JSR(global_reads,0);]]>
+<![CDATA[OTU(FALSE)OTL(TRUE);]]>
 </Text>
 </Rung>
 <Rung Number="1" Type="N">
+<Text>
+<![CDATA[JSR(global_reads,0);]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
 <Text>
 <![CDATA[JSR(program_reads,0);]]>
 </Text>
@@ -7998,7 +8302,7 @@ Arrays of Atomic Data Types
 </Rung>
 <Rung Number="14" Type="N">
 <Text>
-<![CDATA[COP(read_udt1,read_prog_udt1,1)COP(read_udt2,read_prog_udt2,1);]]>
+<![CDATA[COP(read_udt1,read_prog_udt1,1)COP(read_udt2,read_prog_udt2,1)COP(read_udt3,read_prog_udt3,1);]]>
 </Text>
 </Rung>
 <Rung Number="15" Type="N">
@@ -8032,7 +8336,7 @@ write tags are used in the logic so they're included in the exports
 </Rung>
 <Rung Number="3" Type="N">
 <Text>
-<![CDATA[ADD(write_prog_dint_ary1[0],write_prog_dint_max,write_prog_dint_min)ADD(write_prog_dint1,write_prog_dint2,write_prog_int_ary1[0])ADD(write_prog_int_max,write_prog_int_min,write_prog_int1)ADD(write_prog_int2,write_prog_nested_udt1.udt1.sint,write_prog_real_ary1[0])ADD(write_prog_real_max1,write_prog_real_max2,write_prog_real_min1)ADD(write_prog_real_min2,write_prog_real1,write_prog_real2)ADD(write_prog_sint_ary1[0],write_prog_sint_max,write_prog_sint_min)ADD(write_prog_sint1,write_prog_sint2,write_prog_udt1.sint)MOV(write_prog_dint_2d_ary1[0,0],write_prog_dint_3d_ary1[0,0,0])OTE(write_prog_udt2.bools[0]);]]>
+<![CDATA[ADD(write_prog_dint_ary1[0],write_prog_dint_max,write_prog_dint_min)ADD(write_prog_dint1,write_prog_dint2,write_prog_int_ary1[0])ADD(write_prog_int_max,write_prog_int_min,write_prog_int1)ADD(write_prog_int2,write_prog_nested_udt1.udt1.sint,write_prog_real_ary1[0])ADD(write_prog_real_max1,write_prog_real_max2,write_prog_real_min1)ADD(write_prog_real_min2,write_prog_real1,write_prog_real2)ADD(write_prog_sint_ary1[0],write_prog_sint_max,write_prog_sint_min)ADD(write_prog_sint1,write_prog_sint2,write_prog_udt1.sint)MOV(write_prog_dint_2d_ary1[0,0],write_prog_dint_3d_ary1[0,0,0])OTE(write_prog_udt2.bools[0])OTE(write_prog_udt3.bool1);]]>
 </Text>
 </Rung>
 <Rung Number="4" Type="N">

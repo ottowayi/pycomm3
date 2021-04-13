@@ -124,9 +124,9 @@ in the `GitHub repository`_ and it will be investigated.
     Python 3.6.0 is not supported due to ``NamedTuple`` not supporting
     `default values and methods <https://docs.python.org/3/library/typing.html#typing.NamedTuple>`_ until 3.6.1
 
-.. <<end>>
-
 .. _GitHub repository:  https://github.com/ottowayi/pycomm3
+
+.. <<end>>
 
 Documentation
 =============
@@ -240,7 +240,6 @@ Examples::
         plc.write('array[10]{5}', [1, 2, 3, 4, 5])  # write 5 elements to an array starting at element 10
         plc.write('string_tag', 'Hello World!')  # write to a string tag with a string
         plc.write('string_array[2]{5}', 'Write an array of strings'.split())  # write an array of 5 strings starting at element 2
-        plc.write('a_udt_tag', [1, 'a string', ...])  # writing a struct using a list of values
         plc.write('a_udt_tag', {'attr1': 1, 'attr2': 'a string', ...})  # can also use a dict to write a struct
 
         # Check the results

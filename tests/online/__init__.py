@@ -60,7 +60,7 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ('_dint_ary1[0]{30}', 'DINT[30]', _dint_array),
     ('_lint_ary1[0]{10}', 'LINT[10]', _lint_array),
     ('_real_ary1[0]{20}', 'REAL[20]', _real_array),
-    ('_bool_ary1[0]{3}', 'BOOL[96]', _bool_array),  # bool-arrays element count is DWORDs (1 element = 32 bools)
+    ('_bool_ary1[0]{96}', 'BOOL[96]', _bool_array),  # bool-arrays element count is DWORDs (1 element = 32 bools)
 
     ('_dint_2d_ary1[0,0]{25}', 'DINT[25]', _dint_array[:25]),
     ('_dint_3d_ary1[0,0,0]{27}', 'DINT[27]', _dint_array[:27]),
@@ -70,7 +70,7 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ('_dint_ary1{30}', 'DINT[30]', _dint_array),
     ('_lint_ary1{10}', 'LINT[10]', _lint_array),
     ('_real_ary1{20}', 'REAL[20]', _real_array),
-    ('_bool_ary1{3}', 'BOOL[96]', _bool_array),
+    ('_bool_ary1{96}', 'BOOL[96]', _bool_array),
 
     # TODO: add these to tests for 'bad' tags
     # ('_dint_2d_ary1[0]{25}', 'DINT25]', _dint_array[:25]),
@@ -85,7 +85,8 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ('_dint_ary1[6]{20}', 'DINT[20]', _dint_array[6:26]),
     ('_lint_ary1[3]{5}', 'LINT[5]', _lint_array[3:8]),
     ('_real_ary1[18]{2}', 'REAL[2]', _real_array[18:20]),
-    ('_bool_ary1[1]{2}', 'BOOL[64]', _bool_array[32:]),
+
+
     ('_dint_2d_ary1[2,3]{10}', 'DINT[10]', _dint_array[13:23]),
     ('_dint_3d_ary1[1,2,1]{5}', 'DINT[5]', _dint_array[16:21]),
 
@@ -132,6 +133,9 @@ _udt2_values_empty = {
     'reals': [REAL(0) for _ in range(10)],
 }
 
+_udt3_values = {'bool1': True, 'sint': 0, 'dint1': -1, 'bool2': False, 'dint2': -1}
+_udt3_values_empty = {'bool1': False, 'sint': 0, 'dint1': 0, 'bool2': False, 'dint2': 0}
+
 
 _str82_part = 'A normal built-in string type'
 _str82_full = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque sodales vel.'
@@ -154,7 +158,9 @@ _nested_udt1_values = {
     'udt2': _udt2_values,
     'udt_ary2': [_udt2_values_empty, _udt2_values, _udt2_values_empty, _udt2_values_empty, _udt2_values_empty],
     'str1': _str82_full,
-    'str_ary1': ['', '', '', '', '']
+    'str_ary1': ['', '', '', '', ''],
+    'udt3': _udt3_values,
+    'udt_ary3': [_udt3_values_empty, _udt3_values_empty, _udt3_values],
 }
 
 BASE_STRUCT_TESTS = [
@@ -169,7 +175,7 @@ BASE_STRUCT_TESTS = [
 
     # struct of atomic arrays
     ('_udt2', 'pycomm3_AtomicArrayUDT', _udt2_values),
-    ('_udt2.bools{2}', 'BOOL[64]', _udt2_bool_array),
+    ('_udt2.bools{64}', 'BOOL[64]', _udt2_bool_array),
     ('_udt2.bools[5]', 'BOOL', _udt2_bool_array[5]),
     ('_udt2.sints{8}', 'SINT[8]', _udt2_sint_array),
     ('_udt2.sints[5]', 'SINT', _udt2_sint_array[5]),  # also read a single element too
@@ -182,11 +188,20 @@ BASE_STRUCT_TESTS = [
     ('_udt2.reals{10}', 'REAL[10]', _udt2_real_array),
     ('_udt2.reals[2]', 'REAL', _udt2_real_array[2]),
 
+    ('_udt3', 'pycomm3_PaddedUDT', _udt3_values),
+    ('_udt3.bool1', 'BOOL', _udt3_values['bool1']),
+    ('_udt3.sint', 'SINT', _udt3_values['sint']),
+    ('_udt3.dint1', 'DINT', _udt3_values['dint1']),
+    ('_udt3.bool2', 'BOOL', _udt3_values['bool2']),
+    ('_udt3.dint2', 'DINT', _udt3_values['dint2']),
+
     ('_nested_udt1', 'pycomm3_NestedUDT', _nested_udt1_values),
     ('_nested_udt1.udt1', 'pycomm3_AtomicUDT', _nested_udt1_values['udt1']),
     ('_nested_udt1.udt_ary1{5}', 'pycomm3_AtomicUDT[5]', _nested_udt1_values['udt_ary1']),
     ('_nested_udt1.udt2', 'pycomm3_AtomicArrayUDT', _nested_udt1_values['udt2']),
     ('_nested_udt1.udt_ary2{5}', 'pycomm3_AtomicArrayUDT[5]', _nested_udt1_values['udt_ary2']),
+    ('_nested_udt1.udt3', 'pycomm3_PaddedUDT', _nested_udt1_values['udt3']),
+    ('_nested_udt1.udt_ary3{3}', 'pycomm3_PaddedUDT[3]', _nested_udt1_values['udt_ary3']),
 
     # strings
     ('_str1', 'STRING', _str82_part),

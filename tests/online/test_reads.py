@@ -3,7 +3,7 @@ from itertools import chain
 import pytest
 
 from tests import tag_only
-from . import BASE_ATOMIC_TESTS, BASE_ATOMIC_ARRAY_TESTS, BASE_STRUCT_TESTS
+from . import BASE_ATOMIC_TESTS, BASE_ATOMIC_ARRAY_TESTS, BASE_STRUCT_TESTS, _bool_array
 
 
 all_read_tests = list(chain.from_iterable((
@@ -19,6 +19,21 @@ all_read_tests = list(chain.from_iterable((
 
 @pytest.mark.parametrize('tag_name, data_type, value', all_read_tests)
 def test_reads(plc, tag_name, data_type, value):
+    result = plc.read(tag_name)
+    assert result
+    assert result.error is None
+    assert result.tag == tag_only(tag_name)
+    assert result.type == data_type
+    assert result.value == value
+
+
+@pytest.mark.parametrize('tag_name, data_type, value', (
+    ('read_bool_ary1[1]{32}', 'BOOL[32]', _bool_array[1:33]),
+    ('read_bool_ary1[32]{32}', 'BOOL[32]', _bool_array[32:64]),
+    ('read_bool_ary1[32]{64}', 'BOOL[64]', _bool_array[32:]),
+    ('read_bool_ary1[10]{80}', 'BOOL[80]', _bool_array[10:90]),
+))
+def test_bool_array_reads(plc, tag_name, data_type, value):
     result = plc.read(tag_name)
     assert result
     assert result.error is None
