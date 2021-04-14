@@ -17,25 +17,48 @@ Connection/Read Test App by GitHubDragonFly (see the screenshots here: https://g
 - The bottom corners listboxes are designed to show successful connection (left box) and errors (right box).
 
 Notes:
-- Tested in Windows 10 with python 3.6.8 only.
+- Minimum python version required is 3.6.1 (using tkinter only while Tkinter was removed).
+- Tested in Windows 10 with python 3.6.8 and Raspbian Buster / Kali Linux with python 3.7.x.
 - If the discover() function is not a part of the library then the Discover Devices button will be disabled.
 
-Tkinter vs tkinter - Reference: https://stackoverflow.com/questions/17843596/difference-between-tkinter-and-tkinter
+Window/widget resizing
+Reference: https://stackoverflow.com/questions/22835289/how-to-get-tkinter-canvas-to-dynamically-resize-to-window-width
 '''
 
+import platform
 import threading
+from struct import *
+
+from pycomm3 import *
 import pycomm3
 
+from tkinter import *
+import tkinter.font as tkfont
 
-from struct import *
-from pycomm3 import *
 
-try:
-    import Tkinter.font as tkfont
-    from Tkinter import *
-except ImportError:
-    import tkinter.font as tkfont
-    from tkinter import *
+# width wise resizing of the tag label (window)
+class LabelResizing(Label):
+    def __init__(self,parent,**kwargs):
+        Label.__init__(self,parent,**kwargs)
+        self.bind("<Configure>", self.on_resize)
+        self.width = self.winfo_reqwidth()
+
+    def on_resize(self,event):
+        if self.width > 0:
+            self.width = int(event.width)
+            self.config(width=self.width, wraplength=self.width)
+
+# width wise resizing of the tag entry box (window)
+class EntryResizing(Entry):
+    def __init__(self,parent,**kwargs):
+        Entry.__init__(self,parent,**kwargs)
+        self.bind("<Configure>", self.on_resize)
+        self.width = self.winfo_reqwidth()
+
+    def on_resize(self,event):
+        if self.width > 0:
+            self.width = int(event.width)
+            self.config(width=self.width)
 
 class device_discovery_thread(threading.Thread):
    def __init__(self):
@@ -63,7 +86,7 @@ class update_thread(threading.Thread):
 
 # startup default values
 myTag = ['CT_STRING', 'CT_DINT', 'CT_REAL']
-path = '192.168.1.20/3'
+path = '192.168.1.15/3'
 
 ver = pycomm3.__version__
 
@@ -97,7 +120,7 @@ def main():
 
     root = Tk()
     root.config(background='navy')
-    root.title('Pycomm3 GUI - Connection/Read Tester')
+    root.title('Pycomm3 GUI - Connection/Read Tester (Python v' + platform.python_version() + ')')
     root.geometry('800x600')
 
     # variable used for the Get Tags listbox to iterate through structures
@@ -109,6 +132,8 @@ def main():
 
     # bind the "q" keyboard key to quit
     root.bind('q', lambda event:root.destroy())
+
+    #----------------------------------------------------------------------------------------
 
     # add a frame to hold top widgets
     frame1 = Frame(root, background='navy')
@@ -149,6 +174,8 @@ def main():
     btnGetTags = Button(frame1, text = 'Get Tags', fg ='green', height=1, width=14, command=start_get_tags)
     btnGetTags.pack(anchor=N, side=RIGHT, padx=3, pady=3)
 
+    #----------------------------------------------------------------------------------------
+
     # add a frame to hold the label for pycomm3 version and the driver choices OptionMenu (combobox)
     frame2 = Frame(root, background='navy')
     frame2.pack(fill=X)
@@ -167,25 +194,29 @@ def main():
     popup_menu_drivers = OptionMenu(frame2, driverSelection, *driverChoices)
     popup_menu_drivers.pack(side=RIGHT, padx=3)
 
+    #----------------------------------------------------------------------------------------
+
     # add a frame to hold bottom widgets (pack these before the tag value label to limit its expansion)
     frame5 = Frame(root, background='navy')
     frame5.pack(side=BOTTOM, fill=X)
 
     # add a list box for PLC connection messages
-    lbPLCMessage = Listbox(frame5, justify=CENTER, height=1, width=45, fg='blue', bg='lightgrey')
+    lbPLCMessage = Listbox(frame5, justify=CENTER, height=1, width=48, fg='blue', bg='lightgrey')
     lbPLCMessage.pack(side=LEFT, padx=3, pady=3)
 
     # add the Connect button
-    btnConnect = Button(frame5, text = 'Connect', fg ='green', height=1, width=8, command=start_connection)
-    btnConnect.pack(side=LEFT, padx=25, pady=3)
+    btnConnect = Button(frame5, text = 'Connect', fg ='green', height=1, width=9, command=start_connection)
+    btnConnect.pack(side=LEFT, padx=15, pady=3)
 
     # add a list box for PLC error messages
-    lbPLCError = Listbox(frame5, justify=CENTER, height=1, width=45, fg='red', bg='lightgrey')
+    lbPLCError = Listbox(frame5, justify=CENTER, height=1, width=48, fg='red', bg='lightgrey')
     lbPLCError.pack(side=RIGHT, padx=3, pady=3)
 
     # add the Exit button
-    btnExit = Button(frame5, text = 'Exit', fg ='red', height=1, width=8, command=root.destroy)
-    btnExit.pack(side=RIGHT, padx=25, pady=3)
+    btnExit = Button(frame5, text = 'Exit', fg ='red', height=1, width=9, command=root.destroy)
+    btnExit.pack(side=RIGHT, padx=15, pady=3)
+
+    #----------------------------------------------------------------------------------------
 
     # add a frame to hold the tag label, tag entry box and the update buttons
     frame3 = Frame(root, background='navy')
@@ -207,7 +238,7 @@ def main():
     fnt = tkfont.Font(family="Helvetica", size=11, weight="normal")
     char_width = fnt.measure("0")
     selectedTag = StringVar()
-    tbTag = Entry(frame3, justify=CENTER, textvariable=selectedTag, font='Helvetica 11', width=(int(800 / char_width) - 24), relief=RAISED)
+    tbTag = EntryResizing(frame3, justify=CENTER, textvariable=selectedTag, font='Helvetica 11', width=(int(800 / char_width) - 24), relief=RAISED)
     selectedTag.set((str(myTag).replace(',', ';'))[1:-1].replace('\'', ''))
 
     # add the 'Paste' menu on the mouse right-click
@@ -215,7 +246,9 @@ def main():
     popup_menu_tbTag.add_command(label='Paste', command=tag_paste)
     tbTag.bind('<Button-3>', lambda event: tag_menu(event, tbTag))
 
-    tbTag.place(anchor='center', relx=0.5, rely=0.775)
+    tbTag.pack(side=LEFT, fill=X)
+
+    #----------------------------------------------------------------------------------------
 
     # add a frame to hold the tag value label
     frame4 = Frame(root, height=30, background='navy')
@@ -224,8 +257,10 @@ def main():
     # create a label to display the received tag(s) value(s)
     fnt = tkfont.Font(family="Helvetica", size=18, weight="normal")
     char_width = fnt.measure("0")
-    tagValue = Label(frame4, text='~', fg='yellow', bg='black', font='Helvetica 18', width=(int(800 / char_width - 4.5)), wraplength=800, relief=SUNKEN)
-    tagValue.pack(anchor=CENTER, side=TOP, pady=6)
+    tagValue = LabelResizing(frame4, text='~', fg='yellow', bg='black', font='Helvetica 18', width=(int(800 / char_width - 4.5)), wraplength=800, relief=SUNKEN)
+    tagValue.pack(anchor=CENTER, side=TOP, padx=3, pady=6)
+
+    #----------------------------------------------------------------------------------------
 
     # create a label and a text box for the path entry
     lblPath = Label(root, text='Path', fg='white', bg='navy', font='Helvetica 9')
@@ -239,8 +274,12 @@ def main():
     popup_menu_tbPath.add_command(label='Paste', command=path_paste)
     tbPath.bind('<Button-3>', lambda event: path_menu(event, tbPath))
 
-    tbPath.place(anchor=CENTER, relx=0.5, rely=0.14)
+    tbPath.place(anchor=CENTER, relx=0.5, rely=0.135)
 
+    # set the minimum window size to the current size
+    root.update()
+    root.minsize(root.winfo_width(), root.winfo_height())
+    
     start_connection()
 
     root.mainloop()
@@ -259,7 +298,7 @@ def driver_selector(*args):
         selectedPath.set('192.168.1.10')
     else:
         btnGetTags['state'] = 'normal'
-        selectedPath.set('192.168.1.24/3')
+        selectedPath.set('192.168.1.15/3')
 
     lbPLCMessage.delete(0, 'end') #clear the connection message listbox
     lbPLCError.delete(0, 'end') #clear the error message listbox
@@ -306,7 +345,7 @@ def discoverDevices():
     commDD = None
 
     try:
-        commDD = LogixDriver(path)
+        commDD = LogixDriver(path, init_tags=False, init_program_tags=False)
         commDD.open()
 
         if commDD.connected:
@@ -367,7 +406,10 @@ def getTags():
                     dims = str(_def['dimensions'])[1:-1].split(',')
 
                     if dim == 1:
-                        dimensions = '[' + dims[0] + ']'
+                        if _def['data_type'] == 'DWORD':
+                            dimensions = '[' + str(int(dims[0]) * 32) + ']'
+                        else:
+                            dimensions = '[' + dims[0] + ']'
                     elif dim == 2:
                         dimensions = '[' + dims[0] + ',' + dims[1] + ']'
                     else:
@@ -397,6 +439,9 @@ def getTags():
                     start_connection()
         else:
             lbTags.insert(1, 'No Tags Retrieved')
+
+        commGT.close()
+        commGT = None
     except Exception as e:
         lbPLCMessage.delete(0, 'end')
         lbPLCError.insert(1, e)
@@ -429,7 +474,10 @@ def struct_members(it, i, j):
                 add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (bit ' + str(tag['bit']) + ')' + ' (' + tag['data_type'] + ')')
             else:
                 if tag['array'] > 0:
-                    add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
+                    if tag['data_type'] == 'DWORD':
+                        add_Tag(j, '- ' + key + '[' + str(tag['array'] * 32) + ']' + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
+                    else:
+                        add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
                 else:
                     add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
 
@@ -463,6 +511,7 @@ def comm_check():
         if driverSelection.get() == 'LogixDriver':
             comm = LogixDriver(path)
             comm.open()
+
             lbPLCMessage.insert(1, 'Connected: ' + comm.info['product_name'] + ' , ' + comm.info['keyswitch'])
         else:
             comm = SLCDriver(path)
@@ -509,22 +558,54 @@ def startUpdateValue():
                 updateRunning = True
             else:
                 try:
-                    btnStart['state'] = 'disabled'
-                    btnStart['bg'] = 'lightgrey'
-                    btnStop['state'] = 'normal'
-                    btnStop['bg'] = 'lime'
-                    tbPath['state'] = 'disabled'
-                    tbTag['state'] = 'disabled'
-                    popup_menu_drivers['state'] = 'disabled'
+                    if btnStart['state'] == 'normal':
+                        btnStart['state'] = 'disabled'
+                        btnStart['bg'] = 'lightgrey'
+                        btnStop['state'] = 'normal'
+                        btnStop['bg'] = 'lime'
+                        tbPath['state'] = 'disabled'
+                        tbTag['state'] = 'disabled'
+                        popup_menu_drivers['state'] = 'disabled'
 
                     results = comm.read(*myTag)
+
                     allValues = ''
+
                     if len(myTag) == 1:
-                        tagValue['text'] = results.value
+                        if myTag[0].endswith('}') and '{' in myTag[0]:
+                            tempList = []
+
+                            for val in results.value:
+                                if isinstance(val, str):
+                                    tempList.append(str(val).strip('\x00'))
+                                else:
+                                    tempList.append(val)
+
+                            tagValue['text'] = str(tempList)
+                        else:
+                            if isinstance(results.value, str):
+                                tagValue['text'] = str(results.value).strip('\x00')
+                            else:
+                                tagValue['text'] = str(results.value)
                     else:
                         for tag in results:
-                            allValues += str(tag.value) + ', '
-                        tagValue['text'] = allValues[:-2]
+                            if isinstance(tag.value, list):
+                                tempList = []
+
+                                for val in tag.value:
+                                    if isinstance(val, str):
+                                        tempList.append(str(val).strip('\x00'))
+                                    else:
+                                        tempList.append(val)
+
+                                allValues += str(tempList) + '\n'
+                            else:
+                                if isinstance(tag.value, str):
+                                    allValues += str(tag.value).strip('\x00') + '\n'
+                                else:
+                                    allValues += str(tag.value) + '\n'
+
+                        tagValue['text'] = allValues[:-1]
 
                     root.after(500, startUpdateValue)
                 except Exception as e:
