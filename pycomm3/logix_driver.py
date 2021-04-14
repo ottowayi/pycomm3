@@ -676,9 +676,17 @@ class LogixDriver(CIPDriver):
 
             if info['data_type_name'] == 'BOOL':
                 if predefine:
-                    # for predefined types, we assume all 'offsets' refer to the
-                    # bit number of the hidden CTL attribute
-                    _bit_members[member] = (_host_members[0][0], info['bit'])
+                    if 0 in _host_members and _host_members[0][0] == 'CTL':
+                        # for most predefined types, we assume all 'offsets' refer to the
+                        # bit number of the hidden CTL attribute
+                        _bit_members[member] = (_host_members[0][0], info['bit'])
+                    else:
+                        # some predefined types don't list their host members, at least ANALOG_ALARM doesn't
+                        # but if trying to access the whole struct for ANALOG_ALARM leads to a 'permission denied'
+                        # error, so this isn't used anywhere yet and creates a broken StructTag type
+                        # but leaving it in case might find use for it in the future
+                        _bit_members[member] = (info['offset'], info['bit'])
+
                 elif info['offset'] in _host_members:
                     _bit_members[member] = (_host_members[info['offset']][0], info['bit'])
                 else:
