@@ -93,7 +93,7 @@ This example shows a simple recipe UDT:
 +-------------------+---------------+
 | OpCodes           |  DINT[10]     |
 +-------------------+---------------+
-| Target            |  REAL[10]     |
+| Targets           |  REAL[10]     |
 +-------------------+---------------+
 | StepDescriptions  |  STRING[10]   |
 +-------------------+---------------+
