@@ -2,6 +2,23 @@
 Release History
 ===============
 
+1.1.0
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed bugs in handling of built-in types (TIMER, CONTROL, etc)
+- |:bug:| fixed bugs in structure tag handling when padding exists between attributes
+- |:sparkles:| changed the meaning of the element count for BOOL arrays
+    - Previously, the ``{#}`` referred to the underlying ``DWORD`` elements of the ``BOOL`` array.
+      A ``BOOL[64]`` array is actually a `DWORD[2]` array, so ``array{1}`` translated to BOOL elements
+      0-31 or the first ``DWORD`` element. Now, the ``{#}`` refers to the number of ``BOOL`` elements.  So
+      ``array{1}`` is only a single ``BOOL`` element and ``array{32}`` would be the 0-31 ``BOOL`` elements.
+    - Refer to the documentation_ for limitations on writing.
+
+.. _documentation: https://docs.pycomm3.dev/en/latest/usage/logixdriver.html#bool-arrays
+
 1.0.1
 =====
 
