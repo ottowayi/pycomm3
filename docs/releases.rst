@@ -2,6 +2,15 @@
 Release History
 ===============
 
+1.1.1
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed read/write errors by preventing program-scoped tags from using instance ids in the request
+
+
 1.1.0
 =====
 
