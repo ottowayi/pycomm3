@@ -54,7 +54,6 @@ def wrap_unconnected_send(message: bytes, route_path: bytes) -> bytes:
 
 def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
                  attribute: Union[int, bytes] = b'') -> bytes:
-
     segments = [
         LogicalSegment(class_code, 'class_id'),
         LogicalSegment(instance, 'instance_id'),
@@ -68,15 +67,14 @@ def request_path(class_code: Union[int, bytes], instance: Union[int, bytes],
 
 def tag_request_path(tag, tag_info, use_instance_ids):
     """
-    It returns the request packed wrapped around the tag passed.
-    If any error it returns none
+    Returns the tag request path encoded as a packed EPATH, returns None on error.
     """
 
     tags = tag.split('.')
     if tags:
         base, *attrs = tags
         base_tag, index = _find_tag_index(base)
-        if use_instance_ids and tag_info.get('instance_id'):
+        if use_instance_ids and not base.startswith('Program:') and tag_info.get('instance_id'):
             segments = [
                 LogicalSegment(ClassCode.symbol_object, 'class_id'),
                 LogicalSegment(tag_info['instance_id'], 'instance_id')
