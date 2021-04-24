@@ -280,6 +280,8 @@ def main():
     root.update()
     root.minsize(root.winfo_width(), root.winfo_height())
     
+    comm = None
+
     start_connection()
 
     root.mainloop()
@@ -288,7 +290,7 @@ def main():
         if not comm is None:
             comm.close()
             comm = None
-    except Exception as e:
+    except:
         pass
 
 def driver_selector(*args):
@@ -371,9 +373,16 @@ def discoverDevices():
             if btnConnect['state'] == 'normal':
                 start_connection()
         else:
-            lbDevices.insert(1, 'No Devices Discovered')
+            try:
+                lbDevices.insert(1, 'No Devices Discovered')
+            except:
+                pass
     except Exception as e:
-        lbDevices.insert(1, 'No Devices Discovered')
+        try:
+            lbDevices.insert(1, 'No Devices Discovered')
+        except:
+            pass
+
         if not commDD is None:
             commDD.close()
             commDD = None
@@ -438,14 +447,21 @@ def getTags():
                 if btnConnect['state'] == 'normal':
                     start_connection()
         else:
-            lbTags.insert(1, 'No Tags Retrieved')
+            try:
+                lbTags.insert(1, 'No Tags Retrieved')
+            except:
+                pass
 
         commGT.close()
         commGT = None
     except Exception as e:
-        lbPLCMessage.delete(0, 'end')
-        lbPLCError.insert(1, e)
-        lbTags.insert(1, 'No Tags Retrieved')
+        try:
+            lbPLCMessage.delete(0, 'end')
+            lbPLCError.insert(1, e)
+            lbTags.insert(1, 'No Tags Retrieved')
+        except:
+            pass
+
         if not commGT is None:
             commGT.close()
             commGT = None
@@ -454,36 +470,39 @@ def struct_members(it, i, j):
     # internal tags keys
     keys = it.keys()
 
-    for key in keys:
-        tag = it[key]
+    try:
+        for key in keys:
+            tag = it[key]
 
-        if tag['tag_type'] == 'struct':
-            structureDataType = tag['data_type']['name']
-            structureSize = tag['data_type']['template']['structure_size']
+            if tag['tag_type'] == 'struct':
+                structureDataType = tag['data_type']['name']
+                structureSize = tag['data_type']['template']['structure_size']
 
-            if tag['array'] > 0:
-                add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
-            else:
-                add_Tag(j, '- ' + key + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
-
-            currentTagLine.set(i + 1)
-
-            i = struct_members(tag['data_type']['internal_tags'], currentTagLine.get() + 1, j + 1)
-        else:
-            if tag['data_type'] == 'BOOL':
-                add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (bit ' + str(tag['bit']) + ')' + ' (' + tag['data_type'] + ')')
-            else:
                 if tag['array'] > 0:
-                    if tag['data_type'] == 'DWORD':
-                        add_Tag(j, '- ' + key + '[' + str(tag['array'] * 32) + ']' + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
-                    else:
-                        add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
+                    add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
                 else:
-                    add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
+                    add_Tag(j, '- ' + key + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
 
-            currentTagLine.set(currentTagLine.get() + 1)
+                currentTagLine.set(i + 1)
 
-    return currentTagLine.get()
+                i = struct_members(tag['data_type']['internal_tags'], currentTagLine.get() + 1, j + 1)
+            else:
+                if tag['data_type'] == 'BOOL':
+                    add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (bit ' + str(tag['bit']) + ')' + ' (' + tag['data_type'] + ')')
+                else:
+                    if tag['array'] > 0:
+                        if tag['data_type'] == 'DWORD':
+                            add_Tag(j, '- ' + key + '[' + str(tag['array'] * 32) + ']' + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
+                        else:
+                            add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
+                    else:
+                        add_Tag(j, '- ' + key + ' (offset ' + str(tag['offset']) + ')' + ' (' + tag['data_type'] + ')')
+
+                currentTagLine.set(currentTagLine.get() + 1)
+
+        return currentTagLine.get()
+    except:
+        pass
 
 def add_Tag(j, string):
     #insert multiple of 2 spaces, depending on the structure depth, to simulate the tree appearance
@@ -501,36 +520,36 @@ def comm_check():
         if not comm is None:
             comm.close()
             comm = None
-    except Exception as e:
+
+        if (path != pth):
+            path = pth
+
+        try:
+            if driverSelection.get() == 'LogixDriver':
+                comm = LogixDriver(path)
+                comm.open()
+
+                lbPLCMessage.insert(1, 'Connected: ' + comm.info['product_name'] + ' , ' + comm.info['keyswitch'])
+            else:
+                comm = SLCDriver(path)
+                comm.open()
+                lbPLCMessage.insert(1, 'Connected to: ' + path)
+
+            connected = True
+            lbPLCError.delete(0, 'end')
+            btnConnect['state'] = 'disabled'
+            if btnStop['state'] == 'disabled':
+                btnStart['state'] = 'normal'
+                btnStart['bg'] = 'lime'
+        except Exception as e:
+            connected = False
+            lbPLCMessage.delete(0, 'end')
+            lbPLCError.insert(1, e)
+            btnConnect['state'] = 'normal'
+            btnStart['state'] = 'disabled'
+            btnStart['bg'] = 'lightgrey'
+    except:
         pass
-
-    if (path != pth):
-        path = pth
-
-    try:
-        if driverSelection.get() == 'LogixDriver':
-            comm = LogixDriver(path)
-            comm.open()
-
-            lbPLCMessage.insert(1, 'Connected: ' + comm.info['product_name'] + ' , ' + comm.info['keyswitch'])
-        else:
-            comm = SLCDriver(path)
-            comm.open()
-            lbPLCMessage.insert(1, 'Connected to: ' + path)
-
-        connected = True
-        lbPLCError.delete(0, 'end')
-        btnConnect['state'] = 'disabled'
-        if btnStop['state'] == 'disabled':
-            btnStart['state'] = 'normal'
-            btnStart['bg'] = 'lime'
-    except Exception as e:
-        connected = False
-        lbPLCMessage.delete(0, 'end')
-        lbPLCError.insert(1, e)
-        btnConnect['state'] = 'normal'
-        btnStart['state'] = 'disabled'
-        btnStart['bg'] = 'lightgrey'
 
 def startUpdateValue():
     global updateRunning
@@ -539,96 +558,102 @@ def startUpdateValue():
     Call ourself to update the screen
     '''
 
-    if (path != selectedPath.get()):
-        start_connection()
-    else:
-        displayTag = (selectedTag.get()).replace(' ', '')
+    try:
+        if (path != selectedPath.get()):
+            start_connection()
+        else:
+            displayTag = (selectedTag.get()).replace(' ', '')
 
-        if displayTag != '':
-            myTag = []
-            if ';' in displayTag:
-                tags = displayTag.split(';')
-                for tag in tags:
-                    if not str(tag) == '':
-                        myTag.append(str(tag))
-            else:
-                myTag.append(displayTag)
+            if displayTag != '':
+                myTag = []
+                if ';' in displayTag:
+                    tags = displayTag.split(';')
+                    for tag in tags:
+                        if not str(tag) == '':
+                            myTag.append(str(tag))
+                else:
+                    myTag.append(displayTag)
 
-            if not updateRunning:
-                updateRunning = True
-            else:
-                try:
-                    if btnStart['state'] == 'normal':
-                        btnStart['state'] = 'disabled'
-                        btnStart['bg'] = 'lightgrey'
-                        btnStop['state'] = 'normal'
-                        btnStop['bg'] = 'lime'
-                        tbPath['state'] = 'disabled'
-                        tbTag['state'] = 'disabled'
-                        popup_menu_drivers['state'] = 'disabled'
+                if not updateRunning:
+                    updateRunning = True
+                else:
+                    try:
+                        if btnStart['state'] == 'normal':
+                            btnStart['state'] = 'disabled'
+                            btnStart['bg'] = 'lightgrey'
+                            btnStop['state'] = 'normal'
+                            btnStop['bg'] = 'lime'
+                            tbPath['state'] = 'disabled'
+                            tbTag['state'] = 'disabled'
+                            popup_menu_drivers['state'] = 'disabled'
 
-                    results = comm.read(*myTag)
+                        results = comm.read(*myTag)
 
-                    allValues = ''
+                        allValues = ''
 
-                    if len(myTag) == 1:
-                        if myTag[0].endswith('}') and '{' in myTag[0]:
-                            tempList = []
-
-                            for val in results.value:
-                                if isinstance(val, str):
-                                    tempList.append(str(val).strip('\x00'))
-                                else:
-                                    tempList.append(val)
-
-                            tagValue['text'] = str(tempList)
-                        else:
-                            if isinstance(results.value, str):
-                                tagValue['text'] = str(results.value).strip('\x00')
-                            else:
-                                tagValue['text'] = str(results.value)
-                    else:
-                        for tag in results:
-                            if isinstance(tag.value, list):
+                        if len(myTag) == 1:
+                            if myTag[0].endswith('}') and '{' in myTag[0]:
                                 tempList = []
 
-                                for val in tag.value:
+                                for val in results.value:
                                     if isinstance(val, str):
                                         tempList.append(str(val).strip('\x00'))
                                     else:
                                         tempList.append(val)
 
-                                allValues += str(tempList) + '\n'
+                                tagValue['text'] = str(tempList)
                             else:
-                                if isinstance(tag.value, str):
-                                    allValues += str(tag.value).strip('\x00') + '\n'
+                                if isinstance(results.value, str):
+                                    tagValue['text'] = str(results.value).strip('\x00')
                                 else:
-                                    allValues += str(tag.value) + '\n'
+                                    tagValue['text'] = str(results.value)
+                        else:
+                            for tag in results:
+                                if isinstance(tag.value, list):
+                                    tempList = []
 
-                        tagValue['text'] = allValues[:-1]
+                                    for val in tag.value:
+                                        if isinstance(val, str):
+                                            tempList.append(str(val).strip('\x00'))
+                                        else:
+                                            tempList.append(val)
 
-                    root.after(500, startUpdateValue)
-                except Exception as e:
-                    lbPLCMessage.delete(0, 'end')
-                    lbPLCError.insert(1, e)
-                    tagValue['text'] = '~'
-                    connected = False
-                    start_connection()
-                    root.after(2000, startUpdateValue)
+                                    allValues += str(tempList) + '\n'
+                                else:
+                                    if isinstance(tag.value, str):
+                                        allValues += str(tag.value).strip('\x00') + '\n'
+                                    else:
+                                        allValues += str(tag.value) + '\n'
+
+                            tagValue['text'] = allValues[:-1]
+
+                        root.after(500, startUpdateValue)
+                    except Exception as e:
+                        lbPLCMessage.delete(0, 'end')
+                        lbPLCError.insert(1, e)
+                        tagValue['text'] = '~'
+                        connected = False
+                        start_connection()
+                        root.after(2000, startUpdateValue)
+    except:
+        pass
 
 def stop_update():
     global updateRunning
    
-    if updateRunning:
-        updateRunning = False
-        tagValue['text'] = '~'
-        btnStart['state'] = 'normal'
-        btnStart['bg'] = 'lime'
-        btnStop['state'] = 'disabled'
-        btnStop['bg'] = 'lightgrey'
-        tbPath['state'] = 'normal'
-        tbTag['state'] = 'normal'
-        popup_menu_drivers['state'] = 'normal'
+    try:
+        if updateRunning:
+            updateRunning = False
+            tagValue['text'] = '~'
+            btnStart['state'] = 'normal'
+            btnStart['bg'] = 'lime'
+            btnStop['state'] = 'disabled'
+            btnStop['bg'] = 'lightgrey'
+            tbPath['state'] = 'normal'
+            tbTag['state'] = 'normal'
+            popup_menu_drivers['state'] = 'normal'
+    except:
+        pass
 
 def tag_menu(event, tbTag):
     try:
