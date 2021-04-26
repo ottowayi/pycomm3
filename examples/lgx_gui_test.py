@@ -292,9 +292,9 @@ def main():
         pass
 
 def driver_selector(*args):
+    lbTags.delete(0, 'end') #clear the tags listbox
+
     if driverSelection.get() == 'SLCDriver':
-        lbTags.delete(0, 'end') #clear the tags listbox
-        btnGetTags['state'] = 'disabled'
         selectedPath.set('192.168.1.10')
     else:
         btnGetTags['state'] = 'normal'
@@ -345,7 +345,11 @@ def discoverDevices():
     commDD = None
 
     try:
-        commDD = LogixDriver(path, init_tags=False, init_program_tags=False)
+        if driverSelection.get() == 'SLCDriver':
+            commDD = SLCDriver(path)
+        else:
+            commDD = LogixDriver(path, init_tags=False, init_program_tags=False)
+
         commDD.open()
 
         if commDD.connected:
@@ -384,64 +388,82 @@ def getTags():
     commGT = None
 
     try:
-        commGT = LogixDriver(path)
-        commGT.open()
+        if driverSelection.get() == 'SLCDriver':
+            commGT = SLCDriver(path)
+            commGT.open()
 
-        tags = commGT.get_tag_list('*') #get all tags
+            tags = comm.get_file_directory()
 
-        currentTagLine.set(1) #start at the first line of the tags listbox
+            currentTagLine.set(1) #start at the first line of the tags listbox
 
-        if not tags is None:
-            j = 1
+            if not tags is None:
+                for tag in tags:
+                    lbTags.insert(currentTagLine.get(), tag + ' {elements: ' + str(tags[tag]['elements']) + ', length: ' + str(tags[tag]['length']) + '}')
+                    currentTagLine.set(currentTagLine.get() + 1)
+            else:
+                lbTags.insert(1, 'No Tags Retrieved')
 
-            for tag, _def in commGT.tags.items():
-                #-----------------------------------------------------------------------
-                # Extract dimensions and format them for displaying
-                #-----------------------------------------------------------------------
+            commGT.close()
+            commGT = None
+        else:
+            commGT = LogixDriver(path)
+            commGT.open()
 
-                dimensions = ''
-                dim = _def['dim']
+            tags = commGT.get_tag_list('*') #get all tags
 
-                if dim != 0:
-                    dims = str(_def['dimensions'])[1:-1].split(',')
+            currentTagLine.set(1) #start at the first line of the tags listbox
 
-                    if dim == 1:
-                        if _def['data_type'] == 'DWORD':
-                            dimensions = '[' + str(int(dims[0]) * 32) + ']'
+            if not tags is None:
+                j = 1
+
+                for tag, _def in commGT.tags.items():
+                    #-----------------------------------------------------------------------
+                    # Extract dimensions and format them for displaying
+                    #-----------------------------------------------------------------------
+
+                    dimensions = ''
+                    dim = _def['dim']
+
+                    if dim != 0:
+                        dims = str(_def['dimensions'])[1:-1].split(',')
+
+                        if dim == 1:
+                            if _def['data_type'] == 'DWORD':
+                                dimensions = '[' + str(int(dims[0]) * 32) + ']'
+                            else:
+                                dimensions = '[' + dims[0] + ']'
+                        elif dim == 2:
+                            dimensions = '[' + dims[0] + ',' + dims[1] + ']'
                         else:
-                            dimensions = '[' + dims[0] + ']'
-                    elif dim == 2:
-                        dimensions = '[' + dims[0] + ',' + dims[1] + ']'
+                            dimensions = '[' + dims[0] + ',' + dims[1] + ',' + dims[2] + ']'
+
+                    #-----------------------------------------------------------------------
+                    # If structure then process this and all subsequent structures
+                    #-----------------------------------------------------------------------
+
+                    if _def['tag_type'] == 'struct':
+                        structureDataType = _def['data_type']['name']
+                        structureSize = _def['data_type']['template']['structure_size']
+
+                        lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
+                        currentTagLine.set(currentTagLine.get() + 1)
+
+                        struct_members(_def['data_type']['internal_tags'], currentTagLine.get(), j)
                     else:
-                        dimensions = '[' + dims[0] + ',' + dims[1] + ',' + dims[2] + ']'
+                        lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + _def['data_type'] + ')')
 
-                #-----------------------------------------------------------------------
-                # If structure then process this and all subsequent structures
-                #-----------------------------------------------------------------------
+                    #-----------------------------------------------------------------------
 
-                if _def['tag_type'] == 'struct':
-                    structureDataType = _def['data_type']['name']
-                    structureSize = _def['data_type']['template']['structure_size']
-
-                    lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
+                    j = 1
                     currentTagLine.set(currentTagLine.get() + 1)
 
-                    struct_members(_def['data_type']['internal_tags'], currentTagLine.get(), j)
-                else:
-                    lbTags.insert(currentTagLine.get(), tag + dimensions + ' (' + _def['data_type'] + ')')
+                    if btnConnect['state'] == 'normal':
+                        start_connection()
+            else:
+                lbTags.insert(1, 'No Tags Retrieved')
 
-                #-----------------------------------------------------------------------
-
-                j = 1
-                currentTagLine.set(currentTagLine.get() + 1)
-
-                if btnConnect['state'] == 'normal':
-                    start_connection()
-        else:
-            lbTags.insert(1, 'No Tags Retrieved')
-
-        commGT.close()
-        commGT = None
+            commGT.close()
+            commGT = None
     except Exception as e:
         lbPLCMessage.delete(0, 'end')
         lbPLCError.insert(1, e)
