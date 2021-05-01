@@ -323,7 +323,7 @@ def start_connection():
         thread1.setDaemon(True)
         thread1.start()
     except Exception as e:
-        print('unable to start thread1 - connection_thread, ' + str(e))
+        print('unable to start connection_thread, ' + str(e))
 
 def start_discover_devices():
     try:
@@ -331,7 +331,7 @@ def start_discover_devices():
         thread2.setDaemon(True)
         thread2.start()
     except Exception as e:
-        print('unable to start thread2 - device_discovery_thread, ' + str(e))
+        print('unable to start device_discovery_thread, ' + str(e))
 
 def start_get_tags():
     try:
@@ -339,7 +339,7 @@ def start_get_tags():
         thread3.setDaemon(True)
         thread3.start()
     except Exception as e:
-        print('unable to start thread3 - get_tags_thread, ' + str(e))
+        print('unable to start get_tags_thread, ' + str(e))
 
 def start_update():
     try:
@@ -347,7 +347,7 @@ def start_update():
         thread4.setDaemon(True)
         thread4.start()
     except Exception as e:
-        print('unable to start thread4 - update_thread, ' + str(e))
+        print('unable to start update_thread, ' + str(e))
 
 def discoverDevices():
     try:
@@ -509,7 +509,7 @@ def struct_members(it, i, j):
                 if tag['array'] > 0:
                     add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
                 else:
-                    add_Tag(j, '- ' + key + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
+                    add_Tag(j, '- ' + key + ' (' + structureDataType + ')' + ' (offset ' + str(tag['offset']) + ')' + ' (' + str(structureSize) + ' bytes)')
 
                 currentTagLine.set(i + 1)
 
