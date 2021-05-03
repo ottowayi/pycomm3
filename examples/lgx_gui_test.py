@@ -117,11 +117,15 @@ def main():
     global popup_menu_drivers
     global popup_menu_tbTag
     global popup_menu_tbPath
+    global app_closing
 
     root = Tk()
     root.config(background='navy')
     root.title('Pycomm3 GUI - Connection/Read Tester (Python v' + platform.python_version() + ')')
     root.geometry('800x600')
+    root.bind('<Destroy>', on_exit)
+
+    app_closing = False
 
     # variable used for the Get Tags listbox to iterate through structures
     currentTagLine = IntVar()
@@ -290,8 +294,13 @@ def main():
         if not comm is None:
             comm.close()
             comm = None
-    except Exception as e:
+    except:
         pass
+
+def on_exit(*args):
+    global app_closing
+
+    app_closing = True
 
 def driver_selector(*args):
     lbTags.delete(0, 'end') #clear the tags listbox
@@ -314,7 +323,7 @@ def start_connection():
         thread1.setDaemon(True)
         thread1.start()
     except Exception as e:
-        print('unable to start thread1 - connection_thread, ' + str(e))
+        print('unable to start connection_thread, ' + str(e))
 
 def start_discover_devices():
     try:
@@ -322,7 +331,7 @@ def start_discover_devices():
         thread2.setDaemon(True)
         thread2.start()
     except Exception as e:
-        print('unable to start thread2 - device_discovery_thread, ' + str(e))
+        print('unable to start device_discovery_thread, ' + str(e))
 
 def start_get_tags():
     try:
@@ -330,7 +339,7 @@ def start_get_tags():
         thread3.setDaemon(True)
         thread3.start()
     except Exception as e:
-        print('unable to start thread3 - get_tags_thread, ' + str(e))
+        print('unable to start get_tags_thread, ' + str(e))
 
 def start_update():
     try:
@@ -338,7 +347,7 @@ def start_update():
         thread4.setDaemon(True)
         thread4.start()
     except Exception as e:
-        print('unable to start thread4 - update_thread, ' + str(e))
+        print('unable to start update_thread, ' + str(e))
 
 def discoverDevices():
     try:
@@ -383,8 +392,11 @@ def discoverDevices():
             if not commDD is None:
                 commDD.close()
                 commDD = None
-    except:
-        pass
+    except Exception as e:
+        if app_closing:
+            pass
+        else:
+            print(str(e))
 
 def getTags():
     try:
@@ -476,8 +488,11 @@ def getTags():
             if not commGT is None:
                 commGT.close()
                 commGT = None
-    except:
-        pass
+    except Exception as e:
+        if app_closing:
+            pass
+        else:
+            print(str(e))
 
 def struct_members(it, i, j):
     try:
@@ -494,7 +509,7 @@ def struct_members(it, i, j):
                 if tag['array'] > 0:
                     add_Tag(j, '- ' + key + '[' + str(tag['array']) + ']' + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
                 else:
-                    add_Tag(j, '- ' + key + ' (' + structureDataType + ')' + ' (' + str(structureSize) + ' bytes)')
+                    add_Tag(j, '- ' + key + ' (' + structureDataType + ')' + ' (offset ' + str(tag['offset']) + ')' + ' (' + str(structureSize) + ' bytes)')
 
                 currentTagLine.set(i + 1)
 
@@ -514,16 +529,22 @@ def struct_members(it, i, j):
                 currentTagLine.set(currentTagLine.get() + 1)
 
         return currentTagLine.get()
-    except:
-        pass
+    except Exception as e:
+        if app_closing:
+            pass
+        else:
+            print(str(e))
 
 def add_Tag(j, string):
     try:
         #insert multiple of 2 spaces, depending on the structure depth, to simulate the tree appearance
         k = 2 * j + len(string)
         lbTags.insert(currentTagLine.get(), (' ' * k + string)[-k:])
-    except:
-        pass
+    except Exception as e:
+        if app_closing:
+            pass
+        else:
+            print(str(e))
 
 def comm_check():
     global comm
@@ -564,8 +585,11 @@ def comm_check():
             btnConnect['state'] = 'normal'
             btnStart['state'] = 'disabled'
             btnStart['bg'] = 'lightgrey'
-    except:
-        pass
+    except Exception as e:
+        if app_closing:
+            pass
+        else:
+            print(str(e))
 
 def startUpdateValue():
     global updateRunning
