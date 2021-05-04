@@ -40,6 +40,7 @@ TagValueType = Union[AtomicValueType, List[Union[AtomicValueType, str]]]
 ReadWriteReturnType = Union[Tag, List[Tag]]
 
 
+
 class SLCDriver(CIPDriver):
     """
     An Ethernet/IP Client driver for reading and writing of data files in SLC or MicroLogix PLCs.
@@ -454,7 +455,8 @@ def parse_tag(tag: str) -> Optional[dict]:
                         'element_count': int(element_count) if element_count is not None else 1,
                         'tag': tag_name}
 
-    t = re.search(r"(?P<file_type>[IO])(:)(?P<element_number>\d{1,3})"
+    t = re.search(r"(?P<file_type>[IO])(?P<file_number>\d{1,3})"
+                  r"(:)(?P<element_number>\d{1,3})"
                   r"(.)(?P<position_number>\d{1,3})"
                   r"(/(?P<sub_element>\d{1,2}))?"
                   r"(?P<_elem_cnt_token>{(?P<element_count>\d+)})?",
