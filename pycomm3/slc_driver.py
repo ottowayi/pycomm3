@@ -477,11 +477,7 @@ def parse_tag(tag: str) -> Optional[dict]:
                         'address_field': 2,
                         'element_count': int(element_count) if element_count is not None else 1,
                         'tag': tag_name}
-# IO_RE = re.compile(r"(?P<file_type>[IO])(?P<file_number>\d{1,3})?"
-                #   r"(:)(?P<element_number>\d{1,3})"
-                #   r"((\.)(?P<position_number>\d{1,3}))?"
-                #   r"(/(?P<sub_element>\d{1,2}))?"
-                #   r"(?P<_elem_cnt_token>{(?P<element_count>\d+)})?", flags=re.IGNORECASE)
+
     t = IO_RE.search(tag)
     if t:
         _cnt = t.group('_elem_cnt_token')
