@@ -54,7 +54,7 @@ LogixDriver
 
 
 Logix Driver
-^^^^^^^^^^^^
+------------
 
 - |:triangular_flag_on_post:| Upload of program-scoped tags is now enabled by default
     - Use ``init_program_tags=False`` in initializer for to upload controller-scoped only tags
