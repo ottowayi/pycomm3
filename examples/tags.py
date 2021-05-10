@@ -21,7 +21,7 @@ def tag_list_equal():
     if plc.tags == plc2.tags:
         print('Calling get_tag_list() does the same thing.')
     else:
-        print('Calling get_tag_list() dose NOT do the same.')
+        print('Calling get_tag_list() does NOT do the same.')
 
 
 def find_pids():
