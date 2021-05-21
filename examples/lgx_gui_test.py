@@ -25,6 +25,8 @@ Window/widget resizing
 Reference: https://stackoverflow.com/questions/22835289/how-to-get-tkinter-canvas-to-dynamically-resize-to-window-width
 '''
 
+import os.path
+import datetime
 import platform
 import threading
 from struct import *
@@ -34,7 +36,6 @@ import pycomm3
 
 from tkinter import *
 import tkinter.font as tkfont
-
 
 # width wise resizing of the tag label (window)
 class LabelResizing(Label):
@@ -87,6 +88,7 @@ class update_thread(threading.Thread):
 # startup default values
 myTag = ['CT_STRING', 'CT_DINT', 'CT_REAL']
 path = '192.168.1.15/3'
+headerAdded = False
 
 ver = pycomm3.__version__
 
@@ -117,6 +119,13 @@ def main():
     global popup_menu_drivers
     global popup_menu_tbTag
     global popup_menu_tbPath
+    global checkVarLogTagValues
+    global checkVarBoolDisplay
+    global checkVarSaveTags
+    global chbSaveTags
+    global popup_menu_save_tags_list
+    global previousLogHeader
+    global chbLogTagValues
     global app_closing
 
     root = Tk()
@@ -124,6 +133,8 @@ def main():
     root.title('Pycomm3 GUI - Connection/Read Tester (Python v' + platform.python_version() + ')')
     root.geometry('800x600')
     root.bind('<Destroy>', on_exit)
+
+    previousLogHeader = ''
 
     app_closing = False
 
@@ -180,13 +191,19 @@ def main():
 
     #----------------------------------------------------------------------------------------
 
-    # add a frame to hold the label for pycomm3 version and the driver choices OptionMenu (combobox)
+    # add a frame to hold the pycomm3 version label, 'Log Tags Values' + 'Save Tags List' checkboxes and driver choices OptionMenu (combobox)
     frame2 = Frame(root, background='navy')
     frame2.pack(fill=X)
 
     # create a label to show pycomm3 version
     lblVersion = Label(frame2, text='pycomm3 version ' + ver, fg='grey', bg='navy', font='Helvetica 9')
     lblVersion.pack(side=LEFT, padx=3)
+
+    # add 'Log tag values' checkbox
+    checkVarLogTagValues = IntVar()
+    chbLogTagValues = Checkbutton(frame2, text='Log Tags Values', variable=checkVarLogTagValues)
+    checkVarLogTagValues.set(0)
+    chbLogTagValues.pack(side='left', padx=45, pady=4)
 
     # create the driver selection variable
     driverSelection = StringVar()
@@ -196,7 +213,19 @@ def main():
 
     # create the driver selection popup menu
     popup_menu_drivers = OptionMenu(frame2, driverSelection, *driverChoices)
+    popup_menu_drivers['width'] = 10 # set fixed width to avoid automatic re-sizing
     popup_menu_drivers.pack(side=RIGHT, padx=3)
+
+    # add 'Save Tags List' checkbox
+    checkVarSaveTags = IntVar()
+    chbSaveTags = Checkbutton(frame2, text='Save Tags List', variable=checkVarSaveTags)
+    checkVarSaveTags.set(0)
+    chbSaveTags.pack(side='right', padx=85, pady=4)
+
+    # add the tooltip menu on the mouse right-click
+    popup_menu_save_tags_list = Menu(chbSaveTags, bg='lightblue', tearoff=0)
+    popup_menu_save_tags_list.add_command(label='Click \'Get Tags\' button to save the list', command=set_checkbox_state)
+    chbSaveTags.bind('<Button-1>', lambda event: save_tags_list(event, chbSaveTags))
 
     #----------------------------------------------------------------------------------------
 
@@ -227,7 +256,7 @@ def main():
     frame3.pack(fill=X)
 
     # create a label for the Tag entry
-    lblTag = Label(frame3, text='Tag(s) to Read', fg='white', bg='navy', font='Helvetica 9 italic')
+    lblTag = Label(frame3, text='Tags to Read (semicolon separated)', fg='white', bg='navy', font='Helvetica 9 italic')
     lblTag.pack(anchor=CENTER, pady=10)
 
     # add a button to start updating tag value
@@ -481,6 +510,13 @@ def getTags():
 
                 commGT.close()
                 commGT = None
+
+            # save tags to a file inside the application folder
+            if checkVarSaveTags.get() == 1:
+                with open('tags_list.txt', 'w') as f:
+                    for i in range(0, lbTags.size()):
+                        f.write(str(lbTags.get(i)) + '\n')
+
         except Exception as e:
             lbPLCMessage.delete(0, 'end')
             lbPLCError.insert(1, e)
@@ -593,6 +629,9 @@ def comm_check():
 
 def startUpdateValue():
     global updateRunning
+    global previousLogHeader
+    global chbLogTagValues
+    global headerAdded
 
     '''
     Call ourself to update the screen
@@ -605,14 +644,20 @@ def startUpdateValue():
             displayTag = (selectedTag.get()).replace(' ', '')
 
             if displayTag != '':
+                logHeader = ''
+                logValues = ''
+
                 myTag = []
+
                 if ';' in displayTag:
                     tags = displayTag.split(';')
                     for tag in tags:
                         if not str(tag) == '':
                             myTag.append(str(tag))
+                            logHeader += tag + ', '
                 else:
                     myTag.append(displayTag)
+                    logHeader = tag + ', '
 
                 if not updateRunning:
                     updateRunning = True
@@ -626,6 +671,7 @@ def startUpdateValue():
                             tbPath['state'] = 'disabled'
                             tbTag['state'] = 'disabled'
                             popup_menu_drivers['state'] = 'disabled'
+                            chbLogTagValues['state'] = 'disabled'
 
                         results = comm.read(*myTag)
 
@@ -642,11 +688,14 @@ def startUpdateValue():
                                         tempList.append(val)
 
                                 tagValue['text'] = str(tempList)
+                                logValues = str(tempList).replace(',', ';') + ', '
                             else:
                                 if isinstance(results.value, str):
                                     tagValue['text'] = str(results.value).strip('\x00')
                                 else:
                                     tagValue['text'] = str(results.value)
+
+                                logValues = tagValue['text'] + ', '
                         else:
                             for tag in results:
                                 if isinstance(tag.value, list):
@@ -659,13 +708,36 @@ def startUpdateValue():
                                             tempList.append(val)
 
                                     allValues += str(tempList) + '\n'
+                                    logValues += str(tempList).replace(',', ';') + ', '
                                 else:
                                     if isinstance(tag.value, str):
                                         allValues += str(tag.value).strip('\x00') + '\n'
+                                        logValues += str(tag.value).strip('\x00') + ', '
                                     else:
                                         allValues += str(tag.value) + '\n'
+                                        logValues += str(tag.value) + ', '
 
                             tagValue['text'] = allValues[:-1]
+
+                        # log tags values
+                        if checkVarLogTagValues.get() == 1:
+                            if not os.path.exists('tag_values_log.txt') or previousLogHeader != logHeader:
+                                if previousLogHeader != logHeader:
+                                    previousLogHeader = logHeader
+                                    logValues = ''
+
+                                headerAdded = False
+
+                            if headerAdded:
+                                with open('tag_values_log.txt', 'a') as log_file:
+                                    strValue = str(datetime.datetime.now()).replace(' ', '/') + ', ' + logValues[:-2] + '\n'
+                                    log_file.write(strValue)
+                            else:
+                                with open('tag_values_log.txt', 'w') as log_file:
+                                    # add header with 'Date / Time' and all the tags being read
+                                    header = 'Date / Time, ' + logHeader[:-2] + '\n'
+                                    log_file.write(header)
+                                    headerAdded = True
 
                         root.after(500, startUpdateValue)
                     except Exception as e:
@@ -692,8 +764,19 @@ def stop_update():
             tbPath['state'] = 'normal'
             tbTag['state'] = 'normal'
             popup_menu_drivers['state'] = 'normal'
+            chbLogTagValues['state'] = 'normal'
     except:
         pass
+
+def save_tags_list(event, chbSaveTags):
+    if checkVarSaveTags.get() == 0:
+        popup_menu_save_tags_list.post(event.x_root, event.y_root)
+        # Windows users can also click outside of the popup so set the checkbox state here
+        if platform.system() == 'Windows':
+            chbSaveTags.select()
+
+def set_checkbox_state():
+    chbSaveTags.select()
 
 def tag_menu(event, tbTag):
     try:
