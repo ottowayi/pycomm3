@@ -34,7 +34,9 @@ class PCCCStringType(StringDataType):
 
     @classmethod
     def _slc_string_swap(cls, data):
-        pairs = [(x2, x1) for x1, x2 in (data[i:i + 2] for i in range(0, len(data), 2))]
+        _len = len(data)
+        data = data if _len % 2 == 0 else (*data, 0)
+        pairs = [(x2, x1) for x1, x2 in (data[i:i + 2] for i in range(0, _len, 2))]
         return bytes(chain.from_iterable(pairs))
 
 
@@ -56,12 +58,12 @@ class PCCC_STRING(PCCCStringType):
     def _encode(cls, value: str) -> bytes:
         _len = UINT.encode(len(value))
         _data = cls._slc_string_swap(value.encode(cls.encoding))
-        return _len + _data
+        return _len + _data + b'\x00'*(82-len(value))
 
     @classmethod
     def _decode(cls, stream: BytesIO) -> str:
         _len = UINT.decode(stream)
-        return cls._slc_string_swap(stream.read(82)).decode(cls.encoding)
+        return cls._slc_string_swap(stream.read(_len)).decode(cls.encoding)
 
 
 class PCCCDataTypes(EnumMap):
