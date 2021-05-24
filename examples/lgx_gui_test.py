@@ -657,7 +657,7 @@ def startUpdateValue():
                             logHeader += tag + ', '
                 else:
                     myTag.append(displayTag)
-                    logHeader = tag + ', '
+                    logHeader = displayTag + ', '
 
                 if not updateRunning:
                     updateRunning = True
