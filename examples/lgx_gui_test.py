@@ -606,7 +606,8 @@ def comm_check():
             else:
                 comm = SLCDriver(path)
                 comm.open()
-                lbPLCMessage.insert(1, 'Connected to: ' + path)
+                info = comm.list_identity(path)
+                lbPLCMessage.insert(1, 'Connected to: ' + info['ip_address'] + '  [' + info['product_name'] + ']')
 
             connected = True
             lbPLCError.delete(0, 'end')
