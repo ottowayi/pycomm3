@@ -29,10 +29,9 @@ __all__ = ['configure_default_logger', 'LOG_VERBOSE']
 
 LOG_VERBOSE = 5
 
-_root = logging.getLogger()
-_root.addHandler(logging.NullHandler())
 
 logger = logging.getLogger('pycomm3')
+logger.addHandler(logging.NullHandler())
 
 
 def _verbose(self: logging.Logger, msg, *args, **kwargs):
