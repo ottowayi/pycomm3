@@ -153,6 +153,14 @@ that cannot fit within the request/reply packet, it will automatically handle th
 *Read Tag Fragmented (0x52)* or *Write Tag Fragmented (0x53)* requests.  Users do not have to worry about the number of
 tags or their size in any single request, this is all handled automatically by the driver.
 
+Program-Scoped Tags
+-------------------
+
+Program-scoped tag names use the format `Program:<program>.<tag>`.  For example, to access a tag named `SomeTag` in
+the program `MainProgram` you would use `Program:MainProgram.SomeTag` in the request.  The tag list uploaded by the
+driver will also keep this format for the tag names.
+
+
 Array Tags
 ----------
 
@@ -176,7 +184,7 @@ array[0, 1]                X
 array[1, 0]                X
 array[1, 1]                X        X
 array[2, 0]                         X
-array[2, 3]                         X
+array[2, 1]                         X
 ======================   ========  =============
 
 =========================    ========    ===============
