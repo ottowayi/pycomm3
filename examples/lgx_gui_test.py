@@ -126,6 +126,8 @@ def main():
     global popup_menu_save_tags_list
     global previousLogHeader
     global chbLogTagValues
+    global chbBoolDisplay
+    global checkVarBoolDisplay
     global app_closing
 
     root = Tk()
@@ -201,13 +203,13 @@ def main():
 
     # add 'Log tag values' checkbox
     checkVarLogTagValues = IntVar()
-    chbLogTagValues = Checkbutton(frame2, text='Log Tags Values', variable=checkVarLogTagValues)
+    chbLogTagValues = Checkbutton(frame2, text='Log Tags Values', variable=checkVarLogTagValues, command=setBoolDisplayForLogging)
     checkVarLogTagValues.set(0)
     chbLogTagValues.pack(side='left', padx=45, pady=4)
 
     # create the driver selection variable
     driverSelection = StringVar()
-    driverChoices = { 'LogixDriver','SLCDriver'}
+    driverChoices = ['LogixDriver','SLCDriver']
     driverSelection.set('LogixDriver')
     driverSelection.trace('w', driver_selector)
 
@@ -309,6 +311,18 @@ def main():
 
     tbPath.place(anchor=CENTER, relx=0.5, rely=0.135)
 
+    # add a frame to hold the Boolean Display checkbox
+    frameBoolDisplay = Frame(root, background='navy')
+    frameBoolDisplay.place(anchor='center', relx=0.5, rely=0.2)
+
+    # add 'Boolean Display' checkbox
+    checkVarBoolDisplay = IntVar()
+    chbBoolDisplay = Checkbutton(frameBoolDisplay, text='Boolean Display 1 : 0', variable=checkVarBoolDisplay)
+    checkVarBoolDisplay.set(0)
+    chbBoolDisplay.pack(side='top', anchor='center', pady=3)
+
+    #----------------------------------------------------------------------------------------
+
     # set the minimum window size to the current size
     root.update()
     root.minsize(root.winfo_width(), root.winfo_height())
@@ -345,6 +359,15 @@ def driver_selector(*args):
     selectedTag.set('')
 
     start_connection()
+
+def setBoolDisplayForLogging():
+    global checkVarBoolDisplay
+
+    if checkVarLogTagValues.get() == 1: # force logging bool/bit values as True/False for uniformity
+        checkVarBoolDisplay.set(0)
+        chbBoolDisplay['state'] = 'disabled'
+    else:
+        chbBoolDisplay['state'] = 'normal'
 
 def start_connection():
     try:
@@ -686,17 +709,26 @@ def startUpdateValue():
                                     if isinstance(val, str):
                                         tempList.append(str(val).strip('\x00'))
                                     else:
-                                        tempList.append(val)
+                                        if (checkVarBoolDisplay.get() == 1) and (val == True or val == False):
+                                            tempList.append(1 if val else 0)
+                                        else:
+                                            tempList.append(val)
 
                                 tagValue['text'] = str(tempList)
-                                logValues = str(tempList).replace(',', ';') + ', '
+
+                                if checkVarLogTagValues.get() == 1:
+                                    logValues = str(tempList).replace(',', ';') + ', '
                             else:
                                 if isinstance(results.value, str):
                                     tagValue['text'] = str(results.value).strip('\x00')
                                 else:
-                                    tagValue['text'] = str(results.value)
+                                    if (checkVarBoolDisplay.get() == 1) and (results.value == True or results.value == False):
+                                        tagValue['text'] = '1' if results.value else '0'
+                                    else:
+                                        tagValue['text'] = str(results.value)
 
-                                logValues = tagValue['text'] + ', '
+                                if checkVarLogTagValues.get() == 1:
+                                    logValues = tagValue['text'] + ', '
                         else:
                             for tag in results:
                                 if isinstance(tag.value, list):
@@ -706,17 +738,29 @@ def startUpdateValue():
                                         if isinstance(val, str):
                                             tempList.append(str(val).strip('\x00'))
                                         else:
-                                            tempList.append(val)
+                                            if (checkVarBoolDisplay.get() == 1) and (val == True or val == False):
+                                                tempList.append(1 if val else 0)
+                                            else:
+                                                tempList.append(val)
 
                                     allValues += str(tempList) + '\n'
-                                    logValues += str(tempList).replace(',', ';') + ', '
+
+                                    if checkVarLogTagValues.get() == 1:
+                                        logValues += str(tempList).replace(',', ';') + ', '
                                 else:
                                     if isinstance(tag.value, str):
                                         allValues += str(tag.value).strip('\x00') + '\n'
-                                        logValues += str(tag.value).strip('\x00') + ', '
+
+                                        if checkVarLogTagValues.get() == 1:
+                                            logValues += str(tag.value).strip('\x00') + ', '
                                     else:
-                                        allValues += str(tag.value) + '\n'
-                                        logValues += str(tag.value) + ', '
+                                        if (checkVarBoolDisplay.get() == 1) and (tag.value == True or tag.value == False):
+                                            allValues += '1' if tag.value else '0' + '\n'
+                                        else:
+                                            allValues += str(tag.value) + '\n'
+
+                                        if checkVarLogTagValues.get() == 1:
+                                            logValues += str(tag.value) + ', '
 
                             tagValue['text'] = allValues[:-1]
 
