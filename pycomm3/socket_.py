@@ -31,7 +31,7 @@ from .const import HEADER_SIZE
 
 
 class Socket:
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
     def __init__(self, timeout=5.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -63,13 +63,13 @@ class Socket:
             if timeout != 0:
                 self.sock.settimeout(timeout)
             data = self.sock.recv(256)
-            data_len = struct.unpack_from('<H', data, 2)[0]
+            data_len = struct.unpack_from("<H", data, 2)[0]
             while len(data) - HEADER_SIZE < data_len:
                 data += self.sock.recv(256)
 
             return data
         except socket.error as err:
-            raise CommError('socket connection broken') from err
+            raise CommError("socket connection broken") from err
 
     def close(self):
         self.sock.close()

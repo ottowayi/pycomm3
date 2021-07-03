@@ -26,33 +26,36 @@ from ..map import EnumMap
 
 
 from .base import RequestPacket, ResponsePacket
-from .ethernetip import (SendUnitDataRequestPacket, SendUnitDataResponsePacket,
-                         SendRRDataRequestPacket, SendRRDataResponsePacket,
-                         RegisterSessionRequestPacket, RegisterSessionResponsePacket,
-                         UnRegisterSessionRequestPacket, UnRegisterSessionResponsePacket,
-                         ListIdentityRequestPacket, ListIdentityResponsePacket)
-from .cip import (GenericConnectedRequestPacket, GenericConnectedResponsePacket,
-                  GenericUnconnectedRequestPacket, GenericUnconnectedResponsePacket)
-from .logix import (ReadTagRequestPacket, ReadTagResponsePacket,
-                    ReadTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
-                    WriteTagRequestPacket, WriteTagResponsePacket,
-                    WriteTagFragmentedRequestPacket, WriteTagFragmentedResponsePacket,
-                    ReadModifyWriteRequestPacket, ReadModifyWriteResponsePacket,
-                    MultiServiceRequestPacket, MultiServiceResponsePacket)
+from .ethernetip import (
+    SendUnitDataRequestPacket,
+    SendUnitDataResponsePacket,
+    SendRRDataRequestPacket,
+    SendRRDataResponsePacket,
+    RegisterSessionRequestPacket,
+    RegisterSessionResponsePacket,
+    UnRegisterSessionRequestPacket,
+    UnRegisterSessionResponsePacket,
+    ListIdentityRequestPacket,
+    ListIdentityResponsePacket,
+)
+from .cip import (
+    GenericConnectedRequestPacket,
+    GenericConnectedResponsePacket,
+    GenericUnconnectedRequestPacket,
+    GenericUnconnectedResponsePacket,
+)
+from .logix import (
+    ReadTagRequestPacket,
+    ReadTagResponsePacket,
+    ReadTagFragmentedRequestPacket,
+    ReadTagFragmentedResponsePacket,
+    WriteTagRequestPacket,
+    WriteTagResponsePacket,
+    WriteTagFragmentedRequestPacket,
+    WriteTagFragmentedResponsePacket,
+    ReadModifyWriteRequestPacket,
+    ReadModifyWriteResponsePacket,
+    MultiServiceRequestPacket,
+    MultiServiceResponsePacket,
+)
 from .util import *
-
-
-class RequestTypes(EnumMap):
-    send_unit_data = SendUnitDataRequestPacket
-    send_rr_data = SendRRDataRequestPacket
-    register_session = RegisterSessionRequestPacket
-    unregister_session = UnRegisterSessionRequestPacket
-    list_identity = ListIdentityRequestPacket
-    read_tag = ReadTagRequestPacket
-    multi_request = MultiServiceRequestPacket
-    read_tag_fragmented = ReadTagFragmentedRequestPacket
-    write_tag = WriteTagRequestPacket
-    write_tag_fragmented = WriteTagFragmentedRequestPacket
-    generic_connected = GenericConnectedRequestPacket
-    generic_unconnected = GenericUnconnectedRequestPacket
-    read_modify_write = ReadModifyWriteRequestPacket

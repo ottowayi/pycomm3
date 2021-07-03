@@ -30,17 +30,17 @@ from ..cip import DINT, UINT, UDINT
 from ..const import SUCCESS
 from ..exceptions import CommError
 
-__all__ = ['Packet', 'ResponsePacket', 'RequestPacket']
+__all__ = ["Packet", "ResponsePacket", "RequestPacket"]
 
 
 class Packet:
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
 
 class ResponsePacket(Packet):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
-    def __init__(self, request: 'RequestPacket', raw_data: bytes = None):
+    def __init__(self, request: "RequestPacket", raw_data: bytes = None):
         super().__init__()
         self.request = request
         self.raw = raw_data
@@ -56,7 +56,7 @@ class ResponsePacket(Packet):
         if raw_data is not None:
             self._parse_reply()
         else:
-            self._error = 'No response data received'
+            self._error = "No response data received"
 
     def __bool__(self):
         return self.is_valid()
@@ -71,41 +71,45 @@ class ResponsePacket(Packet):
             return self.command_extended_status()
         if self.service_status not in (None, SUCCESS):
             return self.service_extended_status()
-        return 'Unknown Error'
+        return "Unknown Error"
 
     def is_valid(self) -> bool:
-        return all((
-            self._error is None,
-            self.command is not None,
-            self.command_status == SUCCESS,
-        ))
+        return all(
+            (
+                self._error is None,
+                self.command is not None,
+                self.command_status == SUCCESS,
+            )
+        )
 
     def _parse_reply(self):
         try:
             self.command = self.raw[:2]
-            self.command_status = DINT.decode(self.raw[8:12])  # encapsulation status check
+            self.command_status = DINT.decode(
+                self.raw[8:12]
+            )  # encapsulation status check
         except Exception as err:
-            self.__log.exception('Failed to parse reply')
-            self._error = f'Failed to parse reply - {err}'
+            self.__log.exception("Failed to parse reply")
+            self._error = f"Failed to parse reply - {err}"
 
     def command_extended_status(self) -> str:
-        return 'Unknown Error'
+        return "Unknown Error"
 
     def service_extended_status(self) -> str:
-        return 'Unknown Error'
+        return "Unknown Error"
 
     def __repr__(self):
         service = self.service or None
-        return f'{self.__class__.__name__}(service={service!r}, command={self.command!r}, error={self.error!r})'
+        return f"{self.__class__.__name__}(service={service!r}, command={self.command!r}, error={self.error!r})"
 
     __str__ = __repr__
 
 
 class RequestPacket(Packet):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
     _message_type = None
     _address_type = None
-    _timeout = b'\x0a\x00'  # 10
+    _timeout = b"\x0a\x00"  # 10
     _encap_command = None
     response_class = ResponsePacket
     type_ = None
@@ -114,7 +118,7 @@ class RequestPacket(Packet):
 
     def __init__(self):
         super().__init__()
-        self.message = b''
+        self.message = b""
         self._msg_setup = False
         self._msg = []  # message data
         self._added = []
@@ -131,53 +135,63 @@ class RequestPacket(Packet):
         if not self._msg_setup:
             self._setup_message()
             self._msg += self._added
-        self.message = b''.join(self._msg)
+        self.message = b"".join(self._msg)
         return self.message
 
-    def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int, **kwargs) -> bytes:
+    def build_request(
+        self, target_cid: bytes, session_id: int, context: bytes, option: int, **kwargs
+    ) -> bytes:
         msg = self.build_message()
         common = self._build_common_packet_format(msg, addr_data=target_cid)
-        header = self._build_header(self._encap_command, len(common), session_id, context, option)
+        header = self._build_header(
+            self._encap_command, len(common), session_id, context, option
+        )
         return header + common
 
     @staticmethod
     def _build_header(command, length, session_id, context, option) -> bytes:
-        """ Build the encapsulate message header
+        """Build the encapsulate message header
 
         The header is 24 bytes fixed length, and includes the command and the length of the optional data portion.
 
          :return: the header
         """
         try:
-            return b''.join([
-                command,
-                UINT.encode(length),  # Length UINT
-                UDINT.encode(session_id),  # Session Handle UDINT
-                b'\x00\x00\x00\x00',  # Status UDINT
-                context,  # Sender Context 8 bytes
-                UDINT.encode(option)  # Option UDINT
-            ])
+            return b"".join(
+                [
+                    command,
+                    UINT.encode(length),  # Length UINT
+                    UDINT.encode(session_id),  # Session Handle UDINT
+                    b"\x00\x00\x00\x00",  # Status UDINT
+                    context,  # Sender Context 8 bytes
+                    UDINT.encode(option),  # Option UDINT
+                ]
+            )
 
         except Exception as err:
-            raise CommError('Failed to build request header') from err
+            raise CommError("Failed to build request header") from err
 
     def _build_common_packet_format(self, message, addr_data=None) -> bytes:
-        addr_data = b'\x00\x00' if addr_data is None else UINT.encode(len(addr_data)) + addr_data
+        addr_data = (
+            b"\x00\x00"
+            if addr_data is None
+            else UINT.encode(len(addr_data)) + addr_data
+        )
 
-        return b''.join([
-            b'\x00\x00\x00\x00',  # Interface Handle: shall be 0 for CIP
-            self._timeout,
-            b'\x02\x00',  # Item count: should be at list 2 (Address and Data)
-            self._address_type,
-            addr_data,
-            self._message_type,
-            UINT.encode(len(message)),
-            message
-        ])
+        return b"".join(
+            [
+                b"\x00\x00\x00\x00",  # Interface Handle: shall be 0 for CIP
+                self._timeout,
+                b"\x02\x00",  # Item count: should be at list 2 (Address and Data)
+                self._address_type,
+                addr_data,
+                self._message_type,
+                UINT.encode(len(message)),
+                message,
+            ]
+        )
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(message={_r(self._msg)})'
+        return f"{self.__class__.__name__}(message={_r(self._msg)})"
 
     __str__ = __repr__
-
-
