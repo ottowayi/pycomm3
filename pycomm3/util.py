@@ -37,8 +37,8 @@ def strip_array(tag: str) -> str:
     'tag[100]' -> 'tag'
 
     """
-    if '[' in tag:
-        return tag[:tag.find('[')]
+    if "[" in tag:
+        return tag[: tag.find("[")]
     return tag
 
 
@@ -48,8 +48,8 @@ def get_array_index(tag: str) -> Tuple[str, int]:
 
     'tag[100]' -> ('tag', 100)
     """
-    if tag.endswith(']') and '[' in tag:
-        tag, _tmp = tag.split('[')
+    if tag.endswith("]") and "[" in tag:
+        tag, _tmp = tag.split("[")
         idx = int(_tmp[:-1])
     else:
         idx = None
@@ -65,5 +65,3 @@ def cycle(stop, start=0):
 
         yield val
         val += 1
-
-

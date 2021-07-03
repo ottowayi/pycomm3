@@ -27,7 +27,7 @@ from typing import NamedTuple, Any, Optional
 from reprlib import repr as _r
 
 
-__all__ = ['Tag']
+__all__ = ["Tag"]
 
 
 class Tag(NamedTuple):
@@ -43,9 +43,7 @@ class Tag(NamedTuple):
         return self.value is not None and self.error is None
 
     def __str__(self):
-        return f'{self.tag}, {_r(self.value)}, {self.type}, {self.error}'
+        return f"{self.tag}, {_r(self.value)}, {self.type}, {self.error}"
 
     def __repr__(self):
         return f"{self.__class__.__name__}(tag={self.tag!r}, value={self.value!r}, type={self.type!r}, error={self.error!r})"
-
-

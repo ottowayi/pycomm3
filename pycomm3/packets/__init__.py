@@ -26,17 +26,36 @@ from ..map import EnumMap
 
 
 from .base import RequestPacket, ResponsePacket
-from .ethernetip import (SendUnitDataRequestPacket, SendUnitDataResponsePacket,
-                         SendRRDataRequestPacket, SendRRDataResponsePacket,
-                         RegisterSessionRequestPacket, RegisterSessionResponsePacket,
-                         UnRegisterSessionRequestPacket, UnRegisterSessionResponsePacket,
-                         ListIdentityRequestPacket, ListIdentityResponsePacket)
-from .cip import (GenericConnectedRequestPacket, GenericConnectedResponsePacket,
-                  GenericUnconnectedRequestPacket, GenericUnconnectedResponsePacket)
-from .logix import (ReadTagRequestPacket, ReadTagResponsePacket,
-                    ReadTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
-                    WriteTagRequestPacket, WriteTagResponsePacket,
-                    WriteTagFragmentedRequestPacket, WriteTagFragmentedResponsePacket,
-                    ReadModifyWriteRequestPacket, ReadModifyWriteResponsePacket,
-                    MultiServiceRequestPacket, MultiServiceResponsePacket)
+from .ethernetip import (
+    SendUnitDataRequestPacket,
+    SendUnitDataResponsePacket,
+    SendRRDataRequestPacket,
+    SendRRDataResponsePacket,
+    RegisterSessionRequestPacket,
+    RegisterSessionResponsePacket,
+    UnRegisterSessionRequestPacket,
+    UnRegisterSessionResponsePacket,
+    ListIdentityRequestPacket,
+    ListIdentityResponsePacket,
+)
+from .cip import (
+    GenericConnectedRequestPacket,
+    GenericConnectedResponsePacket,
+    GenericUnconnectedRequestPacket,
+    GenericUnconnectedResponsePacket,
+)
+from .logix import (
+    ReadTagRequestPacket,
+    ReadTagResponsePacket,
+    ReadTagFragmentedRequestPacket,
+    ReadTagFragmentedResponsePacket,
+    WriteTagRequestPacket,
+    WriteTagResponsePacket,
+    WriteTagFragmentedRequestPacket,
+    WriteTagFragmentedResponsePacket,
+    ReadModifyWriteRequestPacket,
+    ReadModifyWriteResponsePacket,
+    MultiServiceRequestPacket,
+    MultiServiceResponsePacket,
+)
 from .util import *

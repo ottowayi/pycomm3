@@ -26,16 +26,22 @@ import logging
 from typing import Union, Any
 
 from ..util import cycle
-from .ethernetip import (SendUnitDataResponsePacket, SendUnitDataRequestPacket,
-                         SendRRDataRequestPacket, SendRRDataResponsePacket)
+from .ethernetip import (
+    SendUnitDataResponsePacket,
+    SendUnitDataRequestPacket,
+    SendRRDataRequestPacket,
+    SendRRDataResponsePacket,
+)
 from .util import request_path, wrap_unconnected_send
 from ..cip import DataType
 
 
 class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
-    def __init__(self, request: 'GenericConnectedRequestPacket', raw_data: bytes = None):
+    def __init__(
+        self, request: "GenericConnectedRequestPacket", raw_data: bytes = None
+    ):
         self.data_type = request.data_type
         self.value = None
         super().__init__(request, raw_data)
@@ -49,23 +55,24 @@ class GenericConnectedResponsePacket(SendUnitDataResponsePacket):
             try:
                 self.value = self.data_type.decode(self.data)
             except Exception as err:
-                self.__log.exception('Failed to parse reply')
-                self._error = f'Failed to parse reply - {err}'
+                self.__log.exception("Failed to parse reply")
+                self._error = f"Failed to parse reply - {err}"
                 self.value = None
 
 
 class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
     response_class = GenericConnectedResponsePacket
 
-    def __init__(self,
-                 sequence: cycle,
-                 service: Union[int, bytes],
-                 class_code: Union[int, bytes],
-                 instance: Union[int, bytes],
-                 attribute: Union[int, bytes] = b'',
-                 request_data: Any = b'',
-                 data_type: DataType = None,
+    def __init__(
+        self,
+        sequence: cycle,
+        service: Union[int, bytes],
+        class_code: Union[int, bytes],
+        instance: Union[int, bytes],
+        attribute: Union[int, bytes] = b"",
+        request_data: Any = b"",
+        data_type: DataType = None,
     ):
         super().__init__(sequence)
         self.data_type = data_type
@@ -82,9 +89,11 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
 
 
 class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
-    def __init__(self, request: 'GenericUnconnectedRequestPacket', raw_data: bytes = None):
+    def __init__(
+        self, request: "GenericUnconnectedRequestPacket", raw_data: bytes = None
+    ):
         self.data_type = request.data_type
         self.value = None
         super().__init__(request, raw_data)
@@ -98,24 +107,26 @@ class GenericUnconnectedResponsePacket(SendRRDataResponsePacket):
             try:
                 self.value = self.data_type.decode(self.data)
             except Exception as err:
-                self.__log.exception('Failed to parse reply')
-                self._error = f'Failed to parse reply - {err}'
+                self.__log.exception("Failed to parse reply")
+                self._error = f"Failed to parse reply - {err}"
                 self.value = None
 
 
 class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
     response_class = GenericUnconnectedResponsePacket
 
-    def __init__(self,
-                 service: Union[int, bytes],
-                 class_code: Union[int, bytes],
-                 instance: Union[int, bytes],
-                 attribute: Union[int, bytes] = b'',
-                 request_data: bytes = b'',
-                 route_path: bytes = b'',
-                 unconnected_send: bool = False,
-                 data_type: DataType = None):
+    def __init__(
+        self,
+        service: Union[int, bytes],
+        class_code: Union[int, bytes],
+        instance: Union[int, bytes],
+        attribute: Union[int, bytes] = b"",
+        request_data: bytes = b"",
+        route_path: bytes = b"",
+        unconnected_send: bool = False,
+        data_type: DataType = None,
+    ):
         super().__init__()
         self.data_type = data_type
         self.class_code = class_code
@@ -131,7 +142,12 @@ class GenericUnconnectedRequestPacket(SendRRDataRequestPacket):
         req_path = request_path(self.class_code, self.instance, self.attribute)
 
         if self.unconnected_send:
-            msg = [wrap_unconnected_send(b''.join((self.service, req_path, self.request_data)), self.route_path), ]
+            msg = [
+                wrap_unconnected_send(
+                    b"".join((self.service, req_path, self.request_data)),
+                    self.route_path,
+                ),
+            ]
         else:
             msg = [self.service, req_path, self.request_data, self.route_path]
 

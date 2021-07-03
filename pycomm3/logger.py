@@ -25,12 +25,12 @@
 import logging
 import sys
 
-__all__ = ['configure_default_logger', 'LOG_VERBOSE']
+__all__ = ["configure_default_logger", "LOG_VERBOSE"]
 
 LOG_VERBOSE = 5
 
 
-logger = logging.getLogger('pycomm3')
+logger = logging.getLogger("pycomm3")
 logger.addHandler(logging.NullHandler())
 
 
@@ -39,7 +39,7 @@ def _verbose(self: logging.Logger, msg, *args, **kwargs):
         self._log(LOG_VERBOSE, msg, *args, **kwargs)
 
 
-logging.addLevelName(LOG_VERBOSE, 'VERBOSE')
+logging.addLevelName(LOG_VERBOSE, "VERBOSE")
 logging.verbose = _verbose
 logging.Logger.verbose = _verbose
 
@@ -53,12 +53,14 @@ def configure_default_logger(level: int = logging.INFO, filename=None):
     To log to a file in addition to the terminal, set `filename` to the desired log file.
     """
     logger.setLevel(level)
-    formatter = logging.Formatter(fmt='{asctime} [{levelname}] {name}.{funcName}(): {message}', style='{')
+    formatter = logging.Formatter(
+        fmt="{asctime} [{levelname}] {name}.{funcName}(): {message}", style="{"
+    )
     handler = logging.StreamHandler(stream=sys.stdout)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
     if filename:
-        file_handler = logging.FileHandler(filename, encoding='utf-8')
+        file_handler = logging.FileHandler(filename, encoding="utf-8")
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)

@@ -26,13 +26,35 @@ import ipaddress
 from io import BytesIO
 from typing import Any, Type, Dict, Tuple, Union
 
-from .cip import (DataType, DerivedDataType, Struct, UINT, USINT, DWORD,
-                  UDINT, SHORT_STRING, n_bytes, StructType, StringDataType, PRODUCT_TYPES, VENDORS, INT, ULINT)
+from .cip import (
+    DataType,
+    DerivedDataType,
+    Struct,
+    UINT,
+    USINT,
+    DWORD,
+    UDINT,
+    SHORT_STRING,
+    n_bytes,
+    StructType,
+    StringDataType,
+    PRODUCT_TYPES,
+    VENDORS,
+    INT,
+    ULINT,
+)
 from .cip.data_types import _StructReprMeta
-from .exceptions import BufferEmptyError
 
-__all__ = ['IPAddress', 'ModuleIdentityObject', 'ListIdentityObject', 'StructTemplateAttributes',
-           'FixedSizeString', 'Revision', 'StructTag']
+
+__all__ = [
+    "IPAddress",
+    "ModuleIdentityObject",
+    "ListIdentityObject",
+    "StructTemplateAttributes",
+    "FixedSizeString",
+    "Revision",
+    "StructTag",
+]
 
 
 def FixedSizeString(size_: int, len_type_: Union[DataType, Type[DataType]] = UDINT):
@@ -46,7 +68,11 @@ def FixedSizeString(size_: int, len_type_: Union[DataType, Type[DataType]] = UDI
 
         @classmethod
         def _encode(cls, value: str, *args, **kwargs) -> bytes:
-            return cls.len_type.encode(len(value)) + value.encode(cls.encoding) + b'\x00' * (cls.size - len(value))
+            return (
+                cls.len_type.encode(len(value))
+                + value.encode(cls.encoding)
+                + b"\x00" * (cls.size - len(value))
+            )
 
         @classmethod
         def _decode(cls, stream: BytesIO) -> str:
@@ -58,7 +84,6 @@ def FixedSizeString(size_: int, len_type_: Union[DataType, Type[DataType]] = UDI
 
 
 class IPAddress(DerivedDataType):
-
     @classmethod
     def _encode(cls, value: str) -> bytes:
         return ipaddress.IPv4Address(value).packed
@@ -68,86 +93,91 @@ class IPAddress(DerivedDataType):
         return ipaddress.IPv4Address(cls._stream_read(stream, 4)).exploded
 
 
-class Revision(Struct(
-    USINT('major'),
-    USINT('minor')
-)):
+class Revision(Struct(USINT("major"), USINT("minor"))):
     ...
 
 
-class ModuleIdentityObject(Struct(
-    UINT('vendor'),
-    UINT('product_type'),
-    UINT('product_code'),
-    Revision('revision'),
-    n_bytes(2, 'status'),
-    UDINT('serial'),
-    SHORT_STRING('product_name')
-)):
-
+class ModuleIdentityObject(
+    Struct(
+        UINT("vendor"),
+        UINT("product_type"),
+        UINT("product_code"),
+        Revision("revision"),
+        n_bytes(2, "status"),
+        UDINT("serial"),
+        SHORT_STRING("product_name"),
+    )
+):
     @classmethod
     def _decode(cls, stream: BytesIO):
         values = super(ModuleIdentityObject, cls)._decode(stream)
-        values['product_type'] = PRODUCT_TYPES.get(values['product_type'], 'UNKNOWN')
-        values['vendor'] = VENDORS.get(values['vendor'], 'UNKNOWN')
-        values['serial'] = f"{values['serial']:08x}"
+        values["product_type"] = PRODUCT_TYPES.get(values["product_type"], "UNKNOWN")
+        values["vendor"] = VENDORS.get(values["vendor"], "UNKNOWN")
+        values["serial"] = f"{values['serial']:08x}"
 
         return values
 
     @classmethod
     def _encode(cls, values: Dict[str, Any]):
         values = values.copy()
-        values['product_type'] = PRODUCT_TYPES[values['product_type']]
-        values['vendor'] = VENDORS[values['vendor']]
-        values['serial'] = int.from_bytes(bytes.fromhex(values['serial']), 'big')
+        values["product_type"] = PRODUCT_TYPES[values["product_type"]]
+        values["vendor"] = VENDORS[values["vendor"]]
+        values["serial"] = int.from_bytes(bytes.fromhex(values["serial"]), "big")
         return super(ModuleIdentityObject, cls)._encode(values)
 
 
-class ListIdentityObject(Struct(
-    UINT,
-    UINT,
-    UINT('encap_protocol_version'),
-    INT,
-    UINT,
-    IPAddress('ip_address'),
-    ULINT,
-    UINT('vendor'),
-    UINT('product_type'),
-    UINT('product_code'),
-    Revision('revision'),
-    n_bytes(2, 'status'),
-    UDINT('serial'),
-    SHORT_STRING('product_name'),
-    USINT('state')
-)):
-
+class ListIdentityObject(
+    Struct(
+        UINT,
+        UINT,
+        UINT("encap_protocol_version"),
+        INT,
+        UINT,
+        IPAddress("ip_address"),
+        ULINT,
+        UINT("vendor"),
+        UINT("product_type"),
+        UINT("product_code"),
+        Revision("revision"),
+        n_bytes(2, "status"),
+        UDINT("serial"),
+        SHORT_STRING("product_name"),
+        USINT("state"),
+    )
+):
     @classmethod
     def _decode(cls, stream: BytesIO):
         values = super(ListIdentityObject, cls)._decode(stream)
-        values['product_type'] = PRODUCT_TYPES.get(values['product_type'], 'UNKNOWN')
-        values['vendor'] = VENDORS.get(values['vendor'], 'UNKNOWN')
-        values['serial'] = f"{values['serial']:08x}"
+        values["product_type"] = PRODUCT_TYPES.get(values["product_type"], "UNKNOWN")
+        values["vendor"] = VENDORS.get(values["vendor"], "UNKNOWN")
+        values["serial"] = f"{values['serial']:08x}"
 
         return values
 
 
 StructTemplateAttributes = Struct(
-    UINT('count'),
-    Struct(UINT('attr_num'), UINT('status'), UDINT('size'))(name='object_definition_size'),
-    Struct(UINT('attr_num'), UINT('status'), UDINT('size'))(name='structure_size'),
-    Struct(UINT('attr_num'), UINT('status'), UINT('count'))(name='member_count'),
-    Struct(UINT('attr_num'), UINT('status'), UINT('handle'))(name='structure_handle'),
+    UINT("count"),
+    Struct(UINT("attr_num"), UINT("status"), UDINT("size"))(
+        name="object_definition_size"
+    ),
+    Struct(UINT("attr_num"), UINT("status"), UDINT("size"))(name="structure_size"),
+    Struct(UINT("attr_num"), UINT("status"), UINT("count"))(name="member_count"),
+    Struct(UINT("attr_num"), UINT("status"), UINT("handle"))(name="structure_handle"),
 )
 
 
 class _StructTagReprMeta(_StructReprMeta):
     def __repr__(cls):
-        members = ', '.join(repr(m) for m in cls.members)
-        return f'{cls.__name__}({members}, bool_members={cls.bits!r}, host_members={cls.hosts!r}, struct_size={cls.size!r})'
+        members = ", ".join(repr(m) for m in cls.members)
+        return f"{cls.__name__}({members}, bool_members={cls.bits!r}, host_members={cls.hosts!r}, struct_size={cls.size!r})"
 
 
-def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: Dict[str, Type[DataType]],
-              struct_size: int) -> Type[StructType]:
+def StructTag(
+    *members,
+    bool_members: Dict[str, Tuple[str, int]],
+    host_members: Dict[str, Type[DataType]],
+    struct_size: int,
+) -> Type[StructType]:
     """
 
     bool_members = {member name: (host member, bit)}
@@ -195,7 +225,9 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
 
             for host, host_type in cls.hosts.items():
                 if host_type == DWORD:
-                    values[host] = [False, ] * 32
+                    values[host] = [
+                        False,
+                    ] * 32
                 else:
                     values[host] = 0
 
@@ -213,13 +245,8 @@ def StructTag(*members, bool_members: Dict[str, Tuple[str, int]], host_members: 
             for member in cls.members:
                 offset = cls._offsets[member]
                 encoded = member.encode(values[member.name])
-                value[offset: offset + len(encoded)] = encoded
+                value[offset : offset + len(encoded)] = encoded
 
             return value
 
     return StructTag
-
-
-
-
-
