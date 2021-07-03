@@ -513,7 +513,7 @@ class CIPDriver:
 
         :param service: service code for the request (single byte)
         :param class_code: request object class ID
-        :param instance: instance ID of the class
+        :param instance: ID for an instance of the class
                          If set with 0, request class attributes.
         :param attribute: (optional) attribute ID for the service/class/instance
         :param request_data: (optional) any additional data required for the request.
