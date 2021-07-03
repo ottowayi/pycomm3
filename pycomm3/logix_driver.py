@@ -42,9 +42,11 @@ from .const import (EXTENDED_SYMBOL, MICRO800_PREFIX, MULTISERVICE_READ_OVERHEAD
                     TEMPLATE_MEMBER_INFO_LEN, MIN_VER_EXTERNAL_ACCESS, )
 from .custom_types import StructTemplateAttributes, StructTag, FixedSizeString, ModuleIdentityObject
 from .exceptions import ResponseError, RequestError
-from .packets import (RequestTypes, RequestPacket, ReadTagFragmentedRequestPacket,
-                      WriteTagFragmentedRequestPacket, ReadTagFragmentedResponsePacket,
-                      WriteTagFragmentedResponsePacket)
+from .packets import (
+    RequestPacket, ReadTagFragmentedRequestPacket, WriteTagFragmentedRequestPacket,
+    ReadTagFragmentedResponsePacket, WriteTagFragmentedResponsePacket, SendUnitDataRequestPacket,
+    ReadTagRequestPacket, WriteTagRequestPacket, MultiServiceRequestPacket, ReadModifyWriteRequestPacket,
+)
 from .tag import Tag
 
 AtomicValueType = Union[int, float, bool, str]
@@ -368,7 +370,7 @@ class LogixDriver(CIPDriver):
                 ]
 
                 new_path = PADDED_EPATH.encode(segments, length=True)
-                request = RequestTypes.send_unit_data()
+                request = SendUnitDataRequestPacket(self._sequence)
 
                 attributes = [
                     b'\x01\x00',  # Attr. 1: Symbol name
@@ -606,16 +608,16 @@ class LogixDriver(CIPDriver):
                     name=f'_read_template(instance_id={instance_id}, object_definition_size={object_definition_size})',
                     return_response_packet=True,
                 )
-
-                if response.service_status not in (SUCCESS, INSUFFICIENT_PACKETS):
+                response_pkt = response.value
+                if response_pkt.service_status not in (SUCCESS, INSUFFICIENT_PACKETS):
                     raise ResponseError('Error reading template', response)
 
-                template_raw += response.data
+                template_raw += response_pkt.data
 
-                if response.service_status == SUCCESS:
+                if response_pkt.service_status == SUCCESS:
                     break
 
-                offset += len(response.data)
+                offset += len(response_pkt.data)
 
         except Exception as err:
             raise ResponseError('Failed to read template') from err
@@ -840,7 +842,8 @@ class LogixDriver(CIPDriver):
                 )
                 continue
 
-            request = RequestTypes.read_tag(tag_data['plc_tag'],
+            request = ReadTagRequestPacket(self._sequence,
+                                            tag_data['plc_tag'],
                                             tag_data['elements'],
                                             tag_data['tag_info'], request_id,
                                             self._cfg['use_instance_ids'])
@@ -849,7 +852,7 @@ class LogixDriver(CIPDriver):
             # so we may be fragmenting more than needed
             return_size = _tag_return_size(tag_data) + len(request.message) + 2  # response overhead  # TODO make const
             if return_size > self.connection_size:
-                request = RequestTypes.read_tag_fragmented.from_request(request)
+                request = ReadTagFragmentedRequestPacket.from_request(self._sequence, request)
                 fragmented_requests.append(request)
             else:
                 read_requests.append((request, return_size))
@@ -868,7 +871,7 @@ class LogixDriver(CIPDriver):
             current_response_size += resp_size
 
         multi_requests = [
-            RequestTypes.multi_request(group, )
+            MultiServiceRequestPacket(self._sequence, group)
             for group in grouped_requests
         ]
 
@@ -880,13 +883,13 @@ class LogixDriver(CIPDriver):
         """
 
         if parsed_tag.get('error') is None:
-            request = RequestTypes.read_tag(parsed_tag['plc_tag'], parsed_tag['elements'],
+            request = ReadTagRequestPacket(self._sequence, parsed_tag['plc_tag'], parsed_tag['elements'],
                                             parsed_tag['tag_info'], parsed_tag['request_id'],
                                             self._cfg['use_instance_ids'])
 
             return_size = _tag_return_size(parsed_tag) + len(request.message)
             if return_size > self.connection_size:
-                request = RequestTypes.read_tag_fragmented.from_request(request)
+                request = ReadTagFragmentedRequestPacket.from_request(self._sequence, request)
 
             return request
 
@@ -919,7 +922,7 @@ class LogixDriver(CIPDriver):
         write_results = self._send_requests(requests)
 
         for r in requests:
-            if isinstance(r, RequestTypes.read_modify_write):
+            if isinstance(r, ReadModifyWriteRequestPacket):
                 result = write_results.pop(r.request_id)
                 for req_id in r._request_ids:
                     write_results[req_id] = result
@@ -976,7 +979,9 @@ class LogixDriver(CIPDriver):
                 data_type = tag_data['tag_info']['data_type_name']
                 if bit is not None and tag_data['bool_elements'] is None:
                     if tag_data['plc_tag'] not in bit_writes:
-                        request = RequestTypes.read_modify_write(
+
+                        request = ReadModifyWriteRequestPacket(
+                            self._sequence,
                             tag_data['plc_tag'],
                             tag_data['tag_info'],
                             -1 * (1 + len(bit_writes)),
@@ -995,14 +1000,15 @@ class LogixDriver(CIPDriver):
                     tag_data['error'] = f'Error encoding value - {err!r}'
                     continue
 
-                request = RequestTypes.write_tag(tag_data['plc_tag'], tag_data['elements'],
+                request = WriteTagRequestPacket(self._sequence, tag_data['plc_tag'], tag_data['elements'],
                                                  tag_data['tag_info'], request_id, self._cfg['use_instance_ids'],
                                                  tag_data['write_value'])
                 request.build_message()
+                request._msg_setup = False
 
                 req_size = len(request.message)
                 if req_size > self.connection_size:
-                    request = RequestTypes.write_tag_fragmented.from_request(request)
+                    request = WriteTagFragmentedRequestPacket.from_request(self._sequence, request)
                     fragmented_requests.append(request)
                 else:
                     write_requests.append(request)
@@ -1020,7 +1026,7 @@ class LogixDriver(CIPDriver):
             current_response_size += len(req.message)
 
         multi_requests = [
-            RequestTypes.multi_request(group, )
+            MultiServiceRequestPacket(self._sequence, group,)
             for group in grouped_requests
             if group
         ]
@@ -1036,7 +1042,8 @@ class LogixDriver(CIPDriver):
             bit = parsed_tag.get('bit')
             data_type = parsed_tag['tag_info']['data_type_name']
             if bit is not None and parsed_tag['bool_elements'] is None:
-                request = RequestTypes.read_modify_write(
+                request = ReadModifyWriteRequestPacket(
+                    self._sequence,
                     parsed_tag['plc_tag'],
                     parsed_tag['tag_info'],
                     -1,
@@ -1047,17 +1054,19 @@ class LogixDriver(CIPDriver):
             else:
                 parsed_tag['write_value'] = encode_value(parsed_tag)
 
-                request = RequestTypes.write_tag(parsed_tag['plc_tag'],
+                request = WriteTagRequestPacket(self._sequence,
+                                                 parsed_tag['plc_tag'],
                                                  parsed_tag['elements'],
                                                  parsed_tag['tag_info'],
                                                  parsed_tag['request_id'],
                                                  self._cfg['use_instance_ids'],
                                                  parsed_tag['write_value'],)
                 request.build_message()
+                request._msg_setup = False
 
                 req_size = len(parsed_tag['write_value']) + len(request.message)
                 if req_size > self.connection_size:
-                    request = RequestTypes.write_tag_fragmented.from_request(request)
+                    request = WriteTagFragmentedRequestPacket.from_request(self._sequence, request)
 
             return request
         except RequestError as err:
@@ -1209,9 +1218,9 @@ class LogixDriver(CIPDriver):
         return results
 
     def send(self, request: RequestPacket):
-        if isinstance(request, RequestTypes.read_tag_fragmented):
+        if isinstance(request, ReadTagFragmentedRequestPacket):
             return self._send_read_fragmented(request)
-        elif isinstance(request, RequestTypes.write_tag_fragmented):
+        elif isinstance(request, WriteTagFragmentedRequestPacket):
             return self._send_write_fragmented(request)
         else:
             return super().send(request)
@@ -1225,7 +1234,7 @@ class LogixDriver(CIPDriver):
                 responses.append(response)
                 if response.service_status == INSUFFICIENT_PACKETS:
                     offset += len(response.value_bytes)
-                    request = RequestTypes.read_tag_fragmented.from_request(request, offset)
+                    request = ReadTagFragmentedRequestPacket.from_request(self._sequence, request, offset)
                 else:
                     offset = None
 
@@ -1252,7 +1261,7 @@ class LogixDriver(CIPDriver):
 
             offset = 0
             for segment in segments:
-                _request = RequestTypes.write_tag_fragmented.from_request(request, offset, segment)
+                _request = WriteTagFragmentedRequestPacket.from_request(self._sequence, request, offset, segment)
                 _response = super().send(_request)
                 offset += len(segment)
                 responses.append(_response)

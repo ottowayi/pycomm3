@@ -37,7 +37,11 @@ from .cip import (ConnectionManagerInstances, ClassCode, CIPSegment, ConnectionM
 from .const import PRIORITY, TIMEOUT_MULTIPLIER, TIMEOUT_TICKS, TRANSPORT_CLASS, MSG_ROUTER_PATH
 from .custom_types import ModuleIdentityObject
 from .exceptions import ResponseError, CommError, RequestError
-from .packets import RequestPacket, ResponsePacket, RequestTypes, PacketLazyFormatter
+from .packets import (
+    RequestPacket, ResponsePacket, PacketLazyFormatter, ListIdentityRequestPacket,
+    RegisterSessionRequestPacket, UnRegisterSessionRequestPacket, GenericConnectedRequestPacket,
+    GenericUnconnectedRequestPacket,
+)
 from .socket_ import Socket
 from .tag import Tag
 from .util import cycle
@@ -191,7 +195,7 @@ class CIPDriver:
         ]
 
         driver = CIPDriver('0.0.0.0')  # dummy driver for creating the list_identity request
-        request = RequestTypes.list_identity()
+        request = ListIdentityRequestPacket()
         message = request.build_request(None, driver._session, b'\x00' * 8, 0)
         devices = []
 
@@ -233,7 +237,7 @@ class CIPDriver:
         return devices
 
     def _list_identity(self):
-        request = RequestTypes.list_identity()
+        request = ListIdentityRequestPacket()
         response = self.send(request)
         return response.identity
 
@@ -291,7 +295,7 @@ class CIPDriver:
         if self._session:
             return self._session
 
-        request = RequestTypes.register_session(self._cfg['protocol version'])
+        request = RegisterSessionRequestPacket(self._cfg['protocol version'])
 
         response = self.send(request)
         if response:
@@ -396,7 +400,7 @@ class CIPDriver:
         """
         Un-registers the current session with the target.
         """
-        request = RequestTypes.unregister_session()
+        request = UnRegisterSessionRequestPacket()
         self.send(request)
         self._session = None
         self.__log.info('Session Unregistered')
@@ -451,7 +455,8 @@ class CIPDriver:
                         connected: bool = True,
                         unconnected_send: bool = False,
                         route_path: Union[bool, Sequence[CIPSegment], bytes] = True,
-                        return_response_packet=False) -> Union[Tag, ResponsePacket]:
+                        **kwargs,
+    ) -> Tag:
         """
         Perform a generic CIP message.  Similar to how MSG instructions work in Logix.
 
@@ -467,7 +472,6 @@ class CIPDriver:
         :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service
         :param route_path: (Unconnected Only) ``True`` to use current connection route to destination, ``False`` to ignore,
                            Or provide list of segments to be encoded as a PADDED_EPATH.
-        :param return_response_packet: returns the ``ResponsePacket`` rather than a ``Tag`` object
         :return: a Tag with the result of the request. (Tag.value for writes will be the request_data)
         """
 
@@ -483,7 +487,9 @@ class CIPDriver:
             'data_type': data_type,
         }
 
-        if not connected:
+        if connected:
+            _kwargs['sequence'] = self._sequence
+        else:
             if route_path is True:
                 _kwargs['route_path'] = PADDED_EPATH.encode(self._cfg['cip_path'], length=True, pad_length=True)
             elif isinstance(route_path, bytes):
@@ -493,7 +499,7 @@ class CIPDriver:
 
             _kwargs['unconnected_send'] = unconnected_send
 
-        req_class = RequestTypes.generic_connected if connected else RequestTypes.generic_unconnected
+        req_class = GenericConnectedRequestPacket if connected else GenericUnconnectedRequestPacket
         request = req_class(**_kwargs)
 
         self.__log.info('Sending generic message: %s', name)
@@ -503,8 +509,8 @@ class CIPDriver:
         else:
             self.__log.info('Generic message %r completed', name)
 
-        if return_response_packet:
-            return response
+        if kwargs.get('return_response_packet'):
+            return Tag(name, response, data_type, error=response.error)
 
         return Tag(name, response.value, data_type, error=response.error)
 
@@ -515,7 +521,7 @@ class CIPDriver:
                 'session_id': self._session,
                 'context': self._cfg['context'],
                 'option': self._cfg['option'],
-                'sequence': self._sequence
+                'sequence': self._sequence,
             }
 
             self._send(request.build_request(**request_kwargs))

@@ -27,6 +27,7 @@ from itertools import tee, zip_longest
 from reprlib import repr as _r
 from typing import Dict, Any, Sequence, Union
 
+from ..util import cycle
 from .ethernetip import SendUnitDataRequestPacket, SendUnitDataResponsePacket
 from .util import parse_read_reply, request_path, tag_request_path
 
@@ -50,9 +51,10 @@ class TagServiceRequestPacket(SendUnitDataRequestPacket):
     response_class = TagServiceResponsePacket
     tag_service = None
 
-    def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any],
+    def __init__(self, sequence: cycle,
+                 tag: str, elements: int, tag_info: Dict[str, Any],
                  request_id: int, use_instance_id: bool = True):
-        super().__init__()
+        super().__init__(sequence)
         self.tag = tag
         self.elements = elements
         self.tag_info = tag_info
@@ -144,9 +146,9 @@ class ReadTagFragmentedRequestPacket(ReadTagRequestPacket):
     response_class = ReadTagFragmentedResponsePacket
     tag_service = Services.read_tag_fragmented
 
-    def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any],
+    def __init__(self, sequence: cycle, tag: str, elements: int, tag_info: Dict[str, Any],
                  request_id: int, use_instance_id: bool = True, offset: int = 0):
-        super().__init__(tag, elements, tag_info, request_id, use_instance_id)
+        super().__init__(sequence, tag, elements, tag_info, request_id, use_instance_id)
         self.offset = offset
 
     def _setup_message(self):
@@ -154,8 +156,14 @@ class ReadTagFragmentedRequestPacket(ReadTagRequestPacket):
         self._msg.append(UDINT.encode(self.offset))
 
     @classmethod
-    def from_request(cls, request: Union[ReadTagRequestPacket, 'ReadTagFragmentedRequestPacket'], offset=0) -> 'ReadTagFragmentedRequestPacket':
+    def from_request(
+        cls,
+        sequence: cycle,
+        request: Union[ReadTagRequestPacket, 'ReadTagFragmentedRequestPacket'],
+        offset=0
+    ) -> 'ReadTagFragmentedRequestPacket':
         new_request = cls(
+            next(sequence),
             request.tag,
             request.elements,
             request.tag_info,
@@ -186,9 +194,9 @@ class WriteTagRequestPacket(TagServiceRequestPacket):
     response_class = WriteTagResponsePacket
     tag_service = Services.write_tag
 
-    def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any], request_id: int,
+    def __init__(self, sequence: cycle, tag: str, elements: int, tag_info: Dict[str, Any], request_id: int,
                  use_instance_id: bool = True, value: bytes = b''):
-        super().__init__(tag, elements, tag_info, request_id, use_instance_id)
+        super().__init__(sequence, tag, elements, tag_info, request_id, use_instance_id)
         self.value = value
         self.data_type = tag_info['data_type_name']
         self._packed_data_type = None
@@ -229,9 +237,9 @@ class WriteTagFragmentedRequestPacket(WriteTagRequestPacket):
     response_class = WriteTagFragmentedResponsePacket
     tag_service = Services.write_tag_fragmented
 
-    def __init__(self, tag: str, elements: int, tag_info: Dict[str, Any],
+    def __init__(self, sequence: cycle, tag: str, elements: int, tag_info: Dict[str, Any],
                  request_id: int, use_instance_id: bool = True, offset: int = 0, value: bytes = b''):
-        super().__init__(tag, elements, tag_info, request_id, use_instance_id)
+        super().__init__(sequence, tag, elements, tag_info, request_id, use_instance_id)
         self.offset = offset
         self.value = value
 
@@ -240,8 +248,15 @@ class WriteTagFragmentedRequestPacket(WriteTagRequestPacket):
                          UINT.encode(self.elements), UDINT.encode(self.offset), self.value))
 
     @classmethod
-    def from_request(cls, request: WriteTagRequestPacket, offset: int = 0, value: bytes = b'') -> 'WriteTagFragmentedRequestPacket':
+    def from_request(
+        cls,
+        sequence: cycle,
+        request: WriteTagRequestPacket,
+        offset: int = 0,
+        value: bytes = b''
+    ) -> 'WriteTagFragmentedRequestPacket':
         new_request = cls(
+            next(sequence),
             request.tag,
             request.elements,
             request.tag_info,
@@ -266,8 +281,8 @@ class ReadModifyWriteRequestPacket(SendUnitDataRequestPacket):
     response_class = ReadModifyWriteResponsePacket
     tag_service = Services.read_modify_write
 
-    def __init__(self, tag: str, tag_info: Dict[str, Any], request_id: int, use_instance_id: bool = True,):
-        super().__init__()
+    def __init__(self, sequence: cycle, tag: str, tag_info: Dict[str, Any], request_id: int, use_instance_id: bool = True,):
+        super().__init__(sequence)
         self.tag = tag
         self.value = None
         self.elements = 0
@@ -348,8 +363,8 @@ class MultiServiceRequestPacket(SendUnitDataRequestPacket):
     type_ = 'multi'
     response_class = MultiServiceResponsePacket
 
-    def __init__(self, requests: Sequence[TagServiceRequestPacket]):
-        super().__init__()
+    def __init__(self, sequence: cycle, requests: Sequence[TagServiceRequestPacket]):
+        super().__init__(sequence)
         self.requests = requests
         self.request_path = request_path(ClassCode.message_router, 1)
 

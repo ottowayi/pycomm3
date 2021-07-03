@@ -25,6 +25,7 @@
 import logging
 from typing import Union, Any
 
+from ..util import cycle
 from .ethernetip import (SendUnitDataResponsePacket, SendUnitDataRequestPacket,
                          SendRRDataRequestPacket, SendRRDataResponsePacket)
 from .util import request_path, wrap_unconnected_send
@@ -58,13 +59,15 @@ class GenericConnectedRequestPacket(SendUnitDataRequestPacket):
     response_class = GenericConnectedResponsePacket
 
     def __init__(self,
+                 sequence: cycle,
                  service: Union[int, bytes],
                  class_code: Union[int, bytes],
                  instance: Union[int, bytes],
                  attribute: Union[int, bytes] = b'',
                  request_data: Any = b'',
-                 data_type: DataType = None):
-        super().__init__()
+                 data_type: DataType = None,
+    ):
+        super().__init__(sequence)
         self.data_type = data_type
         self.class_code = class_code
         self.instance = instance

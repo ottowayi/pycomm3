@@ -24,6 +24,7 @@
 
 import logging
 from itertools import cycle
+from typing import Generator
 
 from .base import RequestPacket, ResponsePacket
 from .util import get_extended_status, get_service_status
@@ -93,17 +94,16 @@ class SendUnitDataRequestPacket(RequestPacket):
     response_class = SendUnitDataResponsePacket
     _encap_command = EncapsulationCommands.send_unit_data
 
-    def __init__(self):
+    def __init__(self, sequence: cycle):
         super().__init__()
-        self._sequence = 0
+        self._sequence = next(sequence) if isinstance(sequence, Generator) else sequence
 
     def _setup_message(self):
         super()._setup_message()
         self._msg.append(UINT.encode(self._sequence))
 
     def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
-                      sequence: cycle = None, **kwargs):
-        self._sequence = next(sequence)
+                      **kwargs):
 
         return super().build_request(target_cid, session_id, context, option, **kwargs)
 

@@ -33,7 +33,7 @@ from .cip import PCCC_CT, PCCC_DATA_TYPE, PCCC_DATA_SIZE, PCCC_ERROR_CODE, USINT
 from .const import SUCCESS, SLC_CMD_CODE, SLC_FNC_READ, SLC_FNC_WRITE, SLC_REPLY_START, PCCC_PATH
 from .exceptions import ResponseError, RequestError
 from .tag import Tag
-from .packets import RequestTypes
+from .packets import SendUnitDataRequestPacket
 
 AtomicValueType = Union[int, float, bool]
 TagValueType = Union[AtomicValueType, List[Union[AtomicValueType, str]]]
@@ -70,6 +70,7 @@ B_RE = re.compile(r"(?P<file_type>B)(?P<file_number>\d{1,3})"
 ST_RE = re.compile(r"(?P<file_type>ST)(?P<file_number>\d{1,3})"
                   r"(:)(?P<element_number>\d{1,4})"
                   r"(?P<_elem_cnt_token>{(?P<element_count>[12])})?", flags=re.IGNORECASE)
+
 
 class SLCDriver(CIPDriver):
     """
@@ -132,7 +133,7 @@ class SLCDriver(CIPDriver):
             USINT.encode(int(_tag.get('pos_number', 0)))  # sub-element number
         ]
 
-        request = RequestTypes.send_unit_data()
+        request = SendUnitDataRequestPacket(self._sequence)
         request.add(b''.join(message_request))
         response = self.send(request)
         self.__log.debug(f"SLC read_tag({tag})")
@@ -195,7 +196,7 @@ class SLCDriver(CIPDriver):
             USINT.encode(int(_tag.get('pos_number', 0))),
             writeable_value(_tag, value),
         ]
-        request = RequestTypes.send_unit_data()
+        request = SendUnitDataRequestPacket(self._sequence)
         request.add(b''.join(message_request))
         response = self.send(request)
 
@@ -218,7 +219,7 @@ class SLCDriver(CIPDriver):
 
         )
 
-        request = RequestTypes.send_unit_data()
+        request = SendUnitDataRequestPacket(self._sequence)
         request.add(b''.join(msg_request))
         response = self.send(request)
         if response:
@@ -264,7 +265,7 @@ class SLCDriver(CIPDriver):
             sys0_info['size_element'],
         ]
 
-        request = RequestTypes.send_unit_data()
+        request = SendUnitDataRequestPacket(self._sequence)
         request.add(b''.join(msg_request))
         response = self.send(request)
         status = request_status(response.raw)
@@ -306,7 +307,7 @@ class SLCDriver(CIPDriver):
 
             msg_request += [USINT.encode(offset)] if offset < 256 else [b'\xFF', UINT.encode(offset)]
 
-            request = RequestTypes.send_unit_data()
+            request = SendUnitDataRequestPacket(self._sequence)
             request.add(b''.join(msg_request))
             response = self.send(request)
             status = request_status(response.raw)
