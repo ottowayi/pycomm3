@@ -147,6 +147,36 @@ class LogixDriver(CIPDriver):
         return self._tags
 
     @property
+    def tags_json(self):
+        """
+        Read-only property to access all the tag definitions uploaded from the controller.
+        Filters out any non-JSON serializable objects.
+        """
+        def _copy_datatype(src: dict):
+            # copy the entire tag/data type skipping keys that have type classes in the value
+            new = {k: v for k, v in src.items() if k not in {'type_class', '_struct_members'}}
+
+            # tags or a data type internal tag need to filter the data_type too
+            if isinstance(src.get('data_type'), dict):
+                new['data_type'] = _copy_datatype(src['data_type'])
+
+            # if src is from 'data_type', do each internal tag as well
+            if 'internal_tags' in src:
+                new['internal_tags'] = {k: _copy_datatype(v) for k, v in src['internal_tags'].items()}
+
+            return new
+
+        json_tags = {
+            tag: _copy_datatype(data)
+            for tag, data in self._tags.items()
+        }
+
+        return json_tags
+
+
+
+
+    @property
     def data_types(self) -> dict:
         """
         Read-only property for access to all data type definitions uploaded from the controller.
