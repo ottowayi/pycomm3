@@ -22,7 +22,9 @@
 # SOFTWARE.
 #
 
-__all__ = ['EnumMap', ]
+__all__ = [
+    "EnumMap",
+]
 
 
 def _default_value_key(value):
@@ -30,22 +32,29 @@ def _default_value_key(value):
 
 
 class MapMeta(type):
-
     def __new__(cls, name, bases, classdict):
         enumcls = super().__new__(cls, name, bases, classdict)
 
         # get all non-private attributes
         members = {
-            key: value for key, value in classdict.items()
-            if not key.startswith('_') and not isinstance(value, (classmethod, staticmethod))
+            key: value
+            for key, value in classdict.items()
+            if not key.startswith("_")
+            and not isinstance(value, (classmethod, staticmethod))
         }
         # also add uppercase keys for each member (if they're not already lowercase)
-        lower_members = {key.lower(): value for key, value in members.items() if key.lower() not in members}
+        lower_members = {
+            key.lower(): value
+            for key, value in members.items()
+            if key.lower() not in members
+        }
 
-        if enumcls.__dict__.get('_bidirectional_', True):
+        if enumcls.__dict__.get("_bidirectional_", True):
             # invert members to a value->key dict
-            _value_key = enumcls.__dict__.get('_value_key_', _default_value_key)
-            value_map = {_value_key(value): key.lower() for key, value in members.items()}
+            _value_key = enumcls.__dict__.get("_value_key_", _default_value_key)
+            value_map = {
+                _value_key(value): key.lower() for key, value in members.items()
+            }
         else:
             value_map = {}
 
@@ -54,7 +63,7 @@ class MapMeta(type):
         enumcls._attributes = list(members)
 
         # lookup by value only return CAPS keys if attribute set
-        _only_caps = enumcls.__dict__.get('_return_caps_only_')
+        _only_caps = enumcls.__dict__.get("_return_caps_only_")
         enumcls._return_caps_only_ = _only_caps
 
         return enumcls
@@ -74,7 +83,9 @@ class MapMeta(type):
         return val
 
     def __contains__(cls, item):
-        return cls._members_.__contains__(item.lower() if isinstance(item, str) else item)
+        return cls._members_.__contains__(
+            item.lower() if isinstance(item, str) else item
+        )
 
     @property
     def attributes(cls):
@@ -107,4 +118,5 @@ class EnumMap(metaclass=MapMeta):
     It's really just to provide dict-like item access with enum-like attributes.
 
     """
+
     ...

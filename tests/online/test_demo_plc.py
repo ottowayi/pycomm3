@@ -60,3 +60,9 @@ def test_discover():
         assert 'product_type' in device
         assert 'product_code' in device
         assert 'revision' in device
+
+
+def test_tags_json_serialization(plc):
+    import json
+    assert isinstance(json.dumps(plc.tags_json), str)
+

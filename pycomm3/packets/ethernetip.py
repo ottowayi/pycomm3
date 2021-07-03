@@ -24,31 +24,39 @@
 
 import logging
 from itertools import cycle
+from typing import Generator
 
 from .base import RequestPacket, ResponsePacket
 from .util import get_extended_status, get_service_status
 
-from ..cip import MULTI_PACKET_SERVICES, UDINT, UINT, USINT, EncapsulationCommands, Services
+from ..cip import (
+    MULTI_PACKET_SERVICES,
+    UDINT,
+    UINT,
+    USINT,
+    EncapsulationCommands,
+    Services,
+)
 from ..const import INSUFFICIENT_PACKETS, SUCCESS
 from ..custom_types import ListIdentityObject
 from ..map import EnumMap
 
 
 class DataItem(EnumMap):
-    connected = b'\xb1\x00'
-    unconnected = b'\xb2\x00'
+    connected = b"\xb1\x00"
+    unconnected = b"\xb2\x00"
 
 
 class AddressItem(EnumMap):
-    connection = b'\xa1\x00'
-    null = b'\x00\x00'
-    uccm = b'\x00\x00'
+    connection = b"\xa1\x00"
+    null = b"\x00\x00"
+    uccm = b"\x00\x00"
 
 
 class SendUnitDataResponsePacket(ResponsePacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
-    def __init__(self, request: 'SendUnitDataRequestPacket', raw_data: bytes = None):
+    def __init__(self, request: "SendUnitDataRequestPacket", raw_data: bytes = None):
         super().__init__(request, raw_data)
 
     def _parse_reply(self):
@@ -58,22 +66,21 @@ class SendUnitDataResponsePacket(ResponsePacket):
             self.service_status = USINT.decode(self.raw[48:49])
             self.data = self.raw[50:]
         except Exception as err:
-            self.__log.exception('Failed to parse reply')
-            self._error = f'Failed to parse reply - {err}'
+            self.__log.exception("Failed to parse reply")
+            self._error = f"Failed to parse reply - {err}"
 
     def is_valid(self) -> bool:
-        valid = self.service_status == SUCCESS or (self.service_status == INSUFFICIENT_PACKETS and
-                                                   self.service in MULTI_PACKET_SERVICES)
-        return all((
-            super().is_valid(),
-            valid
-        ))
+        valid = self.service_status == SUCCESS or (
+            self.service_status == INSUFFICIENT_PACKETS
+            and self.service in MULTI_PACKET_SERVICES
+        )
+        return all((super().is_valid(), valid))
 
     def command_extended_status(self) -> str:
         status = get_service_status(self.command_status)
         ext_status = get_extended_status(self.raw, 48)
         if ext_status:
-            return f'{status} - {ext_status}'
+            return f"{status} - {ext_status}"
 
         return status
 
@@ -81,35 +88,35 @@ class SendUnitDataResponsePacket(ResponsePacket):
         status = get_service_status(self.service_status)
         ext_status = get_extended_status(self.raw, 48)
         if ext_status:
-            return f'{status} - {ext_status}'
+            return f"{status} - {ext_status}"
 
         return status
 
 
 class SendUnitDataRequestPacket(RequestPacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
     _message_type = DataItem.connected
     _address_type = AddressItem.connection
     response_class = SendUnitDataResponsePacket
     _encap_command = EncapsulationCommands.send_unit_data
 
-    def __init__(self):
+    def __init__(self, sequence: cycle):
         super().__init__()
-        self._sequence = 0
+        self._sequence = next(sequence) if isinstance(sequence, Generator) else sequence
 
     def _setup_message(self):
         super()._setup_message()
         self._msg.append(UINT.encode(self._sequence))
 
-    def build_request(self, target_cid: bytes, session_id: int, context: bytes, option: int,
-                      sequence: cycle = None, **kwargs):
-        self._sequence = next(sequence)
+    def build_request(
+        self, target_cid: bytes, session_id: int, context: bytes, option: int, **kwargs
+    ):
 
         return super().build_request(target_cid, session_id, context, option, **kwargs)
 
 
 class SendRRDataResponsePacket(ResponsePacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
     def __init__(self, request, raw_data: bytes = None, *args, **kwargs):
         super().__init__(request, raw_data)
@@ -121,20 +128,17 @@ class SendRRDataResponsePacket(ResponsePacket):
             self.service_status = USINT.decode(self.raw[42:43])
             self.data = self.raw[44:]
         except Exception as err:
-            self.__log.exception('Failed to parse reply')
-            self._error = f'Failed to parse reply - {err}'
+            self.__log.exception("Failed to parse reply")
+            self._error = f"Failed to parse reply - {err}"
 
     def is_valid(self) -> bool:
-        return all((
-            super().is_valid(),
-            self.service_status == SUCCESS
-        ))
+        return all((super().is_valid(), self.service_status == SUCCESS))
 
     def command_extended_status(self) -> str:
         status = get_service_status(self.command_status)
         ext_status = get_extended_status(self.raw, 42)
         if ext_status:
-            return f'{status} - {ext_status}'
+            return f"{status} - {ext_status}"
 
         return status
 
@@ -142,13 +146,13 @@ class SendRRDataResponsePacket(ResponsePacket):
         status = get_service_status(self.service_status)
         ext_status = get_extended_status(self.raw, 42)
         if ext_status:
-            return f'{status} - {ext_status}'
+            return f"{status} - {ext_status}"
 
         return status
 
 
 class SendRRDataRequestPacket(RequestPacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
     _message_type = DataItem.unconnected
     _address_type = AddressItem.uccm
     _encap_command = EncapsulationCommands.send_rr_data
@@ -159,9 +163,9 @@ class SendRRDataRequestPacket(RequestPacket):
 
 
 class RegisterSessionResponsePacket(ResponsePacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
-    def __init__(self, request: 'RegisterSessionRequestPacket', raw_data: bytes = None):
+    def __init__(self, request: "RegisterSessionRequestPacket", raw_data: bytes = None):
         self.session = None
         super().__init__(request, raw_data)
 
@@ -170,25 +174,24 @@ class RegisterSessionResponsePacket(ResponsePacket):
             super()._parse_reply()
             self.session = UDINT.decode(self.raw[4:8])
         except Exception as err:
-            self.__log.exception('Failed to parse reply')
-            self._error = f'Failed to parse reply - {err}'
+            self.__log.exception("Failed to parse reply")
+            self._error = f"Failed to parse reply - {err}"
 
     def is_valid(self) -> bool:
-        return all((
-            super().is_valid(),
-            self.session is not None
-        ))
+        return all((super().is_valid(), self.session is not None))
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(session={self.session!r}, error={self.error!r})'
+        return (
+            f"{self.__class__.__name__}(session={self.session!r}, error={self.error!r})"
+        )
 
 
 class RegisterSessionRequestPacket(RequestPacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
     _encap_command = EncapsulationCommands.register_session
     response_class = RegisterSessionResponsePacket
 
-    def __init__(self, protocol_version: bytes, option_flags: bytes = b'\x00\x00'):
+    def __init__(self, protocol_version: bytes, option_flags: bytes = b"\x00\x00"):
         super().__init__()
         self.protocol_version = protocol_version
         self.option_flags = option_flags
@@ -201,26 +204,26 @@ class RegisterSessionRequestPacket(RequestPacket):
 
 
 class UnRegisterSessionResponsePacket(ResponsePacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
     def __repr__(self):
-        return 'UnRegisterSessionResponsePacket()'
+        return "UnRegisterSessionResponsePacket()"
 
 
 class UnRegisterSessionRequestPacket(RequestPacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
     _encap_command = EncapsulationCommands.unregister_session
     response_class = UnRegisterSessionResponsePacket
     no_response = True
 
     def _build_common_packet_format(self, message, addr_data=None) -> bytes:
-        return b''
+        return b""
 
 
 class ListIdentityResponsePacket(ResponsePacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
 
-    def __init__(self, request: 'ListIdentityRequestPacket', raw_data: bytes = None):
+    def __init__(self, request: "ListIdentityRequestPacket", raw_data: bytes = None):
         self.identity = {}
         super().__init__(request, raw_data)
 
@@ -230,23 +233,20 @@ class ListIdentityResponsePacket(ResponsePacket):
             self.data = self.raw[26:]
             self.identity = ListIdentityObject.decode(self.data)
         except Exception as err:
-            self.__log.exception('Failed to parse response')
-            self._error = f'Failed to parse reply - {err}'
+            self.__log.exception("Failed to parse response")
+            self._error = f"Failed to parse reply - {err}"
 
     def is_valid(self) -> bool:
-        return all((
-            super().is_valid(),
-            self.identity is not None
-        ))
+        return all((super().is_valid(), self.identity is not None))
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(identity={self.identity!r}, error={self.error!r})'
+        return f"{self.__class__.__name__}(identity={self.identity!r}, error={self.error!r})"
 
 
 class ListIdentityRequestPacket(RequestPacket):
-    __log = logging.getLogger(f'{__module__}.{__qualname__}')
+    __log = logging.getLogger(f"{__module__}.{__qualname__}")
     _encap_command = EncapsulationCommands.list_identity
     response_class = ListIdentityResponsePacket
 
     def _build_common_packet_format(self, message, addr_data=None) -> bytes:
-        return b''
+        return b""

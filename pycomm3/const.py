@@ -29,8 +29,8 @@ HEADER_SIZE = 24
 
 
 MSG_ROUTER_PATH = [
-    LogicalSegment(ClassCode.message_router, 'class_id'),
-    LogicalSegment(0x01, 'instance_id')
+    LogicalSegment(ClassCode.message_router, "class_id"),
+    LogicalSegment(0x01, "instance_id"),
 ]
 
 # used to estimate packet size  and determine
@@ -38,32 +38,34 @@ MSG_ROUTER_PATH = [
 # 6 bytes for service and request path, 2 bytes for services count
 MULTISERVICE_READ_OVERHEAD = 8
 
-MIN_VER_INSTANCE_IDS = 21  # using Symbol Instance Addressing not supported below version 21
+MIN_VER_INSTANCE_IDS = (
+    21  # using Symbol Instance Addressing not supported below version 21
+)
 MIN_VER_LARGE_CONNECTIONS = 20  # >500 byte connections not supported below logix v20
 MIN_VER_EXTERNAL_ACCESS = 18  # ExternalAccess attributed added in v18
 
-MICRO800_PREFIX = '2080'  # catalog number prefix for Micro800 PLCs
+MICRO800_PREFIX = "2080"  # catalog number prefix for Micro800 PLCs
 
-EXTENDED_SYMBOL = b'\x91'
+EXTENDED_SYMBOL = b"\x91"
 
 SUCCESS = 0
 INSUFFICIENT_PACKETS = 6
 OFFSET_MESSAGE_REQUEST = 40
-PAD = b'\x00'
-PRIORITY = b'\x0a'
-TIMEOUT_TICKS = b'\x05'
-TIMEOUT_MULTIPLIER = b'\x07'
-TRANSPORT_CLASS = b'\xa3'
+PAD = b"\x00"
+PRIORITY = b"\x0a"
+TIMEOUT_TICKS = b"\x05"
+TIMEOUT_MULTIPLIER = b"\x07"
+TRANSPORT_CLASS = b"\xa3"
 BASE_TAG_BIT = 1 << 26
 
 SEC_TO_US = 1_000_000  # seconds to microseconds
 
 TEMPLATE_MEMBER_INFO_LEN = 8  # 2B bit/array len, 2B datatype, 4B offset
-STRUCTURE_READ_REPLY = b'\xa0\x02'
+STRUCTURE_READ_REPLY = b"\xa0\x02"
 
-SLC_CMD_CODE = b'\x0F'
-SLC_CMD_REPLY_CODE = b'\x4F'
-SLC_FNC_READ = b'\xa2'  # protected typed logical read w/ 3 address fields
-SLC_FNC_WRITE = b'\xab'  # protected typed logical masked write w/ 3 address fields
+SLC_CMD_CODE = b"\x0F"
+SLC_CMD_REPLY_CODE = b"\x4F"
+SLC_FNC_READ = b"\xa2"  # protected typed logical read w/ 3 address fields
+SLC_FNC_WRITE = b"\xab"  # protected typed logical masked write w/ 3 address fields
 SLC_REPLY_START = 61
-PCCC_PATH = b'\x67\x24\x01'
+PCCC_PATH = b"\x67\x24\x01"
