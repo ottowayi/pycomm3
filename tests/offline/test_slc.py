@@ -48,7 +48,7 @@ def test_slc__read_tag_returns_tag():
 
 def test_slc_get_processor_type_returns_none_if_falsy_response():
     driver = SLCDriver(CONNECT_PATH)
-    RESPONSE_PACKET = SendUnitDataResponsePacket(SendUnitDataRequestPacket(), b'\x00')
+    RESPONSE_PACKET = SendUnitDataResponsePacket(SendUnitDataRequestPacket(driver._sequence), b'\x00')
 
     with mock.patch.object(SLCDriver, 'send') as mock_send, \
          mock.patch.object(CIPDriver, '_forward_open'):
@@ -63,7 +63,7 @@ def test_slc_get_processor_type_returns_none_if_parsing_exception():
     with mock.patch.object(SLCDriver, 'send') as mock_send, \
          mock.patch.object(CIPDriver, '_forward_open'), \
          mock.patch.object(ResponsePacket, '_parse_reply'):
-        RESPONSE_PACKET = SendUnitDataResponsePacket(SendUnitDataRequestPacket(), b'\x00')
+        RESPONSE_PACKET = SendUnitDataResponsePacket(SendUnitDataRequestPacket(driver._sequence), b'\x00')
         RESPONSE_PACKET.command = "Something"
         RESPONSE_PACKET.command_status = SUCCESS
         
