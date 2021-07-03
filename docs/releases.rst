@@ -2,6 +2,28 @@
 Release History
 ===============
 
+
+1.2.0
+=====
+
+- |:bug:| fixed issue with logging configuration
+- |:art:| formatted project with black
+- |:memo:| misc. documentation updates
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue with writing a tag multiple times failing after the first write
+- |:sparkles:| added `tags_json` property
+
+SLCDriver
+---------
+
+- |:bug:| fixed issue with parsing IO addresses
+- |:zap:| improved address parsing speed by pre-compiling regex
+
+
+
 1.1.1
 =====
 
