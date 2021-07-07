@@ -2,6 +2,10 @@
 Release History
 ===============
 
+1.2.1
+=====
+- |:sparkles:| added ability to configure custom logger via the `configure_default_logger` function
+
 
 1.2.0
 =====

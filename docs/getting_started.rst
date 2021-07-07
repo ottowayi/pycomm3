@@ -216,8 +216,11 @@ Logging
 This library uses the standard Python `logging`_ module.  You may configure the logging module as needed.  The ``DEBUG``
 level will log every sent/received packed and other diagnostic data.  Set the level to higher than ``DEBUG`` if you only
 wish to see errors, exceptions, etc.  A helper method called ``configure_default_logger`` is provided to setup basic
-logging.  There are two optional parameters, ``level`` and ``filename``.  ``level`` (default ``logging.INFO``) is the
-logging level.  ``filename`` (default ``None``) if set, will also log to the specified file.
+logging.  There are three optional parameters, ``level``, ``filename``, and ``logger``.
+``level`` (default ``logging.INFO``) is the logging level.  ``filename`` (default ``None``) if set,
+will also log to the specified file.  By default this function only configures the ``pycomm3`` logger.  You can also
+configure your own custom logger by passing the name in using the ``logger`` parameter. The ``pycomm3`` logger is
+always configured. To configure the root logger set ``logger`` to an empty string (``''``).
 
 .. code-block::
 

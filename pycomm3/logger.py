@@ -30,8 +30,8 @@ __all__ = ["configure_default_logger", "LOG_VERBOSE"]
 LOG_VERBOSE = 5
 
 
-logger = logging.getLogger("pycomm3")
-logger.addHandler(logging.NullHandler())
+_logger = logging.getLogger("pycomm3")
+_logger.addHandler(logging.NullHandler())
 
 
 def _verbose(self: logging.Logger, msg, *args, **kwargs):
@@ -44,23 +44,37 @@ logging.verbose = _verbose
 logging.Logger.verbose = _verbose
 
 
-def configure_default_logger(level: int = logging.INFO, filename=None):
+def configure_default_logger(level: int = logging.INFO, filename: str = None, logger: str = None):
     """
     Helper method to configure basic logging.  `level` will set the logging level.
     To enable the verbose logging (where the contents of every packet sent/received is logged)
     import the `LOG_VERBOSE` level from the `pycomm3.logger` module. The default level is `logging.INFO`.
 
     To log to a file in addition to the terminal, set `filename` to the desired log file.
+
+    By default this method only configures the 'pycomm3' logger, to also configure your own logger,
+    set the `logger` argument to the name of the logger you wish to also configure.  For the root logger
+    use an empty string (``''``).
     """
-    logger.setLevel(level)
+    loggers = [logging.getLogger('pycomm3'), ]
+    if logger == '':
+        loggers.append(logging.getLogger())
+    elif logger:
+        loggers.append(logging.getLogger(logger))
+
     formatter = logging.Formatter(
         fmt="{asctime} [{levelname}] {name}.{funcName}(): {message}", style="{"
     )
     handler = logging.StreamHandler(stream=sys.stdout)
     handler.setFormatter(formatter)
-    logger.addHandler(handler)
 
     if filename:
         file_handler = logging.FileHandler(filename, encoding="utf-8")
         file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+
+    for _log in loggers:
+        _log.setLevel(level)
+        _log.addHandler(handler)
+
+        if filename:
+            _log.addHandler(file_handler)
