@@ -86,9 +86,7 @@ def with_forward_open(func):
             logger.info("Attempting an Extended Forward Open...")
         if not self._forward_open():
             if self._cfg["extended forward open"]:
-                logger.info(
-                    "Extended Forward Open failed, attempting standard Forward Open."
-                )
+                logger.info("Extended Forward Open failed, attempting standard Forward Open.")
                 self._cfg["extended forward open"] = False
                 self._cfg["connection_size"] = 500
                 if self._forward_open():
@@ -171,9 +169,7 @@ class CIPDriver:
         else:
             if not exc_type:
                 return True
-            self.__log.exception(
-                "Unhandled Client Error", exc_info=(exc_type, exc_val, exc_tb)
-            )
+            self.__log.exception("Unhandled Client Error", exc_info=(exc_type, exc_val, exc_tb))
             return False
 
     def __repr__(self):
@@ -219,15 +215,11 @@ class CIPDriver:
         cls.__log.info("Discovering devices...")
         ip_addrs = [
             sockaddr[0]
-            for family, _, _, _, sockaddr in socket.getaddrinfo(
-                socket.gethostname(), None
-            )
+            for family, _, _, _, sockaddr in socket.getaddrinfo(socket.gethostname(), None)
             if family == socket.AddressFamily.AF_INET
         ]
 
-        driver = CIPDriver(
-            "0.0.0.0"
-        )  # dummy driver for creating the list_identity request
+        driver = CIPDriver("0.0.0.0")  # dummy driver for creating the list_identity request
         request = ListIdentityRequestPacket()
         message = request.build_request(None, driver._session, b"\x00" * 8, 0)
         devices = []
@@ -288,7 +280,12 @@ class CIPDriver:
                 connected=False,
                 unconnected_send=True,
                 route_path=PADDED_EPATH.encode(
-                    (PortSegment("bp", slot),), length=True, pad_length=True
+                    (
+                        *self._cfg["cip_path"][:-1],
+                        PortSegment("bp", slot),
+                    ),
+                    length=True,
+                    pad_length=True,
                 ),
                 name="get_module_info",
             )
@@ -296,9 +293,7 @@ class CIPDriver:
             if response:
                 return ModuleIdentityObject.decode(response.value)
             else:
-                raise ResponseError(
-                    f"generic_message did not return valid data - {response.error}"
-                )
+                raise ResponseError(f"generic_message did not return valid data - {response.error}")
 
         except Exception as err:
             raise ResponseError("error getting module info") from err
@@ -363,15 +358,11 @@ class CIPDriver:
         init_net_params = 0b_0100_0010_0000_0000  # CIP Vol 1 - 3-5.5.1.1
 
         if self._cfg["extended forward open"]:
-            net_params = UDINT.encode(
-                (self.connection_size & 0xFFFF) | init_net_params << 16
-            )
+            net_params = UDINT.encode((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
             net_params = UINT.encode((self.connection_size & 0x01FF) | init_net_params)
 
-        route_path = PADDED_EPATH.encode(
-            self._cfg["cip_path"] + MSG_ROUTER_PATH, length=True
-        )
+        route_path = PADDED_EPATH.encode(self._cfg["cip_path"] + MSG_ROUTER_PATH, length=True)
         service = (
             ConnectionManagerServices.forward_open
             if not self._cfg["extended forward open"]
@@ -554,11 +545,7 @@ class CIPDriver:
 
             _kwargs["unconnected_send"] = unconnected_send
 
-        req_class = (
-            GenericConnectedRequestPacket
-            if connected
-            else GenericUnconnectedRequestPacket
-        )
+        req_class = GenericConnectedRequestPacket if connected else GenericUnconnectedRequestPacket
         request = req_class(**_kwargs)
 
         self.__log.info("Sending generic message: %s", name)
