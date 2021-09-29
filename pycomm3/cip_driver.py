@@ -498,7 +498,7 @@ class CIPDriver:
         name: str = "generic",
         connected: bool = True,
         unconnected_send: bool = False,
-        route_path: Union[bool, Sequence[CIPSegment], bytes] = True,
+        route_path: Union[bool, Sequence[CIPSegment], bytes, str] = True,
         **kwargs,
     ) -> Tag:
         """
@@ -537,6 +537,10 @@ class CIPDriver:
             if route_path is True:
                 _kwargs["route_path"] = PADDED_EPATH.encode(
                     self._cfg["cip_path"], length=True, pad_length=True
+                )
+            elif isinstance(route_path, str):
+                _kwargs["route_path"] = PADDED_EPATH.encode(
+                    parse_cip_route(route_path), length=True, pad_length=True
                 )
             elif isinstance(route_path, bytes):
                 _kwargs["route_path"] = route_path
@@ -599,7 +603,7 @@ class CIPDriver:
             return reply
 
 
-def parse_connection_path(path: str) -> Tuple[str, List[PortSegment]]:
+def parse_connection_path(path: str, auto_slot: bool = False) -> Tuple[str, List[PortSegment]]:
     """
     Parses and validates the CIP path into the destination IP and
     sequence of port/link segments.
@@ -607,22 +611,48 @@ def parse_connection_path(path: str) -> Tuple[str, List[PortSegment]]:
     """
     try:
         path = path.replace("\\", "/")
-        ip, *segments = path.split("/")
+        ip, *route = path.split("/")
+
         try:
             ipaddress.ip_address(ip)
         except ValueError as err:
             raise RequestError(f"Invalid IP Address: {ip}") from err
 
-        if not segments:
-            _path = [
-                PortSegment("bp", 0),
-            ]
-        elif len(segments) == 1:
-            _path = [PortSegment("bp", segments[0])]
-        else:
-            pairs = (segments[i : i + 2] for i in range(0, len(segments), 2))
-            _path = [PortSegment(port, link) for port, link in pairs]
+        _path = parse_cip_route(route, auto_slot)
+
+    except RequestError:
+        raise
     except Exception as err:
         raise RequestError(f"Failed to parse connection path: {path}") from err
     else:
         return ip, _path
+
+
+def parse_cip_route(path: Union[str, List[str]], auto_slot: bool = False) -> List[PortSegment]:
+    try:
+        if isinstance(path, str):
+            path = path.replace("\\", "/")
+            segments = path.split("/")
+        else:
+            segments = path
+
+        if not segments:
+            _path = [PortSegment("bp", 0)] if auto_slot else []
+        elif len(segments) == 1 and auto_slot:
+            _path = [PortSegment("bp", segments[0])]
+        else:
+            if len(segments) % 2:
+                raise RequestError(
+                    "Invalid connection path, must contain segment pairs(port/link), "
+                    f"{len(segments)} segments provided."
+                )
+            pairs = (segments[i : i + 2] for i in range(0, len(segments), 2))
+            _path = [
+                PortSegment(int(port) if port.isdigit() else port, link) for port, link in pairs
+            ]
+    except RequestError:
+        raise
+    except Exception as err:
+        raise RequestError(f"Failed to parse cip route: {path}") from err
+    else:
+        return _path

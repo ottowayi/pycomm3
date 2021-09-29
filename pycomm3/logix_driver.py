@@ -57,7 +57,7 @@ from .cip import (
     ArrayType,
     PortSegment,
 )
-from .cip_driver import CIPDriver, with_forward_open
+from .cip_driver import CIPDriver, with_forward_open, parse_connection_path
 from .const import (
     EXTENDED_SYMBOL,
     MICRO800_PREFIX,
@@ -144,7 +144,12 @@ class LogixDriver(CIPDriver):
         self._data_types = {}
         self._tags = {}
         self._micro800 = False
+
+        ip, _path = parse_connection_path(path, auto_slot=True)
+        self._cfg["cip_path"] = _path
+        self._cfg["ip"] = ip
         self._cfg["use_instance_ids"] = True
+
         self._init_args = {
             "init_tags": init_tags,
             "init_program_tags": init_program_tags,
