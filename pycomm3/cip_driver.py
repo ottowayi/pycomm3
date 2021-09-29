@@ -145,7 +145,6 @@ class CIPDriver:
             "port": 44818,
             "timeout": 10,
             "ip address": ip,
-            # is cip_path the right term?  or something else?
             "cip_path": _path,
             "option": 0,
             "cid": b"\x27\x04\x19\x71",
@@ -241,27 +240,30 @@ class CIPDriver:
 
         return devices
 
-    @staticmethod
-    def _broadcast_discover(ip, message, request):
+    @classmethod
+    def _broadcast_discover(cls, ip, message, request):
         devices = []
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(1)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        if ip:
-            sock.bind((ip, 0))
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            if ip:
+                sock.bind((ip, 0))
 
-        sock.sendto(message, ("255.255.255.255", 44818))
+            sock.sendto(message, ("255.255.255.255", 44818))
 
-        while True:
-            try:
-                resp = sock.recv(4096)
-                response = request.response_class(request, resp)
-                if response:
-                    devices.append(response.identity)
-            except Exception:
-                break
-
-        return devices
+            while True:
+                try:
+                    resp = sock.recv(4096)
+                    response = request.response_class(request, resp)
+                    if response:
+                        devices.append(response.identity)
+                except Exception:
+                    break
+        except Exception:
+            cls.__log.exception('Error broadcasting discover request')
+        finally:
+            return devices
 
     def _list_identity(self):
         request = ListIdentityRequestPacket()
