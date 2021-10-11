@@ -116,6 +116,7 @@ class SLCDriver(CIPDriver):
     """
 
     __log = logging.getLogger(f"{__module__}.{__qualname__}")
+    _auto_slot_cip_path = True
 
     def __init__(self, path, *args, **kwargs):
         super().__init__(path, *args, large_packets=False, **kwargs)
@@ -166,9 +167,7 @@ class SLCDriver(CIPDriver):
             b"\x00",  # status code
             UINT.encode(next(self._sequence)),  # transaction identifier
             SLC_FNC_READ,  # function code
-            USINT.encode(
-                PCCC_DATA_SIZE[_tag["file_type"]] * _tag["element_count"]
-            ),  # byte size
+            USINT.encode(PCCC_DATA_SIZE[_tag["file_type"]] * _tag["element_count"]),  # byte size
             USINT.encode(int(_tag["file_number"])),
             PCCC_DATA_TYPE[_tag["file_type"]],
             USINT.encode(int(_tag["element_number"])),
@@ -312,9 +311,7 @@ class SLCDriver(CIPDriver):
         status = request_status(response.raw)
         if status is None:
             try:
-                size = UINT.decode(response.raw[SLC_REPLY_START:]) - sys0_info.get(
-                    "size_const", 0
-                )
+                size = UINT.decode(response.raw[SLC_REPLY_START:]) - sys0_info.get("size_const", 0)
                 self.__log.debug(f"SYS 0 file size: {size}")
             except Exception as err:
                 self.__log.exception("failed to parse size of File 0")
@@ -351,9 +348,7 @@ class SLCDriver(CIPDriver):
             ]
 
             msg_request += (
-                [USINT.encode(offset)]
-                if offset < 256
-                else [b"\xFF", UINT.encode(offset)]
+                [USINT.encode(offset)] if offset < 256 else [b"\xFF", UINT.encode(offset)]
             )
 
             request = SendUnitDataRequestPacket(self._sequence)
@@ -396,9 +391,7 @@ def _parse_file0(sys0_info, data):
                 "length": file_size,
             }
 
-        if (
-            file_type or file_code == b"\x81"
-        ):  # 0x81 reserved type, for skipped file numbers?
+        if file_type or file_code == b"\x81":  # 0x81 reserved type, for skipped file numbers?
             file_num += 1
 
         file_pos += row_size
@@ -477,14 +470,11 @@ def _parse_read_reply(tag, data) -> Tag:
                     )
 
             tag_value = unpack_func(data[new_value : new_value + data_size])
-            return Tag(
-                tag["tag"], get_bit(tag_value, bit_position), tag["file_type"], None
-            )
+            return Tag(tag["tag"], get_bit(tag_value, bit_position), tag["file_type"], None)
 
         else:
             values_list = [
-                unpack_func(data[i : i + data_size])
-                for i in range(0, len(data), data_size)
+                unpack_func(data[i : i + data_size]) for i in range(0, len(data), data_size)
             ]
             if len(values_list) > 1:
                 return Tag(tag["tag"], values_list, tag["file_type"], None)
@@ -529,9 +519,7 @@ def parse_tag(tag: str) -> Optional[dict]:
                     "element_number": t.group("element_number"),
                     "sub_element": t.group("sub_element"),
                     "address_field": 3,
-                    "element_count": int(element_count)
-                    if element_count is not None
-                    else 1,
+                    "element_count": int(element_count) if element_count is not None else 1,
                     "tag": tag_name,
                 }
         else:
@@ -545,9 +533,7 @@ def parse_tag(tag: str) -> Optional[dict]:
                     "element_number": t.group("element_number"),
                     "sub_element": t.group("sub_element"),
                     "address_field": 2,
-                    "element_count": int(element_count)
-                    if element_count is not None
-                    else 1,
+                    "element_count": int(element_count) if element_count is not None else 1,
                     "tag": tag_name,
                 }
 
@@ -556,9 +542,7 @@ def parse_tag(tag: str) -> Optional[dict]:
         _cnt = t.group("_elem_cnt_token")
         tag_name = t.group(0).replace(_cnt, "") if _cnt else t.group(0)
         file_number = "0" if t.group("file_type").upper() == "O" else "1"
-        position_number = (
-            "0" if t.group("position_number") == None else t.group("position_number")
-        )
+        position_number = "0" if t.group("position_number") == None else t.group("position_number")
         if t.group("sub_element") is not None:
             if (
                 (0 <= int(file_number) <= 255)
@@ -573,9 +557,7 @@ def parse_tag(tag: str) -> Optional[dict]:
                     "pos_number": position_number,
                     "sub_element": t.group("sub_element"),
                     "address_field": 3,
-                    "element_count": int(element_count)
-                    if element_count is not None
-                    else 1,
+                    "element_count": int(element_count) if element_count is not None else 1,
                     "tag": tag_name,
                 }
         else:
@@ -588,9 +570,7 @@ def parse_tag(tag: str) -> Optional[dict]:
                     "pos_number": position_number,
                     "sub_element": 0,
                     "address_field": 2,
-                    "element_count": int(element_count)
-                    if element_count is not None
-                    else 1,
+                    "element_count": int(element_count) if element_count is not None else 1,
                     "tag": tag_name,
                 }
 
@@ -647,9 +627,7 @@ def parse_tag(tag: str) -> Optional[dict]:
                     "element_number": t.group("element_number"),
                     "sub_element": t.group("sub_element"),
                     "address_field": 3,
-                    "element_count": int(element_count)
-                    if element_count is not None
-                    else 1,
+                    "element_count": int(element_count) if element_count is not None else 1,
                     "tag": t.group(0),
                 }
         else:
@@ -659,9 +637,7 @@ def parse_tag(tag: str) -> Optional[dict]:
                     "file_number": "2",
                     "element_number": t.group("element_number"),
                     "address_field": 2,
-                    "element_count": int(element_count)
-                    if element_count is not None
-                    else 1,
+                    "element_count": int(element_count) if element_count is not None else 1,
                     "tag": tag_name,
                 }
 

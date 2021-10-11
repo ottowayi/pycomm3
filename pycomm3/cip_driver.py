@@ -109,6 +109,7 @@ class CIPDriver:
     """
 
     __log = logging.getLogger(f"{__module__}.{__qualname__}")
+    _auto_slot_cip_path = False
 
     def __init__(self, path: str, *args, **kwargs):
         """
@@ -136,7 +137,7 @@ class CIPDriver:
         self._target_is_connected: bool = False
         self._info: Dict[str, Any] = {}
         self._cip_path = path
-        ip, _path = parse_connection_path(path)
+        ip, _path = parse_connection_path(path, self._auto_slot_cip_path)
 
         self._cfg = {
             "context": b"_pycomm_",
@@ -261,7 +262,7 @@ class CIPDriver:
                 except Exception:
                     break
         except Exception:
-            cls.__log.exception('Error broadcasting discover request')
+            cls.__log.exception("Error broadcasting discover request")
         finally:
             return devices
 
