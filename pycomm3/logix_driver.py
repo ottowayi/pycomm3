@@ -829,11 +829,17 @@ class LogixDriver(CIPDriver):
                 if predefine and member == "CTL":
                     # assumes CTL is the only host member for predefined types
                     # and treat it as a private attribute
-                    _host_members[info["offset"]] = (member, info["type_class"])
+                    _host_members.update({
+                        (info["offset"] + i):(member, info["type_class"])
+                        for i in range(info["type_class"].size)
+                    })
                 else:
                     data_type["attributes"].append(member)
             else:
-                _host_members[info["offset"]] = (member, info["type_class"])
+                _host_members.update({
+                    (info["offset"] + i):(member, info["type_class"])
+                    for i in range(info["type_class"].size)
+                })
 
             data_type["internal_tags"][member] = info
 
@@ -853,7 +859,7 @@ class LogixDriver(CIPDriver):
                 elif info["offset"] in _host_members:
                     _bit_members[member] = (
                         _host_members[info["offset"]][0],
-                        info["bit"],
+                        (info["bit"] + (info["offset"] * 8)),
                     )
                 else:
                     _struct_members.append((info["type_class"](member), info["offset"]))
