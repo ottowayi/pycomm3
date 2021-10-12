@@ -2,8 +2,25 @@
 Release History
 ===============
 
+1.2.2
+=====
+
+CIPDriver
+---------
+
+- |:sparkles:| added support for string CIP paths in `generic_message` for `route_path`
+- |:bug:| fixed bug where errors during discovery prevent any results from being returned
+- |:bug:| fixed issue where ``get_module_info`` would always use first hop in path instead of the last
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue with multi-request message size tracking being off by 2 bytes
+- |:bug:| fixed issue with AOI structure handling with > 8 BOOL members being mapped to types larger than a USINT (SISAutomationIMA)
+
 1.2.1
 =====
+
 - |:sparkles:| added ability to configure custom logger via the `configure_default_logger` function
 
 
