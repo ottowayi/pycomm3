@@ -244,7 +244,12 @@ _PRODUCT_TYPES = {
     0x2A: "Safety Analog I/O Device",
     0x2B: "Generic Device (keyable)",
     0x2C: "Managed Switch",
+    0x2D: "CIP Motion Safety Drive Device",
+    0x2E: "Safety Drive Device",
+    0x2F: "CIP Motion Encoder",
+    0x31: "CIP Motion I/O",
     0x32: "ControlNet Physical Layer Component",
+    0xC8: "Embedded Component",
 }
 
 
