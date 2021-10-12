@@ -86,9 +86,7 @@ def with_forward_open(func):
             logger.info("Attempting an Extended Forward Open...")
         if not self._forward_open():
             if self._cfg["extended forward open"]:
-                logger.info(
-                    "Extended Forward Open failed, attempting standard Forward Open."
-                )
+                logger.info("Extended Forward Open failed, attempting standard Forward Open.")
                 self._cfg["extended forward open"] = False
                 self._cfg["connection_size"] = 500
                 if self._forward_open():
@@ -111,6 +109,7 @@ class CIPDriver:
     """
 
     __log = logging.getLogger(f"{__module__}.{__qualname__}")
+    _auto_slot_cip_path = False
 
     def __init__(self, path: str, *args, **kwargs):
         """
@@ -138,7 +137,7 @@ class CIPDriver:
         self._target_is_connected: bool = False
         self._info: Dict[str, Any] = {}
         self._cip_path = path
-        ip, _path = parse_connection_path(path)
+        ip, _path = parse_connection_path(path, self._auto_slot_cip_path)
 
         self._cfg = {
             "context": b"_pycomm_",
@@ -147,7 +146,6 @@ class CIPDriver:
             "port": 44818,
             "timeout": 10,
             "ip address": ip,
-            # is cip_path the right term?  or something else?
             "cip_path": _path,
             "option": 0,
             "cid": b"\x27\x04\x19\x71",
@@ -171,9 +169,7 @@ class CIPDriver:
         else:
             if not exc_type:
                 return True
-            self.__log.exception(
-                "Unhandled Client Error", exc_info=(exc_type, exc_val, exc_tb)
-            )
+            self.__log.exception("Unhandled Client Error", exc_info=(exc_type, exc_val, exc_tb))
             return False
 
     def __repr__(self):
@@ -219,15 +215,11 @@ class CIPDriver:
         cls.__log.info("Discovering devices...")
         ip_addrs = [
             sockaddr[0]
-            for family, _, _, _, sockaddr in socket.getaddrinfo(
-                socket.gethostname(), None
-            )
+            for family, _, _, _, sockaddr in socket.getaddrinfo(socket.gethostname(), None)
             if family == socket.AddressFamily.AF_INET
         ]
 
-        driver = CIPDriver(
-            "0.0.0.0"
-        )  # dummy driver for creating the list_identity request
+        driver = CIPDriver("0.0.0.0")  # dummy driver for creating the list_identity request
         request = ListIdentityRequestPacket()
         message = request.build_request(None, driver._session, b"\x00" * 8, 0)
         devices = []
@@ -249,27 +241,30 @@ class CIPDriver:
 
         return devices
 
-    @staticmethod
-    def _broadcast_discover(ip, message, request):
+    @classmethod
+    def _broadcast_discover(cls, ip, message, request):
         devices = []
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(1)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        if ip:
-            sock.bind((ip, 0))
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            if ip:
+                sock.bind((ip, 0))
 
-        sock.sendto(message, ("255.255.255.255", 44818))
+            sock.sendto(message, ("255.255.255.255", 44818))
 
-        while True:
-            try:
-                resp = sock.recv(4096)
-                response = request.response_class(request, resp)
-                if response:
-                    devices.append(response.identity)
-            except Exception:
-                break
-
-        return devices
+            while True:
+                try:
+                    resp = sock.recv(4096)
+                    response = request.response_class(request, resp)
+                    if response:
+                        devices.append(response.identity)
+                except Exception:
+                    break
+        except Exception:
+            cls.__log.exception("Error broadcasting discover request")
+        finally:
+            return devices
 
     def _list_identity(self):
         request = ListIdentityRequestPacket()
@@ -288,7 +283,12 @@ class CIPDriver:
                 connected=False,
                 unconnected_send=True,
                 route_path=PADDED_EPATH.encode(
-                    (PortSegment("bp", slot),), length=True, pad_length=True
+                    (
+                        *self._cfg["cip_path"][:-1],
+                        PortSegment("bp", slot),
+                    ),
+                    length=True,
+                    pad_length=True,
                 ),
                 name="get_module_info",
             )
@@ -296,9 +296,7 @@ class CIPDriver:
             if response:
                 return ModuleIdentityObject.decode(response.value)
             else:
-                raise ResponseError(
-                    f"generic_message did not return valid data - {response.error}"
-                )
+                raise ResponseError(f"generic_message did not return valid data - {response.error}")
 
         except Exception as err:
             raise ResponseError("error getting module info") from err
@@ -363,15 +361,11 @@ class CIPDriver:
         init_net_params = 0b_0100_0010_0000_0000  # CIP Vol 1 - 3-5.5.1.1
 
         if self._cfg["extended forward open"]:
-            net_params = UDINT.encode(
-                (self.connection_size & 0xFFFF) | init_net_params << 16
-            )
+            net_params = UDINT.encode((self.connection_size & 0xFFFF) | init_net_params << 16)
         else:
             net_params = UINT.encode((self.connection_size & 0x01FF) | init_net_params)
 
-        route_path = PADDED_EPATH.encode(
-            self._cfg["cip_path"] + MSG_ROUTER_PATH, length=True
-        )
+        route_path = PADDED_EPATH.encode(self._cfg["cip_path"] + MSG_ROUTER_PATH, length=True)
         service = (
             ConnectionManagerServices.forward_open
             if not self._cfg["extended forward open"]
@@ -505,7 +499,7 @@ class CIPDriver:
         name: str = "generic",
         connected: bool = True,
         unconnected_send: bool = False,
-        route_path: Union[bool, Sequence[CIPSegment], bytes] = True,
+        route_path: Union[bool, Sequence[CIPSegment], bytes, str] = True,
         **kwargs,
     ) -> Tag:
         """
@@ -522,7 +516,8 @@ class CIPDriver:
         :param connected: ``True`` if service required a CIP connection (forward open), ``False`` to use UCMM
         :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service
         :param route_path: (Unconnected Only) ``True`` to use current connection route to destination, ``False`` to ignore,
-                           Or provide list of segments to be encoded as a PADDED_EPATH.
+                           Or provide a path string, list of segments to be encoded as a PADDED_EPATH, or
+                           an already encoded path.
         :return: a Tag with the result of the request. (Tag.value for writes will be the request_data)
         """
 
@@ -545,6 +540,10 @@ class CIPDriver:
                 _kwargs["route_path"] = PADDED_EPATH.encode(
                     self._cfg["cip_path"], length=True, pad_length=True
                 )
+            elif isinstance(route_path, str):
+                _kwargs["route_path"] = PADDED_EPATH.encode(
+                    parse_cip_route(route_path), length=True, pad_length=True
+                )
             elif isinstance(route_path, bytes):
                 _kwargs["route_path"] = route_path
             elif route_path:
@@ -554,11 +553,7 @@ class CIPDriver:
 
             _kwargs["unconnected_send"] = unconnected_send
 
-        req_class = (
-            GenericConnectedRequestPacket
-            if connected
-            else GenericUnconnectedRequestPacket
-        )
+        req_class = GenericConnectedRequestPacket if connected else GenericUnconnectedRequestPacket
         request = req_class(**_kwargs)
 
         self.__log.info("Sending generic message: %s", name)
@@ -610,7 +605,7 @@ class CIPDriver:
             return reply
 
 
-def parse_connection_path(path: str) -> Tuple[str, List[PortSegment]]:
+def parse_connection_path(path: str, auto_slot: bool = False) -> Tuple[str, List[PortSegment]]:
     """
     Parses and validates the CIP path into the destination IP and
     sequence of port/link segments.
@@ -618,22 +613,48 @@ def parse_connection_path(path: str) -> Tuple[str, List[PortSegment]]:
     """
     try:
         path = path.replace("\\", "/")
-        ip, *segments = path.split("/")
+        ip, *route = path.split("/")
+
         try:
             ipaddress.ip_address(ip)
         except ValueError as err:
             raise RequestError(f"Invalid IP Address: {ip}") from err
 
-        if not segments:
-            _path = [
-                PortSegment("bp", 0),
-            ]
-        elif len(segments) == 1:
-            _path = [PortSegment("bp", segments[0])]
-        else:
-            pairs = (segments[i : i + 2] for i in range(0, len(segments), 2))
-            _path = [PortSegment(port, link) for port, link in pairs]
+        _path = parse_cip_route(route, auto_slot)
+
+    except RequestError:
+        raise
     except Exception as err:
         raise RequestError(f"Failed to parse connection path: {path}") from err
     else:
         return ip, _path
+
+
+def parse_cip_route(path: Union[str, List[str]], auto_slot: bool = False) -> List[PortSegment]:
+    try:
+        if isinstance(path, str):
+            path = path.replace("\\", "/")
+            segments = path.split("/")
+        else:
+            segments = path
+
+        if not segments:
+            _path = [PortSegment("bp", 0)] if auto_slot else []
+        elif len(segments) == 1 and auto_slot:
+            _path = [PortSegment("bp", segments[0])]
+        else:
+            if len(segments) % 2:
+                raise RequestError(
+                    "Invalid connection path, must contain segment pairs(port/link), "
+                    f"{len(segments)} segments provided."
+                )
+            pairs = (segments[i : i + 2] for i in range(0, len(segments), 2))
+            _path = [
+                PortSegment(int(port) if port.isdigit() else port, link) for port, link in pairs
+            ]
+    except RequestError:
+        raise
+    except Exception as err:
+        raise RequestError(f"Failed to parse cip route: {path}") from err
+    else:
+        return _path

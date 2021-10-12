@@ -69,7 +69,8 @@ Drivers
 - `CIPDriver`_
     This driver is the base driver for the library, it handles common CIP services used
     by the other drivers.  Things like opening/closing a connection, register/unregister sessions,
-    forward open/close services, device discovery, and generic messaging.
+    forward open/close services, device discovery, and generic messaging.  It can be used to connect to
+    any Ethernet/IP device, like: drives, switches, meters, and other non-PLC devices.
 
 - `LogixDriver`_
     This driver supports services specific to ControlLogix, CompactLogix, and Micro800 PLCs.
@@ -114,7 +115,7 @@ to help configure basic logging, see the `Logging Section`_ in the docs for more
 Python and OS Support
 =====================
 
-``pycomm3`` is a Python 3-only library.  The minimum supported version of Python is 3.6.1 and has been tested up to 3.9.
+``pycomm3`` is a Python 3-only library and is supported on Python versions from 3.6.1 up to 3.10.
 There should be no OS-specific requirements and should be able to run on any OS that Python is supported on.
 Development and testing is done primarily on Windows 10.  If you encounter an OS-related problem, please open an issue
 in the `GitHub repository`_ and it will be investigated.
@@ -168,7 +169,7 @@ LogixDriver
     - automatically handles fragmented requests for large tags that can't fit in a single packet
     - both support full structure reading/writing (UDTs, AOIs, etc)
         - for ``read`` the ``Tag.value`` will be a ``dict`` of ``{attribute: value}``
-        - for ``write`` the value should be a sequence of values or dict of ``{attribute: value}`` , nesting as needed
+        - for ``write`` the value should be a dict of ``{attribute: value}`` , nesting as needed
             - does not do partial writes, the value must match the complete structure
             - not recommended for builtin type (TIMER, CONTROL, COUNTER, etc)
         - both require no attributes to have an External Access of None

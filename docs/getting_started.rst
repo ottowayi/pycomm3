@@ -25,9 +25,11 @@ There are three possible forms:
 
     IP Address Only (``10.20.30.100``)
         Use for devices without a backplane (drives, switches, Micro800 PLCs, etc) or for PLCs in slot 0 of a backplane.
+        Only the LogixDriver and SLCDriver will automatically add the ``backplane/0`` to the path if no slot is specified.
 
     IP Address/Slot (``10.20.30.100/1``)
         Use for PLCs in a backplane that are not in slot 0.
+        Only supported in LogixDriver and SLCDriver.
 
     CIP Routing Path (``1.2.3.4/backplane/2/enet/6.7.8.9/backplane/0``)
         This is a full CIP route to a device, it should appear similar to how paths are shown in Logix.  For port selection,
@@ -37,7 +39,7 @@ There are three possible forms:
     .. note::
 
         Both the IP Address and IP Address/Slot options are shortcuts, they will be replaced with the
-        CIP path automatically.
+        CIP path automatically in the LogixDriver and SLCDriver.
 
 >>> from pycomm3 import CIPDriver
 >>> with CIPDriver('10.20.30.100') as drive:
