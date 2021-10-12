@@ -516,7 +516,8 @@ class CIPDriver:
         :param connected: ``True`` if service required a CIP connection (forward open), ``False`` to use UCMM
         :param unconnected_send: (Unconnected Only) wrap service in an UnconnectedSend service
         :param route_path: (Unconnected Only) ``True`` to use current connection route to destination, ``False`` to ignore,
-                           Or provide list of segments to be encoded as a PADDED_EPATH.
+                           Or provide a path string, list of segments to be encoded as a PADDED_EPATH, or
+                           an already encoded path.
         :return: a Tag with the result of the request. (Tag.value for writes will be the request_data)
         """
 

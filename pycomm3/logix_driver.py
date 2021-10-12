@@ -797,17 +797,21 @@ class LogixDriver(CIPDriver):
                 if predefine and member == "CTL":
                     # assumes CTL is the only host member for predefined types
                     # and treat it as a private attribute
-                    _host_members.update({
-                        (info["offset"] + i):(member, info["type_class"])
-                        for i in range(info["type_class"].size)
-                    })
+                    _host_members.update(
+                        {
+                            (info["offset"] + i): (member, info["type_class"])
+                            for i in range(info["type_class"].size)
+                        }
+                    )
                 else:
                     data_type["attributes"].append(member)
             else:
-                _host_members.update({
-                    (info["offset"] + i):(member, info["type_class"])
-                    for i in range(info["type_class"].size)
-                })
+                _host_members.update(
+                    {
+                        (info["offset"] + i): (member, info["type_class"])
+                        for i in range(info["type_class"].size)
+                    }
+                )
 
             data_type["internal_tags"][member] = info
 
@@ -1012,9 +1016,7 @@ class LogixDriver(CIPDriver):
                 read_requests.append((request, return_size))
 
         # TODO: this should try and combine these into the fewest packets
-        grouped_requests = [
-            [],
-        ]
+        grouped_requests = [[]]
         current_group = grouped_requests[0]
         current_response_size = MULTISERVICE_READ_OVERHEAD
         for req, resp_size in read_requests:
