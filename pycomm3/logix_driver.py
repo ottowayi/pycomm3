@@ -1027,6 +1027,7 @@ class LogixDriver(CIPDriver):
         """
         creates a list of multi-request packets
         """
+        multi_requests = []
         fragmented_requests = []
         read_requests = []  # [ (request, response_size), ...]
         for request_id, tag_data in parsed_tags.items():
@@ -1073,10 +1074,10 @@ class LogixDriver(CIPDriver):
             current_group.append(req)
             current_response_size += resp_size
 
-        multi_requests = [
-            MultiServiceRequestPacket(self._sequence, group)
-            for group in grouped_requests
-        ]
+        if grouped_requests[0]:
+            multi_requests = [
+                MultiServiceRequestPacket(self._sequence, group) for group in grouped_requests
+            ]
 
         return multi_requests + fragmented_requests
 
