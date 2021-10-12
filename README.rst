@@ -263,7 +263,7 @@ Unit Testing
 
 ``pytest`` is used for unit testing. The ``tests`` directory contains an L5X export of the testing program
 that contains all tags necessary for testing.  The only requirement for testing (besides a running PLC with the testing
-program) is the environment variables ``PLCPATH`` for the PLC defined.
+program) is the environment variable ``PLCPATH`` for the PLC defined.
 
 User Tests
 ----------
