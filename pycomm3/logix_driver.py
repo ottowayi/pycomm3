@@ -430,7 +430,7 @@ class LogixDriver(CIPDriver):
 
         self._cache = None
 
-        self.__log.info("Completed tag list upload.")
+        self.__log.info(f"Completed tag list upload. Uploaded {len(self._tags)} tags.")
         return tags
 
     def _get_tag_list(self, program=None):
@@ -1330,7 +1330,7 @@ class LogixDriver(CIPDriver):
 
             if len(attrs) and attrs[-1].isdigit():
                 bit = int(attrs.pop(-1))
-                tag = base if not len(attrs) else f"{base}.{''.join(attrs)}"
+                tag = base if not len(attrs) else f"{base}.{'.'.join(attrs)}"
 
             tag_info = self._get_tag_info(base, attrs)
 
