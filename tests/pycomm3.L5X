@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="20.05" TargetName="pycomm3" TargetType="Program" ContainsContext="true" Owner="admin" ExportDate="Mon Apr 12 17:58:23 2021" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="20.05" TargetName="pycomm3" TargetType="Program" ContainsContext="true" Owner="User" ExportDate="Tue Nov 02 15:21:19 2021" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="pycomm3_demo">
 <DataTypes Use="Context">
 <DataType Name="STRING480" Family="StringFamily" Class="User">
@@ -67,6 +67,1096 @@
 </Dependencies>
 </DataType>
 </DataTypes>
+<AddOnInstructionDefinitions Use="Context">
+<AddOnInstructionDefinition Name="pycomm3_AOI" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false" CreatedDate="2021-10-11T22:04:31.734Z" CreatedBy="WINDEV2108EVAL\User" EditedDate="2021-11-02T22:06:23.589Z" EditedBy="WINDEV2108EVAL\User" SoftwareRevision="v20.05">
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only"/>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only"/>
+<Parameter Name="b1" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b2" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>01</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b3" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b4" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b5" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b6" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b7" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b8" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b9" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b10" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b11" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b12" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b13" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b14" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b15" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b16" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b17" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b18" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b19" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="b20" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="param_dint1" TagType="Base" DataType="DINT" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<DefaultData>D2 04 00 00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="1234"/>
+</DefaultData>
+</Parameter>
+</Parameters>
+<LocalTags>
+<LocalTag Name="local_udt1" DataType="pycomm3_NestedUDT" ExternalAccess="Read/Write">
+<DefaultData>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="pycomm3_NestedUDT">
+<StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
+<DataValueMember Name="bool" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="lint" DataType="LINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="real" DataType="REAL" Radix="Float" Value="0.0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary1" DataType="pycomm3_AtomicUDT" Dimensions="5">
+<Element Index="[0]">
+<Structure DataType="pycomm3_AtomicUDT">
+<DataValueMember Name="bool" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="lint" DataType="LINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="real" DataType="REAL" Radix="Float" Value="0.0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_AtomicUDT">
+<DataValueMember Name="bool" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="lint" DataType="LINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="real" DataType="REAL" Radix="Float" Value="0.0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_AtomicUDT">
+<DataValueMember Name="bool" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="lint" DataType="LINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="real" DataType="REAL" Radix="Float" Value="0.0"/>
+</Structure>
+</Element>
+<Element Index="[3]">
+<Structure DataType="pycomm3_AtomicUDT">
+<DataValueMember Name="bool" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="lint" DataType="LINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="real" DataType="REAL" Radix="Float" Value="0.0"/>
+</Structure>
+</Element>
+<Element Index="[4]">
+<Structure DataType="pycomm3_AtomicUDT">
+<DataValueMember Name="bool" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="lint" DataType="LINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="real" DataType="REAL" Radix="Float" Value="0.0"/>
+</Structure>
+</Element>
+</ArrayMember>
+<StructureMember Name="udt2" DataType="pycomm3_AtomicArrayUDT">
+<ArrayMember Name="bools" DataType="BOOL" Dimensions="64" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+<Element Index="[10]" Value="0"/>
+<Element Index="[11]" Value="0"/>
+<Element Index="[12]" Value="0"/>
+<Element Index="[13]" Value="0"/>
+<Element Index="[14]" Value="0"/>
+<Element Index="[15]" Value="0"/>
+<Element Index="[16]" Value="0"/>
+<Element Index="[17]" Value="0"/>
+<Element Index="[18]" Value="0"/>
+<Element Index="[19]" Value="0"/>
+<Element Index="[20]" Value="0"/>
+<Element Index="[21]" Value="0"/>
+<Element Index="[22]" Value="0"/>
+<Element Index="[23]" Value="0"/>
+<Element Index="[24]" Value="0"/>
+<Element Index="[25]" Value="0"/>
+<Element Index="[26]" Value="0"/>
+<Element Index="[27]" Value="0"/>
+<Element Index="[28]" Value="0"/>
+<Element Index="[29]" Value="0"/>
+<Element Index="[30]" Value="0"/>
+<Element Index="[31]" Value="0"/>
+<Element Index="[32]" Value="0"/>
+<Element Index="[33]" Value="0"/>
+<Element Index="[34]" Value="0"/>
+<Element Index="[35]" Value="0"/>
+<Element Index="[36]" Value="0"/>
+<Element Index="[37]" Value="0"/>
+<Element Index="[38]" Value="0"/>
+<Element Index="[39]" Value="0"/>
+<Element Index="[40]" Value="0"/>
+<Element Index="[41]" Value="0"/>
+<Element Index="[42]" Value="0"/>
+<Element Index="[43]" Value="0"/>
+<Element Index="[44]" Value="0"/>
+<Element Index="[45]" Value="0"/>
+<Element Index="[46]" Value="0"/>
+<Element Index="[47]" Value="0"/>
+<Element Index="[48]" Value="0"/>
+<Element Index="[49]" Value="0"/>
+<Element Index="[50]" Value="0"/>
+<Element Index="[51]" Value="0"/>
+<Element Index="[52]" Value="0"/>
+<Element Index="[53]" Value="0"/>
+<Element Index="[54]" Value="0"/>
+<Element Index="[55]" Value="0"/>
+<Element Index="[56]" Value="0"/>
+<Element Index="[57]" Value="0"/>
+<Element Index="[58]" Value="0"/>
+<Element Index="[59]" Value="0"/>
+<Element Index="[60]" Value="0"/>
+<Element Index="[61]" Value="0"/>
+<Element Index="[62]" Value="0"/>
+<Element Index="[63]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="sints" DataType="SINT" Dimensions="8" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="ints" DataType="INT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="dints" DataType="DINT" Dimensions="10" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="lints" DataType="LINT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="reals" DataType="REAL" Dimensions="10" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+<Element Index="[2]" Value="0.0"/>
+<Element Index="[3]" Value="0.0"/>
+<Element Index="[4]" Value="0.0"/>
+<Element Index="[5]" Value="0.0"/>
+<Element Index="[6]" Value="0.0"/>
+<Element Index="[7]" Value="0.0"/>
+<Element Index="[8]" Value="0.0"/>
+<Element Index="[9]" Value="0.0"/>
+</ArrayMember>
+</StructureMember>
+<ArrayMember Name="udt_ary2" DataType="pycomm3_AtomicArrayUDT" Dimensions="5">
+<Element Index="[0]">
+<Structure DataType="pycomm3_AtomicArrayUDT">
+<ArrayMember Name="bools" DataType="BOOL" Dimensions="64" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+<Element Index="[10]" Value="0"/>
+<Element Index="[11]" Value="0"/>
+<Element Index="[12]" Value="0"/>
+<Element Index="[13]" Value="0"/>
+<Element Index="[14]" Value="0"/>
+<Element Index="[15]" Value="0"/>
+<Element Index="[16]" Value="0"/>
+<Element Index="[17]" Value="0"/>
+<Element Index="[18]" Value="0"/>
+<Element Index="[19]" Value="0"/>
+<Element Index="[20]" Value="0"/>
+<Element Index="[21]" Value="0"/>
+<Element Index="[22]" Value="0"/>
+<Element Index="[23]" Value="0"/>
+<Element Index="[24]" Value="0"/>
+<Element Index="[25]" Value="0"/>
+<Element Index="[26]" Value="0"/>
+<Element Index="[27]" Value="0"/>
+<Element Index="[28]" Value="0"/>
+<Element Index="[29]" Value="0"/>
+<Element Index="[30]" Value="0"/>
+<Element Index="[31]" Value="0"/>
+<Element Index="[32]" Value="0"/>
+<Element Index="[33]" Value="0"/>
+<Element Index="[34]" Value="0"/>
+<Element Index="[35]" Value="0"/>
+<Element Index="[36]" Value="0"/>
+<Element Index="[37]" Value="0"/>
+<Element Index="[38]" Value="0"/>
+<Element Index="[39]" Value="0"/>
+<Element Index="[40]" Value="0"/>
+<Element Index="[41]" Value="0"/>
+<Element Index="[42]" Value="0"/>
+<Element Index="[43]" Value="0"/>
+<Element Index="[44]" Value="0"/>
+<Element Index="[45]" Value="0"/>
+<Element Index="[46]" Value="0"/>
+<Element Index="[47]" Value="0"/>
+<Element Index="[48]" Value="0"/>
+<Element Index="[49]" Value="0"/>
+<Element Index="[50]" Value="0"/>
+<Element Index="[51]" Value="0"/>
+<Element Index="[52]" Value="0"/>
+<Element Index="[53]" Value="0"/>
+<Element Index="[54]" Value="0"/>
+<Element Index="[55]" Value="0"/>
+<Element Index="[56]" Value="0"/>
+<Element Index="[57]" Value="0"/>
+<Element Index="[58]" Value="0"/>
+<Element Index="[59]" Value="0"/>
+<Element Index="[60]" Value="0"/>
+<Element Index="[61]" Value="0"/>
+<Element Index="[62]" Value="0"/>
+<Element Index="[63]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="sints" DataType="SINT" Dimensions="8" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="ints" DataType="INT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="dints" DataType="DINT" Dimensions="10" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="lints" DataType="LINT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="reals" DataType="REAL" Dimensions="10" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+<Element Index="[2]" Value="0.0"/>
+<Element Index="[3]" Value="0.0"/>
+<Element Index="[4]" Value="0.0"/>
+<Element Index="[5]" Value="0.0"/>
+<Element Index="[6]" Value="0.0"/>
+<Element Index="[7]" Value="0.0"/>
+<Element Index="[8]" Value="0.0"/>
+<Element Index="[9]" Value="0.0"/>
+</ArrayMember>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_AtomicArrayUDT">
+<ArrayMember Name="bools" DataType="BOOL" Dimensions="64" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+<Element Index="[10]" Value="0"/>
+<Element Index="[11]" Value="0"/>
+<Element Index="[12]" Value="0"/>
+<Element Index="[13]" Value="0"/>
+<Element Index="[14]" Value="0"/>
+<Element Index="[15]" Value="0"/>
+<Element Index="[16]" Value="0"/>
+<Element Index="[17]" Value="0"/>
+<Element Index="[18]" Value="0"/>
+<Element Index="[19]" Value="0"/>
+<Element Index="[20]" Value="0"/>
+<Element Index="[21]" Value="0"/>
+<Element Index="[22]" Value="0"/>
+<Element Index="[23]" Value="0"/>
+<Element Index="[24]" Value="0"/>
+<Element Index="[25]" Value="0"/>
+<Element Index="[26]" Value="0"/>
+<Element Index="[27]" Value="0"/>
+<Element Index="[28]" Value="0"/>
+<Element Index="[29]" Value="0"/>
+<Element Index="[30]" Value="0"/>
+<Element Index="[31]" Value="0"/>
+<Element Index="[32]" Value="0"/>
+<Element Index="[33]" Value="0"/>
+<Element Index="[34]" Value="0"/>
+<Element Index="[35]" Value="0"/>
+<Element Index="[36]" Value="0"/>
+<Element Index="[37]" Value="0"/>
+<Element Index="[38]" Value="0"/>
+<Element Index="[39]" Value="0"/>
+<Element Index="[40]" Value="0"/>
+<Element Index="[41]" Value="0"/>
+<Element Index="[42]" Value="0"/>
+<Element Index="[43]" Value="0"/>
+<Element Index="[44]" Value="0"/>
+<Element Index="[45]" Value="0"/>
+<Element Index="[46]" Value="0"/>
+<Element Index="[47]" Value="0"/>
+<Element Index="[48]" Value="0"/>
+<Element Index="[49]" Value="0"/>
+<Element Index="[50]" Value="0"/>
+<Element Index="[51]" Value="0"/>
+<Element Index="[52]" Value="0"/>
+<Element Index="[53]" Value="0"/>
+<Element Index="[54]" Value="0"/>
+<Element Index="[55]" Value="0"/>
+<Element Index="[56]" Value="0"/>
+<Element Index="[57]" Value="0"/>
+<Element Index="[58]" Value="0"/>
+<Element Index="[59]" Value="0"/>
+<Element Index="[60]" Value="0"/>
+<Element Index="[61]" Value="0"/>
+<Element Index="[62]" Value="0"/>
+<Element Index="[63]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="sints" DataType="SINT" Dimensions="8" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="ints" DataType="INT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="dints" DataType="DINT" Dimensions="10" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="lints" DataType="LINT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="reals" DataType="REAL" Dimensions="10" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+<Element Index="[2]" Value="0.0"/>
+<Element Index="[3]" Value="0.0"/>
+<Element Index="[4]" Value="0.0"/>
+<Element Index="[5]" Value="0.0"/>
+<Element Index="[6]" Value="0.0"/>
+<Element Index="[7]" Value="0.0"/>
+<Element Index="[8]" Value="0.0"/>
+<Element Index="[9]" Value="0.0"/>
+</ArrayMember>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_AtomicArrayUDT">
+<ArrayMember Name="bools" DataType="BOOL" Dimensions="64" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+<Element Index="[10]" Value="0"/>
+<Element Index="[11]" Value="0"/>
+<Element Index="[12]" Value="0"/>
+<Element Index="[13]" Value="0"/>
+<Element Index="[14]" Value="0"/>
+<Element Index="[15]" Value="0"/>
+<Element Index="[16]" Value="0"/>
+<Element Index="[17]" Value="0"/>
+<Element Index="[18]" Value="0"/>
+<Element Index="[19]" Value="0"/>
+<Element Index="[20]" Value="0"/>
+<Element Index="[21]" Value="0"/>
+<Element Index="[22]" Value="0"/>
+<Element Index="[23]" Value="0"/>
+<Element Index="[24]" Value="0"/>
+<Element Index="[25]" Value="0"/>
+<Element Index="[26]" Value="0"/>
+<Element Index="[27]" Value="0"/>
+<Element Index="[28]" Value="0"/>
+<Element Index="[29]" Value="0"/>
+<Element Index="[30]" Value="0"/>
+<Element Index="[31]" Value="0"/>
+<Element Index="[32]" Value="0"/>
+<Element Index="[33]" Value="0"/>
+<Element Index="[34]" Value="0"/>
+<Element Index="[35]" Value="0"/>
+<Element Index="[36]" Value="0"/>
+<Element Index="[37]" Value="0"/>
+<Element Index="[38]" Value="0"/>
+<Element Index="[39]" Value="0"/>
+<Element Index="[40]" Value="0"/>
+<Element Index="[41]" Value="0"/>
+<Element Index="[42]" Value="0"/>
+<Element Index="[43]" Value="0"/>
+<Element Index="[44]" Value="0"/>
+<Element Index="[45]" Value="0"/>
+<Element Index="[46]" Value="0"/>
+<Element Index="[47]" Value="0"/>
+<Element Index="[48]" Value="0"/>
+<Element Index="[49]" Value="0"/>
+<Element Index="[50]" Value="0"/>
+<Element Index="[51]" Value="0"/>
+<Element Index="[52]" Value="0"/>
+<Element Index="[53]" Value="0"/>
+<Element Index="[54]" Value="0"/>
+<Element Index="[55]" Value="0"/>
+<Element Index="[56]" Value="0"/>
+<Element Index="[57]" Value="0"/>
+<Element Index="[58]" Value="0"/>
+<Element Index="[59]" Value="0"/>
+<Element Index="[60]" Value="0"/>
+<Element Index="[61]" Value="0"/>
+<Element Index="[62]" Value="0"/>
+<Element Index="[63]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="sints" DataType="SINT" Dimensions="8" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="ints" DataType="INT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="dints" DataType="DINT" Dimensions="10" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="lints" DataType="LINT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="reals" DataType="REAL" Dimensions="10" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+<Element Index="[2]" Value="0.0"/>
+<Element Index="[3]" Value="0.0"/>
+<Element Index="[4]" Value="0.0"/>
+<Element Index="[5]" Value="0.0"/>
+<Element Index="[6]" Value="0.0"/>
+<Element Index="[7]" Value="0.0"/>
+<Element Index="[8]" Value="0.0"/>
+<Element Index="[9]" Value="0.0"/>
+</ArrayMember>
+</Structure>
+</Element>
+<Element Index="[3]">
+<Structure DataType="pycomm3_AtomicArrayUDT">
+<ArrayMember Name="bools" DataType="BOOL" Dimensions="64" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+<Element Index="[10]" Value="0"/>
+<Element Index="[11]" Value="0"/>
+<Element Index="[12]" Value="0"/>
+<Element Index="[13]" Value="0"/>
+<Element Index="[14]" Value="0"/>
+<Element Index="[15]" Value="0"/>
+<Element Index="[16]" Value="0"/>
+<Element Index="[17]" Value="0"/>
+<Element Index="[18]" Value="0"/>
+<Element Index="[19]" Value="0"/>
+<Element Index="[20]" Value="0"/>
+<Element Index="[21]" Value="0"/>
+<Element Index="[22]" Value="0"/>
+<Element Index="[23]" Value="0"/>
+<Element Index="[24]" Value="0"/>
+<Element Index="[25]" Value="0"/>
+<Element Index="[26]" Value="0"/>
+<Element Index="[27]" Value="0"/>
+<Element Index="[28]" Value="0"/>
+<Element Index="[29]" Value="0"/>
+<Element Index="[30]" Value="0"/>
+<Element Index="[31]" Value="0"/>
+<Element Index="[32]" Value="0"/>
+<Element Index="[33]" Value="0"/>
+<Element Index="[34]" Value="0"/>
+<Element Index="[35]" Value="0"/>
+<Element Index="[36]" Value="0"/>
+<Element Index="[37]" Value="0"/>
+<Element Index="[38]" Value="0"/>
+<Element Index="[39]" Value="0"/>
+<Element Index="[40]" Value="0"/>
+<Element Index="[41]" Value="0"/>
+<Element Index="[42]" Value="0"/>
+<Element Index="[43]" Value="0"/>
+<Element Index="[44]" Value="0"/>
+<Element Index="[45]" Value="0"/>
+<Element Index="[46]" Value="0"/>
+<Element Index="[47]" Value="0"/>
+<Element Index="[48]" Value="0"/>
+<Element Index="[49]" Value="0"/>
+<Element Index="[50]" Value="0"/>
+<Element Index="[51]" Value="0"/>
+<Element Index="[52]" Value="0"/>
+<Element Index="[53]" Value="0"/>
+<Element Index="[54]" Value="0"/>
+<Element Index="[55]" Value="0"/>
+<Element Index="[56]" Value="0"/>
+<Element Index="[57]" Value="0"/>
+<Element Index="[58]" Value="0"/>
+<Element Index="[59]" Value="0"/>
+<Element Index="[60]" Value="0"/>
+<Element Index="[61]" Value="0"/>
+<Element Index="[62]" Value="0"/>
+<Element Index="[63]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="sints" DataType="SINT" Dimensions="8" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="ints" DataType="INT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="dints" DataType="DINT" Dimensions="10" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="lints" DataType="LINT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="reals" DataType="REAL" Dimensions="10" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+<Element Index="[2]" Value="0.0"/>
+<Element Index="[3]" Value="0.0"/>
+<Element Index="[4]" Value="0.0"/>
+<Element Index="[5]" Value="0.0"/>
+<Element Index="[6]" Value="0.0"/>
+<Element Index="[7]" Value="0.0"/>
+<Element Index="[8]" Value="0.0"/>
+<Element Index="[9]" Value="0.0"/>
+</ArrayMember>
+</Structure>
+</Element>
+<Element Index="[4]">
+<Structure DataType="pycomm3_AtomicArrayUDT">
+<ArrayMember Name="bools" DataType="BOOL" Dimensions="64" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+<Element Index="[10]" Value="0"/>
+<Element Index="[11]" Value="0"/>
+<Element Index="[12]" Value="0"/>
+<Element Index="[13]" Value="0"/>
+<Element Index="[14]" Value="0"/>
+<Element Index="[15]" Value="0"/>
+<Element Index="[16]" Value="0"/>
+<Element Index="[17]" Value="0"/>
+<Element Index="[18]" Value="0"/>
+<Element Index="[19]" Value="0"/>
+<Element Index="[20]" Value="0"/>
+<Element Index="[21]" Value="0"/>
+<Element Index="[22]" Value="0"/>
+<Element Index="[23]" Value="0"/>
+<Element Index="[24]" Value="0"/>
+<Element Index="[25]" Value="0"/>
+<Element Index="[26]" Value="0"/>
+<Element Index="[27]" Value="0"/>
+<Element Index="[28]" Value="0"/>
+<Element Index="[29]" Value="0"/>
+<Element Index="[30]" Value="0"/>
+<Element Index="[31]" Value="0"/>
+<Element Index="[32]" Value="0"/>
+<Element Index="[33]" Value="0"/>
+<Element Index="[34]" Value="0"/>
+<Element Index="[35]" Value="0"/>
+<Element Index="[36]" Value="0"/>
+<Element Index="[37]" Value="0"/>
+<Element Index="[38]" Value="0"/>
+<Element Index="[39]" Value="0"/>
+<Element Index="[40]" Value="0"/>
+<Element Index="[41]" Value="0"/>
+<Element Index="[42]" Value="0"/>
+<Element Index="[43]" Value="0"/>
+<Element Index="[44]" Value="0"/>
+<Element Index="[45]" Value="0"/>
+<Element Index="[46]" Value="0"/>
+<Element Index="[47]" Value="0"/>
+<Element Index="[48]" Value="0"/>
+<Element Index="[49]" Value="0"/>
+<Element Index="[50]" Value="0"/>
+<Element Index="[51]" Value="0"/>
+<Element Index="[52]" Value="0"/>
+<Element Index="[53]" Value="0"/>
+<Element Index="[54]" Value="0"/>
+<Element Index="[55]" Value="0"/>
+<Element Index="[56]" Value="0"/>
+<Element Index="[57]" Value="0"/>
+<Element Index="[58]" Value="0"/>
+<Element Index="[59]" Value="0"/>
+<Element Index="[60]" Value="0"/>
+<Element Index="[61]" Value="0"/>
+<Element Index="[62]" Value="0"/>
+<Element Index="[63]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="sints" DataType="SINT" Dimensions="8" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="ints" DataType="INT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="dints" DataType="DINT" Dimensions="10" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+<Element Index="[4]" Value="0"/>
+<Element Index="[5]" Value="0"/>
+<Element Index="[6]" Value="0"/>
+<Element Index="[7]" Value="0"/>
+<Element Index="[8]" Value="0"/>
+<Element Index="[9]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="lints" DataType="LINT" Dimensions="4" Radix="Decimal">
+<Element Index="[0]" Value="0"/>
+<Element Index="[1]" Value="0"/>
+<Element Index="[2]" Value="0"/>
+<Element Index="[3]" Value="0"/>
+</ArrayMember>
+<ArrayMember Name="reals" DataType="REAL" Dimensions="10" Radix="Float">
+<Element Index="[0]" Value="0.0"/>
+<Element Index="[1]" Value="0.0"/>
+<Element Index="[2]" Value="0.0"/>
+<Element Index="[3]" Value="0.0"/>
+<Element Index="[4]" Value="0.0"/>
+<Element Index="[5]" Value="0.0"/>
+<Element Index="[6]" Value="0.0"/>
+<Element Index="[7]" Value="0.0"/>
+<Element Index="[8]" Value="0.0"/>
+<Element Index="[9]" Value="0.0"/>
+</ArrayMember>
+</Structure>
+</Element>
+</ArrayMember>
+<StructureMember Name="str1" DataType="STRING">
+<DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="DATA" DataType="STRING" Radix="ASCII">
+<![CDATA[]]>
+</DataValueMember>
+</StructureMember>
+<ArrayMember Name="str_ary1" DataType="STRING" Dimensions="5">
+<Element Index="[0]">
+<Structure DataType="STRING">
+<DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="DATA" DataType="STRING" Radix="ASCII">
+<![CDATA[]]>
+</DataValueMember>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="STRING">
+<DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="DATA" DataType="STRING" Radix="ASCII">
+<![CDATA[]]>
+</DataValueMember>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="STRING">
+<DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="DATA" DataType="STRING" Radix="ASCII">
+<![CDATA[]]>
+</DataValueMember>
+</Structure>
+</Element>
+<Element Index="[3]">
+<Structure DataType="STRING">
+<DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="DATA" DataType="STRING" Radix="ASCII">
+<![CDATA[]]>
+</DataValueMember>
+</Structure>
+</Element>
+<Element Index="[4]">
+<Structure DataType="STRING">
+<DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="DATA" DataType="STRING" Radix="ASCII">
+<![CDATA[]]>
+</DataValueMember>
+</Structure>
+</Element>
+</ArrayMember>
+<StructureMember Name="udt3" DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+</Structure>
+</Element>
+</ArrayMember>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="local_dint1" DataType="DINT" Radix="Decimal" ExternalAccess="Read/Write">
+<DefaultData>00 00 00 00</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+</LocalTags>
+<Routines>
+<Routine Name="Logic" Type="RLL"/>
+</Routines>
+<Dependencies>
+<Dependency Type="DataType" Name="pycomm3_NestedUDT"/>
+</Dependencies>
+</AddOnInstructionDefinition>
+</AddOnInstructionDefinitions>
 <Tags Use="Context">
 <Tag Name="write_sint_min" TagType="Base" DataType="SINT" Radix="Binary" Constant="false" ExternalAccess="Read/Write">
 <Data>80</Data>
@@ -447,11 +1537,11 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
+00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00</Data>
+00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
+00 00 00 00 FF FF FF FF</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -1260,10 +2350,10 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </ArrayMember>
 <StructureMember Name="udt3" DataType="pycomm3_PaddedUDT">
 <DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </StructureMember>
 <ArrayMember Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimensions="3">
 <Element Index="[0]">
@@ -1287,10 +2377,10 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 <Element Index="[2]">
 <Structure DataType="pycomm3_PaddedUDT">
 <DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </Structure>
 </Element>
 </ArrayMember>
@@ -1298,11 +2388,11 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="read_timer2" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
-<Data>44 E9 0D C0 30 75 00 00 87 5E 00 00</Data>
+<Data>C2 E0 11 C0 30 75 00 00 A0 0F 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="TIMER">
 <DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
-<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="24199"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="4000"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="1"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="1"/>
 <DataValueMember Name="DN" DataType="BOOL" Value="0"/>
@@ -1590,6 +2680,132 @@ F0 00</Data>
 </Structure>
 </Data>
 </Tag>
+<Tag Name="write_aoi1" TagType="Base" DataType="pycomm3_AOI" Constant="false" ExternalAccess="Read/Write">
+<Data>09 00 00 00 D2 04 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_AOI">
+<DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/>
+<DataValueMember Name="EnableOut" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="1"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="param_dint1" DataType="DINT" Radix="Decimal" Value="1234"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="read_udt2" TagType="Base" DataType="pycomm3_AtomicArrayUDT" Constant="false" ExternalAccess="Read/Write">
 <Data>20 00 00 00 00 00 00 00 00 00 FE 00 00 00 00 00 
 00 00 00 00 00 00 02 00 00 00 00 00 00 00 00 00 
@@ -1714,6 +2930,18 @@ F0 00</Data>
 <Element Index="[8]" Value="0.0"/>
 <Element Index="[9]" Value="0.0"/>
 </ArrayMember>
+</Structure>
+</Data>
+</Tag>
+<Tag Name="write_udt3" TagType="Base" DataType="pycomm3_PaddedUDT" Constant="false" ExternalAccess="Read/Write">
+<Data>01 00 00 00 FF FF FF FF 00 00 00 00 FF FF FF FF</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_PaddedUDT">
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
+<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </Structure>
 </Data>
 </Tag>
@@ -1900,6 +3128,132 @@ F0 00</Data>
 <![CDATA['']]>
 </Data>
 </Tag>
+<Tag Name="read_aoi1" TagType="Base" DataType="pycomm3_AOI" Constant="false" ExternalAccess="Read/Write">
+<Data>0B 00 00 00 D2 04 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_AOI">
+<DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/>
+<DataValueMember Name="EnableOut" DataType="BOOL" Value="1"/>
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="1"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="param_dint1" DataType="DINT" Radix="Decimal" Value="1234"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="FALSE" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
 <Data>00</Data>
 <Data Format="Decorated">
@@ -1947,14 +3301,14 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 </Data>
 </Tag>
 <Tag Name="read_udt3" TagType="Base" DataType="pycomm3_PaddedUDT" Constant="false" ExternalAccess="Read/Write">
-<Data>01 64 00 00 00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data>01 00 00 00 FF FF FF FF 00 00 00 00 FF FF FF FF</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_PaddedUDT">
 <DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </Structure>
 </Data>
 </Tag>
@@ -2299,14 +3653,14 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 </Data>
 </Tag>
 <Tag Name="_real_ary_FAL" TagType="Base" DataType="CONTROL" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 A0 14 00 00 00 13 00 00 00</Data>
+<Data>00 00 00 00 14 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="CONTROL">
 <DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="20"/>
-<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="19"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="EU" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="EM" DataType="BOOL" Value="0"/>
 <DataValueMember Name="ER" DataType="BOOL" Value="0"/>
 <DataValueMember Name="UL" DataType="BOOL" Value="0"/>
@@ -2436,11 +3790,11 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
+00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00</Data>
+00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
+00 00 00 00 FF FF FF FF</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -3249,10 +4603,10 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 </ArrayMember>
 <StructureMember Name="udt3" DataType="pycomm3_PaddedUDT">
 <DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </StructureMember>
 <ArrayMember Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimensions="3">
 <Element Index="[0]">
@@ -3276,10 +4630,10 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 <Element Index="[2]">
 <Structure DataType="pycomm3_PaddedUDT">
 <DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </Structure>
 </Element>
 </ArrayMember>
@@ -3393,18 +4747,6 @@ F0 0A 00 00 54 0B 00 00</Data>
 <Data>01</Data>
 <Data Format="Decorated">
 <DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
-</Data>
-</Tag>
-<Tag Name="write_udt3" TagType="Base" DataType="pycomm3_PaddedUDT" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00</Data>
-<Data Format="Decorated">
-<Structure DataType="pycomm3_PaddedUDT">
-<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
-</Structure>
 </Data>
 </Tag>
 <Tag Name="read_sint2" TagType="Base" DataType="SINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
@@ -4026,6 +5368,132 @@ F0 00</Data>
 <Programs Use="Context">
 <Program Use="Target" Name="pycomm3" TestEdits="false" MainRoutineName="MAIN" Disabled="false">
 <Tags>
+<Tag Name="read_prog_aoi1" TagType="Base" DataType="pycomm3_AOI" Constant="false" ExternalAccess="Read/Write">
+<Data>0B 00 00 00 D2 04 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_AOI">
+<DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/>
+<DataValueMember Name="EnableOut" DataType="BOOL" Value="1"/>
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="1"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="param_dint1" DataType="DINT" Radix="Decimal" Value="1234"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="read_prog_bool1" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
 <Data>00</Data>
 <Data Format="Decorated">
@@ -4483,11 +5951,11 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
+00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00</Data>
+00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
+00 00 00 00 FF FF FF FF</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -5296,10 +6764,10 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 </ArrayMember>
 <StructureMember Name="udt3" DataType="pycomm3_PaddedUDT">
 <DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </StructureMember>
 <ArrayMember Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimensions="3">
 <Element Index="[0]">
@@ -5323,10 +6791,10 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <Element Index="[2]">
 <Structure DataType="pycomm3_PaddedUDT">
 <DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </Structure>
 </Element>
 </ArrayMember>
@@ -5953,14 +7421,140 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="read_prog_udt3" TagType="Base" DataType="pycomm3_PaddedUDT" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data>01 00 00 00 FF FF FF FF 00 00 00 00 FF FF FF FF</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_PaddedUDT">
-<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
 <DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
+</Structure>
+</Data>
+</Tag>
+<Tag Name="write_prog_aoi1" TagType="Base" DataType="pycomm3_AOI" Constant="false" ExternalAccess="Read/Write">
+<Data>09 00 00 00 D2 04 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_AOI">
+<DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/>
+<DataValueMember Name="EnableOut" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="1"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="param_dint1" DataType="DINT" Radix="Decimal" Value="1234"/>
 </Structure>
 </Data>
 </Tag>
@@ -6421,11 +8015,11 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
+00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 01 64 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00</Data>
+00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
+00 00 00 00 FF FF FF FF</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -7234,10 +8828,10 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 </ArrayMember>
 <StructureMember Name="udt3" DataType="pycomm3_PaddedUDT">
 <DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </StructureMember>
 <ArrayMember Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimensions="3">
 <Element Index="[0]">
@@ -7261,10 +8855,10 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <Element Index="[2]">
 <Structure DataType="pycomm3_PaddedUDT">
 <DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
-<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="100"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </Structure>
 </Element>
 </ArrayMember>
@@ -7891,14 +9485,14 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="write_prog_udt3" TagType="Base" DataType="pycomm3_PaddedUDT" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data>01 00 00 00 FF FF FF FF 00 00 00 00 FF FF FF FF</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_PaddedUDT">
-<DataValueMember Name="bool1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bool1" DataType="BOOL" Value="1"/>
 <DataValueMember Name="sint" DataType="SINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
-<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
 </Structure>
 </Data>
 </Tag>
@@ -7926,14 +9520,14 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="_int_ary_FAL" TagType="Base" DataType="CONTROL" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 A0 19 00 00 00 18 00 00 00</Data>
+<Data>00 00 00 00 19 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="CONTROL">
 <DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="25"/>
-<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="24"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="EU" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="EM" DataType="BOOL" Value="0"/>
 <DataValueMember Name="ER" DataType="BOOL" Value="0"/>
 <DataValueMember Name="UL" DataType="BOOL" Value="0"/>
@@ -8017,14 +9611,6 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 <Routine Name="global_reads" Type="RLL">
 <RLLContent>
 <Rung Number="0" Type="N">
-<Comment>
-<![CDATA[= = = = = = = = = = = = = = = = = = = = = = = = = 
-Atomic Data Types
-- - - - - - - - - - - - -- - - - - - - - - - - - - - - - - - - - - - -
-(SINT, INT, DINT, LINT, REAL, BOOL)
-0, 100, MIN, and MAX for each data type
-= = = = = = = = = = = = = = = = = = = = = = = = = ]]>
-</Comment>
 <Text>
 <![CDATA[NOP();]]>
 </Text>
@@ -8060,11 +9646,6 @@ Atomic Data Types
 </Text>
 </Rung>
 <Rung Number="7" Type="N">
-<Comment>
-<![CDATA[- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-Arrays of Atomic Data Types
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ]]>
-</Comment>
 <Text>
 <![CDATA[NOP();]]>
 </Text>
@@ -8115,12 +9696,6 @@ Arrays of Atomic Data Types
 </Text>
 </Rung>
 <Rung Number="17" Type="N">
-<Comment>
-<![CDATA[- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-Structure Data Types
-String, UDT, Predefined, etc
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ]]>
-</Comment>
 <Text>
 <![CDATA[NOP();]]>
 </Text>
@@ -8155,16 +9730,16 @@ String, UDT, Predefined, etc
 <![CDATA[[XIC(FALSE) TON(read_timer1,?,?) ,XIO(read_timer2.DN) TON(read_timer2,?,?) ];]]>
 </Text>
 </Rung>
+<Rung Number="24" Type="N">
+<Text>
+<![CDATA[pycomm3_AOI(read_aoi1)NOP();]]>
+</Text>
+</Rung>
 </RLLContent>
 </Routine>
 <Routine Name="global_writes" Type="RLL">
 <RLLContent>
 <Rung Number="0" Type="N">
-<Comment>
-<![CDATA[None if this code runs, just to make sure the 
-write tags are used in the logic so they're included in the exports
-]]>
-</Comment>
 <Text>
 <![CDATA[RET();]]>
 </Text>
@@ -8194,6 +9769,11 @@ write tags are used in the logic so they're included in the exports
 <![CDATA[[XIC(FALSE) TON(write_timer1,?,?) ,XIO(write_timer2.DN) TON(write_timer2,?,?) ];]]>
 </Text>
 </Rung>
+<Rung Number="6" Type="N">
+<Text>
+<![CDATA[pycomm3_AOI(write_aoi1)NOP();]]>
+</Text>
+</Rung>
 </RLLContent>
 </Routine>
 <Routine Name="MAIN" Type="RLL">
@@ -8218,14 +9798,6 @@ write tags are used in the logic so they're included in the exports
 <Routine Name="program_reads" Type="RLL">
 <RLLContent>
 <Rung Number="0" Type="N">
-<Comment>
-<![CDATA[= = = = = = = = = = = = = = = = = = = = = = = = = 
-Atomic Data Types
-- - - - - - - - - - - - -- - - - - - - - - - - - - - - - - - - - - - -
-(SINT, INT, DINT, LINT, REAL, BOOL)
-0, 100, MIN, and MAX for each data type
-= = = = = = = = = = = = = = = = = = = = = = = = = ]]>
-</Comment>
 <Text>
 <![CDATA[NOP();]]>
 </Text>
@@ -8261,11 +9833,6 @@ Atomic Data Types
 </Text>
 </Rung>
 <Rung Number="7" Type="N">
-<Comment>
-<![CDATA[- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-Arrays of Atomic Data Types
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ]]>
-</Comment>
 <Text>
 <![CDATA[NOP();]]>
 </Text>
@@ -8310,16 +9877,16 @@ Arrays of Atomic Data Types
 <![CDATA[COP(read_nested_udt1,read_prog_nested_udt1,1);]]>
 </Text>
 </Rung>
+<Rung Number="16" Type="N">
+<Text>
+<![CDATA[pycomm3_AOI(read_prog_aoi1)NOP();]]>
+</Text>
+</Rung>
 </RLLContent>
 </Routine>
 <Routine Name="program_writes" Type="RLL">
 <RLLContent>
 <Rung Number="0" Type="N">
-<Comment>
-<![CDATA[None if this code runs, just to make sure the 
-write tags are used in the logic so they're included in the exports
-]]>
-</Comment>
 <Text>
 <![CDATA[RET();]]>
 </Text>
@@ -8342,6 +9909,11 @@ write tags are used in the logic so they're included in the exports
 <Rung Number="4" Type="N">
 <Text>
 <![CDATA[CONCAT(write_prog_str_symbols,write_prog_str1,write_prog_str2)CONCAT(write_prog_str3,write_prog_str20_1,write_prog_str20_2)CONCAT(write_prog_str20_3,write_prog_str480_1,write_prog_str480_2)CONCAT(write_prog_str480_3,write_prog_str_ary1[0],write_prog_str480_ary1[0]);]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text>
+<![CDATA[pycomm3_AOI(write_prog_aoi1)NOP();]]>
 </Text>
 </Rung>
 </RLLContent>

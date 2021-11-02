@@ -6,16 +6,16 @@ from . import BASE_ATOMIC_TESTS, BASE_ATOMIC_ARRAY_TESTS, BASE_STRUCT_TESTS, _bo
 
 
 all_write_tests = [
-    *[(f'write{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_TESTS],
-    *[(f'Program:pycomm3.write_prog{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_TESTS],
-    *[(f'write{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_ARRAY_TESTS],
-    *[(f'Program:pycomm3.write_prog{tag}', dt, val) for tag, dt, val in BASE_ATOMIC_ARRAY_TESTS],
-    *[(f'write{tag}', dt, val) for tag, dt, val in BASE_STRUCT_TESTS],
-    *[(f'Program:pycomm3.write_prog{tag}', dt, val) for tag, dt, val in BASE_STRUCT_TESTS],
+    *[(f"write{tag}", dt, val) for tag, dt, val in BASE_ATOMIC_TESTS if "aoi" not in tag],
+    *[(f"Program:pycomm3.write_prog{tag}", dt, val) for tag, dt, val in BASE_ATOMIC_TESTS if "aoi" not in tag],
+    *[(f"write{tag}", dt, val) for tag, dt, val in BASE_ATOMIC_ARRAY_TESTS if "aoi" not in tag],
+    *[(f"Program:pycomm3.write_prog{tag}", dt, val) for tag, dt, val in BASE_ATOMIC_ARRAY_TESTS if "aoi" not in tag],
+    *[(f"write{tag}", dt, val) for tag, dt, val in BASE_STRUCT_TESTS if "aoi" not in tag],
+    *[(f"Program:pycomm3.write_prog{tag}", dt, val) for tag, dt, val in BASE_STRUCT_TESTS if "aoi" not in tag],
 ]
 
 
-@pytest.mark.parametrize('tag_name, data_type, value', all_write_tests)
+@pytest.mark.parametrize("tag_name, data_type, value", all_write_tests)
 def test_writes(plc, tag_name, data_type, value):
     result = plc.write((tag_name, value))
     assert result
@@ -26,11 +26,14 @@ def test_writes(plc, tag_name, data_type, value):
     assert result == plc.read(tag_name)  # read the same tag and make sure it matches
 
 
-@pytest.mark.parametrize('tag_name, data_type, value', (
-    ('write_bool_ary1[0]{32}', 'BOOL[32]', _bool_array[:32]),
-    ('write_bool_ary1[32]{32}', 'BOOL[32]', _bool_array[32:64]),
-    ('write_bool_ary1[32]{64}', 'BOOL[64]', _bool_array[32:]),
-))
+@pytest.mark.parametrize(
+    "tag_name, data_type, value",
+    (
+        ("write_bool_ary1[0]{32}", "BOOL[32]", _bool_array[:32]),
+        ("write_bool_ary1[32]{32}", "BOOL[32]", _bool_array[32:64]),
+        ("write_bool_ary1[32]{64}", "BOOL[64]", _bool_array[32:]),
+    ),
+)
 def test_bool_array_writes(plc, tag_name, data_type, value):
     result = plc.write((tag_name, value))
     assert result
@@ -42,7 +45,7 @@ def test_bool_array_writes(plc, tag_name, data_type, value):
 
 
 def test_bool_array_invalid_writes(plc):
-    result = plc.write('write_bool_ary1[1]{2}', [True, False])
+    result = plc.write("write_bool_ary1[1]{2}", [True, False])
     assert not result
 
 
@@ -99,9 +102,11 @@ def test_multi_write(plc):
 
 def test_duplicate_tags_in_request(plc):
     tags = [
-        ('write_int_max.0', True), ('write_int_max.1', False),
-        ('write_int_max', 32_767), ('write_int_min', -32_768),
-        ('write_bool_ary1[1]', False)
+        ("write_int_max.0", True),
+        ("write_int_max.1", False),
+        ("write_int_max", 32_767),
+        ("write_int_min", -32_768),
+        ("write_bool_ary1[1]", False),
     ]
 
     results = plc.write(*tags, *tags)
