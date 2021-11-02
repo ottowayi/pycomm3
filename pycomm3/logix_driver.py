@@ -1419,6 +1419,9 @@ class LogixDriver(CIPDriver):
                         self._sequence, request, offset
                     )
                 else:
+                    if response.error:
+                        self.__log.error(f"Fragment failed with error: {response.error}")
+
                     offset = None
 
             if all(responses):

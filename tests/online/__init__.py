@@ -199,6 +199,26 @@ _nested_udt1_values = {
     "udt_ary3": [_udt3_values_empty, _udt3_values_empty, _udt3_values],
 }
 
+_aoi1_values = {
+    "EnableIn": True,
+    "EnableOut": True,
+    "b1": False,
+    "b2": True,
+    **{f"b{i}": False for i in range(3, 21)},
+    "param_dint1": 1234,
+    "local_dint1": 0,
+    "local_udt1": {
+        "udt1": _udt1_values_empty,
+        "udt_ary1": [_udt1_values_empty for _ in range(5)],
+        "udt2": _udt2_values_empty,
+        "udt_ary2": [_udt2_values_empty for _ in range(5)],
+        "str1": "",
+        "str_ary1": ["", "", "", "", ""],
+        "udt3": _udt3_values_empty,
+        "udt_ary3": [_udt3_values_empty for _ in range(3)],
+    },
+}
+
 BASE_STRUCT_TESTS = [
     # struct of just atomic values
     ("_udt1", "pycomm3_AtomicUDT", _udt1_values),
@@ -262,4 +282,16 @@ BASE_STRUCT_TESTS = [
     ("_str480_ary1[0]{4}", "STRING480[4]", _str480_ary1_values),
     ("_str480_ary1[3]", "STRING480", _str480_ary1_values[3]),
     ("_str480_ary1[1]{2}", "STRING480[2]", _str480_ary1_values[1:3]),
+    # aoi
+    ("_aoi1", "pycomm3_AOI", _aoi1_values),
+    ("_aoi1.b1", "BOOL", _aoi1_values["b1"]),
+    ("_aoi1.b2", "BOOL", _aoi1_values["b2"]),
+    ("_aoi1.b16", "BOOL", _aoi1_values["b16"]),
+    ("_aoi1.b17", "BOOL", _aoi1_values["b17"]),
+    ("_aoi1.b20", "BOOL", _aoi1_values["b20"]),
+    ("_aoi1.param_dint1", "DINT", _aoi1_values["param_dint1"]),
+    ("_aoi1.param_dint1.1", "BOOL", True),
+    ("_aoi1.param_dint1.31", "BOOL", False),
+    ("_aoi1.local_dint1", "DINT", _aoi1_values["local_dint1"]),
+    ("_aoi1.local_udt1", "pycomm3_NestedUDT", _aoi1_values["local_udt1"]),
 ]
