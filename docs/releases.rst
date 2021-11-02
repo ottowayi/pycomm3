@@ -2,6 +2,14 @@
 Release History
 ===============
 
+1.2.3
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue with bit-level access to integers inside nested structs #170
+
 1.2.2
 =====
 

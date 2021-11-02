@@ -44,5 +44,5 @@ setup(
 
 # Build and Publish Commands:
 #
-# python setup.py sdist bdist_wheel
+# python -m build
 # twine upload --skip-existing dist/*
