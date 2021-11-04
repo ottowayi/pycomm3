@@ -49,7 +49,7 @@ def get_array_index(tag: str) -> Tuple[str, int]:
     'tag[100]' -> ('tag', 100)
     """
     if tag.endswith("]") and "[" in tag:
-        tag, _tmp = tag.split("[")
+        tag, _tmp = tag.rsplit("[", maxsplit=1)
         idx = int(_tmp[:-1])
     else:
         idx = None
