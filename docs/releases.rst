@@ -2,6 +2,14 @@
 Release History
 ===============
 
+1.2.4
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue for BOOL members inside structures that was introduced as part of 1.2.3 #182
+
 1.2.3
 =====
 
