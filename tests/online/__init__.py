@@ -158,6 +158,17 @@ _udt2_values_empty = {
 _udt3_values = {"bool1": True, "sint": 0, "dint1": -1, "bool2": False, "dint2": -1}
 _udt3_values_empty = {"bool1": False, "sint": 0, "dint1": 0, "bool2": False, "dint2": 0}
 
+_udt4_values_empty = {
+    **{f"b{i+1}": False for i in range(16)},
+    **{f"bb{i+1}": False for i in range(20)},
+    "int": 0,
+}
+_udt4_values = {
+    **_udt4_values_empty,
+    "b4": True,
+    "bb20": True,
+}
+
 
 _str82_part = "A normal built-in string type"
 _str82_full = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque sodales vel."
@@ -197,6 +208,12 @@ _nested_udt1_values = {
     "str_ary1": ["", "", "", "", ""],
     "udt3": _udt3_values,
     "udt_ary3": [_udt3_values_empty, _udt3_values_empty, _udt3_values],
+    "udt4": _udt4_values,
+    "udt_ary4": [
+        _udt4_values,
+        _udt4_values_empty,
+        {**_udt4_values_empty, "b6": True, "bb17": True},
+    ],
 }
 
 _aoi1_values = {
@@ -216,6 +233,8 @@ _aoi1_values = {
         "str_ary1": ["", "", "", "", ""],
         "udt3": _udt3_values_empty,
         "udt_ary3": [_udt3_values_empty for _ in range(3)],
+        "udt4": _udt4_values_empty,
+        "udt_ary4": [_udt4_values_empty for _ in range(3)],
     },
 }
 
@@ -248,6 +267,9 @@ BASE_STRUCT_TESTS = [
     ("_udt3.dint1", "DINT", _udt3_values["dint1"]),
     ("_udt3.bool2", "BOOL", _udt3_values["bool2"]),
     ("_udt3.dint2", "DINT", _udt3_values["dint2"]),
+    ("_udt4", "pycomm3_BoolsUDT", _udt4_values),
+    ("_udt4.b4", "BOOL", True),
+    ("_udt4.bb20", "BOOL", True),
     # bit elements of nested udts
     ("_nested_udt1.udt1.sint.0", "BOOL", True),
     ("_nested_udt1.udt1.int.1", "BOOL", False),
@@ -262,6 +284,8 @@ BASE_STRUCT_TESTS = [
     ("_nested_udt1.udt_ary2{5}", "pycomm3_AtomicArrayUDT[5]", _nested_udt1_values["udt_ary2"]),
     ("_nested_udt1.udt3", "pycomm3_PaddedUDT", _nested_udt1_values["udt3"]),
     ("_nested_udt1.udt_ary3{3}", "pycomm3_PaddedUDT[3]", _nested_udt1_values["udt_ary3"]),
+    ("_nested_udt1.udt4", "pycomm3_BoolsUDT", _nested_udt1_values["udt4"]),
+    ("_nested_udt1.udt_ary4{3}", "pycomm3_BoolsUDT[3]", _nested_udt1_values["udt_ary4"]),
     # strings
     ("_str1", "STRING", _str82_part),
     ("_str2", "STRING", ""),

@@ -772,8 +772,8 @@ class LogixDriver(CIPDriver):
                     template_name, _ = name.split(";", maxsplit=1)
                 else:
                     member_names.append(name)
-        except (ValueError, UnicodeDecodeError) as err:
-            raise ResponseError(f"Unable to decode template or member names") from err
+        except ValueError as err:
+            raise ResponseError("Unable to decode template or member names") from err
 
         predefine = template_name is None
         if predefine:  # predefined types put name as first member (DWORD)
@@ -792,27 +792,26 @@ class LogixDriver(CIPDriver):
         _struct_members = []
         _bit_members = {}
         _host_members = {}  # {offset: (member name, type)}
+        _multibyte_hosts = {}  # hosts for bits that are larger than sints
         for member, info in zip(member_names, member_data):
-            if not (member.startswith("ZZZZZZZZZZ") or member.startswith("__")):
-                if predefine and member == "CTL":
-                    # assumes CTL is the only host member for predefined types
-                    # and treat it as a private attribute
-                    _host_members.update(
+            if (member.startswith("ZZZZZZZZZZ") or member.startswith("__")) or (
+                predefine and member == "CTL"
+            ):
+                _host_members[info["offset"]] = (member, info["type_class"])
+                if info["type_class"].size > USINT.size:
+                    # for host members larger than sints, store what the individual bytes offsets
+                    # would be and use them to update the bit numbers later on for the bool methods
+                    # that way we don't have to mess with changing the offset sizes
+                    # {offset: (member_name, offset in host member, offset in packet)}
+                    _multibyte_hosts.update(
                         {
-                            (info["offset"] + i): (member, info["type_class"])
+                            info["offset"] + i: (member, i, info["offset"])
                             for i in range(info["type_class"].size)
                         }
                     )
-                else:
-                    data_type["attributes"].append(member)
-            else:
-                _host_members.update(
-                    {
-                        (info["offset"] + i): (member, info["type_class"])
-                        for i in range(info["type_class"].size)
-                    }
-                )
 
+            else:
+                data_type["attributes"].append(member)
             data_type["internal_tags"][member] = info
 
             if info["data_type_name"] == "BOOL":
@@ -831,7 +830,15 @@ class LogixDriver(CIPDriver):
                 elif info["offset"] in _host_members:
                     _bit_members[member] = (
                         _host_members[info["offset"]][0],
-                        (info["bit"] + (info["offset"] * 8)),
+                        info["bit"]
+                    )
+                elif info["offset"] in _multibyte_hosts:
+                    _, host_offset, packet_offset = _multibyte_hosts[info["offset"]]
+                    # adjust the bit number by the byte offset within the host member
+                    # but use the packet offset aka host member's offset to map the bit member to the host
+                    _bit_members[member] = (
+                        _host_members[packet_offset][0],
+                        info["bit"] + 8 * host_offset,
                     )
                 else:
                     _struct_members.append((info["type_class"](member), info["offset"]))
