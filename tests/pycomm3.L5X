@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="20.05" TargetName="pycomm3" TargetType="Program" ContainsContext="true" Owner="User" ExportDate="Tue Nov 02 15:21:19 2021" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="20.05" TargetName="pycomm3" TargetType="Program" ContainsContext="true" Owner="User" ExportDate="Fri Nov 05 08:29:14 2021" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="pycomm3_demo">
 <DataTypes Use="Context">
 <DataType Name="STRING480" Family="StringFamily" Class="User">
@@ -17,6 +17,52 @@
 <Member Name="dint" DataType="DINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write"/>
 <Member Name="lint" DataType="LINT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write"/>
 <Member Name="real" DataType="REAL" Dimension="0" Radix="Float" Hidden="false" ExternalAccess="Read/Write"/>
+</Members>
+</DataType>
+<DataType Name="pycomm3_BoolsUDT" Family="NoFamily" Class="User">
+<Members>
+<Member Name="ZZZZZZZZZZpycomm3_Bo0" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="true" ExternalAccess="Read/Write"/>
+<Member Name="b1" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo0" BitNumber="0" ExternalAccess="Read/Write"/>
+<Member Name="b2" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo0" BitNumber="1" ExternalAccess="Read/Write"/>
+<Member Name="b3" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo0" BitNumber="2" ExternalAccess="Read/Write"/>
+<Member Name="b4" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo0" BitNumber="3" ExternalAccess="Read/Write"/>
+<Member Name="b5" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo0" BitNumber="4" ExternalAccess="Read/Write"/>
+<Member Name="b6" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo0" BitNumber="5" ExternalAccess="Read/Write"/>
+<Member Name="b7" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo0" BitNumber="6" ExternalAccess="Read/Write"/>
+<Member Name="b8" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo0" BitNumber="7" ExternalAccess="Read/Write"/>
+<Member Name="ZZZZZZZZZZpycomm3_Bo9" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="true" ExternalAccess="Read/Write"/>
+<Member Name="b9" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo9" BitNumber="0" ExternalAccess="Read/Write"/>
+<Member Name="b10" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo9" BitNumber="1" ExternalAccess="Read/Write"/>
+<Member Name="b11" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo9" BitNumber="2" ExternalAccess="Read/Write"/>
+<Member Name="b12" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo9" BitNumber="3" ExternalAccess="Read/Write"/>
+<Member Name="b13" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo9" BitNumber="4" ExternalAccess="Read/Write"/>
+<Member Name="b14" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo9" BitNumber="5" ExternalAccess="Read/Write"/>
+<Member Name="b15" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo9" BitNumber="6" ExternalAccess="Read/Write"/>
+<Member Name="b16" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo9" BitNumber="7" ExternalAccess="Read/Write"/>
+<Member Name="int" DataType="INT" Dimension="0" Radix="Decimal" Hidden="false" ExternalAccess="Read/Write"/>
+<Member Name="ZZZZZZZZZZpycomm3_Bo19" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="true" ExternalAccess="Read/Write"/>
+<Member Name="bb1" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo19" BitNumber="0" ExternalAccess="Read/Write"/>
+<Member Name="bb2" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo19" BitNumber="1" ExternalAccess="Read/Write"/>
+<Member Name="bb3" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo19" BitNumber="2" ExternalAccess="Read/Write"/>
+<Member Name="bb4" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo19" BitNumber="3" ExternalAccess="Read/Write"/>
+<Member Name="bb5" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo19" BitNumber="4" ExternalAccess="Read/Write"/>
+<Member Name="bb6" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo19" BitNumber="5" ExternalAccess="Read/Write"/>
+<Member Name="bb7" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo19" BitNumber="6" ExternalAccess="Read/Write"/>
+<Member Name="bb8" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo19" BitNumber="7" ExternalAccess="Read/Write"/>
+<Member Name="ZZZZZZZZZZpycomm3_Bo28" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="true" ExternalAccess="Read/Write"/>
+<Member Name="bb9" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo28" BitNumber="0" ExternalAccess="Read/Write"/>
+<Member Name="bb10" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo28" BitNumber="1" ExternalAccess="Read/Write"/>
+<Member Name="bb11" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo28" BitNumber="2" ExternalAccess="Read/Write"/>
+<Member Name="bb12" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo28" BitNumber="3" ExternalAccess="Read/Write"/>
+<Member Name="bb13" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo28" BitNumber="4" ExternalAccess="Read/Write"/>
+<Member Name="bb14" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo28" BitNumber="5" ExternalAccess="Read/Write"/>
+<Member Name="bb15" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo28" BitNumber="6" ExternalAccess="Read/Write"/>
+<Member Name="bb16" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo28" BitNumber="7" ExternalAccess="Read/Write"/>
+<Member Name="ZZZZZZZZZZpycomm3_Bo37" DataType="SINT" Dimension="0" Radix="Decimal" Hidden="true" ExternalAccess="Read/Write"/>
+<Member Name="bb17" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo37" BitNumber="0" ExternalAccess="Read/Write"/>
+<Member Name="bb18" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo37" BitNumber="1" ExternalAccess="Read/Write"/>
+<Member Name="bb19" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo37" BitNumber="2" ExternalAccess="Read/Write"/>
+<Member Name="bb20" DataType="BIT" Dimension="0" Radix="Decimal" Hidden="false" Target="ZZZZZZZZZZpycomm3_Bo37" BitNumber="3" ExternalAccess="Read/Write"/>
 </Members>
 </DataType>
 <DataType Name="STRING20" Family="StringFamily" Class="User">
@@ -56,6 +102,8 @@
 <Member Name="str_ary1" DataType="STRING" Dimension="5" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
 <Member Name="udt3" DataType="pycomm3_PaddedUDT" Dimension="0" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
 <Member Name="udt_ary3" DataType="pycomm3_PaddedUDT" Dimension="3" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
+<Member Name="udt4" DataType="pycomm3_BoolsUDT" Dimension="0" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
+<Member Name="udt_ary4" DataType="pycomm3_BoolsUDT" Dimension="3" Radix="NullType" Hidden="false" ExternalAccess="Read/Write"/>
 </Members>
 <Dependencies>
 <Dependency Type="DataType" Name="pycomm3_AtomicUDT"/>
@@ -64,6 +112,8 @@
 <Dependency Type="DataType" Name="pycomm3_AtomicArrayUDT"/>
 <Dependency Type="DataType" Name="pycomm3_PaddedUDT"/>
 <Dependency Type="DataType" Name="pycomm3_PaddedUDT"/>
+<Dependency Type="DataType" Name="pycomm3_BoolsUDT"/>
+<Dependency Type="DataType" Name="pycomm3_BoolsUDT"/>
 </Dependencies>
 </DataType>
 </DataTypes>
@@ -202,6 +252,8 @@
 <LocalTags>
 <LocalTag Name="local_udt1" DataType="pycomm3_NestedUDT" ExternalAccess="Read/Write">
 <DefaultData>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
@@ -1139,6 +1191,170 @@
 </Structure>
 </Element>
 </ArrayMember>
+<StructureMember Name="udt4" DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary4" DataType="pycomm3_BoolsUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+</ArrayMember>
 </Structure>
 </DefaultData>
 </LocalTag>
@@ -1541,7 +1757,9 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
-00 00 00 00 FF FF FF FF</Data>
+00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -2384,6 +2602,170 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Structure>
 </Element>
 </ArrayMember>
+<StructureMember Name="udt4" DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary4" DataType="pycomm3_BoolsUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+</ArrayMember>
 </Structure>
 </Data>
 </Tag>
@@ -2682,6 +3064,8 @@ F0 00</Data>
 </Tag>
 <Tag Name="write_aoi1" TagType="Base" DataType="pycomm3_AOI" Constant="false" ExternalAccess="Read/Write">
 <Data>09 00 00 00 D2 04 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
@@ -3130,6 +3514,8 @@ F0 00</Data>
 </Tag>
 <Tag Name="read_aoi1" TagType="Base" DataType="pycomm3_AOI" Constant="false" ExternalAccess="Read/Write">
 <Data>0B 00 00 00 D2 04 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
@@ -3692,6 +4078,50 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 <![CDATA['']]>
 </Data>
 </Tag>
+<Tag Name="write_udt4" TagType="Base" DataType="pycomm3_BoolsUDT" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="write_lint1" TagType="Base" DataType="LINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
 <Data>00 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
@@ -3794,7 +4224,9 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
-00 00 00 00 FF FF FF FF</Data>
+00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -4637,6 +5069,170 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 </Structure>
 </Element>
 </ArrayMember>
+<StructureMember Name="udt4" DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary4" DataType="pycomm3_BoolsUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+</ArrayMember>
 </Structure>
 </Data>
 </Tag>
@@ -4747,6 +5343,50 @@ F0 0A 00 00 54 0B 00 00</Data>
 <Data>01</Data>
 <Data Format="Decorated">
 <DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</Data>
+</Tag>
+<Tag Name="read_udt4" TagType="Base" DataType="pycomm3_BoolsUDT" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
 </Data>
 </Tag>
 <Tag Name="read_sint2" TagType="Base" DataType="SINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
@@ -5465,6 +6105,8 @@ F0 00</Data>
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_AOI">
@@ -5955,7 +6597,9 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
-00 00 00 00 FF FF FF FF</Data>
+00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -6795,6 +7439,170 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="dint1" DataType="DINT" Radix="Decimal" Value="-1"/>
 <DataValueMember Name="bool2" DataType="BOOL" Value="0"/>
 <DataValueMember Name="dint2" DataType="DINT" Radix="Decimal" Value="-1"/>
+</Structure>
+</Element>
+</ArrayMember>
+<StructureMember Name="udt4" DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary4" DataType="pycomm3_BoolsUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
 </Structure>
 </Element>
 </ArrayMember>
@@ -7432,8 +8240,54 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Structure>
 </Data>
 </Tag>
+<Tag Name="read_prog_udt4" TagType="Base" DataType="pycomm3_BoolsUDT" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="write_prog_aoi1" TagType="Base" DataType="pycomm3_AOI" Constant="false" ExternalAccess="Read/Write">
 <Data>09 00 00 00 D2 04 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
@@ -8019,7 +8873,9 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
-00 00 00 00 FF FF FF FF</Data>
+00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -8862,6 +9718,170 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 </Structure>
 </Element>
 </ArrayMember>
+<StructureMember Name="udt4" DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</StructureMember>
+<ArrayMember Name="udt_ary4" DataType="pycomm3_BoolsUDT" Dimensions="3">
+<Element Index="[0]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+<Element Index="[2]">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Element>
+</ArrayMember>
 </Structure>
 </Data>
 </Tag>
@@ -9496,6 +10516,50 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Structure>
 </Data>
 </Tag>
+<Tag Name="write_prog_udt4" TagType="Base" DataType="pycomm3_BoolsUDT" Constant="false" ExternalAccess="Read/Write">
+<Data>00 00 00 00 00 00 00 00</Data>
+<Data Format="Decorated">
+<Structure DataType="pycomm3_BoolsUDT">
+<DataValueMember Name="b1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="int" DataType="INT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="bb1" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb2" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb3" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb5" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb7" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb8" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb9" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb10" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb11" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb12" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb13" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="_bool_ary1_idx" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
 <Data>5F 00 00 00</Data>
 <Data Format="Decorated">
@@ -9722,15 +10786,20 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Rung>
 <Rung Number="22" Type="N">
 <Text>
-<![CDATA[[COP(read_udt1,read_nested_udt1.udt1,1) COP(read_udt1,read_nested_udt1.udt_ary1[2],1) ,COP(read_udt2,read_nested_udt1.udt2,1) COP(read_udt2,read_nested_udt1.udt_ary2[1],1) COP(read_str3,read_nested_udt1.str1,1) ,COP(read_udt3,read_nested_udt1.udt3,1) COP(read_udt3,read_nested_udt1.udt_ary3[2],1) ];]]>
+<![CDATA[OTL(read_udt4.b4)OTL(read_udt4.bb20);]]>
 </Text>
 </Rung>
 <Rung Number="23" Type="N">
 <Text>
-<![CDATA[[XIC(FALSE) TON(read_timer1,?,?) ,XIO(read_timer2.DN) TON(read_timer2,?,?) ];]]>
+<![CDATA[[COP(read_udt1,read_nested_udt1.udt1,1) COP(read_udt1,read_nested_udt1.udt_ary1[2],1) ,COP(read_udt2,read_nested_udt1.udt2,1) COP(read_udt2,read_nested_udt1.udt_ary2[1],1) COP(read_str3,read_nested_udt1.str1,1) ,COP(read_udt3,read_nested_udt1.udt3,1) COP(read_udt3,read_nested_udt1.udt_ary3[2],1) ,COP(read_udt4,read_nested_udt1.udt4,1) COP(read_udt4,read_nested_udt1.udt_ary4[0],1) OTL(read_nested_udt1.udt_ary4[2].b6) OTL(read_nested_udt1.udt_ary4[2].bb17) ];]]>
 </Text>
 </Rung>
 <Rung Number="24" Type="N">
+<Text>
+<![CDATA[[XIC(FALSE) TON(read_timer1,?,?) ,XIO(read_timer2.DN) TON(read_timer2,?,?) ];]]>
+</Text>
+</Rung>
+<Rung Number="25" Type="N">
 <Text>
 <![CDATA[pycomm3_AOI(read_aoi1)NOP();]]>
 </Text>
@@ -9770,6 +10839,11 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Text>
 </Rung>
 <Rung Number="6" Type="N">
+<Text>
+<![CDATA[COP(write_udt1,write_nested_udt1,1)COP(write_udt2,write_udt3,1)COP(write_udt4,write_udt4,1);]]>
+</Text>
+</Rung>
+<Rung Number="7" Type="N">
 <Text>
 <![CDATA[pycomm3_AOI(write_aoi1)NOP();]]>
 </Text>
@@ -9869,7 +10943,7 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Rung>
 <Rung Number="14" Type="N">
 <Text>
-<![CDATA[COP(read_udt1,read_prog_udt1,1)COP(read_udt2,read_prog_udt2,1)COP(read_udt3,read_prog_udt3,1);]]>
+<![CDATA[COP(read_udt1,read_prog_udt1,1)COP(read_udt2,read_prog_udt2,1)COP(read_udt3,read_prog_udt3,1)COP(read_udt4,read_prog_udt4,1);]]>
 </Text>
 </Rung>
 <Rung Number="15" Type="N">
@@ -9912,6 +10986,11 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Text>
 </Rung>
 <Rung Number="5" Type="N">
+<Text>
+<![CDATA[COP(write_prog_udt1,write_prog_nested_udt1,1)COP(write_prog_udt2,write_prog_udt3,1)COP(write_prog_udt4,write_prog_udt4,1);]]>
+</Text>
+</Rung>
+<Rung Number="6" Type="N">
 <Text>
 <![CDATA[pycomm3_AOI(write_prog_aoi1)NOP();]]>
 </Text>
