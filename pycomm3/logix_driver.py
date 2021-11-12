@@ -656,7 +656,7 @@ class LogixDriver(CIPDriver):
             template_instance_id = raw_tag["symbol_type"] & 0b_0000_1111_1111_1111
             tag_type = "struct"
             new_tag["template_instance_id"] = template_instance_id
-            new_tag["data_type"] = self._get_data_type(template_instance_id)
+            new_tag["data_type"] = self._get_data_type(template_instance_id, raw_tag["symbol_type"])
             new_tag["data_type_name"] = new_tag["data_type"]["name"]
         else:
             tag_type = "atomic"
@@ -750,7 +750,7 @@ class LogixDriver(CIPDriver):
         else:
             return template_raw
 
-    def _parse_template_data(self, data, template):
+    def _parse_template_data(self, data, template, symbol_type):
         info_len = template["member_count"] * TEMPLATE_MEMBER_INFO_LEN
         info_data = data[:info_len]
         self.__log.debug(f"Parsing template {template!r} from {data!r}")
@@ -775,7 +775,8 @@ class LogixDriver(CIPDriver):
         except ValueError as err:
             raise ResponseError("Unable to decode template or member names") from err
 
-        predefine = template_name is None
+        # predefine = template_name is None
+        predefine = symbol_type & (1 << 8)
         if predefine:  # predefined types put name as first member (DWORD)
             template_name = member_names.pop(0)
 
@@ -795,7 +796,7 @@ class LogixDriver(CIPDriver):
         _multibyte_hosts = {}  # hosts for bits that are larger than sints
         for member, info in zip(member_names, member_data):
             if (member.startswith("ZZZZZZZZZZ") or member.startswith("__")) or (
-                predefine and member == "CTL"
+                predefine and member in {"CTL", "Control"}
             ):
                 _host_members[info["offset"]] = (member, info["type_class"])
                 if info["type_class"].size > USINT.size:
@@ -816,7 +817,7 @@ class LogixDriver(CIPDriver):
 
             if info["data_type_name"] == "BOOL":
                 if predefine:
-                    if 0 in _host_members and _host_members[0][0] == "CTL":
+                    if 0 in _host_members and _host_members[0][0] in {"CTL", "Control"}:
                         # for most predefined types, we assume all 'offsets' refer to the hidden CTL attribute
                         if info["offset"] in _multibyte_hosts:
                             _, host_offset, packet_offset = _multibyte_hosts[info["offset"]]
@@ -836,10 +837,7 @@ class LogixDriver(CIPDriver):
                         _bit_members[member] = (info["offset"], info["bit"])
 
                 elif info["offset"] in _host_members:
-                    _bit_members[member] = (
-                        _host_members[info["offset"]][0],
-                        info["bit"]
-                    )
+                    _bit_members[member] = (_host_members[info["offset"]][0], info["bit"])
                 elif info["offset"] in _multibyte_hosts:
                     _, host_offset, packet_offset = _multibyte_hosts[info["offset"]]
                     # adjust the bit number by the byte offset within the host member
@@ -891,7 +889,7 @@ class LogixDriver(CIPDriver):
                 data_type = str(type_class)
         if data_type is None:
             tag_type = "struct"
-            data_type = self._get_data_type(instance_id)
+            data_type = self._get_data_type(instance_id, typ)
             type_class = data_type["type_class"]
 
         member["tag_type"] = tag_type
@@ -909,14 +907,14 @@ class LogixDriver(CIPDriver):
 
         return member
 
-    def _get_data_type(self, instance_id):
+    def _get_data_type(self, instance_id, symbol_type):
         if instance_id not in self._cache["id:udt"]:
             try:
                 self.__log.debug(f"Getting data type for id {instance_id}")
                 template = self._get_structure_makeup(instance_id)  # instance id from type
                 if not template.get("error"):
                     _data = self._read_template(instance_id, template["object_definition_size"])
-                    data_type = self._parse_template_data(_data, template)
+                    data_type = self._parse_template_data(_data, template, symbol_type)
                     self._cache["id:udt"][instance_id] = data_type
                     self._data_types[data_type["name"]] = data_type
                     self.__log.debug(f'Got data type {data_type["name"]} for id {instance_id}')
