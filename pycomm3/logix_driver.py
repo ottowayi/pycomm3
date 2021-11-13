@@ -412,7 +412,7 @@ class LogixDriver(CIPDriver):
             "id:udt": {},
         }
 
-        if program in ("*", None):
+        if program in {"*", None}:
             self._info["programs"] = {}
             self._info["tasks"] = {}
             self._info["modules"] = {}
@@ -707,7 +707,7 @@ class LogixDriver(CIPDriver):
                 name=f"_get_structure_makeup(instance_id={instance_id!r})",
             )
             if not response:
-                raise ResponseError(f"send_unit_data returned not valid data", response.error)
+                raise ResponseError("send_unit_data returned not valid data", response.error)
             _struct = _parse_structure_makeup_attributes(response)
             self._cache["id:struct"][instance_id] = _struct
             self._cache["handle:id"][_struct["structure_handle"]] = instance_id
@@ -775,9 +775,13 @@ class LogixDriver(CIPDriver):
         except ValueError as err:
             raise ResponseError("Unable to decode template or member names") from err
 
-        # predefine = template_name is None
-        predefine = symbol_type & (1 << 8)
+        _type = symbol_type & 0b_0000_1111_1111_1111
+
+        # range of non-predefined structs is 0x100 - 0xEFF according to spec
+        # so if outside that range assume it is a predefined type
+        predefine = _type < 0x100 or _type > 0xEFF
         if predefine:  # predefined types put name as first member (DWORD)
+
             template_name = member_names.pop(0)
 
         if template_name == "ASCIISTRING82":  # internal name for STRING builtin type
@@ -1042,7 +1046,7 @@ class LogixDriver(CIPDriver):
             current_group.append(req)
             current_response_size += resp_size
 
-        #test if the first list is empty 
+        # test if the first list is empty
         if grouped_requests[0]:
             multi_requests = [
                 MultiServiceRequestPacket(self._sequence, group) for group in grouped_requests
