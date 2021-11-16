@@ -780,8 +780,7 @@ class LogixDriver(CIPDriver):
         # range of non-predefined structs is 0x100 - 0xEFF according to spec
         # so if outside that range assume it is a predefined type
         predefine = _type < 0x100 or _type > 0xEFF
-        if predefine:  # predefined types put name as first member (DWORD)
-
+        if predefine and template_name is None:  # predefined types put name as first member (DWORD)
             template_name = member_names.pop(0)
 
         if template_name == "ASCIISTRING82":  # internal name for STRING builtin type
