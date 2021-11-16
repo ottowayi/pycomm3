@@ -2,6 +2,14 @@
 Release History
 ===============
 
+1.2.5
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue parsing struct definitions for predefined types for v32+ #186
+
 1.2.4
 =====
 

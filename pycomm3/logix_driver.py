@@ -412,7 +412,7 @@ class LogixDriver(CIPDriver):
             "id:udt": {},
         }
 
-        if program in ("*", None):
+        if program in {"*", None}:
             self._info["programs"] = {}
             self._info["tasks"] = {}
             self._info["modules"] = {}
@@ -656,7 +656,7 @@ class LogixDriver(CIPDriver):
             template_instance_id = raw_tag["symbol_type"] & 0b_0000_1111_1111_1111
             tag_type = "struct"
             new_tag["template_instance_id"] = template_instance_id
-            new_tag["data_type"] = self._get_data_type(template_instance_id)
+            new_tag["data_type"] = self._get_data_type(template_instance_id, raw_tag["symbol_type"])
             new_tag["data_type_name"] = new_tag["data_type"]["name"]
         else:
             tag_type = "atomic"
@@ -707,7 +707,7 @@ class LogixDriver(CIPDriver):
                 name=f"_get_structure_makeup(instance_id={instance_id!r})",
             )
             if not response:
-                raise ResponseError(f"send_unit_data returned not valid data", response.error)
+                raise ResponseError("send_unit_data returned not valid data", response.error)
             _struct = _parse_structure_makeup_attributes(response)
             self._cache["id:struct"][instance_id] = _struct
             self._cache["handle:id"][_struct["structure_handle"]] = instance_id
@@ -750,7 +750,7 @@ class LogixDriver(CIPDriver):
         else:
             return template_raw
 
-    def _parse_template_data(self, data, template):
+    def _parse_template_data(self, data, template, symbol_type):
         info_len = template["member_count"] * TEMPLATE_MEMBER_INFO_LEN
         info_data = data[:info_len]
         self.__log.debug(f"Parsing template {template!r} from {data!r}")
@@ -775,8 +775,12 @@ class LogixDriver(CIPDriver):
         except ValueError as err:
             raise ResponseError("Unable to decode template or member names") from err
 
-        predefine = template_name is None
-        if predefine:  # predefined types put name as first member (DWORD)
+        _type = symbol_type & 0b_0000_1111_1111_1111
+
+        # range of non-predefined structs is 0x100 - 0xEFF according to spec
+        # so if outside that range assume it is a predefined type
+        predefine = _type < 0x100 or _type > 0xEFF
+        if predefine and template_name is None:  # predefined types put name as first member (DWORD)
             template_name = member_names.pop(0)
 
         if template_name == "ASCIISTRING82":  # internal name for STRING builtin type
@@ -795,7 +799,7 @@ class LogixDriver(CIPDriver):
         _multibyte_hosts = {}  # hosts for bits that are larger than sints
         for member, info in zip(member_names, member_data):
             if (member.startswith("ZZZZZZZZZZ") or member.startswith("__")) or (
-                predefine and member == "CTL"
+                predefine and member in {"CTL", "Control"}
             ):
                 _host_members[info["offset"]] = (member, info["type_class"])
                 if info["type_class"].size > USINT.size:
@@ -816,10 +820,18 @@ class LogixDriver(CIPDriver):
 
             if info["data_type_name"] == "BOOL":
                 if predefine:
-                    if 0 in _host_members and _host_members[0][0] == "CTL":
-                        # for most predefined types, we assume all 'offsets' refer to the
-                        # bit number of the hidden CTL attribute
-                        _bit_members[member] = (_host_members[0][0], info["bit"])
+                    if 0 in _host_members and _host_members[0][0] in {"CTL", "Control"}:
+                        # for most predefined types, we assume all 'offsets' refer to the hidden CTL attribute
+                        if info["offset"] in _multibyte_hosts:
+                            _, host_offset, packet_offset = _multibyte_hosts[info["offset"]]
+                            # adjust the bit number by the byte offset within the host member
+                            # but use the packet offset aka host member's offset to map the bit member to the host
+                            _bit_members[member] = (
+                                _host_members[packet_offset][0],
+                                info["bit"] + 8 * host_offset,
+                            )
+                        else:
+                            _bit_members[member] = (_host_members[0][0], info["bit"])
                     else:
                         # some predefined types don't list their host members, at least ANALOG_ALARM doesn't
                         # but if trying to access the whole struct for ANALOG_ALARM leads to a 'permission denied'
@@ -828,10 +840,7 @@ class LogixDriver(CIPDriver):
                         _bit_members[member] = (info["offset"], info["bit"])
 
                 elif info["offset"] in _host_members:
-                    _bit_members[member] = (
-                        _host_members[info["offset"]][0],
-                        info["bit"]
-                    )
+                    _bit_members[member] = (_host_members[info["offset"]][0], info["bit"])
                 elif info["offset"] in _multibyte_hosts:
                     _, host_offset, packet_offset = _multibyte_hosts[info["offset"]]
                     # adjust the bit number by the byte offset within the host member
@@ -883,7 +892,7 @@ class LogixDriver(CIPDriver):
                 data_type = str(type_class)
         if data_type is None:
             tag_type = "struct"
-            data_type = self._get_data_type(instance_id)
+            data_type = self._get_data_type(instance_id, typ)
             type_class = data_type["type_class"]
 
         member["tag_type"] = tag_type
@@ -901,14 +910,14 @@ class LogixDriver(CIPDriver):
 
         return member
 
-    def _get_data_type(self, instance_id):
+    def _get_data_type(self, instance_id, symbol_type):
         if instance_id not in self._cache["id:udt"]:
             try:
                 self.__log.debug(f"Getting data type for id {instance_id}")
                 template = self._get_structure_makeup(instance_id)  # instance id from type
                 if not template.get("error"):
                     _data = self._read_template(instance_id, template["object_definition_size"])
-                    data_type = self._parse_template_data(_data, template)
+                    data_type = self._parse_template_data(_data, template, symbol_type)
                     self._cache["id:udt"][instance_id] = data_type
                     self._data_types[data_type["name"]] = data_type
                     self.__log.debug(f'Got data type {data_type["name"]} for id {instance_id}')
@@ -993,6 +1002,7 @@ class LogixDriver(CIPDriver):
         """
         creates a list of multi-request packets
         """
+        multi_requests = []
         fragmented_requests = []
         read_requests = []  # [ (request, response_size), ...]
         for request_id, tag_data in parsed_tags.items():
@@ -1035,9 +1045,11 @@ class LogixDriver(CIPDriver):
             current_group.append(req)
             current_response_size += resp_size
 
-        multi_requests = [
-            MultiServiceRequestPacket(self._sequence, group) for group in grouped_requests
-        ]
+        # test if the first list is empty
+        if grouped_requests[0]:
+            multi_requests = [
+                MultiServiceRequestPacket(self._sequence, group) for group in grouped_requests
+            ]
 
         return multi_requests + fragmented_requests
 

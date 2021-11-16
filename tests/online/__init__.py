@@ -238,6 +238,12 @@ _aoi1_values = {
     },
 }
 
+_timer1_values = {"PRE": 1, "ACC": 0, "EN": False, "TT": False, "DN": True}
+_timer2_values = {"PRE": 30000, "ACC": 1234, "EN": True, "TT": True, "DN": False}
+_timer_empty = {"PRE": 0, "ACC": 0, "EN": False, "TT": False, "DN": False}
+_timer_ary1 = [_timer_empty, _timer1_values, _timer_empty, _timer_empty, _timer2_values]
+
+
 BASE_STRUCT_TESTS = [
     # struct of just atomic values
     ("_udt1", "pycomm3_AtomicUDT", _udt1_values),
@@ -318,4 +324,20 @@ BASE_STRUCT_TESTS = [
     ("_aoi1.param_dint1.31", "BOOL", False),
     ("_aoi1.local_dint1", "DINT", _aoi1_values["local_dint1"]),
     ("_aoi1.local_udt1", "pycomm3_NestedUDT", _aoi1_values["local_udt1"]),
+    # predefined types
+    ("_timer1", "TIMER", _timer1_values),
+    ("_timer1.PRE", "DINT", _timer1_values["PRE"]),
+    ("_timer1.ACC", "DINT", _timer1_values["ACC"]),
+    ("_timer1.EN", "BOOL", _timer1_values["EN"]),
+    ("_timer1.TT", "BOOL", _timer1_values["TT"]),
+    ("_timer1.DN", "BOOL", _timer1_values["DN"]),
+    ("_timer2", "TIMER", _timer2_values),
+    ("_timer2.PRE", "DINT", _timer2_values["PRE"]),
+    ("_timer2.ACC", "DINT", _timer2_values["ACC"]),
+    ("_timer2.EN", "BOOL", _timer2_values["EN"]),
+    ("_timer2.TT", "BOOL", _timer2_values["TT"]),
+    ("_timer2.DN", "BOOL", _timer2_values["DN"]),
+    ('_timer_ary1{5}', 'TIMER[5]', _timer_ary1),
+    ('_timer_ary1[0]', 'TIMER', _timer_ary1[0]),
+    ('_timer_ary1[3]{2}', 'TIMER[2]', _timer_ary1[3:]),
 ]

@@ -23,6 +23,9 @@ setup(
     package_data={"pycomm3": ["py.typed"]},
     python_requires=">=3.6.1",
     include_package_data=True,
+    extras_require={
+        'tests': ['pytest']
+    },
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
