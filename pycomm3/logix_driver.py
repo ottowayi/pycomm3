@@ -766,7 +766,7 @@ class LogixDriver(CIPDriver):
         template_name = None
         try:
             for name in (
-                x.decode(errors="replace") for x in data[info_len:].split(b"\x00") if len(x)
+                x.decode(errors="replace") for x in data[info_len:].split(b"\x00")
             ):
                 if template_name is None and ";" in name:
                     template_name, _ = name.split(";", maxsplit=1)
@@ -796,11 +796,17 @@ class LogixDriver(CIPDriver):
         _struct_members = []
         _bit_members = {}
         _host_members = {}  # {offset: (member name, type)}
+        _private_members = set()
         _multibyte_hosts = {}  # hosts for bits that are larger than sints
+        _unk_member_count = 0
         for member, info in zip(member_names, member_data):
+            if not member:
+                member = f'__unknown{_unk_member_count}'
+                _unk_member_count += 1
             if (member.startswith("ZZZZZZZZZZ") or member.startswith("__")) or (
                 predefine and member in {"CTL", "Control"}
             ):
+                _private_members.add(member)
                 _host_members[info["offset"]] = (member, info["type_class"])
                 if info["type_class"].size > USINT.size:
                     # for host members larger than sints, store what the individual bytes offsets
@@ -816,41 +822,43 @@ class LogixDriver(CIPDriver):
 
             else:
                 data_type["attributes"].append(member)
+
             data_type["internal_tags"][member] = info
 
-            if info["data_type_name"] == "BOOL":
-                if predefine:
-                    if 0 in _host_members and _host_members[0][0] in {"CTL", "Control"}:
-                        # for most predefined types, we assume all 'offsets' refer to the hidden CTL attribute
-                        if info["offset"] in _multibyte_hosts:
-                            _, host_offset, packet_offset = _multibyte_hosts[info["offset"]]
-                            # adjust the bit number by the byte offset within the host member
-                            # but use the packet offset aka host member's offset to map the bit member to the host
-                            _bit_members[member] = (
-                                _host_members[packet_offset][0],
-                                info["bit"] + 8 * host_offset,
-                            )
-                        else:
-                            _bit_members[member] = (_host_members[0][0], info["bit"])
-                    else:
-                        # some predefined types don't list their host members, at least ANALOG_ALARM doesn't
-                        # but if trying to access the whole struct for ANALOG_ALARM leads to a 'permission denied'
-                        # error, so this isn't used anywhere yet and creates a broken StructTag type
-                        # but leaving it in case might find use for it in the future
-                        _bit_members[member] = (info["offset"], info["bit"])
-
-                elif info["offset"] in _host_members:
-                    _bit_members[member] = (_host_members[info["offset"]][0], info["bit"])
-                elif info["offset"] in _multibyte_hosts:
-                    _, host_offset, packet_offset = _multibyte_hosts[info["offset"]]
-                    # adjust the bit number by the byte offset within the host member
-                    # but use the packet offset aka host member's offset to map the bit member to the host
-                    _bit_members[member] = (
-                        _host_members[packet_offset][0],
-                        info["bit"] + 8 * host_offset,
-                    )
-                else:
-                    _struct_members.append((info["type_class"](member), info["offset"]))
+            if info["data_type_name"] == "BOOL" and 'bit' in info:
+                _bit_members[member] = (info['offset'], info['bit'])
+                # if predefine:
+                #     if 0 in _host_members and _host_members[0][0] in {"CTL", "Control"}:
+                #         # for most predefined types, we assume all 'offsets' refer to the hidden CTL attribute
+                #         if info["offset"] in _multibyte_hosts:
+                #             _, host_offset, packet_offset = _multibyte_hosts[info["offset"]]
+                #             # adjust the bit number by the byte offset within the host member
+                #             # but use the packet offset aka host member's offset to map the bit member to the host
+                #             _bit_members[member] = (
+                #                 _host_members[packet_offset][0],
+                #                 info["bit"] + 8 * host_offset,
+                #             )
+                #         else:
+                #             _bit_members[member] = (_host_members[0][0], info["bit"])
+                #     else:
+                #         # some predefined types don't list their host members, at least ANALOG_ALARM doesn't
+                #         # but if trying to access the whole struct for ANALOG_ALARM leads to a 'permission denied'
+                #         # error, so this isn't used anywhere yet and creates a broken StructTag type
+                #         # but leaving it in case might find use for it in the future
+                #         _bit_members[member] = (info["offset"], info["bit"])
+                #
+                # elif info["offset"] in _host_members:
+                #     _bit_members[member] = (_host_members[info["offset"]][0], info["bit"])
+                # elif info["offset"] in _multibyte_hosts:
+                #     _, host_offset, packet_offset = _multibyte_hosts[info["offset"]]
+                #     # adjust the bit number by the byte offset within the host member
+                #     # but use the packet offset aka host member's offset to map the bit member to the host
+                #     _bit_members[member] = (
+                #         _host_members[packet_offset][0],
+                #         info["bit"] + 8 * host_offset,
+                #     )
+                # else:
+                #     _struct_members.append((info["type_class"](member), info["offset"]))
             else:
                 _struct_members.append((info["type_class"](member), info["offset"]))
 
@@ -868,7 +876,8 @@ class LogixDriver(CIPDriver):
                 *_struct_members,
                 bool_members=_bit_members,
                 struct_size=template["structure_size"],
-                host_members={m: t for m, t in _host_members.values()},
+                # host_members={m: t for m, t in _host_members.values()},
+                private_members=_private_members,
             )
 
         self.__log.debug(f"Completed parsing template as data type {data_type!r}")
