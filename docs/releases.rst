@@ -2,6 +2,14 @@
 Release History
 ===============
 
+1.2.6
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue handling BOOLs in some predefined types #197
+
 1.2.5
 =====
 
