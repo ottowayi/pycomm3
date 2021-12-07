@@ -24,7 +24,7 @@
 
 import ipaddress
 from io import BytesIO
-from typing import Any, Type, Dict, Tuple, Union
+from typing import Any, Type, Dict, Tuple, Union, Set
 
 from .cip import (
     DataType,
@@ -157,9 +157,7 @@ class ListIdentityObject(
 
 StructTemplateAttributes = Struct(
     UINT("count"),
-    Struct(UINT("attr_num"), UINT("status"), UDINT("size"))(
-        name="object_definition_size"
-    ),
+    Struct(UINT("attr_num"), UINT("status"), UDINT("size"))(name="object_definition_size"),
     Struct(UINT("attr_num"), UINT("status"), UDINT("size"))(name="structure_size"),
     Struct(UINT("attr_num"), UINT("status"), UINT("count"))(name="member_count"),
     Struct(UINT("attr_num"), UINT("status"), UINT("handle"))(name="structure_handle"),
@@ -169,33 +167,30 @@ StructTemplateAttributes = Struct(
 class _StructTagReprMeta(_StructReprMeta):
     def __repr__(cls):
         members = ", ".join(repr(m) for m in cls.members)
-        return f"{cls.__name__}({members}, bool_members={cls.bits!r}, host_members={cls.hosts!r}, struct_size={cls.size!r})"
+        return f"{cls.__name__}({members}, bool_members={cls.bits!r},  struct_size={cls.size!r})"  # TODO
 
 
 def StructTag(
-    *members,
-    bool_members: Dict[str, Tuple[str, int]],
-    host_members: Dict[str, Type[DataType]],
+    # (datatype, offset) of each member of the struct, does not include bit members aliased to other members
+    *members: Tuple[DataType, int],
+    bit_members: Dict[str, Tuple[int, int]],  # {member name, (offset, bit #) }
+    private_members: Set[str],  # private members that should not be in the final value
     struct_size: int,
 ) -> Type[StructType]:
-    """
-
-    bool_members = {member name: (host member, bit)}
-    """
-
     _members = [x[0] for x in members]
     _offsets_ = {member: offset for (member, offset) in members}
     _struct = Struct(*_members)
 
     class StructTag(_struct, metaclass=_StructTagReprMeta):
-        bits = bool_members
-        hosts = host_members
+        bits = bit_members
+        private = private_members
         size = struct_size
         _offsets = _offsets_
 
         @classmethod
         def _decode(cls, stream: BytesIO):
             stream = BytesIO(stream.read(cls.size))
+            raw = stream.getvalue()
             values = {}
 
             for member in cls.members:
@@ -204,48 +199,32 @@ def StructTag(
                     stream.read(offset - stream.tell())
                 values[member.name] = member.decode(stream)
 
-            hosts = set()
-
-            for bit_member, (host_member, bit) in cls.bits.items():
-                host_value = values[host_member]
-                if cls.hosts[host_member] == DWORD:
-                    bit_value = host_value[bit]
-                else:
-                    bit_value = bool(host_value & (1 << bit))
-
+            for bit_member, (offset, bit) in cls.bits.items():
+                bit_value = bool(raw[offset] & (1 << bit))
                 values[bit_member] = bit_value
-                hosts.add(host_member)
 
-            return {k: v for k, v in values.items() if k not in hosts}
+            return {k: v for k, v in values.items() if k not in cls.private}
 
         @classmethod
         def _encode(cls, values: Dict[str, Any]):
             # make a copy so that private host members aren't added to the original
             values = {k: v for k, v in values.items()}
 
-            for host, host_type in cls.hosts.items():
-                if host_type == DWORD:
-                    values[host] = [
-                        False,
-                    ] * 32
-                else:
-                    values[host] = 0
-
-            for bit_member, (host_member, bit) in cls.bits.items():
-                val = values[bit_member]
-                if cls.hosts[host_member] == DWORD:
-                    values[host_member][bit] = bool(val)
-                else:
-                    if val:
-                        values[host_member] |= 1 << bit
-                    else:
-                        values[host_member] &= ~(1 << bit)
-
             value = bytearray(cls.size)
             for member in cls.members:
+                if member.name in cls.private:
+                    continue
                 offset = cls._offsets[member]
                 encoded = member.encode(values[member.name])
                 value[offset : offset + len(encoded)] = encoded
+
+            for bit_member, (offset, bit) in cls.bits.items():
+                val = values[bit_member]
+
+                if val:
+                    value[offset] |= 1 << bit
+                else:
+                    value[offset] &= ~(1 << bit)
 
             return value
 
