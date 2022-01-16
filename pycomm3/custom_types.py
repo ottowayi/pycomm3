@@ -26,7 +26,7 @@ import ipaddress
 from io import BytesIO
 from typing import Any, Type, Dict, Tuple, Union, Set
 
-from .cip import (
+from .data_types import (
     DataType,
     DerivedDataType,
     Struct,
@@ -38,12 +38,15 @@ from .cip import (
     n_bytes,
     StructType,
     StringDataType,
-    PRODUCT_TYPES,
-    VENDORS,
     INT,
     ULINT,
+    _StructReprMeta,
+    BYTES,
+    WORD,
+    DWORD,
+    PADDED_EPATH_WITH_LEN,
 )
-from .cip.data_types import _StructReprMeta
+from .protocols.cip.status_info import PRODUCT_TYPES, VENDORS
 
 
 __all__ = [
@@ -173,7 +176,7 @@ class _StructTagReprMeta(_StructReprMeta):
 def StructTag(
     # (datatype, offset) of each member of the struct, does not include bit members aliased to other members
     *members: Tuple[DataType, int],
-    bit_members: Dict[str, Tuple[int, int]],  # {member name, (offset, bit #) }
+    bit_members: Dict[str, Tuple[int, int]],  # {member name: (offset, bit #) }
     private_members: Set[str],  # private members that should not be in the final value
     struct_size: int,
 ) -> Type[StructType]:

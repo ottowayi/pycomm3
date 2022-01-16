@@ -33,19 +33,25 @@ import logging
 import socket
 from functools import wraps
 from os import urandom
-from typing import Union, Optional, Tuple, List, Sequence, Type, Any, Dict
+from typing import Union, Optional, Tuple, List, Sequence, Type, Any, Dict, TypedDict
 
-from .cip import (
+
+from .protocols.cip.object_library import (
     ConnectionManagerInstances,
     ClassCode,
-    CIPSegment,
-    ConnectionManagerServices,
-    Services,
-    PortSegment,
-    PADDED_EPATH,
-    DataType,
+    CIPObject,
+CIPAttribute,
+    ConnectionManagerObject,
+)
+from .protocols.cip.cip import CIPRequest, CIPResponse
+
+from .protocols.cip.services import (     ConnectionManagerServices,
+    Services)
+from .data_types import(
+CIPSegment, PortSegment, PADDED_EPATH,    DataType,
     UDINT,
     UINT,
+    USINT,
 )
 
 from .const import (
@@ -54,6 +60,8 @@ from .const import (
     TIMEOUT_TICKS,
     TRANSPORT_CLASS,
     MSG_ROUTER_PATH,
+    STANDARD_CONNECTION_SIZE,
+    LARGE_CONNECTION_SIZE,
 )
 from .custom_types import ModuleIdentityObject
 from .exceptions import ResponseError, CommError, RequestError
@@ -71,6 +79,14 @@ from .socket_ import Socket
 from .tag import Tag
 from .util import cycle
 
+from .protocols.ethernetip.ethernetip import (
+    ListIdentityRequest,
+    EtherNetIPRequest,
+    RegisterSessionRequest,
+    UnRegisterSessionRequest,
+    SendRRDataRequest,
+)
+
 
 def with_forward_open(func):
     """Decorator to ensure a forward open request has been completed with the plc"""
@@ -82,13 +98,13 @@ def with_forward_open(func):
 
         logger = logging.getLogger("pycomm3.cip_driver")
         opened = False
-        if self._cfg["extended forward open"]:
+        if self._cfg["extended_forward_open"]:
             logger.info("Attempting an Extended Forward Open...")
         if not self._forward_open():
-            if self._cfg["extended forward open"]:
+            if self._cfg["extended_forward_open"]:
                 logger.info("Extended Forward Open failed, attempting standard Forward Open.")
-                self._cfg["extended forward open"] = False
-                self._cfg["connection_size"] = 500
+                self._cfg["extended_forward_open"] = False
+                self._cfg["connection_size"] = STANDARD_CONNECTION_SIZE
                 if self._forward_open():
                     opened = True
         else:
@@ -100,6 +116,38 @@ def with_forward_open(func):
         return func(self, *args, **kwargs)
 
     return wrapped
+
+
+class ConnectionConfig(TypedDict):
+    priority_tick_time: int
+    timeout_ticks: int
+    o_t_connection_id: int
+    t_o_connection_id: int
+    connection_serial: int
+    vendor_id: int
+    originator_serial: int
+    timeout_multiplier: int
+    reserved: bytes
+    o_t_rpi: int  # original pycomm value, RPIs not important for u
+    t_o_rpi: int
+    transport_type: int
+
+
+class EtherNetIPConfig(TypedDict):
+    session: int
+    context: bytes
+    option: int
+
+
+class DriverConfig(TypedDict):
+    port: int
+    timeout: int
+    ip_address: str
+    cip_path: List[CIPSegment]
+    extended_forward_open: bool
+    connection_size: int
+    ethernetip_params: EtherNetIPConfig
+    connection_params: ConnectionConfig
 
 
 class CIPDriver:
@@ -131,30 +179,39 @@ class CIPDriver:
 
         self._sequence: cycle = cycle(65535, start=1)
         self._sock: Optional[Socket] = None
-        self._session: int = 0
         self._connection_opened: bool = False
-        self._target_cid: Optional[bytes] = None
         self._target_is_connected: bool = False
         self._info: Dict[str, Any] = {}
         self._cip_path = path
         ip, _path = parse_connection_path(path, self._auto_slot_cip_path)
 
-        self._cfg = {
-            "context": b"_pycomm_",
-            "protocol version": b"\x01\x00",
-            "rpi": 5000,
-            "port": 44818,
-            "timeout": 10,
-            "ip address": ip,
-            "cip_path": _path,
-            "option": 0,
-            "cid": b"\x27\x04\x19\x71",
-            "csn": b"\x27\x04",
-            "vid": b"\x09\x10",
-            "vsn": b"\x09\x10\x19\x71",
-            "extended forward open": True,
-            "connection_size": 4000,
-        }
+        self._cfg: DriverConfig = DriverConfig(
+            port=44818,
+            timeout=10,
+            ip_address=ip,
+            cip_path=_path,
+            extended_forward_open=True,
+            connection_size=LARGE_CONNECTION_SIZE,
+            ethernetip_params=EtherNetIPConfig(
+                session=0,
+                context=b"_pycomm_",
+                option=0,
+            ),
+            connection_params=ConnectionConfig(
+                priority_tick_time=PRIORITY,
+                timeout_ticks=TIMEOUT_TICKS,
+                o_t_connection_id=0,
+                t_o_connection_id=UDINT.decode(urandom(4)),
+                connection_serial=UINT.decode(urandom(2)),
+                vendor_id=0x6f69,
+                originator_serial=UDINT.decode(urandom(4)),
+                timeout_multiplier=TIMEOUT_MULTIPLIER,
+                reserved=bytes(3),
+                o_t_rpi=2113537,
+                t_o_rpi=2113537,
+                transport_type=TRANSPORT_CLASS,
+            ),
+        )
 
     def __enter__(self):
         self.open()
@@ -221,7 +278,7 @@ class CIPDriver:
 
         driver = CIPDriver("0.0.0.0")  # dummy driver for creating the list_identity request
         request = ListIdentityRequestPacket()
-        message = request.build_request(None, driver._session, b"\x00" * 8, 0)
+        message = request.build_request(None, driver._cfg['ethernetip_params']['session'], b"\x00" * 8, 0)
         devices = []
 
         for ip in ip_addrs:
@@ -267,9 +324,12 @@ class CIPDriver:
             return devices
 
     def _list_identity(self):
-        request = ListIdentityRequestPacket()
-        response = self.send(request)
-        return response.identity
+        request = ListIdentityRequest(*self._enip_args)
+        return self._send_eip_request(request).value
+
+        # request = ListIdentityRequestPacket()
+        # response = self.send(request)
+        # return response.identity
 
     def get_module_info(self, slot: int) -> dict:
         """
@@ -313,11 +373,11 @@ class CIPDriver:
         try:
             if self._sock is None:
                 self._sock = Socket()
-            self.__log.debug(f'Opening connection to {self._cfg["ip address"]}')
-            self._sock.connect(self._cfg["ip address"], self._cfg["port"])
+            self.__log.debug(f'Opening connection to {self._cfg["ip_address"]}')
+            self._sock.connect(self._cfg["ip_address"], self._cfg["port"])
             self._connection_opened = True
-            self._cfg["cid"] = urandom(4)
-            self._cfg["vsn"] = urandom(4)
+            self._cfg['connection_params']["t_o_connection_id"] = UDINT.decode(urandom(4))
+            self._cfg['connection_params']["originator_serial"] = UDINT.decode(urandom(4))
             if self._register_session() is None:
                 self.__log.error("Session not registered")
                 return False
@@ -331,16 +391,16 @@ class CIPDriver:
 
         :return: the session id if session registered successfully, else None
         """
-        if self._session:
-            return self._session
+        if self._cfg['ethernetip_params']['session']:
+            return self._cfg['ethernetip_params']['session']
 
-        request = RegisterSessionRequestPacket(self._cfg["protocol version"])
-
-        response = self.send(request)
+        # request = RegisterSessionRequestPacket(self._cfg["protocol version"])
+        request = RegisterSessionRequest(**self._cfg['ethernetip_params'])
+        response: RegisterSessionRequest.response_class = self._send_eip_request(request)
         if response:
-            self._session = response.session
-            self.__log.info("Session=%d has been registered.", response.session)
-            return self._session
+            self._cfg['ethernetip_params']['session'] = response.header['session_id']
+            self.__log.info("Session=%d has been registered.",  self._cfg['ethernetip_params']['session'])
+            return self._cfg['ethernetip_params']['session']
 
         self.__log.error("Failed to register session: %s", response.error)
         return None
@@ -355,55 +415,65 @@ class CIPDriver:
         if self._target_is_connected:
             return True
 
-        if self._session == 0:
+        if self._cfg['ethernetip_params']['session'] == 0:
             raise CommError("A session must be registered before a Forward Open")
 
+        # bits (+16 for extended forward open):
+        # 15: redundant owner ( 0 = exclusive owner)
+        # 14-13: Connection type (10 = point to point)
+        # 12: reserved
+        # 11-10: priority ( 00 = low)
+        # 9: fixed/variable ( 1 = variable, aka messages any size up to connection size)
+        # 8-0: connection size
         init_net_params = 0b_0100_0010_0000_0000  # CIP Vol 1 - 3-5.5.1.1
 
-        if self._cfg["extended forward open"]:
-            net_params = UDINT.encode((self.connection_size & 0xFFFF) | init_net_params << 16)
+        if self._cfg['extended_forward_open']:
+            net_params = (self.connection_size & 0xFFFF) | init_net_params << 16
         else:
-            net_params = UINT.encode((self.connection_size & 0x01FF) | init_net_params)
+            net_params = (self.connection_size & 0x01FF) | init_net_params
 
-        route_path = PADDED_EPATH.encode(self._cfg["cip_path"] + MSG_ROUTER_PATH, length=True)
-        service = (
-            ConnectionManagerServices.forward_open
-            if not self._cfg["extended forward open"]
-            else ConnectionManagerServices.large_forward_open
+        request_params = {
+            **self._cfg['connection_params'],
+            'connection_path': self._cfg["cip_path"] + MSG_ROUTER_PATH,
+            'o_t_connection_params': net_params,
+            't_o_connection_params': net_params,
+        }
+
+        if self._cfg['extended_forward_open']:
+            cip_request = ConnectionManagerObject.large_forward_open(
+                instance=ConnectionManagerObject.Instance.open_request,
+                request_data=request_params,
+            )
+        else:
+            cip_request = ConnectionManagerObject.forward_open(
+                instance=ConnectionManagerObject.Instance.open_request,
+                request_data=request_params,
+            )
+
+        request = SendRRDataRequest(
+            *self._enip_args,
+            cip_request=cip_request
         )
 
-        forward_open_msg = [
-            PRIORITY,
-            TIMEOUT_TICKS,
-            b"\x00\x00\x00\x00",  # O->T produced connection ID, not needed for us so leave blank
-            self._cfg["cid"],
-            self._cfg["csn"],
-            self._cfg["vid"],
-            self._cfg["vsn"],
-            TIMEOUT_MULTIPLIER,
-            b"\x00\x00\x00",  # reserved
-            b"\x01\x40\x20\x00",  # O->T RPI in microseconds, RPIs are not important for us so fixed value is fine
-            net_params,
-            b"\x01\x40\x20\x00",  # T->O RPI
-            net_params,
-            TRANSPORT_CLASS,
-        ]
+        response = self._send_eip_request(request)
+        cip_response = cip_request.response_type(response.value)
 
-        response = self.generic_message(
-            service=service,
-            class_code=ClassCode.connection_manager,
-            instance=ConnectionManagerInstances.open_request,
-            request_data=b"".join(forward_open_msg),
-            route_path=route_path,
-            connected=False,
-            name="forward_open",
-        )
+        # response = self.generic_message(
+        #     service=service,
+        #     class_code=ClassCode.connection_manager,
+        #     instance=ConnectionManagerInstances.open_request,
+        #     request_data=request_params_type.encode(request_params),
+        #     route_path=False,
+        #     connected=False,
+        #     name="forward_open",
+        # )
 
         if response:
-            self._target_cid = response.value[:4]
+            self._cfg['connection_params']['o_t_connection_id'] = cip_response.value['o_t_connection_id']
             self._target_is_connected = True
             self.__log.info(
-                f"{'Extended ' if self._cfg['extended forward open'] else ''}Forward Open succeeded. Target CID={self._target_cid}"
+                f"{'Extended ' if self._cfg['extended_forward_open'] else ''}Forward Open succeeded. "
+                f"O->T Connection ID={self._cfg['connection_params']['o_t_connection_id']}"
             )
             return True
         self.__log.error(f"forward_open failed - {response.error}")
@@ -414,10 +484,11 @@ class CIPDriver:
         Closes the current connection and un-registers the session.
         """
         errs = []
+
         try:
             if self._target_is_connected:
                 self._forward_close()
-            if self._session != 0:
+            if self._cfg['ethernetip_params']['session'] != 0:
                 self._un_register_session()
         except Exception as err:
             errs.append(err)
@@ -432,7 +503,7 @@ class CIPDriver:
 
         self._sock = None
         self._target_is_connected = False
-        self._session = 0
+        self._cfg['ethernetip_params']['session'] = 0
         self._connection_opened = False
 
         if errs:
@@ -442,9 +513,9 @@ class CIPDriver:
         """
         Un-registers the current session with the target.
         """
-        request = UnRegisterSessionRequestPacket()
-        self.send(request)
-        self._session = None
+        request = UnRegisterSessionRequest(*self._enip_args)
+        self._send_eip_request(request)
+        self._cfg['ethernetip_params']['session'] = 0
         self.__log.info("Session Unregistered")
 
     def _forward_close(self):
@@ -456,7 +527,7 @@ class CIPDriver:
         :return: False if any error in the replayed message
         """
 
-        if self._session == 0:
+        if self._cfg['ethernetip_params']['session'] == 0:
             raise CommError("A session must be registered before a Forward Open")
 
         route_path = PADDED_EPATH.encode(
@@ -464,11 +535,11 @@ class CIPDriver:
         )
 
         forward_close_msg = [
-            PRIORITY,
-            TIMEOUT_TICKS,
-            self._cfg["csn"],
-            self._cfg["vid"],
-            self._cfg["vsn"],
+            USINT.encode(PRIORITY),
+            USINT.encode(TIMEOUT_TICKS),
+            UINT.encode(self._cfg['connection_params']['connection_serial']),
+            UINT.encode(self._cfg['connection_params']['vendor_id']),
+            UDINT.encode(self._cfg['connection_params']["originator_serial"]),
         ]
 
         response = self.generic_message(
@@ -487,6 +558,27 @@ class CIPDriver:
 
         self.__log.error("forward_close failed: %s", response.error)
         return False
+
+    def get_attributes_all(
+        self,
+        cip_object: Type[CIPObject],
+        instance: int = CIPObject.Instance.DEFAULT,
+        route_path: Union[bool, Sequence[CIPSegment], bytes, str] = True,
+    ) -> Tag:
+
+        return self.generic_message(
+            service=Services.get_attributes_all,
+            class_code=cip_object.class_code,
+            instance=instance,
+            data_type=(
+                cip_object._class_all_type
+                if instance == CIPObject.Instance.CLASS
+                else cip_object._instance_all_type
+            ),
+            route_path=route_path,
+            name="get_attributes_all",
+            connected=True,
+        )
 
     def generic_message(
         self,
@@ -571,22 +663,70 @@ class CIPDriver:
     def send(self, request: RequestPacket) -> ResponsePacket:
         if not request.error:
             request_kwargs = {
-                "target_cid": self._target_cid,
-                "session_id": self._session,
-                "context": self._cfg["context"],
-                "option": self._cfg["option"],
+                # "target_cid": self._target_cid,
+                "session_id": self._cfg['ethernetip_params']['session'],
+                "context": self._cfg['ethernetip_params']["context"],
+                "option": self._cfg['ethernetip_params']["option"],
                 "sequence": self._sequence,
             }
 
             self._send(request.build_request(**request_kwargs))
-            self.__log.debug(f"Sent: %r", request)
+            self.__log.debug("Sent: %r", request)
             reply = None if request.no_response else self._receive()
         else:
             reply = None
 
         response = request.response_class(request, reply)
-        self.__log.debug(f"Received: %r", response)
+        self.__log.debug("Received: %r", response)
         return response
+
+    def _send_cip_request(
+        self,
+        request: CIPRequest,
+        connected: bool = True,
+        route_path: Union[bool, Sequence[CIPSegment], bytes, str] = True,
+    ):
+        if connected:
+            eip_request = self._create_connected_eip_request(request)
+        else:
+            eip_request = self._create_unconnected_eip_request(request, route_path)
+
+    def _create_connected_eip_request(self, request, route_path: Union[bool, Sequence[CIPSegment], bytes, str]) -> SendUnitDataRequest:
+        ...
+
+    def _create_unconnected_eip_request(self, request, route_path: Union[bool, Sequence[CIPSegment], bytes, str]) -> SendRRDataRequest:
+        if route_path is True and self._cfg['cip_path']:
+            encoded_route = PADDED_EPATH.encode(self._cfg["cip_path"], length=True, pad_length=True)
+        elif route_path:
+            if isinstance(route_path, str):
+                encoded_route = PADDED_EPATH.encode(parse_cip_route(route_path), length=True, pad_length=True)
+            elif isinstance(route_path, bytes):
+                encoded_route = route_path
+            else:
+                encoded_route = PADDED_EPATH.encode(route_path, length=True, pad_length=True)
+        else:
+            encoded_route = None
+
+        if encoded_route:
+            request = ConnectionManagerObject.unconnected_send(
+                request,
+                self._cfg['connection_params']['priority_tick_time'],
+                self._cfg['connection_params']['timeout_ticks'],
+                route_path=encoded_route,
+            )
+
+        eip_request = SendRRDataRequest(
+            **self._cfg['ethernetip_params'],
+            cip_request=request,
+        )
+
+        return eip_request
+
+    def _send_eip_request(self, request: EtherNetIPRequest):
+        self._send(request.message)
+        if request.has_response:
+            resp = self._receive()
+            return request.response_class(resp, request)
 
     def _send(self, message):
         try:

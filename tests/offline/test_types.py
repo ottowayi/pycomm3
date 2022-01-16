@@ -1,4 +1,4 @@
-from pycomm3 import n_bytes
+from pycomm3 import n_bytes, BYTES, UINT, USINT, Struct
 from pycomm3.custom_types import ModuleIdentityObject
 from io import BytesIO
 
@@ -40,3 +40,12 @@ def test_n_bytes():
 
 # TODO: a whole lot of tests
 
+def test_byte_arrays():
+    assert BYTES[...].encode(b'12345') == b'12345'
+    assert BYTES[...].decode(b'12345') == b'12345'
+    assert BYTES[3].encode(b'12345') == b'123'
+    assert BYTES[3].decode(b'12345') == b'123'
+    assert USINT[UINT].decode(b'\x02\x00\x01\x03') == [1, 3]
+    assert BYTES[UINT].encode(b'12345') == b'12345'
+    assert BYTES[UINT].decode(b'\x05\x0012345') == b'12345'
+    # assert Struct(UINT('x'), BYTES[USINT]('data')).encode({'x': 0, 'data':''})

@@ -11,6 +11,8 @@ Contents
 --------
 
 .. toctree::
+    :maxdepth: 3
+
     getting_started
     usage/index
     examples/index

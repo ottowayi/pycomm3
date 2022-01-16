@@ -31,7 +31,9 @@ from ..util import cycle
 from .ethernetip import SendUnitDataRequestPacket, SendUnitDataResponsePacket
 from .util import parse_read_reply, request_path, tag_request_path
 
-from ..cip import ClassCode, Services, DataTypes, UINT, UDINT, ULINT
+from ..data_types import DataTypes, UINT, UDINT, ULINT
+from ..protocols.cip.services import Services
+from ..protocols.cip.object_library import ClassCode
 from ..const import STRUCTURE_READ_REPLY
 from ..exceptions import RequestError
 

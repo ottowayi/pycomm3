@@ -33,7 +33,7 @@ from .ethernetip import (
     SendRRDataResponsePacket,
 )
 from .util import request_path, wrap_unconnected_send
-from ..cip import DataType
+from ..data_types import DataType
 
 
 class GenericConnectedResponsePacket(SendUnitDataResponsePacket):

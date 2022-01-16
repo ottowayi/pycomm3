@@ -22,74 +22,20 @@
 # SOFTWARE.
 #
 
+# TODO: make this a package and break into multiple modules
+
 import reprlib
 import ipaddress
+from inspect import isclass
 from io import BytesIO
 from itertools import chain
-from struct import pack, unpack
+from struct import pack, unpack, calcsize
 from typing import Any, Sequence, Optional, Tuple, Dict, Union, List, Type
 
-from ..exceptions import DataError, BufferEmptyError
-from ..map import EnumMap
+from pycomm3.exceptions import DataError, BufferEmptyError
+from pycomm3.map import EnumMap
 
 _BufferType = Union[BytesIO, bytes]
-
-
-__all__ = [
-    "DataType",
-    "ElementaryDataType",
-    "BOOL",
-    "SINT",
-    "INT",
-    "DINT",
-    "LINT",
-    "USINT",
-    "UINT",
-    "UDINT",
-    "ULINT",
-    "REAL",
-    "LREAL",
-    "STIME",
-    "DATE",
-    "TIME_OF_DAY",
-    "DATE_AND_TIME",
-    "StringDataType",
-    "LOGIX_STRING",
-    "STRING",
-    "BytesDataType",
-    "n_bytes",
-    "BitArrayType",
-    "BYTE",
-    "WORD",
-    "DWORD",
-    "LWORD",
-    "STRING2",
-    "FTIME",
-    "LTIME",
-    "ITIME",
-    "STRINGN",
-    "SHORT_STRING",
-    "TIME",
-    "EPATH",
-    "PACKED_EPATH",
-    "PADDED_EPATH",
-    "ENGUNIT",
-    "STRINGI",
-    "DerivedDataType",
-    "ArrayType",
-    "Array",
-    "StructType",
-    "Struct",
-    "CIPSegment",
-    "PortSegment",
-    "LogicalSegment",
-    "NetworkSegment",
-    "SymbolicSegment",
-    "DataSegment",
-    "ConstructedDataTypeSegment",
-    "ElementaryDataTypeSegment",
-    "DataTypes",
-]
 
 
 def _repr(buffer: _BufferType) -> str:
@@ -145,7 +91,7 @@ class DataType(metaclass=_DataTypeMeta):
         self.name = name
 
     @classmethod
-    def encode(cls, value: Any) -> bytes:
+    def encode(cls, value: Any, *args, **kwargs) -> bytes:
         """
         Serializes a Python object ``value`` to ``bytes``.
 
@@ -153,12 +99,12 @@ class DataType(metaclass=_DataTypeMeta):
             Any subclass overriding this method must catch any exception and re-raise a ``DataError``
         """
         try:
-            return cls._encode(value)
+            return cls._encode(value, *args, **kwargs)
         except Exception as err:
             raise DataError(f"Error packing {value!r} as {cls.__name__}") from err
 
     @classmethod
-    def _encode(cls, value: Any) -> bytes:
+    def _encode(cls, value: Any, *args, **kwargs) -> bytes:
         ...
 
     @classmethod
@@ -202,7 +148,27 @@ class DataType(metaclass=_DataTypeMeta):
     __str__ = __repr__
 
 
-class ElementaryDataType(DataType):
+def is_datatype(obj, typ=DataType) -> bool:
+    """
+    Returns True if ``obj`` is an instance or subclass of ``typ``, False otherwise
+    """
+    if isclass(obj):
+        return issubclass(obj, typ)
+    else:
+        return isinstance(obj, typ)
+
+
+class _ElementaryDataTypeMeta(_DataTypeMeta):
+    def __new__(cls, name, bases, classdict):
+        klass = super().__new__(cls, name, bases, classdict)
+
+        if not klass.size and klass._format:
+            klass.size = calcsize(klass._format)
+
+        return klass
+
+
+class ElementaryDataType(DataType, metaclass=_ElementaryDataTypeMeta):
     """
     Type that represents a single primitive value in CIP.
     """
@@ -212,7 +178,7 @@ class ElementaryDataType(DataType):
     _format: str = ""
 
     @classmethod
-    def _encode(cls, value: Any) -> bytes:
+    def _encode(cls, value: Any, *args, **kwargs) -> bytes:
         return pack(cls._format, value)
 
     @classmethod
@@ -231,7 +197,7 @@ class BOOL(ElementaryDataType):
     size = 1
 
     @classmethod
-    def _encode(cls, value: Any) -> bytes:
+    def _encode(cls, value: Any, *args, **kwargs) -> bytes:
         return b"\xFF" if value else b"\x00"
 
     @classmethod
@@ -246,7 +212,7 @@ class SINT(ElementaryDataType):
     """
 
     code = 0xC2  #: 0xC2
-    size = 1
+    # size = 1
     _format = "<b"
 
 
@@ -256,7 +222,7 @@ class INT(ElementaryDataType):
     """
 
     code = 0xC3  #: 0xC3
-    size = 2
+    # size = 2
     _format = "<h"
 
 
@@ -438,16 +404,17 @@ class BytesDataType(ElementaryDataType):
         return data
 
 
+class BYTES(BytesDataType):
+    size = 1
+
+
 def n_bytes(count: int, name: str = ""):
     """
     Create an instance of a byte string of ``count`` length.
     Setting ``count`` to ``-1`` will consume the entire remaining buffer.
     """
 
-    class BYTES(BytesDataType):
-        size = count
-
-    return BYTES(name)
+    return BYTES[count](name)
 
 
 class BitArrayType(ElementaryDataType):
@@ -466,7 +433,7 @@ class BitArrayType(ElementaryDataType):
         return bools
 
     @classmethod
-    def _encode(cls, value: Any) -> bytes:
+    def _encode(cls, value: Any, *args, **kwargs) -> bytes:
         if len(value) != (8 * cls.size):
             raise DataError(f"boolean arrays must be multiple of 8: not {len(value)}")
         _value = 0
@@ -559,7 +526,7 @@ class STRINGN(StringDataType):
     ENCODINGS = {1: "utf-8", 2: "utf-16-le", 4: "utf-32-le"}
 
     @classmethod
-    def encode(cls, value: str, char_size: int = 1) -> bytes:
+    def encode(cls, value: str, char_size: int = 1, *args, **kwargs) -> bytes:
         try:
             encoding = cls.ENCODINGS[char_size]
             return (
@@ -650,6 +617,32 @@ class PACKED_EPATH(EPATH):
     padded = False
 
 
+class PADDED_EPATH_WITH_LEN(PADDED_EPATH):
+
+    @classmethod
+    def encode(
+        cls,
+        segments: Sequence[Union["CIPSegment", bytes]],
+        length: bool = False,
+        pad_length: bool = False,
+        *args, **kwargs
+    ) -> bytes:
+        return super().encode(segments, length=True)
+
+
+class PADDED_EPATH_WITH_PADDED_LEN(PADDED_EPATH):
+
+    @classmethod
+    def encode(
+        cls,
+        segments: Sequence[Union["CIPSegment", bytes]],
+        length: bool = False,
+        pad_length: bool = False,
+        *args, **kwargs
+    ) -> bytes:
+        return super().encode(segments, length=True, pad_length=True)
+
+
 class ENGUNIT(WORD):
     """
     engineering units
@@ -700,7 +693,7 @@ class STRINGI(StringDataType):
     }
 
     @classmethod
-    def encode(cls, *strings: Sequence[Tuple[str, StringDataType, str, int]]) -> bytes:
+    def encode(cls, *strings: Sequence[Tuple[str, StringDataType, str, int]], **kwargs) -> bytes:
         """
         Encodes ``strings`` to bytes
         """
@@ -761,9 +754,19 @@ class DerivedDataType(DataType):
 
 class _ArrayReprMeta(_DataTypeMeta):
     def __repr__(cls: "ArrayType"):
+        if cls.length is Ellipsis:
+            return f"{cls.element_type}[...]"
+
         return f"{cls.element_type}[{cls.length!r}]"
 
     __str__ = __repr__
+
+
+ArrayLengthType = Union[
+    USINT, UINT, UDINT, ULINT,
+    Type[USINT], Type[UINT], Type[UDINT], Type[ULINT],
+    int, None,
+]
 
 
 class ArrayType(DerivedDataType, metaclass=_ArrayReprMeta):
@@ -771,11 +774,12 @@ class ArrayType(DerivedDataType, metaclass=_ArrayReprMeta):
     Base type for an array
     """
 
-    ...
+    element_type: Union[DataType, Type[DataType]] = None
+    length: ArrayLengthType = None
 
 
 def Array(
-    length_: Union[USINT, UINT, UDINT, ULINT, int, None],
+    length_: ArrayLengthType,
     element_type_: Union[DataType, Type[DataType]],
 ) -> Type[ArrayType]:
     """
@@ -784,15 +788,15 @@ def Array(
     ``length_`` can be 3 possible types:
         - ``int`` - fixed length of the array
         - ``DataType`` - length read from beginning of buffer as type
-        - ``None`` - unbound array, consumes entire buffer on decode
+        - ``None`` or ``...`` (Ellipsis) - unbound array, consumes entire buffer on decode
     """
 
     class Array(ArrayType):
-        length: Union[USINT, UINT, UDINT, ULINT, int, None] = length_
+        length: ArrayLengthType = length_
         element_type: Union[DataType, Type[DataType]] = element_type_
 
         @classmethod
-        def encode(cls, values: List[Any], length: Optional[int] = None) -> bytes:
+        def encode(cls, values: Sequence[Any], length: Optional[int] = None, *args, **kwargs) -> bytes:
             _length = length or cls.length
             if isinstance(_length, int):
                 if len(values) < _length:
@@ -805,7 +809,12 @@ def Array(
                 _len = len(values)
 
             try:
-                if issubclass(cls.element_type, BitArrayType):
+                if is_datatype(cls.element_type, BytesDataType):
+                    if not isinstance(values, (bytes, bytearray)):
+                        raise DataError('BYTES value must be a bytes/bytearray object')
+                    return values[:_len]
+
+                if is_datatype(cls.element_type, BitArrayType):
                     chunk_size = cls.element_type.size * 8
                     _len = len(values) // chunk_size
                     values = [
@@ -821,6 +830,9 @@ def Array(
 
         @classmethod
         def _decode_all(cls, stream):
+            if issubclass(cls.element_type, BytesDataType):
+                return cls._stream_read(stream, -1)
+
             _array = []
             while True:
                 try:
@@ -830,21 +842,24 @@ def Array(
             return _array
 
         @classmethod
-        def decode(cls, buffer: _BufferType, length: Optional[int] = None) -> List[str]:
+        def decode(cls, buffer: _BufferType, length: Optional[int] = None) -> Sequence:
             _length = length or cls.length
             try:
                 stream = _as_stream(buffer)
-                if _length is None:
+                if _length in {None, Ellipsis}:
                     return cls._decode_all(stream)
 
-                if isinstance(_length, DataType):
+                if is_datatype(_length, DataType):
                     _len = _length.decode(stream)
                 else:
                     _len = _length
 
-                _val = [cls.element_type.decode(stream) for _ in range(_length)]
+                if is_datatype(cls.element_type, BytesDataType):
+                    return cls._stream_read(stream, _len)
 
-                if issubclass(cls.element_type, BitArrayType):
+                _val = [cls.element_type.decode(stream) for _ in range(_len)]
+
+                if is_datatype(cls.element_type, BitArrayType):
                     return list(chain.from_iterable(_val))
 
                 return _val
@@ -863,7 +878,7 @@ def Array(
 
 
 class _StructReprMeta(_DataTypeMeta):
-    def __repr__(cls):
+    def __repr__(cls: 'StructType'):
         return f'{cls.__name__}({", ".join(repr(m) for m in cls.members)})'
 
 
@@ -871,8 +886,7 @@ class StructType(DerivedDataType, metaclass=_StructReprMeta):
     """
     Base type for a structure
     """
-
-    ...
+    members: Tuple[Union[DataType, Type[DataType]]] = ()
 
 
 def Struct(*members_: Union[DataType, Type[DataType]]) -> Type[StructType]:
@@ -889,13 +903,18 @@ def Struct(*members_: Union[DataType, Type[DataType]]) -> Type[StructType]:
         members: Tuple[Union[DataType, Type[DataType]]] = members_
 
         @classmethod
-        def _encode(cls, values: Union[Dict[str, Any], Sequence[Any]]) -> bytes:
+        def _encode(cls, values: Union[Dict[str, Any], Sequence[Any]], *args, **kwargs) -> bytes:
+            return b"".join(typ.encode(val) for typ, val in cls._iter_values(values))
+
+        @classmethod
+        def _iter_values(
+            cls,
+            values: Union[Dict[str, Any], Sequence[Any]]
+        ) -> List[Tuple[Union[DataType, Type[DataType]], Any]]:
             if isinstance(values, dict):
-                return b"".join(typ.encode(values[typ.name]) for typ in cls.members)
+                return [(typ, values[typ.name]) for typ in cls.members]
             else:
-                return b"".join(
-                    typ.encode(val) for typ, val in zip(cls.members, values)
-                )
+                return [(typ, val) for typ, val in zip(cls.members, values)]
 
         @classmethod
         def _decode(cls, stream: BytesIO) -> Any:
@@ -925,7 +944,7 @@ class CIPSegment(DataType):
     segment_type = 0b_000_00000
 
     @classmethod
-    def encode(cls, segment: "CIPSegment", padded: bool = False) -> bytes:
+    def encode(cls, segment: "CIPSegment", padded: bool = False, *args, **kwargs) -> bytes:
         """
         Encodes an instance of a ``CIPSegment`` to bytes
         """
@@ -983,7 +1002,7 @@ class PortSegment(CIPSegment):
         self.link_address = link_address
 
     @classmethod
-    def _encode(cls, segment: "PortSegment", padded: bool = False) -> bytes:
+    def _encode(cls, segment: "PortSegment", padded: bool = False, *args, **kwargs) -> bytes:
         if isinstance(segment.port, str):
             port = cls.port_segments[segment.port]
         else:
@@ -1006,7 +1025,7 @@ class PortSegment(CIPSegment):
             _len = b""
 
         _segment = USINT.encode(port) + _len + link
-        if len(_segment) % 2:
+        if padded and len(_segment) % 2:
             _segment += b"\x00"
 
         return _segment
@@ -1058,7 +1077,7 @@ class LogicalSegment(CIPSegment):
         self.logical_type = logical_type
 
     @classmethod
-    def _encode(cls, segment: "LogicalSegment", padded: bool = False) -> bytes:
+    def _encode(cls, segment: "LogicalSegment", padded: bool = False, *args, **kwargs) -> bytes:
         _type = cls.logical_types.get(segment.logical_type)
         _value = segment.logical_value
         if _type is None:
@@ -1111,7 +1130,7 @@ class DataSegment(CIPSegment):
         self.data = data
 
     @classmethod
-    def _encode(cls, segment: "DataSegment", padded: bool = False) -> bytes:
+    def _encode(cls, segment: "DataSegment", padded: bool = False, *args, **kwargs) -> bytes:
         _segment = cls.segment_type
         if not isinstance(segment.data, str):
             return (

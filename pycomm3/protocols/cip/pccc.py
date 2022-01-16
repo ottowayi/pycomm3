@@ -25,9 +25,9 @@
 from itertools import chain
 from io import BytesIO
 
-from .data_types import INT, DINT, REAL, StringDataType, UINT
+from ...data_types import INT, DINT, REAL, StringDataType, UINT
 
-from ..map import EnumMap
+from ...map import EnumMap
 
 
 class PCCCStringType(StringDataType):

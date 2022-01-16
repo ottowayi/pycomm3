@@ -22,8 +22,8 @@
 # SOFTWARE.
 #
 
-from .cip import LogicalSegment, ClassCode
-
+from .protocols.cip.object_library import ClassCode
+from .data_types import LogicalSegment
 
 HEADER_SIZE = 24
 
@@ -48,10 +48,26 @@ SUCCESS = 0
 INSUFFICIENT_PACKETS = 6
 OFFSET_MESSAGE_REQUEST = 40
 PAD = b"\x00"
-PRIORITY = b"\x0a"
-TIMEOUT_TICKS = b"\x05"
-TIMEOUT_MULTIPLIER = b"\x07"
-TRANSPORT_CLASS = b"\xa3"
+
+# +---+---+---+---------------+---+---+---+---+
+# | 7 | 6 | 5 |    4          | 3 | 2 | 1 | 0 |
+# +---+---+---+---------------+---+---+---+---+
+# | reserved  | priority      |  tick time    |
+#             | 0 = Normal    |
+#             | 1 = Reserved  |
+PRIORITY = 0x0A
+TIMEOUT_TICKS = 0x05
+# actual timeout = 2^<tick time> * timeout_ticks
+#      5120ms    =  1024 (2^0x0a) * 5
+# aka ~5s
+
+TIMEOUT_MULTIPLIER = 0x07  # 512 - max value
+TRANSPORT_CLASS = 0xA3
+
+STANDARD_CONNECTION_SIZE = 500
+LARGE_CONNECTION_SIZE = 4000
+
+
 BASE_TAG_BIT = 1 << 26
 
 SEC_TO_US = 1_000_000  # seconds to microseconds

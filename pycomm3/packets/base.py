@@ -26,7 +26,7 @@ import logging
 from reprlib import repr as _r
 from typing import Optional
 
-from ..cip import DINT, UINT, UDINT
+from ..data_types import DINT, UINT, UDINT
 from ..const import SUCCESS
 from ..exceptions import CommError
 

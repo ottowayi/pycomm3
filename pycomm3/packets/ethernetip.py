@@ -29,17 +29,15 @@ from typing import Generator
 from .base import RequestPacket, ResponsePacket
 from .util import get_extended_status, get_service_status
 
-from ..cip import (
+from ..protocols.cip.services import (
     MULTI_PACKET_SERVICES,
-    UDINT,
-    UINT,
-    USINT,
     EncapsulationCommands,
     Services,
 )
 from ..const import INSUFFICIENT_PACKETS, SUCCESS
 from ..custom_types import ListIdentityObject
 from ..map import EnumMap
+from ..data_types import UDINT, UINT, USINT
 
 
 class DataItem(EnumMap):

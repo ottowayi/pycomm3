@@ -26,12 +26,14 @@ import string
 
 from io import BytesIO
 from typing import Union, Optional
-
-from ..cip import (
-    ClassCode,
-    ConnectionManagerServices,
+from ..protocols.cip.object_library import ClassCode
+from ..protocols.cip.services import ConnectionManagerServices
+from ..protocols.cip.status_info import (
     SERVICE_STATUS,
     EXTEND_CODES,
+
+)
+from ..data_types import (
     StringDataType,
     ArrayType,
     UDINT,

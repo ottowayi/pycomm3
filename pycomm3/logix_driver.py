@@ -35,27 +35,12 @@ from io import BytesIO
 from typing import List, Tuple, Optional, Union, Dict, Type, Sequence
 
 from . import util
-from .cip import (
-    ClassCode,
-    Services,
+from .protocols.cip.object_library import ClassCode
+from .protocols.cip.services import Services
+from .protocols.cip.status_info import (
     KEYSWITCH,
     EXTERNAL_ACCESS,
-    DataTypes,
-    Struct,
-    STRING,
-    n_bytes,
-    ULINT,
-    DataSegment,
-    USINT,
-    UINT,
-    LogicalSegment,
-    PADDED_EPATH,
-    UDINT,
-    DINT,
-    Array,
-    DataType,
-    ArrayType,
-    PortSegment,
+
 )
 from .cip_driver import CIPDriver, with_forward_open, parse_connection_path
 from .const import (
@@ -75,6 +60,24 @@ from .custom_types import (
     StructTag,
     FixedSizeString,
     ModuleIdentityObject,
+)
+from .data_types import (
+    DataTypes,
+    Struct,
+    STRING,
+    n_bytes,
+    ULINT,
+    DataSegment,
+    USINT,
+    UINT,
+    LogicalSegment,
+    PADDED_EPATH,
+    UDINT,
+    DINT,
+    Array,
+    DataType,
+    ArrayType,
+    PortSegment,
 )
 from .exceptions import ResponseError, RequestError
 from .packets import (

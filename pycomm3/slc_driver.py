@@ -31,15 +31,14 @@ import re
 from typing import List, Tuple, Optional, Union
 
 from .cip_driver import CIPDriver, with_forward_open
-from .cip import (
+from .protocols.cip.pccc import (
     PCCC_CT,
     PCCC_DATA_TYPE,
     PCCC_DATA_SIZE,
-    PCCC_ERROR_CODE,
-    USINT,
-    UINT,
     PCCCDataTypes,
 )
+from .protocols.cip.status_info import PCCC_ERROR_CODE
+from .data_types import USINT, UINT
 from .const import (
     SUCCESS,
     SLC_CMD_CODE,

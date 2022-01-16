@@ -22,8 +22,8 @@
 # SOFTWARE.
 #
 
-from ..map import EnumMap
-from .data_types import USINT
+from ...map import EnumMap
+from ...data_types import USINT
 
 __all__ = [
     "EncapsulationCommands",
@@ -34,7 +34,7 @@ __all__ = [
 ]
 
 
-class EncapsulationCommands(EnumMap):
+class EncapsulationCommands(EnumMap):  # TODO: moved, remove here
     nop = b"\x00\x00"
     list_targets = b"\x01\x00"
     list_services = b"\x04\x00"
