@@ -262,7 +262,7 @@ class LogixDriver(CIPDriver):
         - *product_code* - code identifying the product type
         - *revision* - dict of {'major': <major rev (int)>, 'minor': <minor rev (int)>}
         - *serial* - hex string of PLC serial number, e.g. ``'FFFFFFFF'``
-        - *device_type* - string value for PLC device type, e.g. ``'1756-L83E/B'``
+        - *product_name* - string value for PLC device type, e.g. ``'1756-L83E/B'``
         - *keyswitch* - string value representing the current keyswitch position, e.g. ``'REMOTE RUN'``
         - *name* - string value of the current PLC program name, e.g. ``'PLCA'``
 
