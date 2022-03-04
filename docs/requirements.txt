@@ -1,5 +1,5 @@
 sphinx
-sphinx-autodoc-typehints
+sphinx-autodoc-typehints==1.16.0
 furo
 m2r2
 sphinxemoji
