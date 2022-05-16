@@ -1243,6 +1243,8 @@ class LogixDriver(CIPDriver):
 
         """
         base, *attrs = tag_name.split(".")
+        if base.startswith("Program:"):
+            base = f"{base}.{attrs.pop(0)}"
         return self._get_tag_info(base, attrs)
 
     def _get_tag_info(self, base, attrs) -> Optional[dict]:
