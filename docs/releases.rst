@@ -2,6 +2,14 @@
 Release History
 ===============
 
+1.2.8
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue reading single elements >32 from BOOL arrays
+
 1.2.7
 =====
 
