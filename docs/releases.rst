@@ -2,6 +2,14 @@
 Release History
 ===============
 
+1.2.7
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue with program-scoped tags in `get_tag_info` #216
+
 1.2.6
 =====
 

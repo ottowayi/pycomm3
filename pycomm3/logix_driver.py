@@ -262,7 +262,7 @@ class LogixDriver(CIPDriver):
         - *product_code* - code identifying the product type
         - *revision* - dict of {'major': <major rev (int)>, 'minor': <minor rev (int)>}
         - *serial* - hex string of PLC serial number, e.g. ``'FFFFFFFF'``
-        - *device_type* - string value for PLC device type, e.g. ``'1756-L83E/B'``
+        - *product_name* - string value for PLC device type, e.g. ``'1756-L83E/B'``
         - *keyswitch* - string value representing the current keyswitch position, e.g. ``'REMOTE RUN'``
         - *name* - string value of the current PLC program name, e.g. ``'PLCA'``
 
@@ -1243,6 +1243,8 @@ class LogixDriver(CIPDriver):
 
         """
         base, *attrs = tag_name.split(".")
+        if base.startswith("Program:"):
+            base = f"{base}.{attrs.pop(0)}"
         return self._get_tag_info(base, attrs)
 
     def _get_tag_info(self, base, attrs) -> Optional[dict]:
