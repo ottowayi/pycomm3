@@ -938,7 +938,7 @@ class LogixDriver(CIPDriver):
                             data_type = f"BOOL[{bool_elements}]"
                             result = Tag(request_data["user_tag"], bools, data_type, result.error)
                         else:
-                            val = result.value[bit % 32]
+                            val = result.value[bit]
                             result = Tag(request_data["user_tag"], val, "BOOL", result.error)
                 else:
                     result = Tag(request_data["user_tag"], None, None, result.error)
@@ -1324,12 +1324,9 @@ class LogixDriver(CIPDriver):
                 if idx is not None:
                     tag = f"{_tag}[0]" if rw == "r" else f"{_tag}[{idx // 32}]"
                 bit = idx
-                if implicit_element or elements == 1:
-                    bool_elements = None
-                else:
-                    bool_elements = elements
-                    total_size = (bit or 0) + elements
-                    elements = (total_size // 32) + (1 if total_size % 32 else 0)
+                bool_elements = None if implicit_element or elements == 1 else elements
+                total_size = (bit or 0) + elements
+                elements = (total_size // 32) + (1 if total_size % 32 else 0)
 
             return {
                 "user_tag": request_tag,  # tag name from user, without element request
