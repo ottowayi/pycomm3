@@ -1,5 +1,5 @@
 import pytest
-from pycomm3 import UINT
+from pycomm3.data_types import UINT
 from pycomm3.protocols.ethernetip.data_types import (
     EtherNetIPHeader,
     NullAddressItem,
