@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import reprlib
-from dataclasses import dataclass
+from dataclasses import dataclass, astuple
 from enum import IntEnum, Enum
 from io import BytesIO
 from typing import Sequence, cast
@@ -95,7 +95,9 @@ class STRINGN(StringDataType):  # noqa
         return obj
 
     @classmethod
-    def encode(cls, value: str, encoding: Encoding = Encoding.utf_8, *args, **kwargs) -> bytes:
+    def encode(
+        cls, value: str, encoding: Encoding | str = Encoding.utf_8, *args, **kwargs
+    ) -> bytes:
         try:
             encoding_name = cls._encodings[encoding]
             return UINT.encode(encoding) + UINT.encode(len(value)) + value.encode(encoding_name)
@@ -165,32 +167,39 @@ class STRINGI(DerivedDataType):
         utf_16_le = 1000
         utf_32_le = 1001
 
-    _encodings: dict[CharSet, str] = {
-        CharSet.iso_8859_1: 'iso-8859-1',
-        CharSet.iso_8859_2: 'iso-8859-2',
-        CharSet.iso_8859_3: 'iso-8859-3',
-        CharSet.iso_8859_4: 'iso-8859-4',
-        CharSet.iso_8859_5: 'iso-8859-5',
-        CharSet.iso_8859_6: 'iso-8859-6',
-        CharSet.iso_8859_7: 'iso-8859-7',
-        CharSet.iso_8859_8: 'iso-8859-8',
-        CharSet.iso_8859_9: 'iso-8859-9',
-        CharSet.utf_16_le: 'utf-16-le',
-        CharSet.utf_32_le: 'utf-32-le',
-    }
+    # _encodings: dict[CharSet, str] = {
+    #     CharSet.iso_8859_1: 'iso-8859-1',
+    #     CharSet.iso_8859_2: 'iso-8859-2',
+    #     CharSet.iso_8859_3: 'iso-8859-3',
+    #     CharSet.iso_8859_4: 'iso-8859-4',
+    #     CharSet.iso_8859_5: 'iso-8859-5',
+    #     CharSet.iso_8859_6: 'iso-8859-6',
+    #     CharSet.iso_8859_7: 'iso-8859-7',
+    #     CharSet.iso_8859_8: 'iso-8859-8',
+    #     CharSet.iso_8859_9: 'iso-8859-9',
+    #     CharSet.utf_16_le: 'utf-16-le',
+    #     CharSet.utf_32_le: 'utf-32-le',
+    # }
 
     def __init__(self, *strings: StrI):
         self._strs: tuple[StrI] = strings
-        self._by_lang: dict[STRINGI.Language : StrI] = {s.lang: s for s in strings}
         self.__encoded_value__ = self.encode(self)
 
     def get(self, lang: STRINGI.Language | None = None) -> str:
         if lang is None:
             return self._strs[0].value
-        if lang not in self._by_lang:
-            raise ValueError(f'invalid language: {lang}')
 
-        return self._by_lang[lang].value
+        for s in self._strs:
+            if s.lang == lang:
+                return s.value
+
+        raise ValueError(f'invalid language: {lang}')
+
+    def __eq__(self, other):
+        if isinstance(other, STRINGI):
+            return self.__encoded_value__ == other.__encoded_value__
+
+        return False
 
     @classmethod
     def _encode(cls, value: STRINGI, **kwargs) -> bytes:
@@ -205,11 +214,19 @@ class STRINGI(DerivedDataType):
                 _str_type = USINT(stri.str_type.code)
                 _lang = bytes(stri.lang, "ascii")
                 _char_set = UINT(stri.char_set)
-                _string = bytes(stri.str_type.len_type(len(stri.value))) + stri.value.encode(
-                    cls._encodings[cls.CharSet(_char_set)]
-                )
 
-                data += b''.join(bytes(x) for x in (_lang, _str_type, _char_set, _string))
+                if stri.str_type is STRINGN:
+                    if stri.char_set == STRINGI.CharSet.utf_16_le:
+                        enc = STRINGN.Encoding.utf_16
+                    elif stri.char_set == STRINGI.CharSet.utf_32_le:
+                        enc = STRINGN.Encoding.utf_32
+                    else:
+                        enc = STRINGN.Encoding.utf_8
+                    _str = STRINGN(stri.value, encoding=enc)
+                else:
+                    _str = stri.value
+
+                data += b''.join(bytes(x) for x in (_lang, _str_type, _char_set, _str))
 
             return data
         except Exception as err:
@@ -251,10 +268,27 @@ class STRINGI(DerivedDataType):
     ):
         return StrI(value, str_type, lang, char_set)
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(strings={self._strs!r})'
+
 
 @dataclass
 class StrI:
-    value: str
-    str_type: type[STRING | STRING2 | STRINGN | SHORT_STRING]
+    value: str | STRING | STRING2 | STRINGN | SHORT_STRING
+    str_type: type[STRING | STRING2 | STRINGN | SHORT_STRING] = STRING
     lang: STRINGI.Language = STRINGI.Language.english
-    char_set: STRINGI.CharSet = STRINGI.CharSet.utf_16_le
+    char_set: STRINGI.CharSet = STRINGI.CharSet.iso_8859_1
+
+    def __post_init__(self):
+        if not isinstance(self.value, self.str_type):
+            self.value = self.str_type(self.value)
+        if (
+            self.str_type in {STRING, SHORT_STRING}  # fmt: skip
+            and self.char_set in {STRINGI.CharSet.utf_16_le, STRINGI.CharSet.utf_32_le}
+        ):
+
+            raise DataError(
+                f'CharSets utf-16 and utf-32 are not supported for {self.str_type.__name__}'
+            )
+        elif self.str_type is STRING2:
+            raise DataError(f'Only CharSet utf-16 is supported for STRING2')

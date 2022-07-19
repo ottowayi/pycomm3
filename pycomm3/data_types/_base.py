@@ -354,6 +354,15 @@ class DerivedDataType(DataType[PyType]):
     Base type for types composed of :class:`ElementaryDataType`
     """
 
+    def __eq__(self, other):
+        try:
+            if isinstance(other, DerivedDataType):
+                return self.__encoded_value__ == other.__encoded_value__
+        except Exception:  # noqa
+            ...
+
+        return False
+
 
 class _StructMeta(_DataTypeMeta, _ArrayMetaMixin):
     def __new__(mcs, name: str, bases: tuple, clsdict: dict) -> type[StructType]:

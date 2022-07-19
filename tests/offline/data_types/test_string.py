@@ -117,7 +117,7 @@ stringi_tests = [
                 str2 := 'on the wookies',
                 SHORT_STRING,
                 STRINGI.Language.english,
-                STRINGI.CharSet.utf_32_le,
+                STRINGI.CharSet.iso_8859_6,
             )
         ],
         b''.join(
@@ -135,9 +135,9 @@ stringi_tests = [
                 str1.encode('iso-8859-1'),
                 b'eng',
                 USINT.encode(SHORT_STRING.code),
-                UINT.encode(1001),
+                UINT.encode(9),
                 USINT.encode(len(str2)),
-                str2.encode('utf-32-le'),
+                str2.encode('iso-8859-6'),
             )
         ),
     ),
@@ -156,3 +156,9 @@ def test_stringi(
     _str = STRINGI(*(STRINGI.istr(*s) for s in strings))
     assert bytes(_str) == bites
     assert _str.__encoded_value__ == bites
+    assert _str.get() == strings[0][0]
+    assert _str.get(STRINGI.Language.french) == strings[1][0]
+
+    decoded = STRINGI.decode(bytes(_str))
+    assert decoded == _str
+    assert decoded._strs[0] == STRINGI.istr(*strings[0])
