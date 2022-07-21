@@ -756,12 +756,12 @@ class LogixDriver(CIPDriver):
         self.__log.debug(f"Parsing template {template!r} from {data!r}")
 
         chunks = (
-            info_data[i : i + TEMPLATE_MEMBER_INFO_LEN]
+            info_data[i: i + TEMPLATE_MEMBER_INFO_LEN]
             for i in range(0, info_len, TEMPLATE_MEMBER_INFO_LEN)
         )
 
         member_data = [self._parse_template_data_member_info(chunk) for chunk in chunks]
-
+        member_names_visibility = []
         member_names = []
         template_name = None
         try:
@@ -770,6 +770,18 @@ class LogixDriver(CIPDriver):
             ):
                 if template_name is None and ";" in name:
                     template_name, _ = name.split(";", maxsplit=1)
+                    template_name, type_details = name.split(";", maxsplit=1)
+                    if len(type_details) and len(type_details) == 2*len(member_data) + 1:
+                        _io_info = type_details[:1]  # IO Information i = input o = output n = not an IO type
+                        types_and_styles = type_details[1:]
+                        # The two bytes are based on display style and type. The first byte is display style enum,
+                        # ‘A’ for base, ‘C’ for bit, or ‘E’for alias.
+                        # The next byte is : ‘A’ for base, ‘C’ for bit, or ‘E’for alias (+ 1 if hidden).
+                        styles = map(''.join, zip(*[iter(types_and_styles)]*2))
+                        for style in styles:
+                            member_names_visibility.append(
+                                False if style[1:] == 'B' or style[1:] == 'D' or style[1:] == 'F' else True)
+
                 else:
                     member_names.append(name)
         except ValueError as err:
@@ -797,7 +809,10 @@ class LogixDriver(CIPDriver):
         _bit_members = {}
         _private_members = set()
         _unk_member_count = 0
-        for member, info in zip(member_names, member_data):
+        if len(member_names_visibility) < len(member_data) and len(member_data):
+            member_names_visibility = [True] * len(member_names)
+
+        for member, info, visible in zip(member_names, member_data, member_names_visibility):
             if not member:  # handle unnamed private members
                 member = f'__unknown{_unk_member_count}'  # double-underscore makes it 'private'
                 _unk_member_count += 1
@@ -808,7 +823,8 @@ class LogixDriver(CIPDriver):
             ):
                 _private_members.add(member)
             else:
-                data_type["attributes"].append(member)
+                if visible:
+                    data_type["attributes"].append(member)
 
             data_type["internal_tags"][member] = info
 
@@ -934,7 +950,7 @@ class LogixDriver(CIPDriver):
                     else:
                         bit = bit or 0
                         if bool_elements is not None:
-                            bools = result.value[bit : bit + bool_elements]
+                            bools = result.value[bit: bit + bool_elements]
                             data_type = f"BOOL[{bool_elements}]"
                             result = Tag(request_data["user_tag"], bools, data_type, result.error)
                         else:
@@ -1427,7 +1443,7 @@ class LogixDriver(CIPDriver):
             request.build_message()
             segment_size = self.connection_size - (len(request.message) - len(request.value))
             segments = (
-                request.value[i : i + segment_size]
+                request.value[i: i + segment_size]
                 for i in range(0, len(request.value), segment_size)
             )
 
