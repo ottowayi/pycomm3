@@ -756,7 +756,7 @@ class LogixDriver(CIPDriver):
         self.__log.debug(f"Parsing template {template!r} from {data!r}")
 
         chunks = (
-            info_data[i: i + TEMPLATE_MEMBER_INFO_LEN]
+            info_data[i : i + TEMPLATE_MEMBER_INFO_LEN]
             for i in range(0, info_len, TEMPLATE_MEMBER_INFO_LEN)
         )
 
@@ -950,7 +950,7 @@ class LogixDriver(CIPDriver):
                     else:
                         bit = bit or 0
                         if bool_elements is not None:
-                            bools = result.value[bit: bit + bool_elements]
+                            bools = result.value[bit : bit + bool_elements]
                             data_type = f"BOOL[{bool_elements}]"
                             result = Tag(request_data["user_tag"], bools, data_type, result.error)
                         else:
@@ -1443,7 +1443,7 @@ class LogixDriver(CIPDriver):
             request.build_message()
             segment_size = self.connection_size - (len(request.message) - len(request.value))
             segments = (
-                request.value[i: i + segment_size]
+                request.value[i : i + segment_size]
                 for i in range(0, len(request.value), segment_size)
             )
 
