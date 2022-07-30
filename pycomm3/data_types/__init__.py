@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2022 Ian Ottoway <ian@ottoway.dev>
-# Copyright (c) 2014 Agostino Ruscito <ruscito@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,5 +28,4 @@ from .datetime import *
 from .misc import *
 from .numeric import *
 from .string import *
-
 

@@ -1,9 +1,7 @@
 from __future__ import annotations
-from io import BytesIO
-from typing import Sequence, Tuple
+from typing import ClassVar
 
-from ..exceptions import DataError
-from ._base import ElementaryDataType
+from ._base import StructType
 from .numeric import DINT, UDINT, UINT, INT, LINT
 
 
@@ -43,24 +41,15 @@ class TIME_OF_DAY(UDINT):
     code = 0xCE  #: 0xCE
 
 
-class DATE_AND_TIME(ElementaryDataType[Tuple[int, int]]):
+class DATE_AND_TIME(StructType):
     """
     Date and time of day
     """
 
-    code = 0xCF  #: 0xCF
-    size = 8
+    code: ClassVar[int] = 0xCF  #: 0xCF
 
-    @classmethod
-    def encode(cls, time_date: tuple[int, int], *args, **kwargs) -> bytes:
-        try:
-            return UDINT.encode(time_date[0]) + UINT.encode(time_date[1])
-        except Exception as err:
-            raise DataError(f"Error packing {time_date!r} as {cls.__name__}") from err
-
-    @classmethod
-    def _decode(cls, stream: BytesIO) -> tuple[int, int]:
-        return UDINT.decode(stream), UINT.decode(stream)
+    time: UDINT
+    date: UINT
 
 
 class FTIME(DINT):

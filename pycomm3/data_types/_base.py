@@ -23,20 +23,27 @@
 #
 from __future__ import annotations
 
-
-import reprlib
-from dataclasses import Field, dataclass, field, fields, make_dataclass, astuple
-from enum import IntEnum
+from dataclasses import Field, astuple, dataclass, field, fields, make_dataclass
 from inspect import isclass
 from io import BytesIO
-from itertools import chain
 from struct import calcsize, pack, unpack
 from typing import (
-    Any, Generic, Optional, TypeVar, Union, Type, ClassVar, Dict, Tuple, get_args, Sequence, cast,
-    Iterable, Literal, overload
+    Any,
+    ClassVar,
+    Dict,
+    Generic,
+    Literal,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_args, Protocol, overload, Iterable,
 )
-from collections import abc
+
 from ..exceptions import BufferEmptyError, DataError
+import builtins
 
 _BufferType = Union[BytesIO, bytes]
 
@@ -99,11 +106,14 @@ class DataType(Generic[PyType], metaclass=_DataTypeMeta):
     __encoded_value__: bytes = b''
     size: int = 0
 
+    def __new__(cls: type[_DataType], value: PyType, *args, **kwargs) -> _DataType:
+        return super().__new__(cls, value, *args, **kwargs)  # type: ignore
+
     def __bytes__(self) -> bytes:
         return self.__encoded_value__
 
     @classmethod
-    def encode(cls, value: PyType, *args, **kwargs) -> bytes:
+    def encode(cls: type[_DataType], value: PyType, *args, **kwargs) -> bytes:
         """
         Serializes a Python object ``value`` to ``bytes``.
 
@@ -116,11 +126,11 @@ class DataType(Generic[PyType], metaclass=_DataTypeMeta):
             raise DataError(f"Error packing {value!r} as {cls.__name__}") from err
 
     @classmethod
-    def _encode(cls, value: PyType, *args, **kwargs) -> bytes:
+    def _encode(cls: type[_DataType], value: PyType, *args, **kwargs) -> bytes:
         ...
 
     @classmethod
-    def decode(cls, buffer: _BufferType) -> _DataType:
+    def decode(cls: type[_DataType], buffer: _BufferType) -> _DataType:
         """
         Deserializes a Python object from the ``buffer`` of ``bytes``
 
@@ -138,7 +148,7 @@ class DataType(Generic[PyType], metaclass=_DataTypeMeta):
                 raise DataError(f"Error unpacking {_repr(buffer)} as {cls.__name__}") from err
 
     @classmethod
-    def _decode(cls, stream: BytesIO) -> _DataType:
+    def _decode(cls: type[_DataType], stream: BytesIO) -> _DataType:
         ...
 
     @classmethod
@@ -152,11 +162,15 @@ class DataType(Generic[PyType], metaclass=_DataTypeMeta):
         return data
 
 
-# Type for DataTypes that may be used in arguments, either DataType classes or instances
-DataTypeType = Union[DataType, Type[DataType]]
+ArrayElementType = TypeVar('ArrayElementType', bound=DataType)
+ArrayLengthType = TypeVar('ArrayLengthType', Type['IntDataType'], int, None, 'builtins.ellipsis', )
+
+_ArrayType = TypeVar('_ArrayType', bound='ArrayType')
+# # Type for DataTypes that may be used in arguments, either DataType classes or instances
+# DataTypeType = Union[DataType, Type[DataType]]
 
 
-def is_datatype(obj: DataTypeType, typ=DataType) -> bool:
+def is_datatype(obj: Any, typ=DataType) -> bool:
     """
     Returns True if ``obj`` is an instance or subclass of ``typ``, False otherwise
     """
@@ -170,9 +184,10 @@ class _ArrayMetaMixin(type):
     """
     Allows a data type to create arrays using brackets: DINT[5] -> Array(DINT, 5)
     """
-    def __getitem__(cls: ArrayElementType, item: ArrayLengthType) -> type[ArrayType]:
-        class Array(ArrayType[cls]):
-            element_type: ArrayElementType = cls
+
+    def __getitem__(cls: type[ArrayElementType], item: ArrayLengthType) -> type[ArrayType]:  # type: ignore
+        class Array(ArrayType):
+            element_type: type[ArrayElementType] = cls
             length: ArrayLengthType = item
 
         return Array
@@ -190,14 +205,14 @@ class _ElementaryDataTypeMeta(_DataTypeMeta):
 
 
 class _ArrayableElementaryDataTypeMeta(_ElementaryDataTypeMeta, _ArrayMetaMixin):
-    """
-    """
+    """ """
 
 
-ElementaryType = TypeVar('ElementaryType', bound='ElementaryDataType')
+_ElementaryType = TypeVar('_ElementaryType', bound='ElementaryDataType')
+ElmPyType = TypeVar('ElmPyType', int, float, bool, str, bytes)
 
 
-class ElementaryDataType(DataType[PyType], metaclass=_ElementaryDataTypeMeta):
+class ElementaryDataType(DataType[ElmPyType], metaclass=_ElementaryDataTypeMeta):
     """
     Type that represents a single primitive value in CIP.
     """
@@ -205,13 +220,14 @@ class ElementaryDataType(DataType[PyType], metaclass=_ElementaryDataTypeMeta):
     code: int = 0x00  #: CIP data type identifier
     size: int = 0  #: size of type in bytes
     _format: str = ""
+    _base_type: type[ElmPyType]
 
     # keeps track of all subclasses using the cip type code
     _codes: dict[int, type[ElementaryDataType]] = {}
 
-    def __new__(cls, value: PyType, *args, **kwargs) -> ElementaryType:
+    def __new__(cls: type[_ElementaryType], value: ElmPyType, *args, **kwargs) -> _ElementaryType:
         try:
-            obj = super().__new__(cls, value, *args, **kwargs)
+            obj = super().__new__(cls, value, *args, **kwargs)  # type: ignore
         except Exception as err:
             raise DataError(f'invalid value for {cls}: {value!r}') from err
 
@@ -226,16 +242,16 @@ class ElementaryDataType(DataType[PyType], metaclass=_ElementaryDataTypeMeta):
             cls._codes[cls.code] = cls
 
     @classmethod
-    def _encode(cls, value: PyType, *args, **kwargs) -> bytes:
+    def _encode(cls, value: ElmPyType, *args, **kwargs) -> bytes:
         return pack(cls._format, value)
 
     @classmethod
-    def _decode(cls, stream: BytesIO) -> ElementaryType:
+    def _decode(cls: type[_ElementaryType], stream: BytesIO) -> _ElementaryType:
         data = cls._stream_read(stream, cls.size)
         return cls(unpack(cls._format, data)[0])
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({self._base_type.__repr__(self)})'
+        return f'{self.__class__.__name__}({self._base_type.__repr__(self)})'  # type: ignore
 
 
 class IntDataType(ElementaryDataType[int], int, metaclass=_ArrayableElementaryDataTypeMeta):
@@ -246,9 +262,8 @@ _BT = TypeVar('_BT', bound='BoolDataType')
 
 
 class BoolDataType(ElementaryDataType[bool], int, metaclass=_ArrayableElementaryDataTypeMeta):
-    def __new__(cls, value: int, *args, **kwargs) -> _BT:
-        val = True if value else False
-        return super().__new__(cls, val, *args, **kwargs)
+    def __new__(cls, value: int, *args, **kwargs):
+        return super().__new__(cls, True if value else False, *args, **kwargs)  # type: ignore
 
     @classmethod
     def _encode(cls, value: bool, *args, **kwargs) -> Literal[b"\x00", b"\xFF"]:
@@ -259,7 +274,7 @@ class BoolDataType(ElementaryDataType[bool], int, metaclass=_ArrayableElementary
             return b"\x00"
 
     @classmethod
-    def _decode(cls, stream: BytesIO) -> _BT:
+    def _decode(cls: type[_BT], stream: BytesIO) -> _BT:
         data = cls._stream_read(stream, cls.size)
         return cls(data[0])
 
@@ -268,24 +283,24 @@ class FloatDataType(ElementaryDataType[float], float, metaclass=_ArrayableElemen
     ...
 
 
-_StrT = TypeVar('_StrT', bound='StringDataType')
+_StringType = TypeVar('_StringType', bound='StringDataType')
 
 
-class StringDataType(ElementaryDataType[str], str, metaclass=_ArrayableElementaryDataTypeMeta):
+class StringDataType(ElementaryDataType[str], str, metaclass=_ArrayableElementaryDataTypeMeta):  # type: ignore
     """
     Base class for any string type
     """
 
-    len_type: type[IntDataType] = None  #: data type of the string length
+    len_type: type[IntDataType]  #: data type of the string length
     encoding: str = 'iso-8859-1'
 
     @classmethod
-    def _encode(cls, value: str , *args, **kwargs) -> bytes:
+    def _encode(cls: type[_StringType], value: str, *args, **kwargs) -> bytes:
         return cls.len_type.encode(len(value)) + value.encode(cls.encoding)
 
     @classmethod
-    def _decode(cls, stream: BytesIO) -> _StrT:
-        str_len = cls.len_type.decode(stream)
+    def _decode(cls: type[_StringType], stream: BytesIO) -> _StringType:
+        str_len: IntDataType = cls.len_type.decode(stream)
         if str_len == 0:
             return cls("")
         str_data = cls._stream_read(stream, str_len)
@@ -293,51 +308,59 @@ class StringDataType(ElementaryDataType[str], str, metaclass=_ArrayableElementar
         return cls(str_data.decode(cls.encoding))
 
 
-class BytesDataType(ElementaryDataType[bytes], bytes, metaclass=_ArrayableElementaryDataTypeMeta):
+_BytesType = TypeVar('_BytesType', bound='BytesDataType')
+
+
+class BytesDataType(ElementaryDataType[bytes], bytes, metaclass=_ArrayableElementaryDataTypeMeta):  # type: ignore
     """
     Base type for placeholder bytes.
     """
 
     @classmethod
-    def _encode(cls, value: bytes, *args, **kwargs) -> bytes:
+    def _encode(cls: type[_BytesType], value: bytes, *args, **kwargs) -> bytes:
         return value[: cls.size] if cls.size != -1 else value[:]
 
     @classmethod
-    def _decode(cls, stream: BytesIO) -> BytesDataType:
+    def _decode(cls: type[_BytesType], stream: BytesIO) -> _BytesType:
         data = cls._stream_read(stream, cls.size)
         return cls(data)
 
 
-class BitArrayType(IntDataType):
-    bits: tuple[int]
+_BitsType = TypeVar('_BitsType', bound='BitArrayType')
 
-    def __new__(cls, value: int | Sequence[int], *args, **kwargs) -> DataType[int]:
+
+class BitArrayType(IntDataType):
+    bits: tuple[int, ...]
+
+    def __new__(cls: type[_BitsType], value: int | Sequence[int], *args, **kwargs) -> _BitsType:
         try:
             if not isinstance(value, int):
                 value = cls._from_bits(value)
         except Exception as err:
             raise DataError(f'invalid value for {cls}: {value!r}')
-        obj = super().__new__(cls, value)
+        obj = super().__new__(cls, value)  # type: ignore
         return obj
 
     def __init__(self, *args, **kwargs) -> None:
         self.bits = self._to_bits(self)
 
     @classmethod
-    def _encode(cls, value: int | Sequence[Any], *args, **kwargs) -> bytes:
+    def _encode(cls: type[_BitsType], value: int | Sequence[Any], *args, **kwargs) -> bytes:
         if not isinstance(value, int):
             value = cls._from_bits(value)
 
         return super()._encode(value)
 
     @classmethod
-    def _to_bits(cls, value: int) -> tuple[int]:
+    def _to_bits(cls: type[_BitsType], value: int) -> tuple[int, ...]:
         return tuple((value >> idx) & 1 for idx in range(cls.size * 8))
 
     @classmethod
-    def _from_bits(cls, value: Sequence[int]) -> int:
+    def _from_bits(cls: type[_BitsType], value: Sequence[int]) -> int:
         if len(value) != (8 * cls.size):
-            raise DataError(f"{cls.__name__} requires exactly {cls.size * 8} elements, got: {len(value)}")
+            raise DataError(
+                f"{cls.__name__} requires exactly {cls.size * 8} elements, got: {len(value)}"
+            )
         _value = 0
         for i, val in enumerate(value):
             if val:
@@ -363,21 +386,39 @@ class DerivedDataType(DataType[PyType]):
 
         return False
 
+# def __dataclass_transform__(
+#     *,
+#     eq_default: bool = True,
+#     order_default: bool = False,
+#     kw_only_default: bool = False,
+#     field_specifiers: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+# ) -> Callable[[_T], _T]:
+#     # If used within a stub file, the following implementation can be
+#     # replaced with "...".
+#     return lambda a: a
+
+
+_StructType = TypeVar('_StructType', bound='StructType')
+
 
 class _StructMeta(_DataTypeMeta, _ArrayMetaMixin):
-    def __new__(mcs, name: str, bases: tuple, clsdict: dict) -> type[StructType]:
-        cls = super().__new__(mcs, name, bases, clsdict)
-        klass = cast(dataclass, dataclass(cls))
+    def __new__(mcs: type[_StructMeta], name: str, bases: tuple, clsdict: dict) -> type[_StructType]:
+        cls: _StructMeta = super().__new__(mcs, name, bases, clsdict)
+        klass: type[_StructType] = dataclass(cast(type[_StructType], cls))
 
         _fields = fields(klass)
         klass._members = {_field.name: _field.type for _field in _fields}
-        klass._attributes = {_field.name: _field.type for _field in _fields if not _field.metadata.get('reserved', False)}
+        klass._attributes = {
+            _field.name: _field.type
+            for _field in _fields
+            if not _field.metadata.get('reserved', False)
+        }
 
         return klass
 
     @property
     def size(cls) -> int:
-        return sum(typ.size for typ in cls._members.values())
+        return sum(typ.size for typ in cls._members.values())  # type: ignore
 
 
 StructValuesType = Union[Dict[str, DataType], Sequence[DataType]]
@@ -394,20 +435,25 @@ class StructType(DerivedDataType, metaclass=_StructMeta):
     Base type for a structure
     """
 
-    #: complete list of all members inside the struct
+    #: map of all members inside the struct and their types
     _members: ClassVar[dict[str, type[DataType]]] = {}
     #: mapping of _user_ members of the struct to their type,
     #: excluding reserved or private members not meant for users to interact with
     _attributes: ClassVar[dict[str, type[DataType]]] = {}
 
+    def __new__(cls: type[_StructType], *args, **kwargs) -> _StructType:
+        return super().__new__(cls, *args, **kwargs)
+
     def __post_init__(self) -> None:
         self.__encoded_value__ = self.encode(self)
 
-    def __setattr__(self, key: str, value: PyType) -> None:
+    def __setattr__(self: _StructType, key: str, value: DataType | PyType) -> None:
         if key != '__encoded_value__':
-            if key not in self.__class__._members:
-                raise AttributeError(f'{key!r} is not an attribute of struct {self.__class__.__name__}')
-            if not isinstance(value, typ := self.__class__._members[key]):
+            if key not in self.__class__._members:  # noqa
+                raise AttributeError(
+                    f'{key!r} is not an attribute of struct {self.__class__.__name__}'
+                )
+            if not isinstance(value, typ := self.__class__._members[key]): # noqa
                 try:
                     value = typ(value)
                 except Exception as err:
@@ -416,20 +462,20 @@ class StructType(DerivedDataType, metaclass=_StructMeta):
 
         super().__setattr__(key, value)
 
-    def __bytes__(self) -> bytes:
+    def __bytes__(self: _StructType) -> bytes:
         if not self.__encoded_value__:
             self.__encoded_value__ = self.__class__.encode(self)
 
         return self.__encoded_value__
 
     @classmethod
-    def _encode(cls, value: StructType, *args, **kwargs) -> bytes:
-        return b''.join(bytes(attr) for attr in astuple(cast(dataclass, value)))
+    def _encode(cls: type[StructType], value: _StructType, *args, **kwargs) -> bytes:
+        return b''.join(bytes(attr) for attr in astuple(value))
 
     @classmethod
-    def _decode(cls: type[StructType], stream: BytesIO) -> StructType:
+    def _decode(cls: type[_StructType], stream: BytesIO) -> _StructType:
         values = {name: typ.decode(stream) for name, typ in cls._members.items()}
-        return cast(dataclass, cls)(**values)
+        return cls(**values)
 
     @staticmethod
     def attr(*, reserved: bool = False, **kwargs) -> Field:
@@ -441,15 +487,15 @@ class StructType(DerivedDataType, metaclass=_StructMeta):
         )
 
     @staticmethod
-    def create(name: str, members: StructCreateMembersType) -> type[StructType]:
+    def create(name: str, members: StructCreateMembersType) -> type[_StructType]:
         _fields = []
-        member: tuple
+        member: tuple[str, type[DataType]] | tuple[str, type[DataType], Field]
         for i, member in enumerate(members):
             if len(member) == 2:
-                _name, typ = member
+                _name, typ = cast(tuple[str, type[DataType]], member)
                 _field = None
             else:
-                _name, typ, _field = member
+                _name, typ, _field = cast(tuple[str, type[DataType], Field], member)
 
             if not _name:
                 _name = f'_reserved_attr{i}'
@@ -458,38 +504,32 @@ class StructType(DerivedDataType, metaclass=_StructMeta):
 
             _fields.append((_name, typ, _field))
 
-        struct_class: type[StructType] = make_dataclass(  # noqa
+        struct_class: type[_StructType] = make_dataclass(  # noqa
             cls_name=name,
             fields=_fields,
-            bases=(StructType, ),
+            bases=(StructType,),
         )
 
         return struct_class
 
 
 class _ArrayReprMeta(_DataTypeMeta):
-    def __repr__(cls: "ArrayType") -> str:
+    def __repr__(cls: _ArrayType) -> str:  # type: ignore
         if cls.length in (Ellipsis, None):
             return f"{cls.element_type}[...]"
 
         return f"{cls.element_type}[{cls.length!r}]"
 
-    # __str__ = __repr__
 
-
-ArrayElementType = TypeVar('ArrayElementType', bound=DataType)
-ArrayLengthType = Union[Type[IntDataType], int, None, type(Ellipsis)]
-
-
-class ArrayType(DerivedDataType[Sequence[ArrayElementType]], metaclass=_ArrayReprMeta):
+class ArrayType(Generic[ArrayElementType, ArrayLengthType], DerivedDataType, metaclass=_ArrayReprMeta):
     """
     Base type for an array
     """
 
-    element_type: type[ArrayElementType] = None
-    length: ArrayLengthType = None
+    element_type: type[ArrayElementType]
+    length: ArrayLengthType
 
-    def __init__(self, value: Sequence[ArrayElementType]) -> None:
+    def __init__(self: _ArrayType, value: Sequence[ArrayElementType | PyType]) -> None:
         if isinstance(self.length, int):
             try:
                 val_len = len(value)
@@ -497,74 +537,62 @@ class ArrayType(DerivedDataType[Sequence[ArrayElementType]], metaclass=_ArrayRep
                 raise DataError('invalid value for array, must support len()') from err
             else:
                 if val_len != self.length:
-                    raise DataError(f'Array length error: expected {self.length} items, received {len(value)}')
+                    raise DataError(
+                        f'Array length error: expected {self.length} items, received {len(value)}'
+                    )
 
-        self._array = [self._convert_element(v) for v in value]
+        self._array: list[ArrayElementType] = [self._convert_element(v) for v in value]
 
-    def _convert_element(self, value) -> ArrayElementType:
+    def _convert_element(self, value: PyType) -> ArrayElementType:
         if not isinstance(value, self.element_type):  # noqa - PyCharm Issue: PY-32860
             try:
-                value = self.element_type(value)
+                val = self.element_type(value)
             except Exception as err:
                 raise DataError(f'Error converting element:') from err
+        else:
+            val = value
+        return val
 
-        return value
-
-    def __len__(self):
+    def __len__(self: _ArrayType) -> int:
         return len(self._array)
 
-    def __getitem__(self, item):
+    @overload
+    def __getitem__(self: _ArrayType, item: int) -> ArrayElementType: ...
+
+    @overload
+    def __getitem__(self: _ArrayType, item: slice) -> list[ArrayElementType]: ...
+
+    def __getitem__(self: _ArrayType, item: int | slice) -> ArrayElementType | list[ArrayElementType]:
         return self._array[item]
 
-    def __setitem__(self, item, value):
-        if isinstance(item, slice):
-            self._array[item] = (self._convert_element(v) for v in value)
-        else:
-            self._array[item] = self._convert_element(value)
+    def __setitem__(self: _ArrayType, item: int | slice, value: PyType | Iterable[PyType]) -> None:
+        try:
+            if isinstance(item, slice):
+
+                self._array[item] = (self._convert_element(v) for v in cast(Iterable[PyType], value))
+            else:
+                self._array[item] = self._convert_element(value)
+        except Exception as err:
+            raise DataError(f'Failed to set item') from err
+
         self.__encoded_value__ = b''
 
-    def __bytes__(self) -> bytes:
+    def __bytes__(self: _ArrayType) -> bytes:
         if not self.__encoded_value__:
-            self.__encoded_value__ = self.__class__.encode(self._array)
+            self.__encoded_value__ = self.__class__.encode(self)
 
         return self.__encoded_value__
 
     @classmethod
-    def _encode(cls, value: ArrayType, *args, **kwargs) -> bytes:
+    def _encode(cls: type[_ArrayType], value: _ArrayType, *args, **kwargs) -> bytes:
         encoded_elements = b''.join(bytes(x) for x in value._array)
         if value.length in IntDataType.__subclasses__():
             return bytes(value.length(len(value))) + encoded_elements
 
         return encoded_elements
-        # _length = length or cls.length
-        # if isinstance(_length, int):
-        #     if len(values) != _length:
-        #         raise DataError(f"Not enough values to encode array of {cls.element_type}[{_length}]")
-        #
-        #     _len = _length
-        # else:
-        #     _len = len(values)
-        #
-        # try:
-        #     # if is_datatype(cls.element_type, BytesDataType):
-        #     #     if not isinstance(values, (bytes, bytearray)):
-        #     #         raise DataError('BytesDataType value must be a bytes/bytearray object')
-        #     #     return values[:_len]
-        #     #
-        #     # if is_datatype(cls.element_type, BitArrayType):
-        #     #     chunk_size = cls.element_type.size * 8
-        #     #     _len = len(values) // chunk_size
-        #     #     values = [values[i : i + chunk_size] for i in range(0, len(values), chunk_size)]
-        #
-        #     return b"".join(cls.element_type.encode(v) for v in values)
-        # except Exception as err:
-        #     raise DataError(f"Error packing {reprlib.repr(values)} into {cls.element_type}[{_length}]") from err
 
     @classmethod
-    def _decode_all(cls, stream) -> list[ArrayElementType]:
-        # if issubclass(cls.element_type, BytesDataType):
-        #     return cls._stream_read(stream, -1)
-
+    def _decode_all(cls: type[_ArrayType], stream: BytesIO) -> list[ArrayElementType]:
         _array = []
         while True:
             try:
@@ -574,32 +602,27 @@ class ArrayType(DerivedDataType[Sequence[ArrayElementType]], metaclass=_ArrayRep
         return _array
 
     @classmethod
-    def decode(cls, buffer: _BufferType, length: Optional[int] = None) -> ArrayType:
-        _length = length or cls.length
+    def decode(cls: type[_ArrayType], buffer: _BufferType) -> _ArrayType:
         try:
             stream = _as_stream(buffer)
-            if _length in {None, Ellipsis}:
+            if cls.length in {None, Ellipsis}:
                 return cls(cls._decode_all(stream))
 
-            if is_datatype(_length, DataType):
-                _len = _length.decode(stream)
+            if is_datatype(cls.length, DataType):
+                _len = cls.length.decode(stream)
             else:
-                _len = _length
-
-            # if is_datatype(cls.element_type, BytesDataType):
-            #     return cls(cls._stream_read(stream, _len))
+                _len = cls.length
 
             _val = [cls.element_type.decode(stream) for _ in range(_len)]
-
-            # if is_datatype(cls.element_type, BitArrayType):
-            #     return list(chain.from_iterable(_val))
 
             return cls(_val)
         except Exception as err:
             if isinstance(err, BufferEmptyError):
                 raise
             else:
-                raise DataError(f"Error unpacking into {cls.element_type}[{_length}] from {_repr(buffer)}") from err
+                raise DataError(
+                    f"Error unpacking into {cls.element_type}[{cls.length}] from {_repr(buffer)}"
+                ) from err
 
     def __repr__(self):
         return f'{self.__class__!r}({self._array!r})'

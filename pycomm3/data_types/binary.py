@@ -7,6 +7,7 @@ __all__ = (
     'BOOL',
     'BYTES',
     'BYTE',
+    'ENGUNIT',
     'WORD',
     'DWORD',
     'LWORD',
