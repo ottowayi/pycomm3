@@ -130,12 +130,13 @@ class SLCDriver(CIPDriver):
                 b"\x4b",
                 b"\x02",
                 b"\x20",  # 8-bit class
-                PCCC_PATH,
+                PCCC_PATH,  # b"\x67\x24\x01"
                 b"\x07",
-                self._cfg["vid"],
-                self._cfg["vsn"],
+                self._cfg["vid"], #"vid": b"\x09\x10",
+                self._cfg["vsn"], #"vsn": b"\x09\x10\x19\x71",
             )
         )
+
 
     @with_forward_open
     def read(self, *addresses: str) -> ReadWriteReturnType:
@@ -178,8 +179,10 @@ class SLCDriver(CIPDriver):
         request.add(b"".join(message_request))
         response = self.send(request)
         self.__log.debug(f"SLC read_tag({tag})")
+        
 
         status = request_status(response.raw)
+
         if status is not None:
             return Tag(_tag["tag"], None, _tag["file_type"], status)
 
@@ -274,7 +277,67 @@ class SLCDriver(CIPDriver):
                 f"failed to get processor type: {request_status(response.raw)}",
             )
             return None
+        
+    @with_forward_open
+    def get_datalog_queue(self, num_data_logs, queue_num):
+        data = []
+        
+        for i in range(num_data_logs):        
+            data.append(self._get_datalog(queue_num))
+        
+        #extra read to clear the queue
+        #will thow error in _get_datalog due to Status == None
+        trash = self._get_datalog(queue_num)
+        
+        if data is not None:
+            return data
+        else:
+            raise ResponseError("No Data in Queue")
+        raise ResponseError("Failed to read processor type")
+        
+    def _get_datalog(self, queue_num):
+        msg_request = [
+            b"\x4b",            # Ethernet/IP Service Code
+            b"\x02",            # Request Path Size, 2 words
+            b"\x20",            # Request Path, Path Segment (8-bit Class)
+            b"\x67",            # Request Path, Path Segment, Class (PCCC Class)
+            b"\x24",            # Request Path, Path Segment (8 Bit Instance)
+            b"\x01",            # Request Path, Path Segment, Instance 
+            b"\x07",            # Requestor ID, Length
+            b"\x4d\x00",        # Requestor ID, CIP Vendor ID
+            b"\xa1\x4e\xc3\x30",# Requestor ID, CIP Serial Number
+            b"\x0f",            # PCCC Command Data, CMD code
+            b"\x00",            # PCCC Command Data, Status Code
+            b"\x30\x00",         # PCCC Command Data, Transaction Code
+            b"\xa2",            # PCCC Command Data, Function Code
+            b"\x6d",            # Function Specific Data, Byte Size
+            b"\x00",            # Function Specific Data, File Number
+            b"\xa5",            # Function Specific Data, File Type
+            USINT.encode(queue_num), # Function Specific Data, Element Number (queue to be read)
+            b"\x00",            # Function Specific Data, Sub-Element Number
+        ]
+        
+        request = SendUnitDataRequestPacket(self._sequence)
+        request.add(b"".join(msg_request))
+        response = self.send(request)
 
+        status = request_status(response.raw)
+        
+        if status is None:
+            try:
+                datalog_entry = response.raw[SLC_REPLY_START:]
+                datalog_entry = datalog_entry.decode("UTF-8")
+            except Exception as err:
+                self.__log.exception("Failed to retreive data log")
+            finally:
+                return datalog_entry
+        else:
+            self.__log.error(
+                f"Failed to retreive data log",
+            )
+            return None
+        
+    
     @with_forward_open
     def get_file_directory(self):
         plc_type = self.get_processor_type()
@@ -283,7 +346,7 @@ class SLCDriver(CIPDriver):
             sys0_info = _get_sys0_info(plc_type)
             # file_type, element = _get_file_and_element_for_plc_type(plc_type)
             sys0_info["size"] = self._get_file_directory_size(sys0_info)
-
+            
             if sys0_info["size"] is not None:
                 data = self._read_whole_file_directory(sys0_info)
                 return _parse_file0(sys0_info, data)
@@ -433,6 +496,7 @@ def _get_sys0_info(plc_type):
             "size_element": b"\x2b",
             "size_len": b"\x08",
             "size_const": 19968,  # no idea why, but this seems like a const added to the size? wtf?
+            "file_type_queue": b"\xA5",
         }
     else:  # SLC 5/05
         return {
