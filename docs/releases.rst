@@ -2,6 +2,13 @@
 Release History
 ===============
 
+1.2.9
+=====
+
+SLCDriver
+---------
+- |:sparkles:| added `get_datalog_queue` method @ddeckerCPF
+
 1.2.8
 =====
 
