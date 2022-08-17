@@ -180,9 +180,9 @@ class SLCDriver(CIPDriver):
         response = self.send(request)
         self.__log.debug(f"SLC read_tag({tag})")
         
-        print(UINT.decode(response.raw[SLC_REPLY_START:]))
+
         status = request_status(response.raw)
-        print(status)
+
         if status is not None:
             return Tag(_tag["tag"], None, _tag["file_type"], status)
 
@@ -374,7 +374,6 @@ class SLCDriver(CIPDriver):
         status = request_status(response.raw)
         if status is None:
             try:
-                print(UINT.decode(response.raw[SLC_REPLY_START:]))
                 size = UINT.decode(response.raw[SLC_REPLY_START:]) - sys0_info.get("size_const", 0)
                 self.__log.debug(f"SYS 0 file size: {size}")
             except Exception as err:
