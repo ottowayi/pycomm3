@@ -2,6 +2,14 @@
 Release History
 ===============
 
+1.2.10
+======
+
+CIPDriver
+---------
+- |:sparkles:| support port customization in the connection path
+- |:sparkles:| support comma delimiters in the connection path
+
 1.2.9
 =====
 
