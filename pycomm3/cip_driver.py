@@ -112,23 +112,6 @@ class CIPDriver:
     _auto_slot_cip_path = False
 
     def __init__(self, path: str, *args, **kwargs):
-        """
-        :param path: CIP path to intended target
-
-            The path may contain 3 forms:
-
-            - IP Address Only (``10.20.30.100``) - Use for a ControlLogix PLC is in slot 0 or if connecting to a CompactLogix or Micro800 PLC.
-            - IP Address/Slot (``10.20.30.100/1``) - (ControlLogix) if PLC is not in slot 0
-            - CIP Routing Path (``1.2.3.4/backplane/2/enet/6.7.8.9/backplane/0``) - Use for more complex routing.
-
-            .. note::
-
-                Both the IP Address and IP Address/Slot options are shortcuts, they will be replaced with the
-                CIP path automatically.  The ``enet`` / ``backplane`` (or ``bp``) segments are symbols for the CIP routing
-                port numbers and will be replaced with the correct value.
-
-        """
-
         self._sequence: cycle = cycle(65535, start=1)
         self._sock: Optional[Socket] = None
         self._session: int = 0
