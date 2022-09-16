@@ -39,7 +39,12 @@ There are three possible forms:
     .. note::
 
         Both the IP Address and IP Address/Slot options are shortcuts, they will be replaced with the
-        CIP path automatically in the LogixDriver and SLCDriver.
+        CIP path automatically in the LogixDriver and SLCDriver, the CIPDriver will not modify the path.
+
+    .. note::
+
+        Path segments may be delimited by forward or back slashes or commas, e.g. ``10.10.30.100,bp,0``.
+        To use a custom port, provide it following a colon with the IP address, e.g. ``10.20.30.100:4444``.
 
 >>> from pycomm3 import CIPDriver
 >>> with CIPDriver('10.20.30.100') as drive:
