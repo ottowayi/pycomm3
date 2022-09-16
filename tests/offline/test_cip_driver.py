@@ -30,21 +30,19 @@ from . import Mocket
 CONNECT_PATH = "192.168.1.100"
 
 
-_simple_path = (
-    "192.168.1.100",
-    [
-        PortSegment("bp", 0),
-    ],
-)
+_simple_path = ("192.168.1.100", None, [PortSegment("bp", 0)])
 _simple_paths = [
     "192.168.1.100/bp/0",
     "192.168.1.100/backplane/0",
     r"192.168.1.100\bp\0",
     r"192.168.1.100\backplane\0",
+    "192.168.1.100,bp,0",
+    "192.168.1.100,1,0",
 ]
 
 _route_path = (
     "192.168.1.100",
+    None,
     [
         PortSegment(port="backplane", link_address=1),
         PortSegment(port="enet", link_address="10.11.12.13"),
@@ -54,12 +52,15 @@ _route_path = (
 _route_paths = [
     "192.168.1.100/backplane/1/enet/10.11.12.13/bp/0",
     r"192.168.1.100\backplane\1\enet\10.11.12.13\bp\0",
+    "192.168.1.100,backplane,1,enet,10.11.12.13,bp,0",
 ]
 
 path_tests = [
     *[(p, _simple_path) for p in _simple_paths],
     *[(p, _route_path) for p in _route_paths],
-    ("192.168.1.100", ("192.168.1.100", [])),
+    ("192.168.1.100", ("192.168.1.100", None, [])),
+    ('192.168.1.100:123', ('192.168.1.100', 123, [])),
+    ('192.168.1.100:123/bp,0', ('192.168.1.100', 123, _simple_path[-1]))
 ]
 
 
@@ -91,8 +92,16 @@ _bad_paths = [
     "1.1.1.300",
     "192.168.1.100/Z",
     "bp/0",
+    "192.168.1.100/-1",
     "192.168.1.100/backplan/1",
     "192.168.1.100/backplane/1/10.11.12.13/bp/0",
+    "192.168.1.100//bp/1",
+    "192.168.1.100/",
+    "192.168.1.100,bp,1,0",
+    "192.168.1.100,",
+    "192.168.1.100:abc",
+    "192.168.1.100:/bp/0",
+    "192.168.100:-123",
 ]
 
 
@@ -101,7 +110,7 @@ def test_bad_plc_paths(path):
     with pytest.raises(
         (DataError, RequestError),
     ):
-        ip, segments = parse_connection_path(path)
+        ip, port, segments = parse_connection_path(path)
         PADDED_EPATH.encode(segments, length=True)
 
 

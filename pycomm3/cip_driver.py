@@ -137,13 +137,13 @@ class CIPDriver:
         self._target_is_connected: bool = False
         self._info: Dict[str, Any] = {}
         self._cip_path = path
-        ip, _path = parse_connection_path(path, self._auto_slot_cip_path)
+        ip, port, _path = parse_connection_path(path, self._auto_slot_cip_path)
 
         self._cfg = {
             "context": b"_pycomm_",
             "protocol version": b"\x01\x00",
             "rpi": 5000,
-            "port": 44818,
+            "port": port or 44818,
             "timeout": 10,
             "ip address": ip,
             "cip_path": _path,
@@ -605,15 +605,27 @@ class CIPDriver:
             return reply
 
 
-def parse_connection_path(path: str, auto_slot: bool = False) -> Tuple[str, List[PortSegment]]:
+def parse_connection_path(path: str, auto_slot: bool = False) -> Tuple[str, Optional[int], List[PortSegment]]:
     """
     Parses and validates the CIP path into the destination IP and
     sequence of port/link segments.
     Returns the IP and a list of PortSegments
     """
     try:
-        path = path.replace("\\", "/")
+        path = path.replace("\\", "/").replace(",", "/")
         ip, *route = path.split("/")
+        if ':' in ip:
+            ip, port = ip.split(':')
+            try:
+                port = int(port)
+            except Exception as err:
+                raise RequestError(f'Invalid port: {port}')
+            else:
+                if 0 > port >= 65535:
+                    raise RequestError(f'Invalid port: {port}')
+
+        else:
+            port = None
 
         try:
             ipaddress.ip_address(ip)
@@ -627,7 +639,7 @@ def parse_connection_path(path: str, auto_slot: bool = False) -> Tuple[str, List
     except Exception as err:
         raise RequestError(f"Failed to parse connection path: {path}") from err
     else:
-        return ip, _path
+        return ip, port, _path
 
 
 def parse_cip_route(path: Union[str, List[str]], auto_slot: bool = False) -> List[PortSegment]:
