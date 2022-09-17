@@ -1478,6 +1478,7 @@ _VENDORS = {
     1238: "Global Engineering Solutions Co., Ltd.",
     1239: "ALTE Transportation, S.L.",
     1240: "Penko Engineering B.V.",
+    1391: "Invertek Drives Ltd",
 }
 
 VENDORS = {
