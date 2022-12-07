@@ -90,11 +90,13 @@ from .packets import (
     ReadModifyWriteRequestPacket,
 )
 from .tag import Tag
+from threading import Lock
 
 AtomicValueType = Union[int, float, bool, str]
 TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, "TagValueType"]]
 ReadWriteReturnType = Union[Tag, List[Tag]]
-
+# create a lock
+lock = Lock()
 
 class LogixDriver(CIPDriver):
     """
@@ -905,54 +907,56 @@ class LogixDriver(CIPDriver):
         :return: a single or list of ``Tag`` objects
         """
 
-        parsed_requests = self._parse_requested_tags(tags, "r")
-        requests = self._read_build_requests(parsed_requests)
-        read_results = self._send_requests(requests)
+        global lock
+        with lock: # acquire lock
+            parsed_requests = self._parse_requested_tags(tags, "r")
+            requests = self._read_build_requests(parsed_requests)
+            read_results = self._send_requests(requests)
 
-        results = []
+            results = []
 
-        for i, tag in enumerate(tags):
-            try:
-                request_data = parsed_requests[i]
-                if request_data.get("error"):
-                    results.append(Tag(tag, None, None, request_data["error"]))
-                    continue
+            for i, tag in enumerate(tags):
+                try:
+                    request_data = parsed_requests[i]
+                    if request_data.get("error"):
+                        results.append(Tag(tag, None, None, request_data["error"]))
+                        continue
 
-                result = read_results[i]
-                bool_elements = request_data["bool_elements"]
-                if result:
-                    bit = request_data.get("bit")
+                    result = read_results[i]
+                    bool_elements = request_data["bool_elements"]
+                    if result:
+                        bit = request_data.get("bit")
 
-                    if request_data["tag_info"]["data_type_name"] != "DWORD":
-                        if bit is not None:
-                            result = Tag(
-                                request_data["user_tag"],
-                                bool(result.value & 1 << bit),
-                                "BOOL",
-                                result.error,
-                            )
-                    else:
-                        bit = bit or 0
-                        if bool_elements is not None:
-                            bools = result.value[bit : bit + bool_elements]
-                            data_type = f"BOOL[{bool_elements}]"
-                            result = Tag(request_data["user_tag"], bools, data_type, result.error)
+                        if request_data["tag_info"]["data_type_name"] != "DWORD":
+                            if bit is not None:
+                                result = Tag(
+                                    request_data["user_tag"],
+                                    bool(result.value & 1 << bit),
+                                    "BOOL",
+                                    result.error,
+                                )
                         else:
-                            val = result.value[bit]
-                            result = Tag(request_data["user_tag"], val, "BOOL", result.error)
-                else:
-                    result = Tag(request_data["user_tag"], None, None, result.error)
+                            bit = bit or 0
+                            if bool_elements is not None:
+                                bools = result.value[bit : bit + bool_elements]
+                                data_type = f"BOOL[{bool_elements}]"
+                                result = Tag(request_data["user_tag"], bools, data_type, result.error)
+                            else:
+                                val = result.value[bit]
+                                result = Tag(request_data["user_tag"], val, "BOOL", result.error)
+                    else:
+                        result = Tag(request_data["user_tag"], None, None, result.error)
 
-                results.append(result)
+                    results.append(result)
 
-            except Exception as err:
-                self.__log.exception("Invalid tag request")
-                results.append(Tag(tag, None, None, f"Invalid tag request - {err!r}"))
+                except Exception as err:
+                    self.__log.exception("Invalid tag request")
+                    results.append(Tag(tag, None, None, f"Invalid tag request - {err!r}"))
 
-        if len(tags) > 1:
-            return results
-        else:
-            return results[0]
+            if len(tags) > 1:
+                return results
+            else:
+                return results[0]
 
     def _read_build_requests(self, parsed_tags):
         if len(parsed_tags) != 1 and not self._micro800:
