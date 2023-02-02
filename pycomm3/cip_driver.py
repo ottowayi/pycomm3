@@ -177,7 +177,7 @@ class CIPDriver:
         return self._cfg["connection_size"]
 
     @classmethod
-    def list_identity(cls, path) -> Optional[str]:
+    def list_identity(cls, path) -> Optional[Dict[str, Any]]:
         """
         Uses the ListIdentity service to identify the target
 
