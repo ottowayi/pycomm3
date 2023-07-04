@@ -24,12 +24,14 @@
 
 __all__ = [
     "LogixDriver",
+    "TagRadix",
 ]
 
 import datetime
 import logging
 import operator
 import time
+from enum import IntEnum
 from functools import reduce
 from io import BytesIO
 from typing import List, Tuple, Optional, Union, Dict, Type, Sequence
@@ -69,6 +71,8 @@ from .const import (
     SEC_TO_US,
     TEMPLATE_MEMBER_INFO_LEN,
     MIN_VER_EXTERNAL_ACCESS,
+    TAG_RADIX_MASK,
+    TAG_RADIX_OFFSET,
 )
 from .custom_types import (
     StructTemplateAttributes,
@@ -644,11 +648,15 @@ class LogixDriver(CIPDriver):
             "external_access",
             "dimensions",
         ]
+        try:
+            radix = TagRadix((raw_tag['software_control'] & TAG_RADIX_MASK) >> TAG_RADIX_OFFSET)
+        except ValueError:
+            radix = None
         new_tag = {
             "tag_name": name,
-            "dim": (raw_tag["symbol_type"] & 0b0110000000000000)
-            >> 13,  # bit 13 & 14, number of array dims
+            "dim": (raw_tag["symbol_type"] & 0b0110000000000000) >> 13,  # bit 13 & 14, number of array dims
             "alias": False if raw_tag["software_control"] & BASE_TAG_BIT else True,
+            "radix": radix,
             **{k: raw_tag[k] for k in copy_keys},
         }
 
@@ -1524,3 +1532,16 @@ def _tag_return_size(tag_data):
     size = size * tag_data["elements"]
 
     return size
+
+
+class TagRadix(IntEnum):
+    null: int = 0x00
+    binary: int = 0x02
+    octal: int = 0x03
+    decimal: int = 0x04
+    hex: int = 0x05
+    exponential: int = 0x06
+    float: int = 0x07
+    ascii: int = 0x08
+    datetime: int = 0x0A
+
