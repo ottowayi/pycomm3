@@ -2,6 +2,11 @@
 Release History
 ===============
 
+1.2.11
+======
+
+- |:sparkles:| update vendor id list #257 @PhilippHaefele
+
 1.2.10
 ======
 
