@@ -190,7 +190,7 @@ class CIPDriver:
         return identity
 
     @classmethod
-    def discover(cls) -> List[Dict[str, Any]]:
+    def discover(cls, broadcast_address="255.255.255.255") -> List[Dict[str, Any]]:
         """
         Discovers available devices on the current network(s).
         Returns a list of the discovered devices Identity Object (as ``dict``).
@@ -209,13 +209,13 @@ class CIPDriver:
 
         for ip in ip_addrs:
             cls.__log.debug(f"Broadcasting discover for IP: %s", ip)
-            devices += cls._broadcast_discover(ip, message, request)
+            devices += cls._broadcast_discover(ip, message, request, broadcast_address)
 
         if not devices:
             cls.__log.debug(
                 "No devices found so far, attempting broadcast without binding to an IP."
             )
-            devices += cls._broadcast_discover(None, message, request)
+            devices += cls._broadcast_discover(None, message, request, broadcast_address)
 
         if devices:
             cls.__log.info(f"Discovered %d device(s): %r", len(devices), devices)
@@ -225,7 +225,7 @@ class CIPDriver:
         return devices
 
     @classmethod
-    def _broadcast_discover(cls, ip, message, request):
+    def _broadcast_discover(cls, ip, message, request, broadcast_address="255.255.255.255"):
         devices = []
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -234,7 +234,7 @@ class CIPDriver:
             if ip:
                 sock.bind((ip, 0))
 
-            sock.sendto(message, ("255.255.255.255", 44818))
+            sock.sendto(message, (broadcast_address, 44818))
 
             while True:
                 try:
