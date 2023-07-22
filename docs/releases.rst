@@ -2,7 +2,7 @@
 Release History
 ===============
 
-1.2.12
+1.2.13
 ======
 
 CIPDriver
