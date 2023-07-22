@@ -2,6 +2,13 @@
 Release History
 ===============
 
+1.2.12
+======
+
+CIPDriver
+---------
+- |:sparkles:| add ability to specify broadcast address for `discover()` #292 @tlf30
+
 1.2.11
 ======
 
