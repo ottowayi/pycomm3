@@ -137,6 +137,7 @@ class CIPDriver:
             "vsn": b"\x09\x10\x19\x71",
             "extended forward open": True,
             "connection_size": 4000,
+            "socket_timeout": 5.0,
         }
 
     def __enter__(self):
@@ -175,6 +176,15 @@ class CIPDriver:
     def connection_size(self):
         """CIP connection size, ``4000`` if using Extended Forward Open else ``500``"""
         return self._cfg["connection_size"]
+
+    @property
+    def socket_timeout(self):
+        """Socket open connection timeout, in seconds"""
+        return self._cfg["socket_timout"]
+
+    @socket_timeout.setter
+    def socket_timeout(self, value):
+        self._cfg["socket_timout"] = value
 
     @classmethod
     def list_identity(cls, path) -> Optional[Dict[str, Any]]:
@@ -295,7 +305,7 @@ class CIPDriver:
             return True
         try:
             if self._sock is None:
-                self._sock = Socket()
+                self._sock = Socket(self._cfg["socket_timout"])
             self.__log.debug(f'Opening connection to {self._cfg["ip address"]}')
             self._sock.connect(self._cfg["ip address"], self._cfg["port"])
             self._connection_opened = True
