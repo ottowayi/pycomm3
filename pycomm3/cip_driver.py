@@ -305,7 +305,7 @@ class CIPDriver:
             return True
         try:
             if self._sock is None:
-                self._sock = Socket(self._cfg["socket_timout"])
+                self._sock = Socket(self._cfg["socket_timeout"])
             self.__log.debug(f'Opening connection to {self._cfg["ip address"]}')
             self._sock.connect(self._cfg["ip address"], self._cfg["port"])
             self._connection_opened = True
@@ -614,16 +614,11 @@ def parse_connection_path(path: str, auto_slot: bool = False) -> Tuple[str, Opti
             except Exception as err:
                 raise RequestError(f'Invalid port: {port}')
             else:
-                if 0 > port >= 65535:
+                if port <= 0 or port >= 65535:
                     raise RequestError(f'Invalid port: {port}')
 
         else:
             port = None
-
-        try:
-            ipaddress.ip_address(ip)
-        except ValueError as err:
-            raise RequestError(f"Invalid IP Address: {ip}") from err
 
         _path = parse_cip_route(route, auto_slot)
 

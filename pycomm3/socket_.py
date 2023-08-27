@@ -40,9 +40,9 @@ class Socket:
 
     def connect(self, host, port):
         try:
-            self.sock.connect((host, port))
-        except socket.timeout:
-            raise CommError("Socket timeout during connection.")
+            self.sock.connect((socket.gethostbyname(host), port))
+        except socket.error:
+            raise CommError(f"Failed to open socket to {host}:{port}")
 
     def send(self, msg, timeout=0):
         if timeout != 0:
