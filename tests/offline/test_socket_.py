@@ -31,6 +31,24 @@ def test_socket_init_creates_socket():
         assert my_sock
         mock_socket.assert_called_once()
 
+
+def test_socket_connect_raises_commerror_on_failed_host_lookup():
+    """Test the Socket.connect method.
+
+    This test covers both the calling of Python socket's connect and
+    the pycomm exception being raised.
+    """
+    with mock.patch.object(socket.socket, 'connect') as mock_socket_connect:
+        with mock.patch.object(socket, 'gethostbyname') as mock_socket_gethost:
+            mock_socket_gethost.side_effect = socket.gaierror
+            my_sock = Socket()
+            with pytest.raises(CommError):
+                my_sock.connect('123.456.789.101', 12345)
+
+        mock_socket_connect.assert_not_called()
+        mock_socket_gethost.assert_called_once()
+
+
 def test_socket_connect_raises_commerror_on_timeout():
     """Test the Socket.connect method.
 
@@ -38,12 +56,15 @@ def test_socket_connect_raises_commerror_on_timeout():
     the pycomm exception being raised.
     """
     with mock.patch.object(socket.socket, 'connect') as mock_socket_connect:
-        mock_socket_connect.side_effect = socket.timeout
-        my_sock = Socket()
-        with pytest.raises(CommError):
-            my_sock.connect('123.456.789.101', 12345)
+        with mock.patch.object(socket, 'gethostbyname') as mock_socket_gethost:
+            mock_socket_connect.side_effect = socket.timeout
+            my_sock = Socket()
+            with pytest.raises(CommError):
+                my_sock.connect('123.456.789.101', 12345)
 
         mock_socket_connect.assert_called_once()
+        mock_socket_gethost.assert_called_once()
+
 
 def test_socket_send_raises_commerror_on_no_bytes_sent():
     TEST_MSG = b"Meaningless Data"
