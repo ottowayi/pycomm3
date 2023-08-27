@@ -2,6 +2,11 @@
 Release History
 ===============
 
+1.2.14
+======
+
+- |:sparkles:| add support for hostnames in connection path
+
 1.2.13
 ======
 
