@@ -335,24 +335,26 @@ class LogixDriver(CIPDriver):
         except Exception as err:
             raise ResponseError("Failed to get PLC info") from err
 
-    def get_plc_time(self, fmt: str = "%A, %B %d, %Y %I:%M:%S%p") -> Tag:
+    def get_plc_time(self, fmt: str = "%A, %B %d, %Y %I:%M:%S%p", tz: datetime.timezone = None) -> Tag:
         """
-        Gets the current time of the PLC system clock. The ``value`` attribute will be a dict containing the time in
-        3 different forms, *datetime* is a Python datetime.datetime object, *microseconds* is the integer value epoch time,
-        and *string* is the *datetime* formatted using ``strftime`` and the ``fmt`` parameter.
+        Gets the current time of the PLC system clock. UTC is returned unless ``tz`` is specified. The ``value`` attribute will
+        be a dict containing the time in 3 different forms, *datetime* is a Python datetime.datetime object, *microseconds*
+        is the integer value epoch time, and *string* is the *datetime* formatted using ``strftime`` and the ``fmt`` parameter.
 
         :param fmt: format string for converting the time to a string
+        :param tz: specific datetime.timezone, local system time if omitted or None
         :return: a Tag object with the current time
         """
         tag = self.generic_message(
             service=Services.get_attribute_list,
             class_code=ClassCode.wall_clock_time,
             instance=b"\x01",
-            request_data=b"\x01\x00\x0B\x00",
+            request_data=b"\x01\x00\x06\x00",
             data_type=Struct(n_bytes(6), ULINT("µs")),
         )
         if tag:
             _time = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=tag.value["µs"])
+            _time = _time.replace(tzinfo=datetime.timezone.utc).astimezone(tz=tz)
             value = {
                 "datetime": _time,
                 "microseconds": tag.value["µs"],
