@@ -26,6 +26,7 @@ import string
 
 from io import BytesIO
 from typing import Union, Optional
+from collections.abc import Sequence
 
 from ..cip import (
     ClassCode,
@@ -75,14 +76,29 @@ def wrap_unconnected_send(message: bytes, route_path: bytes) -> bytes:
 
 
 def request_path(
-    class_code: Union[int, bytes],
-    instance: Union[int, bytes],
+    class_code: Union[int, bytes, Sequence],
+    instance: Union[int, bytes, Sequence],
     attribute: Union[int, bytes] = b"",
 ) -> bytes:
-    segments = [
-        LogicalSegment(class_code, "class_id"),
-        LogicalSegment(instance, "instance_id"),
-    ]
+    segments = []
+    if isinstance(class_code, Sequence):
+        if isinstance(instance, Sequence):
+            for c, i in zip(class_code, instance):
+                segments.append(LogicalSegment(c, "class_id"))
+                segments.append(LogicalSegment(i, "instance_id"))
+        else:
+            for c in class_code:
+                segments.append(LogicalSegment(c, "class_id"))
+                segments.append(LogicalSegment(instance, "instance_id"))
+    elif isinstance(instance, Sequence):
+        for i in instance:
+            segments.append(LogicalSegment(class_code, "class_id"))
+            segments.append(LogicalSegment(i, "instance_id"))
+    else:
+        segments = [
+            LogicalSegment(class_code, "class_id"),
+            LogicalSegment(instance, "instance_id"),
+        ]
 
     if attribute:
         segments.append(LogicalSegment(attribute, "attribute_id"))
