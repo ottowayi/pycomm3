@@ -552,7 +552,8 @@ class CIPDriver:
         self.__log.info("Sending generic message: %s", name)
         response = self.send(request)
         if not response:
-            self.__log.error("Generic message %r failed: %s", name, response.error)
+            log_method = self.__log.debug if kwargs.get("return_response_packet") else self.__log.error
+            log_method("Generic message %r failed: %s", name, response.error)
         else:
             self.__log.info("Generic message %r completed", name)
 

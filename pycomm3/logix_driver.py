@@ -731,7 +731,7 @@ class LogixDriver(CIPDriver):
                             UINT.encode(((object_definition_size * 4) - 21) - offset),
                         )
                     ),
-                    name=f"_read_template(instance_id={instance_id}, object_definition_size={object_definition_size})",
+                    name=f"_read_template(instance_id={instance_id}, object_definition_size={object_definition_size}, offset={offset})",
                     return_response_packet=True,
                 )
                 response_pkt = response.value
