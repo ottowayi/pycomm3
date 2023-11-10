@@ -368,7 +368,8 @@ class LogixDriver(CIPDriver):
         """
         Set the time of the PLC system clock.
 
-        :param microseconds: None to use client PC clock, else timestamp in microseconds to set the PLC clock to
+        :param microseconds: None to use client PC clock, else timestamp in microseconds to set the PLC clock to.
+                             Timestamp is uS since epoch 1970-1-1, 00:00 UTC
         :return: Tag with status of request
         """
         if microseconds is None:
