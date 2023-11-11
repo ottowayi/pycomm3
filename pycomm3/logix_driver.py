@@ -33,6 +33,8 @@ import time
 from functools import reduce
 from io import BytesIO
 from typing import List, Tuple, Optional, Union, Dict, Type, Sequence
+from typing_extensions import deprecated
+import warnings
 
 from . import util
 from .cip import (
@@ -892,19 +894,28 @@ class LogixDriver(CIPDriver):
 
         return self._cache["id:udt"][instance_id]
 
+    def read_one(self, tag: str, raise_errors: bool = False) -> Tag:
+        """
+        Read the value of a single tag.  Supports arrays (specify element count in using curly braces (array{10}).
+        Also supports full structure reading (when possible), return value will be a NamedTuple.
+
+        :param tag: tag to read
+        :return: a single ``Tag`` object
+        """
+        return self.read_many(tag, raise_errors=raise_errors)[0]
+
     @with_forward_open
-    def read(self, *tags: str) -> ReadWriteReturnType:
+    def read_many(self, *tags: str, raise_errors: bool = False) -> List[Tag]:
         """
         Read the value of tag(s).  Automatically will split tags into multiple requests by tracking the request and
         response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
         use fragmented read requests if the response size will not fit in a single packet.  Supports arrays (specify element
         count in using curly braces (array{10}).  Also supports full structure reading (when possible), return value
-        will be a dict of {attribute name: value}.
+        will be a list of NamedTuples.
 
         :param tags: one or many tags to read
-        :return: a single or list of ``Tag`` objects
+        :return: list of ``Tag`` objects
         """
-
         parsed_requests = self._parse_requested_tags(tags, "r")
         requests = self._read_build_requests(parsed_requests)
         read_results = self._send_requests(requests)
@@ -947,12 +958,28 @@ class LogixDriver(CIPDriver):
 
             except Exception as err:
                 self.__log.exception("Invalid tag request")
+                if raise_errors:
+                    raise RequestError(f"Invalid tag request - {err!r}") from err
                 results.append(Tag(tag, None, None, f"Invalid tag request - {err!r}"))
 
-        if len(tags) > 1:
-            return results
-        else:
-            return results[0]
+        return results
+
+    @deprecated("use read_one() or read_many() instead")
+    def read(self, *tags: str) -> ReadWriteReturnType:
+        """
+        Deprecated. Read the value of tag(s).  Automatically will split tags into multiple requests by tracking the request and
+        response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
+        use fragmented read requests if the response size will not fit in a single packet.  Supports arrays (specify element
+        count in using curly braces (array{10}).  Also supports full structure reading (when possible), return value
+        will be a dict of {attribute name: value}.
+
+        :param tags: one or many tags to read
+        :return: a single or list of ``Tag`` objects
+        """
+        warnings.warn('read() is deprecated, use read_one() or read_many() instead. Ignore this warning with `warnings.filterwarnings("ignore", category=DeprecationWarning)` ', DeprecationWarning, stacklevel=2)
+        results = self.read_many(*tags)
+        return results if len(tags) > 1 else results[0]
+
 
     def _read_build_requests(self, parsed_tags):
         if len(parsed_tags) != 1 and not self._micro800:
@@ -1041,10 +1068,20 @@ class LogixDriver(CIPDriver):
         self.__log.error(f'Skipping making request, error: {parsed_tag["error"]}')
         return None
 
+    def write_one(self, tag: str, value: TagValueType, raise_errors: bool = False) -> Tag:
+        """
+        Write to a single tag. Supports arrays (specify element count in using curly braces (array{10}).  Also supports
+        full structure writing (when possible), value must be a sequence of values or a dict of {attribute: value} matching
+        the exact structure of the destination tag.
+
+        :param tag: tag to write
+        :param value: value to write to tag
+        :return: a single ``Tag`` object
+        """
+        return self.write_many((tag, value), raise_errors=raise_errors)[0]
+
     @with_forward_open
-    def write(
-        self, *tags_values: Union[str, TagValueType, Tuple[str, TagValueType]]
-    ) -> ReadWriteReturnType:
+    def write_many(self, *tags_values: Tuple[str, TagValueType], raise_errors: bool = False) -> List[Tag]:
         """
         Write to tag(s). Automatically will split tags into multiple requests by tracking the request and
         response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
@@ -1053,13 +1090,9 @@ class LogixDriver(CIPDriver):
         sequence of values or a dict of {attribute: value} matching the exact structure of the destination tag.
 
         :param tags_values: (tag, value) tuple or sequence of tag and value tuples [(tag, value), ...]
-        :return: a single or list of ``Tag`` objects.
+        :return: a list of ``Tag`` objects.
         """
-
-        if len(tags_values) == 2 and isinstance(tags_values[0], str):
-            tags_values = ((*tags_values,),)
-
-        tags = (tag for (tag, value) in tags_values)
+        tags = (tag for (tag, _) in tags_values)
         parsed_requests = self._parse_requested_tags(tags, "w")
 
         for i, (tag, value) in enumerate(tags_values):
@@ -1099,12 +1132,31 @@ class LogixDriver(CIPDriver):
                 results.append(user_result)
             except Exception as err:
                 self.__log.exception("Invalid tag request")
+                if raise_errors:
+                    raise RequestError(f"Invalid tag request - {err!r}") from err
                 results.append(Tag(tag, None, None, f"Invalid tag request - {err!r}"))
+        return results
 
-        if len(tags_values) > 1:
-            return results
-        else:
-            return results[0]
+    @deprecated("use write_one() or write_many() instead")
+    def write(
+        self, *tags_values: Union[str, TagValueType, Tuple[str, TagValueType]]
+    ) -> ReadWriteReturnType:
+        """
+        Deprecated. Write to tag(s). Automatically will split tags into multiple requests by tracking the request and
+        response size.  Will use the multi-service request to group many tags into a single packet and also will automatically
+        use fragmented read requests if the response size will not fit in a single packet.  Supports arrays (specify element
+        count in using curly braces (array{10}).  Also supports full structure writing (when possible), value must be a
+        sequence of values or a dict of {attribute: value} matching the exact structure of the destination tag.
+
+        :param tags_values: (tag, value) tuple or sequence of tag and value tuples [(tag, value), ...]
+        :return: a single or list of ``Tag`` objects.
+        """
+        warnings.warn('write() is deprecated, use write_one() or write_many() instead', DeprecationWarning, stacklevel=2)
+        if len(tags_values) == 2 and isinstance(tags_values[0], str):
+            tags_values = ((*tags_values,),)
+
+        results = self.write_many(*tags_values)
+        return results if len(tags_values) > 1 else results[0]
 
     def _write_build_requests(self, parsed_tags):
         if len(parsed_tags) != 1 and not self._micro800:
