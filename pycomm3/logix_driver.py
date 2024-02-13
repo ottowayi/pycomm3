@@ -189,7 +189,7 @@ class LogixDriver(CIPDriver):
             self._cfg["cip_path"].pop(
                 -1
             )  # strip off backplane/0 segment, not used for these processors
-        #breakpoint()
+
         if init_tags:
             self.get_tag_list(tag_namespace_filter=tag_namespace_filter, program="*" if init_program_tags else None)
 
@@ -418,7 +418,7 @@ class LogixDriver(CIPDriver):
             self._info["programs"] = {}
             self._info["tasks"] = {}
             self._info["modules"] = {}
-        #breakpoint()
+        
         self.__log.info("Starting tag list upload...")
         if program == "*":
             tags = self._get_tag_list(tag_namespace_filter=tag_namespace_filter)
