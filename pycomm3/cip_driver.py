@@ -180,11 +180,11 @@ class CIPDriver:
     @property
     def socket_timeout(self):
         """Socket open connection timeout, in seconds"""
-        return self._cfg["socket_timeout"]
+        return self._cfg["socket_timout"]
 
     @socket_timeout.setter
     def socket_timeout(self, value):
-        self._cfg["socket_timeout"] = value
+        self._cfg["socket_timout"] = value
 
     @classmethod
     def list_identity(cls, path) -> Optional[Dict[str, Any]]:
