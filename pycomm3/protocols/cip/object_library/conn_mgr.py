@@ -4,82 +4,83 @@ from enum import IntEnum
 
 from .base import CIPAttribute, CIPObject, CIPService, SimpleCIPService
 from ..cip import CIPRequest, CIPResponse
-from ....data_types import UINT, USINT, Struct, UDINT, BYTES, PADDED_EPATH_WITH_LEN, PADDED_EPATH_WITH_PADDED_LEN, StructType
+from ....data_types import UINT, USINT, UDINT, BYTES, PADDED_EPATH_WITH_LEN, PADDED_EPATH_WITH_PADDED_LEN, StructType
 from ....map import EnumMap
 from ....exceptions import DataError
+# from ....data_types._base import Struct
+
+def Struct(): ...
+
+class ForwardOpenRequestType(StructType):
+    priority_tick_time: USINT
+    timeout_ticks: USINT
+    o_t_connection_id: UDINT
+    t_o_connection_id: UDINT
+    connection_serial: UINT
+    timeout_multiplier: USINT
+    _: BYTES[3] = StructType.attr(reserved=True)
+    o_t_rpi: UDINT
+    o_t_connection_params: UINT
+    t_o_rpi: UDINT
+    t_o_connection_params: UINT
+    transport_type: USINT
+    connection_path: PADDED_EPATH_WITH_LEN
 
 
-_forward_open_request_type = Struct(
-    USINT('priority_tick_time'),
-    USINT('timeout_ticks'),
-    UDINT('o_t_connection_id'),
-    UDINT('t_o_connection_id'),
-    UINT('connection_serial'),
-    UINT('vendor_id'),
-    UDINT('originator_serial'),
-    USINT('timeout_multiplier'),
-    BYTES[3]('reserved'),
-    UDINT('o_t_rpi'),
-    UINT('o_t_connection_params'),
-    UDINT('t_o_rpi'),
-    UINT('t_o_connection_params'),
-    USINT('transport_type'),
-    PADDED_EPATH_WITH_LEN('connection_path'),
-)
-
+_forward_open_request_type = None
 _large_forward_open_request_type = Struct(
-        USINT('priority_tick_time'),
-        USINT('timeout_ticks'),
-        UDINT('o_t_connection_id'),
-        UDINT('t_o_connection_id'),
-        UINT('connection_serial'),
-        UINT('vendor_id'),
-        UDINT('originator_serial'),
-        USINT('timeout_multiplier'),
-        BYTES[3]('reserved'),
-        UDINT('o_t_rpi'),
-        UDINT('o_t_connection_params'),
-        UDINT('t_o_rpi'),
-        UDINT('t_o_connection_params'),
-        USINT('transport_type'),
-        PADDED_EPATH_WITH_LEN('connection_path'),
+        # USINT('priority_tick_time'),
+        # USINT('timeout_ticks'),
+        # UDINT('o_t_connection_id'),
+        # UDINT('t_o_connection_id'),
+        # UINT('connection_serial'),
+        # UINT('vendor_id'),
+        # UDINT('originator_serial'),
+        # USINT('timeout_multiplier'),
+        # BYTES[3]('reserved'),
+        # UDINT('o_t_rpi'),
+        # UDINT('o_t_connection_params'),
+        # UDINT('t_o_rpi'),
+        # UDINT('t_o_connection_params'),
+        # USINT('transport_type'),
+        # PADDED_EPATH_WITH_LEN('connection_path'),
 )
 
 
 _forward_open_response_type = Struct(
-    UDINT('o_t_connection_id'),
-    UDINT('t_o_connection_id'),
-    UINT('connection_serial'),
-    UINT('vendor_id'),
-    UDINT('originator_serial'),
-    UDINT('o_t_api'),
-    UDINT('t_o_api'),
-    BYTES[UINT]('application_reply'),
+    # UDINT('o_t_connection_id'),
+    # UDINT('t_o_connection_id'),
+    # UINT('connection_serial'),
+    # UINT('vendor_id'),
+    # UDINT('originator_serial'),
+    # UDINT('o_t_api'),
+    # UDINT('t_o_api'),
+    # BYTES[UINT]('application_reply'),
 )
 
 _forward_open_close_failed_response_type = Struct(
-    UINT('connection_serial'),
-    UINT('vendor_id'),
-    UDINT('originator_serial'),
-    USINT('remaining_path_size'),
-    USINT('reserved'),
+    # UINT('connection_serial'),
+    # UINT('vendor_id'),
+    # UDINT('originator_serial'),
+    # USINT('remaining_path_size'),
+    # USINT('reserved'),
 )
 
 
 _forward_close_request_type = Struct(
-    USINT('priority_tick_time'),
-    USINT('timeout_ticks'),
-    UINT('connection_serial'),
-    UINT('vendor_id'),
-    UDINT('originator_serial'),
-    PADDED_EPATH_WITH_PADDED_LEN('connection_path')
+    # USINT('priority_tick_time'),
+    # USINT('timeout_ticks'),
+    # UINT('connection_serial'),
+    # UINT('vendor_id'),
+    # UDINT('originator_serial'),
+    # PADDED_EPATH_WITH_PADDED_LEN('connection_path')
 )
 
 _forward_close_response_type = Struct(
-    UINT('connection_serial'),
-    UINT('vendor_id'),
-    UDINT('originator_serial'),
-    BYTES[UINT]('application_reply'),
+    # UINT('connection_serial'),
+    # UINT('vendor_id'),
+    # UDINT('originator_serial'),
+    # BYTES[UINT]('application_reply'),
 )
 
 
@@ -268,3 +269,4 @@ class ConnectionManagerObject(CIPObject):
         }
     }
 
+...

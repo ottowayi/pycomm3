@@ -338,7 +338,11 @@ class LogixDriver(CIPDriver):
         except Exception as err:
             raise ResponseError("Failed to get PLC info") from err
 
-    def get_plc_time(self, fmt: str = "%A, %B %d, %Y %I:%M:%S%p") -> Tag:
+    def get_plc_time(
+        self,
+        #: FORMAT STRING
+        fmt: str = "%A, %B %d, %Y %I:%M:%S%p",
+    ) -> Tag:
         """
         Gets the current time of the PLC system clock. The ``value`` attribute will be a dict containing the time in
         3 different forms, *datetime* is a Python datetime.datetime object, *microseconds* is the integer value epoch time,
@@ -621,7 +625,7 @@ class LogixDriver(CIPDriver):
                         self._info["modules"][mod_name]["__UNKNOWN__"].append(":".join(mod[1:]))
 
                 # other system or junk tags
-                if (not io_tag and ":" in name) or name.startswith("__"):
+                if (not io_tag and ":" in name) or (name.startswith("__") and not name.startswith('__SYSVA')):
                     continue
                 if tag["symbol_type"] & 0b0001_0000_0000_0000:
                     continue

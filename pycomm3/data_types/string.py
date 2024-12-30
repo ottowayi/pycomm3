@@ -4,20 +4,18 @@ import reprlib
 from dataclasses import dataclass, astuple
 from enum import IntEnum, Enum
 from io import BytesIO
-from typing import Sequence, cast
+from typing import cast, Generic, TypeVar
 
 from ..exceptions import BufferEmptyError, DataError
 from ._base import (
-    StringDataType,
-    _as_stream,
-    _BufferType,
-    _repr,
-    StructType,
-    DataType,
-    DerivedDataType,
-    _ArrayableElementaryDataTypeMeta,
+    as_stream,
+    BufferT,
+    buff_repr,
     ElementaryDataType,
+    DataType,
+_ElementaryDataTypeMeta
 )
+from ._core_types import StringDataType
 from .numeric import UDINT, UINT, USINT
 
 __all__ = (
@@ -27,7 +25,6 @@ __all__ = (
     'STRINGN',
     'STRINGI',
     'SHORT_STRING',
-    'StringDataType',
 )
 
 
@@ -129,7 +126,15 @@ class SHORT_STRING(StringDataType):  # noqa
     len_type = USINT
 
 
-class STRINGI(DerivedDataType):
+T = TypeVar('T')
+
+
+class _StringIBase(DataType, Generic[T]):
+    _format = ''
+    _codes = ElementaryDataType._codes  # noqa
+
+
+class STRINGI(_StringIBase[str], metaclass=_ElementaryDataTypeMeta):
     """
     international character string
     """
@@ -167,19 +172,8 @@ class STRINGI(DerivedDataType):
         utf_16_le = 1000
         utf_32_le = 1001
 
-    # _encodings: dict[CharSet, str] = {
-    #     CharSet.iso_8859_1: 'iso-8859-1',
-    #     CharSet.iso_8859_2: 'iso-8859-2',
-    #     CharSet.iso_8859_3: 'iso-8859-3',
-    #     CharSet.iso_8859_4: 'iso-8859-4',
-    #     CharSet.iso_8859_5: 'iso-8859-5',
-    #     CharSet.iso_8859_6: 'iso-8859-6',
-    #     CharSet.iso_8859_7: 'iso-8859-7',
-    #     CharSet.iso_8859_8: 'iso-8859-8',
-    #     CharSet.iso_8859_9: 'iso-8859-9',
-    #     CharSet.utf_16_le: 'utf-16-le',
-    #     CharSet.utf_32_le: 'utf-32-le',
-    # }
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(cls)
 
     def __init__(self, *strings: StrI):
         self._strs: tuple[StrI] = strings
@@ -233,8 +227,8 @@ class STRINGI(DerivedDataType):
             raise DataError(f"Error packing {reprlib.repr(value._strs)} as {cls.__name__}") from err
 
     @classmethod
-    def decode(cls, buffer: _BufferType) -> STRINGI:
-        stream = _as_stream(buffer)
+    def decode(cls, buffer: BufferT) -> STRINGI:
+        stream = as_stream(buffer)
         strings = []
         try:
             count = USINT.decode(stream)
@@ -257,7 +251,7 @@ class STRINGI(DerivedDataType):
             if isinstance(err, BufferEmptyError):
                 raise
             else:
-                raise DataError(f"Error unpacking {_repr(buffer)} as {cls.__name__}") from err
+                raise DataError(f"Error unpacking {buff_repr(buffer)} as {cls.__name__}") from err
 
     @staticmethod
     def istr(

@@ -2,7 +2,7 @@ from copy import deepcopy
 from enum import IntEnum
 
 from .base import CIPAttribute, CIPObject
-from ....data_types import UINT, USINT, Struct, WORD, UDINT, SHORT_STRING, PACKED_EPATH, BYTE, PADDED_EPATH, STRINGI, INT
+from ....data_types import UINT, USINT, StructType, WORD, UDINT, SHORT_STRING, PACKED_EPATH, BYTE, PADDED_EPATH, STRINGI, INT
 from ....map import EnumMap
 
 
@@ -15,6 +15,11 @@ __all__ = [
     'FileObject',
     'PortObject',
 ]
+
+
+class RevisionType(StructType):
+    major: USINT
+    minor: USINT
 
 
 class IdentityObject(CIPObject):
@@ -33,7 +38,7 @@ class IdentityObject(CIPObject):
     #: Identification code of a particular product for an individual vendor
     product_code = CIPAttribute(id=3, type=UINT)
     #: Revision of the item the Identity Object represents
-    revision = CIPAttribute(id=4, type=Struct(USINT("major"), USINT("minor")))
+    revision = CIPAttribute(id=4, type=RevisionType)
     #: Summary status of the device
     status = CIPAttribute(id=5, type=WORD)
     #: Serial number of the device
@@ -116,6 +121,12 @@ class DeviceNetObject(CIPObject):
     class_code = 0x03
 
 
+class MemberListItemType(StructType):
+    member_date_size_bits: UINT
+    member_path_size_bytes: UINT
+    member_path: PACKED_EPATH
+
+
 class AssemblyObject(CIPObject):
     """
     The Assembly Object binds attributes of multiple objects, which allows data to or from each
@@ -129,11 +140,7 @@ class AssemblyObject(CIPObject):
     num_members = CIPAttribute(id=1, type=UINT, all=False)
     member_list = CIPAttribute(
         id=2,
-        type=Struct(
-            UINT('member_data_size_bits'),
-            UINT('member_path_size_bytes'),
-            PACKED_EPATH('member_path'),
-        )[...],
+        type=MemberListItemType[...],
         all=False,
     )
     data = CIPAttribute(id=3, type=BYTE[None], all=False)
@@ -224,6 +231,12 @@ class ConnectionObject(CIPObject):
         CIPBridged = 2
 
 
+class FileObjectDirectoryType(StructType):
+    instance_id: UINT
+    instance_name: STRINGI
+    file_name: STRINGI
+
+
 class FileObject(CIPObject):
     """
     Provides access to files on the device.
@@ -240,7 +253,7 @@ class FileObject(CIPObject):
     #: List of all instances available (instance id, instance name, file name)
     directory = CIPAttribute(
         id=32,
-        type=Struct(UINT('instance_id'), STRINGI('instance_name'), STRINGI('file_name')),
+        type=FileObjectDirectoryType,
         class_attr=True,
     )
 
@@ -254,7 +267,7 @@ class FileObject(CIPObject):
     #: Name of the file
     file_name = CIPAttribute(id=4, type=STRINGI)
     #: Revision of the file
-    file_revision = CIPAttribute(id=5, type=Struct(USINT('major'), USINT('minor')))
+    file_revision = CIPAttribute(id=5, type=RevisionType)
     #: Size of the file
     file_size = CIPAttribute(id=6, type=UDINT)
     #: Checksum of the file
@@ -304,9 +317,10 @@ class FileObject(CIPObject):
         }
     }
     _init_partial_service_errors = deepcopy(_init_service_errors)
-    _init_partial_service_errors[0x20] |= {
-            0x02: 'File offset out of range',
-            0x03: 'Read/Write size beyond end of file',
+    _init_partial_service_errors[0x20] = {
+        **_init_partial_service_errors[0x20],
+        0x02: 'File offset out of range',
+        0x03: 'Read/Write size beyond end of file',
     }
     _init_partial_service_errors[0x02] = {
         0xFF: 'File does not exist',
@@ -377,6 +391,16 @@ class FileObject(CIPObject):
         Compressed = 1
 
 
+class PortObjectInstanceInfoType(StructType):
+    port_type: UINT
+    port_number: UINT
+
+
+class PortObjectLinkObjectType(StructType):
+    path_length: UINT
+    link_path: PADDED_EPATH
+
+
 class PortObject(CIPObject):
     """
     Represents the CIP ports on the device, one instance per port.
@@ -389,7 +413,7 @@ class PortObject(CIPObject):
     #: Gets the instance ID of the Port Object that the request entered through
     entry_port = CIPAttribute(id=8, type=UINT, class_attr=True)
     #: Array of port type and number for each instance (instance attributes 1 & 2)
-    port_instance_info = CIPAttribute(id=9, type=Struct(UINT('port_type'), UINT('port_number'))[...], class_attr=True)
+    port_instance_info = CIPAttribute(id=9, type=PortObjectInstanceInfoType[...], class_attr=True)
 
     # --- Instance Attributes ---
     #: Indicates the type of port, see :class:`PortTypes`
@@ -397,7 +421,7 @@ class PortObject(CIPObject):
     #: CIP port number of the port
     port_number = CIPAttribute(id=2, type=UINT)
     #: Logical path that identifies the object for this port
-    link_object = CIPAttribute(id=3, type=Struct(UINT('path_length'), PADDED_EPATH('link_path')))
+    link_object = CIPAttribute(id=3, type=PortObjectLinkObjectType)
     #: String name that identifies the physical port on the device.
     port_name = CIPAttribute(id=4, type=SHORT_STRING, all=False)
     #: String name of the port type
@@ -407,7 +431,7 @@ class PortObject(CIPObject):
     #: Node number of the device on the port
     node_address = CIPAttribute(id=7, type=PADDED_EPATH)
     #: Range of node numbers on the port, not used with EtherNet/IP
-    port_node_range = CIPAttribute(id=8, type=Struct(UINT('min'), UINT('max')), all=False)
+    port_node_range = CIPAttribute(id=8, type=StructType.create('NodeRangeType', (('min', UINT), ('max', UINT))), all=False)
     #: Electronic key of network or chassis the port is attached to
     port_key = CIPAttribute(id=9, type=PACKED_EPATH, all=False)
 
@@ -443,4 +467,3 @@ class PortObject(CIPObject):
         #: Port is not configured
         UnconfiguredPort = 65535
 
-...

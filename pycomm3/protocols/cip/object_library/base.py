@@ -1,9 +1,10 @@
-from abc import ABC, abstractmethod
+from __future__ import annotations
+
 from enum import IntEnum
 from dataclasses import dataclass, replace
 from typing import Union, Type, NamedTuple, Dict, Optional, Set, Any
 
-from ....data_types import DataType, Struct, UINT, BYTES, USINT
+from ....data_types import DataType, StructType, UINT, BYTES, USINT
 from ....map import EnumMap
 from ..cip import CIPRequest, CIPResponse
 
@@ -28,7 +29,7 @@ class CIPAttribute:
 
 
 @dataclass(frozen=True)
-class CIPService(ABC):
+class CIPService:
     #: Service code
     id: int
     #: Request data format type, used for encoding the service request, ``None`` if no request data is required
@@ -44,10 +45,11 @@ class CIPService(ABC):
     object: Type['CIPObject'] = None  # object containing the service attribute
     name: str = None  # attribute name (variable name of CIPObject class var)
 
-    @abstractmethod
     def __call__(self, *args, **kwargs) -> CIPRequest:
         ...
 
+    def decode(self, response: CIPResponse) -> DataType:
+        ...
 
 @dataclass(frozen=True)
 class SimpleCIPService(CIPService):
@@ -89,28 +91,41 @@ class GetAttributesAllService(CIPService):
             response_type=response_type,
         )
 
+    @classmethod
+    def decode(cls) -> DataType:
+        ...
+
 
 class _MetaCIPObject(type):
     def __new__(cls, name, bases, classdict):
         klass = super().__new__(cls, name, bases, classdict)
         cip_attrs: Dict[str, CIPAttribute] = {
             attr_name: attr
-            for _class in (*bases, klass)  # include common attributes from base class plus new ones in klass
+            for _class in (
+                *bases,
+                klass,
+            )  # include common attributes from base class plus new ones in klass
             for attr_name, attr in vars(_class).items()
             if isinstance(attr, CIPAttribute)
         }
 
-        instance_all = [attr.type(name) for name, attr in cip_attrs.items() if attr.all and not attr.class_attr]
+        instance_all = [
+            (_name, attr.type)
+            for _name, attr in cip_attrs.items()
+            if attr.all and not attr.class_attr
+        ]
         if instance_all:
-            klass._instance_all_type = Struct(*instance_all)
+            klass._instance_all_type = StructType.create(
+                f'{klass.__name__}InstanceAllType', instance_all
+            )
 
         class_all = [
-            attr.type(name)
-            for name, attr in cip_attrs.items()
+            (_name, attr.type)
+            for _name, attr in cip_attrs.items()
             if attr.all and attr.class_attr and attr.name not in klass._class_all_exclude
         ]
         if class_all:
-            klass._class_all_type = Struct(*class_all)
+            klass._class_all_type = StructType.create(f'{klass.__name__}ClassAllType', class_all)
 
         # point each attr back to the class, so that just the attr can be passed to methods
         # and not also need to include the class, also set the name to the variable name
@@ -139,11 +154,12 @@ class CIPObject(metaclass=_MetaCIPObject):
     """
     Base class for all CIP objects.  Defines services, attributes, and other properties common to all CIP objects.
     """
+
     class_code: int = 0
     _instance_all_type: Optional[DataType] = None
     _class_all_type: Optional[DataType] = None
-    _class_all_exclude: Set[str] = {}  # to exclude some inherited class attrs from all response
-                                       # without needing to redefine all the attrs
+    _class_all_exclude: Set[str] = set()  # to exclude some inherited class attrs from all response
+    # without needing to redefine all the attrs
 
     class Instance(IntEnum):
         CLASS = 0  #: The class itself and not an instance
@@ -184,4 +200,3 @@ class CIPObject(metaclass=_MetaCIPObject):
     # --- Common services (not all supported by all classes) ---
     #: Returns all instance/class attributes defined for the object
     get_attributes_all = GetAttributesAllService()
-

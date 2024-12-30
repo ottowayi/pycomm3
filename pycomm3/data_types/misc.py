@@ -8,7 +8,7 @@ from .datetime import DATE, DATE_AND_TIME, FTIME, ITIME, LTIME, STIME, TIME, TIM
 from .numeric import DINT, INT, LINT, LREAL, REAL, SINT, UDINT, UINT, ULINT, USINT
 from .string import LOGIX_STRING, SHORT_STRING, STRING, STRING2, STRINGI, STRINGN
 
-__all__ = ('DataTypes', )
+__all__ = ('DataTypes',)
 
 
 def _by_type_code(typ: ElementaryDataType) -> int:

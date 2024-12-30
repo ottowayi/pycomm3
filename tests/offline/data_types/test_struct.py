@@ -1,0 +1,112 @@
+import pytest
+
+from pycomm3 import USINT, DataError, struct_attr
+from pycomm3.data_types import StructType, UINT, SINT, DINT, STRING, ArrayType, RESERVED
+from dataclasses import asdict
+from typing_extensions import Annotated
+
+
+def test_struct_simple():
+    class S1(StructType):
+        x: UINT
+        y: SINT
+        z: DINT
+
+    assert S1.size == sum((UINT.size, SINT.size, DINT.size))
+
+    s1 = S1(1, 2, 3)
+
+    assert s1.x.__class__ is UINT
+    assert s1.x == 1
+    assert s1.x == UINT(1)
+    assert dict(s1) == {"x": UINT(1), "y": SINT(2), "z": DINT(3)}
+    assert dict(s1) == {**s1}
+    assert bytes(s1) == bytes(UINT(1)) + bytes(SINT(2)) + bytes(DINT(3))
+    s1.x = 100
+    assert bytes(s1) == bytes(UINT(100)) + bytes(SINT(2)) + bytes(DINT(3))
+
+
+def test_nested_struct():
+    class S1(StructType):
+        x: DINT
+        y: DINT
+        z: STRING
+
+    class S2(StructType):
+        a: S1
+        b: DINT
+
+    s2 = S2(S1(1, 2, "Hello"), 100)
+
+    assert s2.a.x == 1
+    assert s2.a.x.__class__ is DINT
+    assert asdict(s2) == {
+        "a": {"x": 1, "y": 2, "z": "Hello"},
+        "b": 100,
+    }
+    assert asdict(s2) == asdict(S2(**asdict(s2)))
+    assert bytes(s2) == b"\x01\x00\x00\x00\x02\x00\x00\x00\x05\x00Hello\x64\x00\x00\x00"
+    s2.a = S1(3, 4, "Hi")
+    assert s2.a.z == "Hi"
+    assert bytes(s2) == b"\x03\x00\x00\x00\x04\x00\x00\x00\x02\x00Hi\x64\x00\x00\x00"
+    s2.a.z = "Bye"
+    assert bytes(s2) == b"\x03\x00\x00\x00\x04\x00\x00\x00\x03\x00Bye\x64\x00\x00\x00"
+
+
+def test_struct_array_member():
+    class S1(StructType):
+        x: DINT
+        y: STRING
+
+    class S2(StructType):
+        a: ArrayType[UINT, USINT]
+        b: Annotated[ArrayType[S1, int], 3]
+        c: Annotated[SINT[3], "not used"]
+
+    s2 = S2([1, 2, 3], [S1(10, "a"), S1(20, "b"), S1(30, "c")], [1, 2, 3])
+
+    assert s2.a[0] == 1
+    assert bytes(s2) == (
+        b"\x03\x01\x00\x02\x00\x03\x00"
+        b"\x0a\x00\x00\x00\x01\x00a\x14\x00\x00\x00\x01\x00b\x1e\x00\x00\x00\x01\x00c\x01\x02\x03"
+    )
+
+    s2.a = [4, 5, 6]
+    assert bytes(s2) == (
+        b"\x03\x04\x00\x05\x00\x06\x00"
+        b"\x0a\x00\x00\x00\x01\x00a\x14\x00\x00\x00\x01\x00b\x1e\x00\x00\x00\x01\x00c\x01\x02\x03"
+    )
+
+
+def test_struct_missing_args():
+    class S1(StructType):
+        x: DINT
+        y: STRING[4]
+        z: SINT
+
+    with pytest.raises(TypeError):
+        S1(4, ["a", "b", "c", "d"])
+
+    with pytest.raises(DataError):
+        S1(2, ["a", "b", "c"], 0)
+
+    class S2(StructType):
+        a: S1
+        b: DINT
+
+    with pytest.raises(TypeError):
+        S2({"x": 6, "y": "abcd", "z": 9})
+
+    with pytest.raises(DataError):
+        S2(S1(x=6, y="000", z=6), 6)
+
+
+def test_struct_reserved_field():
+    class S1(StructType):
+        x: DINT
+        _: Annotated[UINT, RESERVED]
+        y: DINT
+
+    assert S1._members == {"x": DINT, "_": UINT, "y": DINT}
+    assert S1._attributes == {"x": DINT, "y": DINT}
+    assert bytes(S1(1, 2, 3)) == b"\x01\x00\x00\x00\x02\x00\x03\x00\x00\x00"

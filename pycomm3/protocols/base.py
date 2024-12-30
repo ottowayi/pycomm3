@@ -1,62 +1,75 @@
-from abc import abstractmethod, ABC
+from __future__ import annotations
 from io import BytesIO
-from typing import Union, Optional
+from typing import Union, Optional, TypeVar, Generic, TYPE_CHECKING, ClassVar, Protocol
+
+from .. import DataType
 from ..exceptions import RequestError, ResponseError
+from ..util import DataclassMeta
+from dataclasses import field, dataclass
+
+RequestType = TypeVar('RequestType', bound='Request')
+ResponseType = TypeVar('ResponseType', bound='Response')
 
 
-class Request(ABC):
-    def __init__(self):
-        self._message: bytes = b''
 
-        try:
-            self._message = self._build_message()
-        except RequestError:
-            raise
-        except Exception as err:
-            raise RequestError('Error building request') from err
+class Response(Generic[ResponseType, RequestType], metaclass=DataclassMeta):
+    #: Encoded data for this response
+    raw_data: bytes = b''
 
-    @abstractmethod
-    def _build_message(self) -> bytes:
+    #: Optionally, the request that this response is for
+    request: RequestType | None = None
+
+    @classmethod
+    def decode(cls: type[ResponseType], data: bytes | BytesIO, request: RequestType | None = None, *args, **kwargs) -> ResponseType:
         """
-        Encodes the request into bytes message
+        Parses the encoded response (``data``) and returns a new ``Response`` object
         """
-
-    @property
-    def message(self) -> bytes:
-        return self._message
-
-
-class Response:
-
-    def __init__(self, data: bytes, request: Request):
-        self._raw_data = data
-        self._data = BytesIO(data)
-        self._request = request
-
         try:
-            self._parse_reply()
-        except ResponseError:
-            raise
+            if isinstance(data, bytes):
+                buff, raw = BytesIO(data), data
+            else:
+                buff, raw = data, data.getvalue()
+
+            resp: ResponseType = cls._decode(buff, request, *args, **kwargs)
+            resp.raw_data = raw
+            resp.request = request
+
+            return resp
         except Exception as err:
             raise ResponseError('Error parsing response') from err
 
-    @abstractmethod
-    def _parse_reply(self):
-        """
-        Parses the response data.  Response data is a BytesIO stream, so the entire contents of
-        a response should be consumed by
-        """
+    @classmethod
+    def _decode(cls: type[ResponseType], buff: BytesIO, request: RequestType | None = None, *args, **kwargs) -> ResponseType:
+        raise NotImplementedError('Response subclasses must implement _decode')
 
-    @abstractmethod
-    def is_valid(self) -> bool:
-        """
-        Returns the status of the response, True for no errors else False
-        """
 
-    @property
-    @abstractmethod
-    def error(self) -> Optional[str]:
-        ...
+class Request(Generic[RequestType, ResponseType], metaclass=DataclassMeta):
+    response_class = Response
+    message: bytes = field(init=False)
 
-    def __bool__(self):
-        return self.is_valid()
+    def __post_init__(self):
+        self.message = self.encode()
+
+    def encode(self) -> bytes:
+        try:
+            return self._encode()
+        except Exception as err:
+            raise RequestError('Error building request') from err
+
+    def _encode(self) -> bytes:
+        raise NotImplementedError('Request subclasses must implement _encode')
+
+
+ReqT_co = TypeVar('ReqT_co', bound=Request, covariant=True)
+RspT_co = TypeVar('RspT_co', bound=Response, covariant=True)
+
+
+class Service(Protocol[ReqT_co]):
+
+    def __call__(self, *args, **kwargs) -> ReqT_co: ...
+
+
+class Parser(Protocol[RspT_co]):
+    payload_parser: Optional[Parser]
+
+    def __init__(self, payload_parser: Optional[Parser]) -> None: ...

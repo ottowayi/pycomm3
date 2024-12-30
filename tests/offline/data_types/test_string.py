@@ -143,6 +143,8 @@ stringi_tests = [
     ),
 ]
 
+# TODO: more stringi tests, need to determine if this is even implemented correctly first
+
 
 @pytest.mark.parametrize('strings, bites', stringi_tests)
 def test_stringi(

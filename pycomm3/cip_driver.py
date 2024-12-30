@@ -1,3 +1,4 @@
+from __future__ import annotations
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
@@ -33,8 +34,7 @@ import logging
 import socket
 from functools import wraps
 from os import urandom
-from typing import Union, Optional, Tuple, List, Sequence, Type, Any, Dict, TypedDict
-
+from typing import Union, Optional, Tuple, List, Sequence, Type, Any, Dict, TypedDict, Iterable
 
 from .protocols.cip.object_library import (
     ConnectionManagerInstances,
@@ -128,7 +128,7 @@ class ConnectionConfig(TypedDict):
     originator_serial: int
     timeout_multiplier: int
     reserved: bytes
-    o_t_rpi: int  # original pycomm value, RPIs not important for u
+    o_t_rpi: int  # original pycomm value, RPIs not important for us
     t_o_rpi: int
     transport_type: int
 
@@ -177,7 +177,7 @@ class CIPDriver:
 
         """
 
-        self._sequence: cycle = cycle(65535, start=1)
+        self._sequence: Iterable[int] = cycle(65535, start=1)
         self._sock: Optional[Socket] = None
         self._connection_opened: bool = False
         self._target_is_connected: bool = False
@@ -257,6 +257,7 @@ class CIPDriver:
 
         :return: device identity if reply contains valid response else None
         """
+        # TODO: only accept an IP address and not a route
         plc = cls(path)
         plc.open()
         identity = plc._list_identity()
@@ -324,7 +325,7 @@ class CIPDriver:
             return devices
 
     def _list_identity(self):
-        request = ListIdentityRequest(*self._enip_args)
+        request = ListIdentityRequest(**self._cfg['ethernetip_params'])
         return self._send_eip_request(request).value
 
         # request = ListIdentityRequestPacket()
@@ -398,7 +399,7 @@ class CIPDriver:
         request = RegisterSessionRequest(**self._cfg['ethernetip_params'])
         response: RegisterSessionRequest.response_class = self._send_eip_request(request)
         if response:
-            self._cfg['ethernetip_params']['session'] = response.header['session_id']
+            self._cfg['ethernetip_params']['session'] = response.header['session']
             self.__log.info("Session=%d has been registered.",  self._cfg['ethernetip_params']['session'])
             return self._cfg['ethernetip_params']['session']
 
@@ -451,7 +452,7 @@ class CIPDriver:
             )
 
         request = SendRRDataRequest(
-            *self._enip_args,
+            **self._cfg['ethernetip_params'],
             cip_request=cip_request
         )
 
@@ -513,7 +514,7 @@ class CIPDriver:
         """
         Un-registers the current session with the target.
         """
-        request = UnRegisterSessionRequest(*self._enip_args)
+        request = UnRegisterSessionRequest(**self._cfg['ethernetip_params'])
         self._send_eip_request(request)
         self._cfg['ethernetip_params']['session'] = 0
         self.__log.info("Session Unregistered")
@@ -634,6 +635,7 @@ class CIPDriver:
                 )
             elif isinstance(route_path, str):
                 _kwargs["route_path"] = PADDED_EPATH.encode(
+                    # TODO: fix the documentation for this
                     parse_cip_route(route_path), length=True, pad_length=True
                 )
             elif isinstance(route_path, bytes):
@@ -691,7 +693,7 @@ class CIPDriver:
         else:
             eip_request = self._create_unconnected_eip_request(request, route_path)
 
-    def _create_connected_eip_request(self, request, route_path: Union[bool, Sequence[CIPSegment], bytes, str]) -> SendUnitDataRequest:
+    def _create_connected_eip_request(self, request, route_path: Union[bool, Sequence[CIPSegment], bytes, str]) :#-> SendUnitDataRequest:
         ...
 
     def _create_unconnected_eip_request(self, request, route_path: Union[bool, Sequence[CIPSegment], bytes, str]) -> SendRRDataRequest:

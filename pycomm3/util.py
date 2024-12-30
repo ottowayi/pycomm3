@@ -26,8 +26,10 @@
 """
 Various utility functions.
 """
-
-from typing import Tuple
+from __future__ import annotations
+from dataclasses import dataclass, Field, field
+from typing import cast, Protocol, Optional, Callable, TypeVar
+from typing_extensions import dataclass_transform
 
 
 def strip_array(tag: str) -> str:
@@ -42,7 +44,7 @@ def strip_array(tag: str) -> str:
     return tag
 
 
-def get_array_index(tag: str) -> Tuple[str, int]:
+def get_array_index(tag: str) -> tuple[str, int | None]:
     """
     Return tag name and array index from a 1-dim tag request
 
@@ -65,3 +67,32 @@ def cycle(stop, start=0):
 
         yield val
         val += 1
+
+
+class DataclassProtocol(Protocol):
+    __dataclass_fields__: dict
+
+
+DataClassT = TypeVar('DataClassT', bound=DataclassProtocol)
+
+
+@dataclass_transform(
+    field_specifiers=(Field, field),
+)
+class DataclassMeta(type):
+    """
+    Metaclass that automatically turns classes into dataclasses, so that any subclasses do not
+    also require the dataclass decorator.
+    """
+
+    def __new__(
+        mcs: type[DataclassMeta],
+        name: str,
+        bases: tuple,
+        clsdict: dict,
+    ) -> type[DataClassT]:
+
+        cls = super().__new__(mcs, name, bases, clsdict)
+        klass: type[DataClassT] = dataclass(cast('type[DataClassT]', cls))
+
+        return klass

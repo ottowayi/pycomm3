@@ -1,4 +1,6 @@
+from __future__ import annotations
 from abc import abstractmethod
+from dataclasses import dataclass, field
 from enum import IntEnum
 from io import BytesIO
 from typing import Type, Dict, Any, Sequence, Union, Optional
@@ -19,6 +21,34 @@ from .data_types import (
 from ..cip.cip import CIPRequest
 
 from ..base import Request, Response
+from typing import TypeVar
+
+from ... import StructType
+
+_HT = TypeVar('_HT', bound=DataType)
+_PT = TypeVar('_PT', bound=DataType)
+
+
+@dataclass
+class EnipResponse:
+    header_type: type[DataType]
+    payload_type: type[DataType]
+    header: DataType = field(init=False)
+    payload: DataType = field(init=False)
+
+    def encode(self) -> bytes:
+        return bytes(self.header) + bytes(self.payload)
+
+    def decode(self, data: bytes | BytesIO) -> DataType:
+        ...
+
+    @property
+    def struct(self) -> type[StructType]:
+        class Struct(StructType):
+            header: self.header_type
+            payload: self.payload_type
+        return Struct
+    
 
 
 class EtherNetIPResponse(Response):

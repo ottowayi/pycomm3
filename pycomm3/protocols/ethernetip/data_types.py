@@ -2,23 +2,23 @@ from enum import IntEnum
 from io import BytesIO
 from typing import Type, Dict, Any, Sequence, Union, TypedDict, overload
 
-from pycomm3.data_types import Struct, USINT, UINT, UDINT, n_bytes, BYTES, StructType
+from pycomm3.data_types import StructType, USINT, UINT, UDINT,  BYTES, StructType
 from pycomm3.exceptions import DataError
 from pycomm3.map import EnumMap
 
 from ..cip.cip import CIPRequest, CIPResponse
 
 
-class EncapsulationCommands(EnumMap):
-    nop = b"\x00\x00"
-    list_targets = b"\x01\x00"
-    list_services = b"\x04\x00"
-    list_identity = b"\x63\x00"
-    list_interfaces = b"\x64\x00"
-    register_session = b"\x65\x00"
-    unregister_session = b"\x66\x00"
-    send_rr_data = b"\x6F\x00"
-    send_unit_data = b"\x70\x00"
+class EncapsulationCommands:
+    nop = UINT(0)
+    list_targets = UINT(1)
+    list_services = UINT(4)
+    list_identity = UINT(0x63)
+    list_interfaces = UINT(0x64)
+    register_session = UINT(0x65)
+    unregister_session = UINT(0x66)
+    send_rr_data = UINT(0x6F)
+    send_unit_data = UINT(0x70)
 
 
 class EtherNetIPStatus(IntEnum):
@@ -43,17 +43,14 @@ ETHERNETIP_STATUS_CODES = {
 }
 
 
-class EtherNetIPHeader(
-    Struct(
-        UINT('command'),
-        UINT('length'),
-        UDINT('session'),
-        UDINT('status'),
-        BYTES[8]('context'),
-        UDINT('option'),
-    )
-):
-    ...
+class EtherNetIPHeader(StructType):
+    command: UINT
+    length: UINT
+    session: UDINT
+    status: UDINT = UDINT(0)
+    context: BYTES[8] = BYTES[8](b'\x00'*8)
+    option: UDINT = UDINT(0)
+
 
     # @classmethod
     # def _decode(cls, stream: BytesIO):

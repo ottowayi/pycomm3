@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ._base import BytesDataType, BitArrayType, BoolDataType
+from ._core_types import BytesDataType, BitArrayType, BoolDataType
 from .numeric import USINT, UINT, UDINT, ULINT
 
 __all__ = (
@@ -25,7 +25,7 @@ class BOOL(BoolDataType):
 
 
 class BYTES(BytesDataType):
-    size = 1
+    ...
 
 
 class BYTE(BitArrayType, USINT):

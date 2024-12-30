@@ -28,8 +28,6 @@ from typing import Any, Type, Dict, Tuple, Union, Set
 
 from .data_types import (
     DataType,
-    DerivedDataType,
-    Struct,
     UINT,
     USINT,
     DWORD,
@@ -40,14 +38,13 @@ from .data_types import (
     StringDataType,
     INT,
     ULINT,
-    _StructReprMeta,
     BYTES,
     WORD,
     DWORD,
     PADDED_EPATH_WITH_LEN,
 )
 from .protocols.cip.status_info import PRODUCT_TYPES, VENDORS
-
+from .data_types._base import DerivedDataType, Struct, _StructMeta
 
 __all__ = [
     "IPAddress",
@@ -167,7 +164,7 @@ StructTemplateAttributes = Struct(
 )
 
 
-class _StructTagReprMeta(_StructReprMeta):
+class _StructTagReprMeta(_StructMeta):
     def __repr__(cls):
         members = ", ".join(repr(m) for m in cls.members)
         return f"{cls.__name__}({members}, bool_members={cls.bits!r},  struct_size={cls.size!r})"  # TODO

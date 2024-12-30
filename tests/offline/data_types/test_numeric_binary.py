@@ -1,21 +1,22 @@
 import pytest
 
 from pycomm3.data_types import (
+    BOOL,
+    BYTE,
+    BYTES,
     DINT,
+    DWORD,
     INT,
     LINT,
     LREAL,
+    LWORD,
     REAL,
     SINT,
     UDINT,
     UINT,
     ULINT,
     USINT,
-    BYTE,
     WORD,
-    DWORD,
-    LWORD,
-    BOOL,
 )
 from pycomm3.exceptions import DataError
 
@@ -23,10 +24,10 @@ i8_range = (-128, 127)
 u8_range = (0, 255)
 i16_range = (-32_768, 32_767)
 u16_range = (0, 65_535)
-i32_range = (-(2**31), (2**31) - 1)
-u32_range = (0, (2**32) - 1)
-i64_range = (-(2**63), (2**63) - 1)
-u64_range = (0, (2**64) - 1)
+i32_range = (-(2 ** 31), (2 ** 31) - 1)
+u32_range = (0, (2 ** 32) - 1)
+i64_range = (-(2 ** 63), (2 ** 63) - 1)
+u64_range = (0, (2 ** 64) - 1)
 shared = (0, 1, 31, 32, 69, 100)
 
 int_value_tests = [
@@ -181,3 +182,16 @@ def test_bool(val, bool_):
     assert BOOL(val) == bool_
     assert bool(BOOL(val)) is bool_
     assert bytes(BOOL(val)) == (b'\xFF' if bool_ else b'\x00')
+
+
+def test_bytes():
+    b = BYTES(b'1')
+    assert b == b'1' == bytes(BYTES[1](b'1'))
+
+    bb = BYTES[10](b'1234567890')
+    assert bb[0] == b'1' == BYTES(b'1') == BYTES(ord(b'1'))
+    assert bytes(bb) == b'1234567890'
+    assert bytes(bb[1:]) == b'234567890'
+
+    bbb = BYTES[...](b'123')
+    assert bytes(bbb) == b'123' == bytes(BYTES[3](b'123'))

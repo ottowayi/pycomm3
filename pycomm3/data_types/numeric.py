@@ -1,4 +1,4 @@
-from ._base import IntDataType, FloatDataType
+from ._core_types import IntDataType, FloatDataType
 
 __all__ = (
     'SINT',
