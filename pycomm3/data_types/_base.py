@@ -69,18 +69,6 @@ def as_stream(buffer: BufferT) -> BytesIO:
     return buffer
 
 
-# if TYPE_CHECKING:
-#     MT = TypeVar('MT', bound='_DataTypeMeta')
-#     DT = TypeVar('DT', bound='DataType')
-#     LT = TypeVar('LT', bound=ArrayLenT)
-#
-#     class _DataTypeMeta(type, Generic[LT]):
-#         def __new__(mcs: type[MT], *args, **kwargs) -> type[DT]: ...
-#         def __getitem__(cls: MT, item: LT) -> ArrayType[DT, LT]:
-#
-#
-#
-# else:
 class _DataTypeMeta(type):
     def __repr__(cls):
         return cls.__name__
@@ -168,6 +156,10 @@ class DataType(metaclass=_DataTypeMeta):
             raise BufferEmptyError()
         return data
 
+    @classmethod
+    def _stream_peek(cls, stream: BytesIO, size: int) -> bytes:
+        return stream.getvalue()[stream.tell() : stream.tell() + size]
+
 
 def is_datatype(obj: Any, typ=DataType) -> bool:
     """
@@ -245,15 +237,6 @@ class ElementaryDataType(DataType, Generic[ET], metaclass=_ElementaryDataTypeMet
         return f"{self.__class__.__name__}({self._base_type.__repr__(self)})"  # noqa
 
 
-def struct_attr(*, reserved: bool = False, **kwargs) -> Field:
-    return field(
-        metadata={
-            **kwargs,
-            "reserved": reserved,
-        }
-    )
-
-
 SDT = TypeVar("SDT", bound="StructType")
 
 
@@ -269,11 +252,12 @@ RESERVED = _StructFieldMarker()
 def _process_fields(cls: "type[_StructMeta]") -> ...:
     _fields = fields(cls)  # noqa
     _type_hints = get_type_hints(cls, include_extras=True)
-    cls._struct_fields = {}
+    cls._dataclass_fields = {}
     cls._members = {}
     cls._attributes = {}
 
     for _field in _fields:
+        cls._dataclass_fields[_field.name] = _field
         typ = _type_hints.get(_field.name)
         is_reserved = False
         field_type = None
@@ -314,23 +298,19 @@ def _process_fields(cls: "type[_StructMeta]") -> ...:
             cls._attributes[_field.name] = field_type
 
 
-@dataclass_transform(field_specifiers=(Field, field, struct_attr))
+@dataclass_transform(field_specifiers=(Field, field))
 class _StructMeta(DataclassMeta, _ArrayMetaMixin, _DataTypeMeta):
     _members: dict[str, type[DataType]]
     _attributes: dict[str, type[DataType]]
 
     def __new__(mcs: type[_StructMeta], name: str, bases: tuple, clsdict: dict) -> type[SDT]:
         cls: type[SDT] = super().__new__(mcs, name, bases, clsdict)
-        # _fields = fields(cls)
-        # _type_hints = get_type_hints(cls, include_extras=True)
-        # cls._members = {_field.name: _field_type(_type_hints.get(_field.name)) for _field in _fields}
-        # cls._attributes = {_field.name: _field.type for _field in _fields if not _field.metadata.get("reserved", False)}
         _process_fields(cls)
         return cls
 
     @property
     def size(cls: _StructMeta) -> int:
-        return sum(typ.size for typ in cls._members.values())
+        return sum(sz for typ in cls._members.values() if (sz := typ.size) != -1)
 
 
 StructValuesType = Union[Dict[str, DataType], Sequence[DataType]]
@@ -342,7 +322,7 @@ StructCreateMembersType = Sequence[
 ]
 
 
-@dataclass_transform(field_specifiers=(Field, field, struct_attr))
+@dataclass_transform(field_specifiers=(Field, field))
 class StructType(DataType, metaclass=_StructMeta):
     """
     Base type for a structure
@@ -353,8 +333,6 @@ class StructType(DataType, metaclass=_StructMeta):
     #: mapping of _user_ members of the struct to their type,
     #: excluding reserved or private members not meant for users to interact with
     _attributes: ClassVar[dict[str, type[DataType]]] = {}
-
-    attr = struct_attr
 
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls)
@@ -400,8 +378,8 @@ class StructType(DataType, metaclass=_StructMeta):
 
     @classmethod
     def _decode(cls: type[SDT], stream: BytesIO) -> SDT:
-        values = {name: typ.decode(stream) for name, typ in cls._members.items()}
-        return cls(**values)
+        values = ((name, typ.decode(stream)) for name, typ in cls._members.items())
+        return cls(**{name: val for name, val in values if cls._dataclass_fields[name].init})
 
     @staticmethod
     def create(name: str, members: StructCreateMembersType) -> type[SDT]:

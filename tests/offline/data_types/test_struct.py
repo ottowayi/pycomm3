@@ -1,6 +1,6 @@
 import pytest
 
-from pycomm3 import USINT, DataError, struct_attr
+from pycomm3 import USINT, DataError
 from pycomm3.data_types import StructType, UINT, SINT, DINT, STRING, ArrayType, RESERVED
 from dataclasses import asdict
 from typing_extensions import Annotated

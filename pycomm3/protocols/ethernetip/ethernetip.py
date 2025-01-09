@@ -6,8 +6,9 @@ from io import BytesIO
 from typing import Type, Dict, Any, Sequence, Union, Optional
 from pycomm3.data_types import DataType, Struct, USINT, UINT, UDINT, n_bytes, BYTES
 from pycomm3.custom_types import ListIdentityObject
+
 # from protocols.base import Request, Response
-from .data_types import (
+from .old_data_types import (
     EtherNetIPStatus,
     EtherNetIPHeader,
     EncapsulationCommands,
@@ -25,8 +26,8 @@ from typing import TypeVar
 
 from ... import StructType
 
-_HT = TypeVar('_HT', bound=DataType)
-_PT = TypeVar('_PT', bound=DataType)
+_HT = TypeVar("_HT", bound=DataType)
+_PT = TypeVar("_PT", bound=DataType)
 
 
 @dataclass
@@ -39,20 +40,18 @@ class EnipResponse:
     def encode(self) -> bytes:
         return bytes(self.header) + bytes(self.payload)
 
-    def decode(self, data: bytes | BytesIO) -> DataType:
-        ...
+    def decode(self, data: bytes | BytesIO) -> DataType: ...
 
     @property
     def struct(self) -> type[StructType]:
         class Struct(StructType):
             header: self.header_type
             payload: self.payload_type
+
         return Struct
-    
 
 
 class EtherNetIPResponse(Response):
-
     def __init__(self, data: bytes, request: Request):
         self.header = None
         self.value = None
@@ -60,7 +59,7 @@ class EtherNetIPResponse(Response):
         super().__init__(data, request)
 
     def is_valid(self) -> bool:
-        return self.header['status'] == EtherNetIPStatus.Success
+        return self.header["status"] == EtherNetIPStatus.Success
 
     def _parse_reply(self):
         self.header = self._parse_header()
@@ -70,14 +69,13 @@ class EtherNetIPResponse(Response):
         return EtherNetIPHeader.decode(self._data)
 
     @abstractmethod
-    def _parse_command_specific_data(self):
-        ...
+    def _parse_command_specific_data(self): ...
 
     @property
     def error(self) -> Optional[str]:
-        status = self.header['status']
+        status = self.header["status"]
         if status != EtherNetIPStatus.Success:
-            return ETHERNETIP_STATUS_CODES.get(status, f'UNKNOWN STATUS ({status:04#x})')
+            return ETHERNETIP_STATUS_CODES.get(status, f"UNKNOWN STATUS ({status:04#x})")
 
 
 class EtherNetIPRequest(Request):
@@ -91,9 +89,9 @@ class EtherNetIPRequest(Request):
         self.option: int = option
 
         # encoded common packet format
-        self._command_data: bytes = b''
+        self._command_data: bytes = b""
         # encoded header
-        self._header: bytes = b''
+        self._header: bytes = b""
 
         super().__init__()
 
@@ -106,18 +104,17 @@ class EtherNetIPRequest(Request):
     def _build_header(self) -> bytes:
         return EtherNetIPHeader.encode(
             {
-                'command': self.command,
-                'length': len(self._command_data),
-                'session': self.session,
-                'status': 0,
-                'context': self.context,
-                'option': self.option
+                "command": self.command,
+                "length": len(self._command_data),
+                "session": self.session,
+                "status": 0,
+                "context": self.context,
+                "option": self.option,
             }
         )
 
     @abstractmethod
-    def _build_command_data(self) -> bytes:
-        ...
+    def _build_command_data(self) -> bytes: ...
 
 
 class NOPRequest(EtherNetIPRequest):
@@ -125,11 +122,10 @@ class NOPRequest(EtherNetIPRequest):
     has_response = False
 
     def _build_command_data(self) -> bytes:
-        return b''
+        return b""
 
 
 class ListIdentityResponse(EtherNetIPResponse):
-
     def _parse_command_specific_data(self):
         count = UINT.decode(self._data)
         identities = [ListIdentityObject.decode(self._data) for _ in range(count)]
@@ -143,15 +139,14 @@ class ListIdentityRequest(EtherNetIPRequest):
     command = 0x0063
 
     def _build_command_data(self) -> bytes:
-        return b''
+        return b""
 
 
 class RegisterSessionResponse(EtherNetIPResponse):
-
     def _parse_command_specific_data(self):
         return {
-            'protocol_version': UINT.decode(self._data),
-            'options_flags': UINT.decode(self._data),
+            "protocol_version": UINT.decode(self._data),
+            "options_flags": UINT.decode(self._data),
         }
 
 
@@ -161,7 +156,7 @@ class RegisterSessionRequest(EtherNetIPRequest):
 
     def _build_command_data(self) -> bytes:
         # protocol version always 1, options always 0
-        return b'\x01\x00\x00\x00'
+        return b"\x01\x00\x00\x00"
 
 
 class UnRegisterSessionRequest(EtherNetIPRequest):
@@ -170,19 +165,18 @@ class UnRegisterSessionRequest(EtherNetIPRequest):
     command = 0x0066
 
     def _build_command_data(self) -> bytes:
-        return b''
+        return b""
 
 
 # TODO: ListServices service
 
 
 class SendRRDataResponse(EtherNetIPResponse):
-
     def _parse_command_specific_data(self):
         item_count = UINT.decode(self._data)
         address_item = CommonPacketFormatItem.decode(self._data)
         data_item = CommonPacketFormatItem.decode(self._data)
-        return data_item['data']
+        return data_item["data"]
 
 
 class SendRRDataRequest(EtherNetIPRequest):
@@ -195,17 +189,17 @@ class SendRRDataRequest(EtherNetIPRequest):
 
     def _build_command_data(self) -> bytes:
         # encap the cip request using the common packet format, Vol 2. 2-6
-        return b''.join((
-            b'\x02\x00',  # item count always 2
-            UCMMAddressItem.encode(None),  # no value to encode, None for placeholder
-            UnconnectedDataItem.encode(self.cip_request.message)
-        ))
+        return b"".join(
+            (
+                b"\x02\x00",  # item count always 2
+                UCMMAddressItem.encode(None),  # no value to encode, None for placeholder
+                UnconnectedDataItem.encode(self.cip_request.message),
+            )
+        )
 
 
 class SendUnitDataResponse(EtherNetIPResponse):
-
-    def _parse_command_specific_data(self):
-        ...
+    def _parse_command_specific_data(self): ...
 
 
 class SendUnitDataRequest(EtherNetIPRequest):

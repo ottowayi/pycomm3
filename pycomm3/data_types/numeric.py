@@ -1,18 +1,12 @@
 from ._core_types import IntDataType, FloatDataType
 
+# fmt: off
 __all__ = (
-    'SINT',
-    'INT',
-    'DINT',
-    'LINT',
-    'USINT',
-    'UINT',
-    'UDINT',
-    'ULINT',
-    'REAL',
-    'LREAL',
-
+    "SINT", "INT", "DINT", "LINT", "USINT", "UINT", "UDINT", "ULINT",
+    "SINT_BE", "INT_BE", "DINT_BE", "LINT_BE", "USINT_BE", "UINT_BE", "UDINT_BE", "ULINT_BE",
+    "REAL","LREAL"
 )
+# fmt: on
 
 
 class SINT(IntDataType):
@@ -104,3 +98,71 @@ class LREAL(FloatDataType):
     code = 0xCB  #: 0xCB
     _format = "<d"
 
+
+#
+# Big-Endian Integer Variations
+#
+
+
+class SINT_BE(IntDataType):
+    """
+    Signed 8-bit integer, big-endian
+    """
+
+    _format = ">b"
+
+
+class INT_BE(IntDataType):
+    """
+    Signed 16-bit integer, big-endian
+    """
+
+    _format = ">h"
+
+
+class DINT_BE(IntDataType):
+    """
+    Signed 32-bit integer, big-endian
+    """
+
+    _format = "<i"
+
+
+class LINT_BE(IntDataType):
+    """
+    Signed 64-bit integer, big-endian
+    """
+
+    _format = ">q"
+
+
+class USINT_BE(IntDataType):
+    """
+    Unsigned 8-bit integer, big-endian
+    """
+
+    _format = ">B"
+
+
+class UINT_BE(IntDataType):
+    """
+    Unsigned 16-bit integer, big-endian
+    """
+
+    _format = ">H"
+
+
+class UDINT_BE(IntDataType):
+    """
+    Unsigned 32-bit integer, big-endian
+    """
+
+    _format = ">I"
+
+
+class ULINT_BE(IntDataType):
+    """
+    Unsigned 64-bit integer, big-endian
+    """
+
+    _format = ">Q"

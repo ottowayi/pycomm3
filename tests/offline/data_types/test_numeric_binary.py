@@ -24,10 +24,10 @@ i8_range = (-128, 127)
 u8_range = (0, 255)
 i16_range = (-32_768, 32_767)
 u16_range = (0, 65_535)
-i32_range = (-(2 ** 31), (2 ** 31) - 1)
-u32_range = (0, (2 ** 32) - 1)
-i64_range = (-(2 ** 63), (2 ** 63) - 1)
-u64_range = (0, (2 ** 64) - 1)
+i32_range = (-(2**31), (2**31) - 1)
+u32_range = (0, (2**32) - 1)
+i64_range = (-(2**63), (2**63) - 1)
+u64_range = (0, (2**64) - 1)
 shared = (0, 1, 31, 32, 69, 100)
 
 int_value_tests = [
@@ -46,7 +46,7 @@ int_value_tests = [
 ]
 
 
-@pytest.mark.parametrize('typ, value', int_value_tests)
+@pytest.mark.parametrize("typ, value", int_value_tests)
 def test_int_types(typ, value):
     encoded = typ.encode(value)
     decoded = typ.decode(encoded)
@@ -73,7 +73,7 @@ int_range_tests = [
 ]
 
 
-@pytest.mark.parametrize('typ, rng', int_range_tests)
+@pytest.mark.parametrize("typ, rng", int_range_tests)
 def test_int_out_of_range(typ, rng):
     min, max = rng
 
@@ -98,7 +98,7 @@ float_value_tests = [
 ]
 
 
-@pytest.mark.parametrize('typ, value', float_value_tests)
+@pytest.mark.parametrize("typ, value", float_value_tests)
 def test_float_types(typ, value):
     encoded = typ.encode(value)
     decoded = typ.decode(encoded)
@@ -110,11 +110,11 @@ def test_float_types(typ, value):
 
 
 unsupported_values = [
-    'abc',
+    "abc",
     [0, 1, 2],
-    b'\x00\x01\x03\x04',
+    b"\x00\x01\x03\x04",
     object(),
-    {'1': 2},
+    {"1": 2},
 ]
 
 invalid_type_tests = [
@@ -139,7 +139,7 @@ invalid_type_tests = [
 ]
 
 
-@pytest.mark.parametrize('typ, value', invalid_type_tests)
+@pytest.mark.parametrize("typ, value", invalid_type_tests)
 def test_invalid_values(typ, value):
     with pytest.raises(DataError):
         typ(value)
@@ -161,7 +161,7 @@ bit_array_tests = [
 ]
 
 
-@pytest.mark.parametrize('typ, value, bits', bit_array_tests)
+@pytest.mark.parametrize("typ, value, bits", bit_array_tests)
 def test_bit_arrays(typ, value, bits):
     assert typ(value).bits == bits
     assert typ(bits) == value
@@ -173,7 +173,7 @@ bool_tests = [
 ]
 
 
-@pytest.mark.parametrize('val, bool_', bool_tests)
+@pytest.mark.parametrize("val, bool_", bool_tests)
 def test_bool(val, bool_):
     if bool_:
         assert BOOL(val)
@@ -181,17 +181,26 @@ def test_bool(val, bool_):
         assert not BOOL(val)
     assert BOOL(val) == bool_
     assert bool(BOOL(val)) is bool_
-    assert bytes(BOOL(val)) == (b'\xFF' if bool_ else b'\x00')
+    assert bytes(BOOL(val)) == (b"\xff" if bool_ else b"\x00")
 
 
 def test_bytes():
-    b = BYTES(b'1')
-    assert b == b'1' == bytes(BYTES[1](b'1'))
+    # b = BYTES(b"1")
+    # assert b == b"" == bytes(BYTES[0](b"1"))
 
-    bb = BYTES[10](b'1234567890')
-    assert bb[0] == b'1' == BYTES(b'1') == BYTES(ord(b'1'))
-    assert bytes(bb) == b'1234567890'
-    assert bytes(bb[1:]) == b'234567890'
+    bb = BYTES[10](b"1234567890")
+    assert bb[0] == b"1" == BYTES[1](b"1") == BYTES[1](ord(b"1"))
+    assert bb == bytes(bb) == b"1234567890"
+    assert bytes(bb[1:]) == b"234567890"
+    assert bb.size == 10
 
-    bbb = BYTES[...](b'123')
-    assert bytes(bbb) == b'123' == bytes(BYTES[3](b'123'))
+    bbb = BYTES[...](b"123")
+    assert bbb == bytes(bbb) == b"123" == bytes(BYTES[3](b"123"))
+    assert bbb.size == -1
+
+    assert repr(bb) == "BYTES[10](b'1234567890')"
+    assert repr(bbb) == "BYTES[...](b'123')"
+
+    b4 = BYTES[UINT](b"1234")
+    assert bytes(b4) == b"\x04\x001234"
+    assert BYTES[UINT].decode(b"\x04\x001234") == b"1234"
