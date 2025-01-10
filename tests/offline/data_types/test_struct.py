@@ -1,9 +1,8 @@
 import pytest
 
-from pycomm3 import USINT, DataError
-from pycomm3.data_types import StructType, UINT, SINT, DINT, STRING, ArrayType, RESERVED
+from pycomm3 import USINT, DataError, UDINT
+from pycomm3.data_types import StructType, UINT, SINT, DINT, STRING, ArrayType, attr, Annotated
 from dataclasses import asdict
-from typing_extensions import Annotated
 
 
 def test_struct_simple():
@@ -104,9 +103,26 @@ def test_struct_missing_args():
 def test_struct_reserved_field():
     class S1(StructType):
         x: DINT
-        _: Annotated[UINT, RESERVED]
+        _: UINT = attr(reserved=True)
         y: DINT
 
     assert S1._members == {"x": DINT, "_": UINT, "y": DINT}
     assert S1._attributes == {"x": DINT, "y": DINT}
     assert bytes(S1(1, 2, 3)) == b"\x01\x00\x00\x00\x02\x00\x03\x00\x00\x00"
+
+
+def test_struct_array_len_ref():
+    class S1(StructType):
+        x: USINT
+        count: UINT = attr(init=False)
+        items: USINT[...] = attr(len_ref="count")
+        z: UDINT = 3
+
+    s = S1(1, [])
+    assert s.count == 0
+    assert asdict(s) == {"x": USINT(1), "count": UINT(0), "items": USINT[...]([]), "z": UDINT(3)}
+    assert bytes(s) == b"\x01\x00\x00\x03\x00\x00\x00"
+
+    s.items = [1, 2, 3]
+    assert s.count == 3
+    assert bytes(s) == b"\x01\x03\x00\x01\x02\x03\x03\x00\x00\x00"

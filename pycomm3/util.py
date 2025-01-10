@@ -26,10 +26,9 @@
 """
 Various utility functions.
 """
-from __future__ import annotations
+
 from dataclasses import dataclass, Field, field
-from typing import cast, Protocol, Optional, Callable, TypeVar
-from typing_extensions import dataclass_transform
+from typing import cast, Protocol, Optional, Callable, TypeVar, dataclass_transform, Self
 
 
 def strip_array(tag: str) -> str:
@@ -69,13 +68,6 @@ def cycle(stop, start=0):
         val += 1
 
 
-class DataclassProtocol(Protocol):
-    __dataclass_fields__: dict
-
-
-DataClassT = TypeVar('DataClassT', bound=DataclassProtocol)
-
-
 @dataclass_transform(
     field_specifiers=(Field, field),
 )
@@ -85,14 +77,7 @@ class DataclassMeta(type):
     also require the dataclass decorator.
     """
 
-    def __new__(
-        mcs: type[DataclassMeta],
-        name: str,
-        bases: tuple,
-        clsdict: dict,
-    ) -> type[DataClassT]:
+    def __new__(mcs: type[Self], name: str, bases: tuple, cls_dict: dict) -> Self:
+        cls = super().__new__(mcs, name, bases, cls_dict)
 
-        cls = super().__new__(mcs, name, bases, clsdict)
-        klass: type[DataClassT] = dataclass(cast('type[DataClassT]', cls))
-
-        return klass
+        return dataclass(cls)

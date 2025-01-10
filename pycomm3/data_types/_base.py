@@ -1,7 +1,4 @@
-from __future__ import annotations
-
-import builtins
-import dataclasses
+import types
 from collections.abc import MutableMapping, Mapping
 from dataclasses import Field, astuple, dataclass, field, fields, make_dataclass
 from inspect import isclass
@@ -10,43 +7,31 @@ from struct import calcsize, pack, unpack
 from typing import (
     Any,
     ClassVar,
-    Dict,
     Generic,
-    Iterable,
-    Literal,
-    Protocol,
-    Sequence,
-    Tuple,
     Type,
     TypeVar,
-    Union,
     cast,
     get_args,
     overload,
-    TYPE_CHECKING,
     Optional,
     get_origin,
     get_type_hints,
+    Sequence,
+    TypeAlias,
+    dataclass_transform,
+    Annotated,
+    Self,
+    Callable,
+    TYPE_CHECKING,
 )
-
-from typing_extensions import dataclass_transform, TypeAlias, Annotated
 
 from pycomm3.exceptions import BufferEmptyError, DataError
 from pycomm3.util import DataclassMeta
+from types import EllipsisType
 
-if TYPE_CHECKING:
-    from types import EllipsisType
-else:
-    EllipsisType = type(...)
 
-BufferT: TypeAlias = Union[BytesIO, bytes]
-ArrayLenT: TypeAlias = Optional[
-    Union[
-        Type["ElementaryDataType[int]"],
-        int,
-        EllipsisType,
-    ]
-]
+BufferT: TypeAlias = BytesIO | bytes
+ArrayLenT: TypeAlias = None | Type["ElementaryDataType[int]"] | int | EllipsisType
 
 
 def buff_repr(buffer: BufferT) -> str:
@@ -72,11 +57,6 @@ def as_stream(buffer: BufferT) -> BytesIO:
 class _DataTypeMeta(type):
     def __repr__(cls):
         return cls.__name__
-
-
-class _ArrayMetaMixin(type):
-    def __getitem__(cls, item):
-        return array(cls, item)
 
 
 DT = TypeVar("DT", bound="DataType")
@@ -171,11 +151,11 @@ def is_datatype(obj: Any, typ=DataType) -> bool:
         return isinstance(obj, typ)
 
 
-ElementaryPyType: TypeAlias = Union[int, float, bool, str, bytes]
+ElementaryPyType: TypeAlias = int | float | bool | str | bytes
 
 EDT = TypeVar("EDT", bound="ElementaryDataType")
 ET = TypeVar("ET", int, float, bool, str, bytes)
-EVT: TypeAlias = Union[EDT, ET]
+EVT: TypeAlias = EDT | ET
 
 
 class _ElementaryDataTypeMeta(_DataTypeMeta):
@@ -237,29 +217,23 @@ class ElementaryDataType(DataType, Generic[ET], metaclass=_ElementaryDataTypeMet
         return f"{self.__class__.__name__}({self._base_type.__repr__(self)})"  # noqa
 
 
-SDT = TypeVar("SDT", bound="StructType")
+class _ArrayMetaMixin[T: type[DataType], LT: ArrayLenT](type):
+    def __getitem__(cls: T, item: LT) -> "ArrayType[T, LT]":
+        return array(cls, item)
 
 
-class _StructFieldMarker:
-    """
-    base class for any special markers that can be added to annotated fields in a struct type
-    """
-
-
-RESERVED = _StructFieldMarker()
-
-
-def _process_fields(cls: "type[_StructMeta]") -> ...:
+def _process_fields(cls: "type[StructType]") -> ...:
     _fields = fields(cls)  # noqa
     _type_hints = get_type_hints(cls, include_extras=True)
     cls._dataclass_fields = {}
     cls._members = {}
     cls._attributes = {}
+    cls._array_length_attributes = {}
 
     for _field in _fields:
         cls._dataclass_fields[_field.name] = _field
         typ = _type_hints.get(_field.name)
-        is_reserved = False
+        metadata = _field.metadata or {}
         field_type = None
         if isclass(typ) and issubclass(typ, DataType):
             field_type = typ
@@ -281,9 +255,6 @@ def _process_fields(cls: "type[_StructMeta]") -> ...:
                     if not isclass(_type) or not issubclass(_type, DataType):
                         raise DataError(f"Annotated types must provide a DataType for the first arg: {_field.name}")
                     field_type = _type
-                # handle extras
-                if RESERVED in extra:
-                    is_reserved = True
 
             elif isclass(origin) and issubclass(origin, ArrayType):
                 # handles 'x: ArrayType[y, z]' case
@@ -294,35 +265,66 @@ def _process_fields(cls: "type[_StructMeta]") -> ...:
         if field_type is None:
             raise DataError(f"Failed to determine type (unsupported annotation) for field: {_field.name}")
         cls._members[_field.name] = field_type
-        if not is_reserved:
+        if not metadata.get("reserved"):
             cls._attributes[_field.name] = field_type
+        if len_ref := metadata.get("len_ref"):
+            cls._array_length_attributes[_field.name] = len_ref
 
 
-@dataclass_transform(field_specifiers=(Field, field))
+def _default_len_ref_callable(value: DataType) -> int:
+    return value  # type: ignore
+
+
+def attr(
+    default: DataType | None = None,
+    init: bool = True,
+    reserved: bool = False,
+    len_ref: str | tuple[str, Callable[[DataType], int]] | None = None,
+):
+    """
+    Customize behavior of struct attributes (and their underlying dataclass fields)
+
+    default: Default value for the attribute when creating the object, will be overwritten with decoded value when
+             instance created using decode(). `None` is not a valid default value for fields, unlike in regular dataclasses.
+             `None` means the attribute must be provided when creating the object.
+
+    init: Whether the attribute can be provided when creating the struct. If False, then the attribute
+          will not be set on the instance automatically and must be done manually in __post_init__.
+          Value will be overwritten with decoded value after instance is created using decode()
+    reserved: Whether the attribute is reserved. If True, the attribute will not be _user facing_ and implies `init=True`.
+    len_ref: Used for ArrayType attributes whose length is determined by another attribute and used when decoding the
+             struct whole. The attribute should be type hinted as `Array[...]` as well. This parameter must be
+             the name of the length attribute or a tuple of the name and a 1-arg callable that accepts the value of the
+             length attribute and returns an int.  The length attribute must be defined before the array as well, since
+             it needs to be decoded before the array can be.
+    """
+    field_kwargs = dict(init=True if reserved else init, metadata={"reserved": reserved})
+    if default is not None:
+        field_kwargs["default"] = default
+    if len_ref is not None and isinstance(len_ref, str):
+        len_ref = len_ref, _default_len_ref_callable
+    field_kwargs["metadata"]["len_ref"] = len_ref
+
+    return field(**field_kwargs)
+
+
+@dataclass_transform(field_specifiers=(Field, field, attr))
 class _StructMeta(DataclassMeta, _ArrayMetaMixin, _DataTypeMeta):
-    _members: dict[str, type[DataType]]
-    _attributes: dict[str, type[DataType]]
-
-    def __new__(mcs: type[_StructMeta], name: str, bases: tuple, clsdict: dict) -> type[SDT]:
-        cls: type[SDT] = super().__new__(mcs, name, bases, clsdict)
+    def __new__(mcs: Self, name: str, bases: tuple, cls_dict: dict) -> type[Self]:
+        cls: type[Self] = super().__new__(mcs, name, bases, cls_dict)
         _process_fields(cls)
         return cls
 
     @property
-    def size(cls: _StructMeta) -> int:
+    def size(cls: Self) -> int:
         return sum(sz for typ in cls._members.values() if (sz := typ.size) != -1)
 
 
-StructValuesType = Union[Dict[str, DataType], Sequence[DataType]]
-StructCreateMembersType = Sequence[
-    Union[
-        Tuple[str, Type[DataType]],
-        Tuple[str, Type[DataType], Field],
-    ]
-]
+type StructValuesType = dict[str, DataType] | Sequence[DataType]
+type StructCreateMembersType = Sequence[tuple[str, type[DataType]] | tuple[str, type[DataType], Field]]
 
 
-@dataclass_transform(field_specifiers=(Field, field))
+@dataclass_transform(field_specifiers=(Field, field, attr))
 class StructType(DataType, metaclass=_StructMeta):
     """
     Base type for a structure
@@ -333,11 +335,15 @@ class StructType(DataType, metaclass=_StructMeta):
     #: mapping of _user_ members of the struct to their type,
     #: excluding reserved or private members not meant for users to interact with
     _attributes: ClassVar[dict[str, type[DataType]]] = {}
+    #: map of field names to dataclass Field objects, to avoid having to call fields() all the time
+    _dataclass_fields: ClassVar[dict[str, Field]] = {}
+    #: map of array field names to the field name that is the source of the length of the array
+    _array_length_attributes: ClassVar[dict[str, tuple[str, Callable[[DataType], int]]]] = {}
 
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls)
 
-    def __setattr__(self: SDT, key: str, value: Any) -> None:
+    def __setattr__(self: Self, key: str, value: Any) -> None:
         if key not in self.__class__._members:  # noqa
             raise AttributeError(f"{key!r} is not an attribute of struct {self.__class__.__name__}")
         if not isinstance(value, typ := self.__class__._members[key]):
@@ -348,13 +354,17 @@ class StructType(DataType, metaclass=_StructMeta):
                     value = typ(value)
             except Exception as err:
                 raise DataError(f"Type conversion error for attribute {key!r}") from err
-
+        try:
+            if len_ref := self._array_length_attributes.get(key):
+                setattr(self, len_ref[0], len(value))
+        except Exception as err:
+            raise DataError(f"Error updating length attribute for array attribute {key!r}") from err
         super().__setattr__(key, value)
 
     def __iter__(self):
         yield from ((m, self[m]) for m in self._members)
 
-    def __getitem__(self, item: str) -> SDT:
+    def __getitem__(self, item: str) -> Self:
         if item not in self.__class__._members:
             raise DataError(f"Invalid member name: {item}")
 
@@ -369,57 +379,62 @@ class StructType(DataType, metaclass=_StructMeta):
     def keys(self):
         return self.__class__._members.keys()
 
-    def __bytes__(self: SDT) -> bytes:
+    def __bytes__(self: Self) -> bytes:
         return self.__class__.encode(self)
 
     @classmethod
-    def _encode(cls: type[SDT], value: SDT, *args, **kwargs) -> bytes:
+    def _encode(cls: type[Self], value: Self, *args, **kwargs) -> bytes:
         return b"".join(bytes(getattr(value, attr_name)) for attr_name in cls._members)
 
     @classmethod
-    def _decode(cls: type[SDT], stream: BytesIO) -> SDT:
-        values = ((name, typ.decode(stream)) for name, typ in cls._members.items())
-        return cls(**{name: val for name, val in values if cls._dataclass_fields[name].init})
+    def _decode(cls: type[Self], stream: BytesIO) -> Self:
+        values: dict[str, DataType] = {}
+        for name, typ in cls._members.items():
+            if len_ref := cls._array_length_attributes.get(name):
+                typ: ArrayType
+                _ref, _func = len_ref
+                _array = array(typ.element_type, _func(values[_ref]))
+                value = _array.decode(stream)
+            else:
+                value = typ.decode(stream)
+            values[name] = value
+
+        post_init_vars = {name: val for name, val in values.items() if not cls._dataclass_fields[name].init}
+        instance = cls(**{k: v for k, v in values if k not in post_init_vars})
+        for name, val in post_init_vars.items():
+            setattr(instance, name, val)
+        return instance
 
     @staticmethod
-    def create(name: str, members: StructCreateMembersType) -> type[SDT]:
+    def create[T: type[StructType]](name: str, members: StructCreateMembersType) -> T:
         _fields = []
         member: tuple[str, type[DataType]] | tuple[str, type[DataType], Field]
         for i, member in enumerate(members):
             if len(member) == 2:
-                _name, typ = cast(Tuple[str, Type[DataType]], member)
+                _name, typ = cast(tuple[str, type[DataType]], member)
                 _field = None
             else:
-                _name, typ, _field = cast(Tuple[str, Type[DataType], Field], member)
+                _name, typ, _field = cast(tuple[str, type[DataType], Field], member)
 
             if not _name:
-                _name = f"_reserved_attr{i}"
+                _name = f"_reserved_attr{i}_"
                 if _field is None:
-                    _field = StructType.attr(reserved=True)
+                    _field = attr(reserved=True)
+                else:
+                    _field.metadata = types.MappingProxyType({**(_field.metadata or {}), "reserved": True})
 
             _fields.append((_name, typ, _field))
 
-        struct_class: type[SDT] = make_dataclass(
-            cls_name=name,
-            fields=_fields,
-            bases=(StructType,),
-        )
+        struct_class: type[T] = cast(type[T], make_dataclass(cls_name=name, fields=_fields, bases=(StructType,)))
 
         return struct_class
-
-
-ArrayElementType = TypeVar("ArrayElementType", bound=DataType)
-ArrayLengthType = TypeVar("ArrayLengthType", bound=ArrayLenT)
-
-
-_ArrayType = TypeVar("_ArrayType", bound="ArrayType")
 
 
 class _ArrayMeta(_DataTypeMeta):
     element_type: type[DataType]
     length: ArrayLenT
 
-    def __repr__(cls: _ArrayType) -> str:  # type: ignore
+    def __repr__(cls: Self) -> str:
         if cls is ArrayType:
             return ArrayType.__name__
         if cls.length in (Ellipsis, None):
@@ -440,41 +455,37 @@ class _ArrayMeta(_DataTypeMeta):
         else:
             return cast(int, cls.length) * cls.element_type.size
 
-    def __eq__(self: type[_ArrayType], other) -> bool:  # type: ignore
+    def __eq__(self: Self, other) -> bool:
         try:
             return self.element_type == other.element_type and self.length == other.length
         except Exception:
             return False
 
 
-_ET = TypeVar("_ET", bound=DataType)
-_LT = TypeVar("_LT", bound=ArrayLenT)
-
-
-def array(element_type: type[_ET], length: _LT) -> type[ArrayType[_ET, _LT]]:
+def array[ET: type[DataType], LT: ArrayLenT](element_type: type[ET], length: LT) -> type["ArrayType[ET, LT]"]:
     _type, _len = element_type, length
     if _len is None:
         _len = ...
 
-    class Array(ArrayType[_ET, _LT]):
+    class Array(ArrayType[ET, LT]):
         element_type = _type
         length = _len
 
     return Array
 
 
-class ArrayType(DataType, Generic[ArrayElementType, ArrayLengthType], metaclass=_ArrayMeta):
+class ArrayType[ElementT: DataType, LenT: ArrayLenT](DataType, metaclass=_ArrayMeta):
     """
     Base type for an array
     """
 
-    element_type: type[ArrayElementType]
-    length: ArrayLengthType
+    element_type: type[ElementT]
+    length: LenT
 
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls)
 
-    def __init__(self: _ArrayType, value: Sequence) -> None:
+    def __init__(self: Self, value: Sequence) -> None:
         if isinstance(self.length, int):
             try:
                 val_len = len(value)
@@ -484,17 +495,17 @@ class ArrayType(DataType, Generic[ArrayElementType, ArrayLengthType], metaclass=
                 if val_len != self.length:
                     raise DataError(f"Array length error: expected {self.length} items, received {len(value)}")
 
-        self._array: list[ArrayElementType] = [self._convert_element(v) for v in value]
+        self._array: list[ElementT] = [self._convert_element(v) for v in value]
 
     @property
-    def size(self) -> int:  # type: ignore
+    def size(self) -> int:
         if isclass(self.length) and issubclass(self.length, DataType):
-            return self.length.size + len(self._array) * self.element_type.size  # type: ignore
+            return self.length.size + len(self._array) * self.element_type.size
         else:
             return len(self._array) * self.element_type.size
 
-    def _convert_element(self, value) -> ArrayElementType:
-        if not isinstance(value, self.element_type):  # noqa - PyCharm Issue: PY-32860
+    def _convert_element(self, value) -> ElementT:
+        if not isinstance(value, self.element_type):
             try:
                 val = self.element_type(value)
             except Exception as err:
@@ -506,32 +517,32 @@ class ArrayType(DataType, Generic[ArrayElementType, ArrayLengthType], metaclass=
     def __hash__(self):
         return hash((self.length, self.element_type, self._array))
 
-    def __len__(self: _ArrayType) -> int:
+    def __len__(self) -> int:
         return len(self._array)
 
     @overload
-    def __getitem__(self: _ArrayType, item: int) -> ArrayElementType: ...
+    def __getitem__(self, item: int) -> ElementT: ...
 
     @overload
-    def __getitem__(self: _ArrayType, item: slice) -> list[ArrayElementType]: ...
+    def __getitem__(self, item: slice) -> list[ElementT]: ...
 
-    def __getitem__(self: _ArrayType, item: int | slice) -> ArrayElementType | list[ArrayElementType]:
+    def __getitem__(self, item: int | slice) -> ElementT | list[ElementT]:
         if isinstance(item, slice):
             items = self._array[item]
             return self.element_type[len(items)](items)
 
         return self._array[item]
 
-    def __setitem__(self: _ArrayType, item: int | slice, value) -> None:
+    def __setitem__(self, item: int | slice, value) -> None:
         try:
             if isinstance(item, slice):
                 self._array[item] = (self._convert_element(v) for v in value)
             else:
                 self._array[item] = self._convert_element(value)
         except Exception as err:
-            raise DataError(f"Failed to set item") from err
+            raise DataError("Failed to set item") from err
 
-    def __bytes__(self: _ArrayType) -> bytes:
+    def __bytes__(self) -> bytes:
         return self.__class__.encode(self)
 
     def __eq__(self, other):
@@ -541,7 +552,7 @@ class ArrayType(DataType, Generic[ArrayElementType, ArrayLengthType], metaclass=
             return False
 
     @classmethod
-    def _encode(cls: type[_ArrayType], value: _ArrayType, *args, **kwargs) -> bytes:
+    def _encode(cls, value: Self, *args, **kwargs) -> bytes:
         encoded_elements = b"".join(bytes(x) for x in value._array)
         if isclass(value.length) and issubclass(value.length, DataType):
             return bytes(value.length(len(value))) + encoded_elements
@@ -549,7 +560,7 @@ class ArrayType(DataType, Generic[ArrayElementType, ArrayLengthType], metaclass=
         return encoded_elements
 
     @classmethod
-    def _decode_all(cls: type[_ArrayType], stream: BytesIO) -> list[ArrayElementType]:
+    def _decode_all(cls, stream: BytesIO) -> list[ElementT]:
         _array = []
         while True:
             try:
@@ -559,7 +570,7 @@ class ArrayType(DataType, Generic[ArrayElementType, ArrayLengthType], metaclass=
         return _array
 
     @classmethod
-    def decode(cls: type[_ArrayType], buffer: BufferT) -> _ArrayType:
+    def decode(cls, buffer: BufferT) -> Self:
         try:
             stream = as_stream(buffer)
             if cls.length in {None, Ellipsis}:
