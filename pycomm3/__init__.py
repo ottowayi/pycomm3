@@ -24,6 +24,7 @@
 
 from ._version import __version__, __version_info__
 from .logger import *
+from ._logging import *
 
 # from .const import *
 from .tag import Tag

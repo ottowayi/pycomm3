@@ -1,55 +1,19 @@
-from pycomm3 import UDINT, DataType, DataclassMeta
-from pycomm3.data_types import UINT, BYTES
-from dataclasses import dataclass, InitVar, field
-from enum import Enum
-from typing import Protocol
+from typing import ClassVar
+
+from pycomm3.data_types import UINT, BYTES, UDINT, DataType, DataclassMeta, attr, StructType
+from dataclasses import dataclass, field
 from io import BytesIO
 
-from pycomm3.protocols.ethernetip.data_types import EtherNetIPHeader, DEFAULT_CONTEXT
-from ..base import Request
-
-
-class EncapsulationCommand(UINT, Enum):
-    nop = UINT(0)
-    list_targets = UINT(1)
-    list_services = UINT(4)
-    list_identity = UINT(0x63)
-    list_interfaces = UINT(0x64)
-    register_session = UINT(0x65)
-    unregister_session = UINT(0x66)
-    send_rr_data = UINT(0x6F)
-    send_unit_data = UINT(0x70)
-
-
-@dataclass
-class EIPRequest:
-    header: EtherNetIPHeader
-    data: bytes
-    message: bytes = field(init=False)
-    has_response: bool = True
-
-    def __post_init__(self):
-        self.message = bytes(self.header) + self.data
-
-
-class EIPService(metaclass=DataclassMeta):
-    command: EncapsulationCommand
-    has_response: bool = True
-
-    def __call__(
-        self, session: UDINT, data: bytes | DataType, context: BYTES[8] = DEFAULT_CONTEXT, *args, **kwargs
-    ) -> EIPRequest:
-        payload = bytes(data) if isinstance(data, DataType) else data
-        header = EtherNetIPHeader(command=self.command, length=UINT(len(payload)), session=session)
-        return EIPRequest(header=header, data=payload)
+from .data_types import DEFAULT_CONTEXT, RegisterSessionData, SendRRDataData, SendUnitDataData
+from ._base import EtherNetIPHeader, EIPService, EncapsulationCommand, EIPRequest
 
 
 class NOPService(EIPService):
-    command: EncapsulationCommand = EncapsulationCommand.nop
+    command: UINT = EncapsulationCommand.nop
     has_response: bool = False
 
     # defining this request statically, no need to regenerate it every time
-    _request: EIPRequest = EIPRequest(
+    _request: ClassVar[EIPRequest] = EIPRequest(
         header=EtherNetIPHeader(
             command=EncapsulationCommand.nop,
             length=UINT(0),
@@ -63,47 +27,41 @@ class NOPService(EIPService):
         return self._request
 
 
-class EtherNetIPStatus(UDINT, Enum):
-    Success = UDINT(0x0000)
-    InvalidOrUnsupportedEncapCommand = UDINT(0x0001)
-    InsufficientReceiverMemory = UDINT(0x0002)
-    BadData = UDINT(0x0003)
-    InvalidSessionHandle = UDINT(0x0064)
-    InvalidMessageLength = UDINT(0x0065)
-    UnsupportedEncapProtocolRevision = UDINT(0x0069)  # nice
+class StaticEIPService(EIPService):
+    data: bytes = b""
+
+    def __call__(self, session: UDINT, *args, context: BYTES[8] = DEFAULT_CONTEXT, **kwargs) -> EIPRequest:
+        header = EtherNetIPHeader(
+            command=self.command,
+            length=UINT(len(self.data)),
+            session=session,
+        )
+
+        return EIPRequest(header=header, data=self.data, has_response=self.has_response)
 
 
-ETHERNETIP_STATUS_CODES: dict[UDINT, str] = {
-    EtherNetIPStatus.Success: "Success",
-    EtherNetIPStatus.InvalidOrUnsupportedEncapCommand: "Invalid or unsupported encapsulation command",
-    EtherNetIPStatus.InsufficientReceiverMemory: "Insufficient memory to handle command",
-    EtherNetIPStatus.BadData: "Poorly formed or incorrect command data",
-    EtherNetIPStatus.InvalidSessionHandle: "Invalid session handle",
-    EtherNetIPStatus.InvalidMessageLength: "Invalid message length",
-    EtherNetIPStatus.UnsupportedEncapProtocolRevision: "Unsupported encapsulation protocol revision",
-}
+class SimpleEIPService[T: DataType](EIPService):
+    def __call__(
+        self, session: UDINT, data: T | bytes, *args, context: BYTES[8] = DEFAULT_CONTEXT, **kwargs
+    ) -> EIPRequest:
+        if isinstance(data, DataType):
+            data = bytes(data)
+        header = EtherNetIPHeader(command=self.command, length=UINT(len(data)), session=session, context=context)
+        return EIPRequest(header=header, data=data, has_response=self.has_response)
 
 
-@dataclass
-class EIPResponse:
-    request: EIPRequest
-    header: EtherNetIPHeader
-    data: bytes | DataType
-    status_msg: str = field(init=False)
-
-    def __post_init__(self):
-        self.status_msg = ETHERNETIP_STATUS_CODES.get(self.header.status, f"Unknown status code: {self.header.status}")
-
-    def __bool__(self) -> bool:
-        return self.header is not None and self.header.status == EtherNetIPStatus.Success
-
-
-class EIPResponseParser:
-    def parse(self, data: bytes | BytesIO, header: EtherNetIPHeader, request: EIPRequest) -> EIPResponse:
-        match header.command:
-            case EncapsulationCommand.nop:
-                payload = b""
-            case EncapsulationCommand.list_targets:
-                ...
-
-        return EIPResponse(request=request, header=header, data=payload)
+class Services:
+    nop: NOPService = NOPService()
+    list_identity: StaticEIPService = StaticEIPService(command=EncapsulationCommand.list_identity)
+    list_interfaces: StaticEIPService = StaticEIPService(command=EncapsulationCommand.list_interfaces)
+    register_session = StaticEIPService(
+        command=EncapsulationCommand.register_session,
+        data=bytes(RegisterSessionData()),
+    )
+    unregister_session: StaticEIPService = StaticEIPService(
+        command=EncapsulationCommand.unregister_session,
+        has_response=False,
+    )
+    list_services: StaticEIPService = StaticEIPService(command=EncapsulationCommand.list_services)
+    send_rr_data: SimpleEIPService[SendRRDataData] = SimpleEIPService(command=EncapsulationCommand.send_rr_data)
+    send_unit_data: SimpleEIPService[SendUnitDataData] = SimpleEIPService(command=EncapsulationCommand.send_unit_data)

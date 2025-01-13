@@ -68,16 +68,13 @@ def cycle(stop, start=0):
         val += 1
 
 
-@dataclass_transform(
-    field_specifiers=(Field, field),
-)
+@dataclass_transform(field_specifiers=(Field, field))
 class DataclassMeta(type):
     """
     Metaclass that automatically turns classes into dataclasses, so that any subclasses do not
     also require the dataclass decorator.
     """
 
-    def __new__(mcs: type[Self], name: str, bases: tuple, cls_dict: dict) -> Self:
+    def __new__(mcs, name: str, bases: tuple, cls_dict: dict):
         cls = super().__new__(mcs, name, bases, cls_dict)
-
-        return dataclass(cls)
+        return dataclass(cls)  # type: ignore

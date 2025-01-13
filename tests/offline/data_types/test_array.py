@@ -28,12 +28,12 @@ def test_array_classes():
 
 elementary_tests = [
     (DINT, 1, [1], bytes(DINT(1))),
-    (STRING, 1, ['hello there'], bytes(STRING('hello there'))),
+    (STRING, 1, ["hello there"], bytes(STRING("hello there"))),
     (DINT, 3, [1, 2, 3], bytes(DINT(1)) + bytes(DINT(2)) + bytes(DINT(3))),
 ]
 
 
-@pytest.mark.parametrize('typ, length, values, encoded', elementary_tests)
+@pytest.mark.parametrize("typ, length, values, encoded", elementary_tests)
 def test_array_elementary(typ, length, values, encoded):
     ary_type = typ[length]
     ary = ary_type(values)
@@ -56,7 +56,7 @@ def test_array_slicing():
 def test_array_struct():
     class S1(StructType):
         x: DINT = 0
-        y: STRING = 'xyz'
+        y: STRING = "xyz"
         z: DINT[...] = DINT[3]([1, 2, 3])
 
     ary = S1[3]([S1(), S1(), S1()])
@@ -64,5 +64,5 @@ def test_array_struct():
     assert bytes(ary) == bytes(S1()) * 3
     ary[1].z[0] = -1
     assert ary[1] == S1(z=[-1, 2, 3])
-    assert bytes(ary) != bytes(S1()) * 3
+    assert bytes(ary) != (bytes(S1()) * 3)
     assert bytes(ary) == bytes(S1()) + bytes(S1(z=[-1, 2, 3])) + bytes(S1())

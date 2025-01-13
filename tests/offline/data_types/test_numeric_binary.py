@@ -204,3 +204,8 @@ def test_bytes():
     b4 = BYTES[UINT](b"1234")
     assert bytes(b4) == b"\x04\x001234"
     assert BYTES[UINT].decode(b"\x04\x001234") == b"1234"
+
+    assert repr(BYTES(b"123")) == "BYTES[...](b'123')"
+    assert repr(BYTES[...](b"")) == "BYTES[...](b'')"
+    assert repr(BYTES[1](b"1")) == "BYTES[1](b'1')"
+    assert repr(BYTES[UINT](b"123")) == "BYTES[UINT](b'123')"

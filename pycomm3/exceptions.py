@@ -29,6 +29,9 @@ class PycommError(Exception):
     """
 
 
+class ConnectionError(PycommError): ...
+
+
 class CommError(PycommError):
     """
     For exceptions raised during connection related issues

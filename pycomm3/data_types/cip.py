@@ -41,15 +41,15 @@ __all__ = (
 
 
 class SegmentType(IntFlag):
-    port: int = 0b_000_00000
-    logical: int = 0b_001_00000
-    network: int = 0b_010_00000
-    symbolic: int = 0b_011_00000
-    data: int = 0b_100_00000
-    constructed_data_type: int = 0b_101_00000
-    elementary_data_type: int = 0b_110_00000
-    reserved: int = 0b_111_00000
-    mask: int = 0b_111_00000
+    port = 0b_000_00000
+    logical = 0b_001_00000
+    network = 0b_010_00000
+    symbolic = 0b_011_00000
+    data = 0b_100_00000
+    constructed_data_type = 0b_101_00000
+    elementary_data_type = 0b_110_00000
+    reserved = 0b_111_00000
+    mask = 0b_111_00000
 
 
 CIPSegmentT = TypeVar("CIPSegmentT", bound="CIPSegment")
@@ -105,15 +105,15 @@ class CIPSegment(DataType):
             raise DataError(f"Error unpacking {buff_repr(buffer)} as {cls.__name__}") from err
 
     @classmethod
-    def _decode(cls, buffer: BytesIO, padded: bool = False) -> CIPSegment:
-        _peek = buffer.getvalue()[buffer.tell() : buffer.tell() + 1]
+    def _decode(cls, stream: BytesIO, padded: bool = False) -> CIPSegment:
+        _peek = stream.getvalue()[stream.tell() : stream.tell() + 1]
         if not _peek:
             raise BufferEmptyError()
 
         segment_type = _peek[0] & SegmentType.mask
         for subcls in CIPSegment.__subclasses__():
             if subcls.segment_type == segment_type:
-                return subcls.decode(buffer, padded)
+                return subcls.decode(stream, padded)
 
         raise DataError(f"Unknown segment type: {_segment_type_bits(segment_type)}")
 

@@ -1,7 +1,9 @@
+from typing import Sequence
+
 import pytest
 
-from pycomm3 import USINT, DataError, UDINT
-from pycomm3.data_types import StructType, UINT, SINT, DINT, STRING, ArrayType, attr, Annotated
+from pycomm3 import USINT, DataError, UDINT, SHORT_STRING
+from pycomm3.data_types import StructType, UINT, SINT, DINT, STRING, ArrayType, attr, Annotated, array, Array
 from dataclasses import asdict
 
 
@@ -52,13 +54,18 @@ def test_nested_struct():
     assert bytes(s2) == b"\x03\x00\x00\x00\x04\x00\x00\x00\x03\x00Bye\x64\x00\x00\x00"
 
 
+class S1(StructType):
+    x: DINT
+    y: STRING
+
+
 def test_struct_array_member():
     class S1(StructType):
         x: DINT
         y: STRING
 
     class S2(StructType):
-        a: ArrayType[UINT, USINT]
+        a: UINT[USINT]
         b: Annotated[ArrayType[S1, int], 3]
         c: Annotated[SINT[3], "not used"]
 
@@ -75,6 +82,19 @@ def test_struct_array_member():
         b"\x03\x04\x00\x05\x00\x06\x00"
         b"\x0a\x00\x00\x00\x01\x00a\x14\x00\x00\x00\x01\x00b\x1e\x00\x00\x00\x01\x00c\x01\x02\x03"
     )
+
+    # retest with better type hinting
+    class S3(StructType):
+        a: UINT | int
+        b: Array[UINT, USINT] | Sequence[UINT | int]
+        c: Annotated[Array[UINT, int], 3] | Sequence[UINT | int]
+
+    s3 = S3(1, [2, 2, 2], [4, 4, 4])
+    assert s3.a == 1
+    assert type(s3.a) is UINT
+    assert bytes(s3) == b"\x01\x00\x03\x02\x00\x02\x00\x02\x00\x04\x00\x04\x00\x04\x00"
+    s3.b = [1, 2]
+    assert bytes(s3) == b"\x01\x00\x02\x01\x00\x02\x00\x04\x00\x04\x00\x04\x00"
 
 
 def test_struct_missing_args():
@@ -126,3 +146,28 @@ def test_struct_array_len_ref():
     s.items = [1, 2, 3]
     assert s.count == 3
     assert bytes(s) == b"\x01\x03\x00\x01\x02\x03\x03\x00\x00\x00"
+
+
+def test_struct_size_ref():
+    class S1(StructType):
+        x: USINT | int
+        z: Array[USINT, UINT] | Sequence[int]
+
+    class S2(StructType):
+        a: DINT | int
+        struct_size: UINT = attr(size_ref=True)
+        b: SHORT_STRING | str
+        s: S1
+
+    s1 = S1(1, [1, 1])
+    s2 = S2(0, "", s1)
+    assert s2.struct_size == 6
+    assert bytes(s2) == b"\x00\x00\x00\x00\x06\x00\x00\x01\x02\x00\x01\x01"
+    s2.b = "hello there!"
+    assert s2.struct_size == 18
+    s2.s.z = [1, 2, 3]
+    assert s2.struct_size == 19
+    assert bytes(s2) == b"\x00\x00\x00\x00\x13\x00\x0chello there!\x01\x03\x00\x01\x02\x03"
+    assert S2.decode(b"\x00\x00\x00\x00\x13\x00\x0chello there!\x01\x03\x00\x01\x02\x03") == S2(
+        0, "hello there!", S1(1, [1, 2, 3])
+    )
