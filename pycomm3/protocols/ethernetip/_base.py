@@ -5,7 +5,7 @@ from pycomm3.data_types import UINT, BYTES, UDINT, DataType, DataclassMeta, Stru
 from dataclasses import dataclass, field
 from io import BytesIO
 
-from .data_types import DEFAULT_CONTEXT, ListIdentityData, RegisterSessionData
+from .data_types import DEFAULT_CONTEXT, ListIdentityData, RegisterSessionData, ListServicesData, ListInterfacesData
 
 
 class EtherNetIPHeader(StructType):
@@ -17,15 +17,14 @@ class EtherNetIPHeader(StructType):
     options: UDINT = UDINT(0)
 
     def __str__(self) -> str:
-        command = f"{self.command:#0x}: '{ENCAP_COMMAND_NAMES.get(self.command, 'UNKNOWN')}'"
-        status = f"{self.status:#04x}: '{ETHERNETIP_STATUS_CODES.get(self.status, 'UNKNOWN')}'"
+        command = f"{self.command:#04x}: '{ENCAP_COMMAND_NAMES.get(self.command, 'UNKNOWN')}'"
+        status = f"{self.status:#06x}: '{ETHERNETIP_STATUS_CODES.get(self.status, 'UNKNOWN')}'"
         session = self.session
         return f"{self.__class__.__name__}({command=!s}, {status=!s}, {session=})"
 
 
 class EncapsulationCommand:
     nop = UINT(0)
-    list_targets = UINT(0x01)
     list_services = UINT(0x04)
     list_identity = UINT(0x63)
     list_interfaces = UINT(0x64)
@@ -114,13 +113,15 @@ class EIPResponseParser:
         match header.command:
             case EncapsulationCommand.nop:
                 payload = b""
-            case EncapsulationCommand.list_targets:
-                ...
             case EncapsulationCommand.list_services:
-                ...
+                payload = ListServicesData.decode(data)
             case EncapsulationCommand.list_identity:
                 payload = ListIdentityData.decode(data)
             case EncapsulationCommand.register_session:
                 payload = RegisterSessionData.decode(data)
+            case EncapsulationCommand.list_interfaces:
+                payload = ListInterfacesData.decode(data)
+            case _:
+                payload = data if isinstance(data, bytes) else data.read()
 
         return EIPResponse(request=request, header=header, data=payload)

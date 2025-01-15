@@ -1,6 +1,5 @@
 from dataclasses import InitVar
-from textwrap import dedent
-from typing import Final, Sequence, cast
+from typing import Final, Sequence, cast, ClassVar
 
 from pycomm3 import DataError, as_stream, BufferEmptyError, buff_repr, ArrayType
 from pycomm3.data_types import (
@@ -45,9 +44,20 @@ class CPFItemType:
     cip_communications: UINT = UINT(0x100)
 
 
+CPF_ITEM_TYPE_NAMES: Final[dict[UINT, str]] = {
+    **{v: k.replace("_", " ").title() for k, v in vars(CPFItemType).items() if k.endswith(("_data", "_address"))},
+    CPFItemType.sock_addr_info_o_t: "Socket Address Info O->T",
+    CPFItemType.sock_addr_info_t_o: "Socket Address Info T->O",
+    CPFItemType.cip_identity: "CIP Identity",
+    CPFItemType.cip_communications: "CIP Communications",
+}
+
+
 class CPFItem(StructType):
     type_id: UINT
-    length: UINT = attr(init=False)
+    length: UINT
+
+    __field_descriptions__: ClassVar[dict] = {"type_id": CPF_ITEM_TYPE_NAMES}
 
     @classmethod
     def decode(cls, buffer) -> "CPFItem":
@@ -128,8 +138,8 @@ class CIPIdentity(CPFItem):
 
 
 class ListIdentityData(StructType):
-    item_count: UINT = attr(init=False)
-    items: Array[CPFItem, None] | Sequence[CPFItem] = attr(len_ref="item_count")
+    count: UINT = attr(init=False)
+    identities: Array[CPFItem, None] | Sequence[CPFItem] = attr(len_ref="count")
 
 
 class RegisterSessionData(StructType):
@@ -137,20 +147,34 @@ class RegisterSessionData(StructType):
     options_flags: UINT | int = 0
 
 
-class InterfaceInfo(CPFItem):
-    type_id: UINT = attr(init=False, default=CPFItemType.cip_identity)
-    length: UINT = attr(init=False)
+class ServiceInfo(CPFItem):
+    type_id: UINT = attr(init=False, default=CPFItemType.cip_communications)
+    length: UINT = attr(init=False, size_ref=True)
     protocol_version: UINT | int = 1
     compatibility_flags: UINT | int = 0b_0000_0000_0010_0000  # support cip = yes, cip class 0/1 udp = no
     service_name: BYTES[...] | bytes = attr(
         default=b"Communications",
-        len_ref=("length", lambda x: x - 4),  # 4 = protocol version + compat flags # type: ignore
+        # len_ref=("length", lambda x: x - 4),  # 4 = protocol version + compat flags # type: ignore
     )
 
 
-class ListServicesResponse(StructType):
+class ListServicesData(StructType):
     count: UINT | int = attr(init=False)
-    interfaces: Array[InterfaceInfo, None] | Sequence[InterfaceInfo]
+    services: Array[ServiceInfo, None] | Sequence[ServiceInfo] = attr(len_ref="count")
+
+
+InterfaceInfo = BYTES
+
+
+class ListInterfacesData(StructType):
+    count: UINT | int = attr(init=False)
+    interfaces: Array[CPFItem, None] | Sequence[CPFItem] = attr(len_ref="count")
+
+
+# class Interface
+# class ListServicesResponse(StructType):
+#     count: UINT | int = attr(init=False)
+#     interfaces: Array[ServiceData]
 
 
 type AddressItemsT = NullAddress | UCCMAddress | SequencedAddress | ConnectedAddress

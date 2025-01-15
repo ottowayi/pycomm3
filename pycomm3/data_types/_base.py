@@ -29,6 +29,7 @@ from typing import (
     Literal,
 )
 
+
 from pycomm3.exceptions import BufferEmptyError, DataError
 from pycomm3.util import DataclassMeta
 from types import EllipsisType, UnionType
@@ -258,6 +259,7 @@ def _process_fields(cls: "_StructMeta") -> ...:
     cls._members = {}
     cls._attributes = {}
     cls._array_length_attributes = {}
+    cls._size_ref = None
 
     for _field in _fields:
         cls._dataclass_fields[_field.name] = _field
@@ -281,12 +283,14 @@ def _process_fields(cls: "_StructMeta") -> ...:
         if not metadata.get("reserved"):
             cls._attributes[_field.name] = field_type
         if len_ref := metadata.get("len_ref"):
+            if not issubclass(field_type, (ArrayType, BYTES)):
+                raise DataError(f"Fields with 'len_ref' must be Arrays: {_field.name}")
             if len_ref[0] not in cls._members:
-                raise DataError(f"Invalid len_ref, {len_ref[0]} is not a previous member of the struct")
+                raise DataError(f"Invalid 'len_ref', {len_ref[0]} is not a previous member of the struct")
             cls._array_length_attributes[_field.name] = len_ref
         if size_ref := metadata.get("size_ref"):
             if cls._size_ref is not None:
-                raise DataError(f"size_ref already defined for struct field: {cls._size_ref[0]}")
+                raise DataError(f"'size_ref' already defined for struct field: {cls._size_ref[0]}")
             cls._size_ref = _field.name, size_ref
 
 
@@ -352,7 +356,10 @@ class _StructMeta(DataclassMeta, _DataTypeMeta):
     _size_ref: tuple[str, Callable[[DataType], int]] | None
 
     def __new__(mcs, name: str, bases: tuple, cls_dict: dict):
-        cls = super().__new__(mcs, name, bases, cls_dict)
+        repr = True
+        if any(getattr(b, "__field_descriptions__", None) for b in bases) or cls_dict.get("__field_descriptions__"):
+            repr = False
+        cls = super().__new__(mcs, name, bases, cls_dict, repr=repr)
         _process_fields(cls)
         return cls
 
@@ -371,16 +378,18 @@ class StructType(DataType, metaclass=_StructMeta):
     Base type for a structure
     """
 
+    # -- Set by metaclass, for doing cool shit automatically --
     #: map of all members inside the struct and their types
-    _members: ClassVar[dict[str, type[DataType]]] = {}
+    _members: ClassVar[dict[str, type[DataType]]]
     #: mapping of _user_ members of the struct to their type,
     #: excluding reserved or private members not meant for users to interact with
-    _attributes: ClassVar[dict[str, type[DataType]]] = {}
+    _attributes: ClassVar[dict[str, type[DataType]]]
     #: map of field names to dataclass Field objects, to avoid having to call fields() all the time
-    _dataclass_fields: ClassVar[dict[str, Field]] = {}
+    _dataclass_fields: ClassVar[dict[str, Field]]
     #: map of array field names to the field name that is the source of the length of the array
-    _array_length_attributes: ClassVar[dict[str, tuple[str, Callable[[DataType], int]]]] = {}
-    _size_ref: ClassVar[tuple[str, Callable[[int], int]] | None] = None
+    _array_length_attributes: ClassVar[dict[str, tuple[str, Callable[[DataType], int]]]]
+    _size_ref: ClassVar[tuple[str, Callable[[int], int]] | None]
+    __field_descriptions__: ClassVar[dict[str, dict[DataType | None, str]]] = {}
 
     def __post_init__(self, *args, **kwargs) -> None:
         for member, typ in self._members.items():
@@ -518,6 +527,20 @@ class StructType(DataType, metaclass=_StructMeta):
         struct_class = make_dataclass(cls_name=name, fields=_fields, bases=(StructType,))
 
         return struct_class
+
+    def __field_reprs__(self):
+        for name in self._members:
+            value = getattr(self, name)
+            if name in self.__field_descriptions__:
+                desc = self.__field_descriptions__[name].get(
+                    value, self.__field_descriptions__[name].get(None, "UNKNOWN")
+                )
+                yield f"{name}={value}: {desc!r}"
+            else:
+                yield f"{name}={value}"
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({', '.join(self.__field_reprs__())})"
 
 
 class _ArrayMeta(_DataTypeMeta):
@@ -712,3 +735,63 @@ class Array[ET: ArrayableT, LT: ArrayLenT](Sequence[ET]):
         else:
             element_type, len_type = item, ...  # type: ignore
         return array(element_type, len_type)
+
+
+class BYTES(ElementaryDataType[bytes], bytes, metaclass=_ElementaryDataTypeMeta):  # type: ignore
+    """
+    Base type for placeholder bytes, sized to `size`. if `size` is -1, then unlimited
+
+    ignore comment b/c decode() method incompatible w/ bytes.decode(), but it's supposed to be
+    b/c we're overriding the bytes behavior to return BYTES not str
+    """
+
+    size: int = -1
+    _int_type: type[ElementaryDataType[int]] | None = None
+
+    # so this type can pretend to be an array sometimes
+    element_type: type["BYTES"]  # set below
+    length: None = None
+
+    def __new__(cls, value: bytes | int, *args, **kwargs):
+        if isinstance(value, int):
+            value = bytes([value])
+        value = value[: cls.size] if cls.size != -1 else value[:]
+        return super().__new__(cls, value, *args, **kwargs)
+
+    def __class_getitem__(cls, item: int | EllipsisType | type[ElementaryDataType[int]]) -> type["BYTES"]:
+        size = item if isinstance(item, int) else -1
+        _int_type = item if not isinstance(item, (int, EllipsisType)) else None
+        klass = type("BYTES", (cls,), {"size": size, "_int_type": _int_type})
+        return klass
+
+    @classmethod
+    def _encode(cls, value: bytes, *args, **kwargs) -> bytes:
+        val = value[: cls.size] if cls.size != -1 else value
+        if cls._int_type is not None:
+            val = bytes(cls._int_type(len(value))) + value
+        return val
+
+    @classmethod
+    def _decode(cls, stream: BytesIO) -> Self:
+        if cls._int_type is not None:
+            size = cast(int, cls._int_type.decode(stream))
+        else:
+            size = cls.size
+        data = cls._stream_read(stream, size)
+        return cls(data)
+
+    def __getitem__(self, item) -> bytes:  # type: ignore
+        if isinstance(item, int):
+            return super().__getitem__(slice(item, item + 1))
+
+        return super().__getitem__(item)
+
+    def __repr__(self) -> str:
+        if self._int_type is not None:
+            size = self._int_type.__name__
+        else:
+            size = "..." if self.size == -1 else self.size
+        return f"{self.__class__.__name__}[{size}]({self})"
+
+
+BYTES.element_type = BYTES

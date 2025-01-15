@@ -75,6 +75,6 @@ class DataclassMeta(type):
     also require the dataclass decorator.
     """
 
-    def __new__(mcs, name: str, bases: tuple, cls_dict: dict):
+    def __new__(mcs, name: str, bases: tuple, cls_dict: dict, **kwargs):
         cls = super().__new__(mcs, name, bases, cls_dict)
-        return dataclass(cls)  # type: ignore
+        return dataclass(cls, **kwargs)  # type: ignore

@@ -2,14 +2,14 @@ import socket
 from dataclasses import dataclass
 from typing import Final, cast
 
-from pycomm3.data_types import BYTES, UDINT
+from pycomm3.data_types import BYTES, UDINT, Array
 from pycomm3.exceptions import CommError, DataError
 from pycomm3 import get_logger
 
 from ..connection import Connection
 from ._base import EIPRequest, EIPResponse, EIPResponseParser, EncapsulationCommand, EtherNetIPHeader, DEFAULT_CONTEXT
 from .services import Services
-from .data_types import CIPIdentity, ListIdentityData
+from .data_types import CIPIdentity, InterfaceInfo, ListIdentityData, ServiceInfo
 
 ETHERNETIP_PORT: Final[int] = 44818
 
@@ -93,14 +93,23 @@ class EIPConnection(Connection):
             raise ConnectionError("Session not registered")
 
         request = Services.unregister_session(self.session_id, context=self.config.sender_context)
-        response = self.send(request)
+        self.send(request)
         self._session_id = UDINT(0)
 
     def list_identity(self) -> CIPIdentity | None:
         request = Services.list_identity(self.session_id, context=self.config.sender_context)
-        response = self.send(request)
-        if response:
-            return cast(CIPIdentity, response.data.items[0])  # type: ignore
+        if response := self.send(request):
+            return cast(CIPIdentity, response.data.identities[0])  # type: ignore
+
+    def list_interfaces(self) -> Array[InterfaceInfo, None] | None:
+        request = Services.list_interfaces(self.session_id, context=self.config.sender_context)
+        if response := self.send(request):
+            return cast(Array[InterfaceInfo, None], response.data.interfaces)  # type: ignore
+
+    def list_services(self) -> Array[ServiceInfo, None] | None:
+        request = Services.list_services(self.session_id, context=self.config.sender_context)
+        if response := self.send(request):
+            return cast(Array[ServiceInfo, None], response.data.services)  # type: ignore
 
     def send(self, request: EIPRequest) -> EIPResponse | None:
         if not self._connected:
