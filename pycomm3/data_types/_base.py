@@ -535,9 +535,9 @@ class StructType(DataType, metaclass=_StructMeta):
                 desc = self.__field_descriptions__[name].get(
                     value, self.__field_descriptions__[name].get(None, "UNKNOWN")
                 )
-                yield f"{name}: {desc!r} = {value}"
+                yield f"{name}: {desc!r} = {value!r}"
             else:
-                yield f"{name}={value}"
+                yield f"{name}={value!r}"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({', '.join(self.__field_reprs__())})"
