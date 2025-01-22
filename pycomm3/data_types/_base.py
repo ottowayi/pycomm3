@@ -535,7 +535,7 @@ class StructType(DataType, metaclass=_StructMeta):
                 desc = self.__field_descriptions__[name].get(
                     value, self.__field_descriptions__[name].get(None, "UNKNOWN")
                 )
-                yield f"{name}={value}: {desc!r}"
+                yield f"{name}: {desc!r} = {value}"
             else:
                 yield f"{name}={value}"
 
@@ -632,7 +632,7 @@ class ArrayType[ElementT: type[ArrayableT], LenT: ArrayLenT](DataType, metaclass
             try:
                 val = self.element_type(value)  # pyright: ignore [reportCallIssue]
             except Exception as err:
-                raise DataError(f"Error converting element:") from err
+                raise DataError("Error converting element:") from err
         else:
             val = value
         return val
