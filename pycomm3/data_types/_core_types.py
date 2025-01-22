@@ -4,6 +4,10 @@ from io import BytesIO
 from ..exceptions import DataError
 
 
+# TODO: eventually, come back to see if the __class_getitem__ can be moved to a base/meta class
+#       couldn't get the type hinting to work with the ElementaryDataType generic
+
+
 class IntDataType(ElementaryDataType[int], int, metaclass=_ElementaryDataTypeMeta):
     def __class_getitem__(cls, item: ArrayLenT) -> type[ArrayType[type[Self], ArrayLenT]]:
         return array(cls, item)

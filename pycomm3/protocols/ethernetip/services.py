@@ -4,13 +4,21 @@ from pycomm3.data_types import UINT, BYTES, UDINT, DataType, DataclassMeta, attr
 from dataclasses import dataclass, field
 from io import BytesIO
 
-from .data_types import DEFAULT_CONTEXT, RegisterSessionData, SendRRDataData, SendUnitDataData
-from ._base import EtherNetIPHeader, EIPService, EncapsulationCommand, EIPRequest
+from .data_types import (
+    DEFAULT_CONTEXT,
+    RegisterSessionData,
+    SendRRDataData,
+    SendUnitDataData,
+    EncapsulationCommand,
+    ListInterfacesData,
+    ListIdentityData,
+    ListServicesData,
+)
+from ._base import EtherNetIPHeader, EIPService, EIPRequest
 
 
 class NOPService(EIPService):
     command: UINT = EncapsulationCommand.nop
-    has_response: bool = False
 
     # defining this request statically, no need to regenerate it every time
     _request: ClassVar[EIPRequest] = EIPRequest(
@@ -20,48 +28,23 @@ class NOPService(EIPService):
             session=UDINT(0),
         ),
         data=b"",
-        has_response=False,
+        response_type=None,
     )
 
     def __call__(self, *args, **kwargs) -> EIPRequest:
         return self._request
 
 
-class StaticEIPService(EIPService):
-    data: bytes = b""
-
-    def __call__(self, session: UDINT, *args, context: BYTES[8] = DEFAULT_CONTEXT, **kwargs) -> EIPRequest:
-        header = EtherNetIPHeader(
-            command=self.command,
-            length=UINT(len(self.data)),
-            session=session,
-        )
-
-        return EIPRequest(header=header, data=self.data, has_response=self.has_response)
-
-
-class SimpleEIPService[T: DataType](EIPService):
-    def __call__(
-        self, session: UDINT, data: T | bytes, *args, context: BYTES[8] = DEFAULT_CONTEXT, **kwargs
-    ) -> EIPRequest:
-        if isinstance(data, DataType):
-            data = bytes(data)
-        header = EtherNetIPHeader(command=self.command, length=UINT(len(data)), session=session, context=context)
-        return EIPRequest(header=header, data=data, has_response=self.has_response)
-
-
 class Services:
     nop: NOPService = NOPService()
-    list_identity: StaticEIPService = StaticEIPService(command=EncapsulationCommand.list_identity)
-    list_interfaces: StaticEIPService = StaticEIPService(command=EncapsulationCommand.list_interfaces)
-    register_session = StaticEIPService(
+    list_identity = EIPService(command=EncapsulationCommand.list_identity, response_type=ListIdentityData)
+    list_interfaces = EIPService(command=EncapsulationCommand.list_interfaces, response_type=ListInterfacesData)
+    register_session = EIPService(
         command=EncapsulationCommand.register_session,
         data=bytes(RegisterSessionData()),
+        response_type=BYTES,  # has response, but session handle is in the header with no response data
     )
-    unregister_session: StaticEIPService = StaticEIPService(
-        command=EncapsulationCommand.unregister_session,
-        has_response=False,
-    )
-    list_services: StaticEIPService = StaticEIPService(command=EncapsulationCommand.list_services)
-    send_rr_data: SimpleEIPService[SendRRDataData] = SimpleEIPService(command=EncapsulationCommand.send_rr_data)
-    send_unit_data: SimpleEIPService[SendUnitDataData] = SimpleEIPService(command=EncapsulationCommand.send_unit_data)
+    unregister_session = EIPService(command=EncapsulationCommand.unregister_session)
+    list_services = EIPService(command=EncapsulationCommand.list_services, response_type=ListServicesData)
+    send_rr_data = EIPService(command=EncapsulationCommand.send_rr_data, response_type=SendRRDataData)
+    send_unit_data = EIPService(command=EncapsulationCommand.send_unit_data, response_type=SendUnitDataData)

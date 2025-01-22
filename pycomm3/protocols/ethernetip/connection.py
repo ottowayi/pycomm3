@@ -7,9 +7,9 @@ from pycomm3.exceptions import CommError, DataError
 from pycomm3 import get_logger
 
 from ..connection import Connection
-from ._base import EIPRequest, EIPResponse, EIPResponseParser, EncapsulationCommand, EtherNetIPHeader, DEFAULT_CONTEXT
+from ._base import EIPRequest, EIPResponse, EtherNetIPHeader, DEFAULT_CONTEXT
 from .services import Services
-from .data_types import CIPIdentity, InterfaceInfo, ListIdentityData, ServiceInfo
+from .data_types import CIPIdentity, InterfaceInfo, ListIdentityData, ServiceInfo, EncapsulationCommand
 
 ETHERNETIP_PORT: Final[int] = 44818
 
@@ -28,7 +28,6 @@ class EIPConnection(Connection):
     def __init__(self, config: EIPConfig):
         self.config = config
         self._sock: socket.socket | None = None
-        self._response_parser = EIPResponseParser()
         self._connected: bool = False
         self._session_id: UDINT = UDINT(0)
 
@@ -104,7 +103,7 @@ class EIPConnection(Connection):
     def list_interfaces(self) -> Array[InterfaceInfo, None] | None:
         request = Services.list_interfaces(self.session_id, context=self.config.sender_context)
         if response := self.send(request):
-            return cast(Array[InterfaceInfo, None], response.data.interfaces)  # type: ignore
+            return cast(Array[InterfaceInfo, None], response.data.interfaces)
 
     def list_services(self) -> Array[ServiceInfo, None] | None:
         request = Services.list_services(self.session_id, context=self.config.sender_context)
@@ -121,7 +120,7 @@ class EIPConnection(Connection):
         self.__log.log_bytes(">> SENT >>", request.message)
         self._send(request.message)
 
-        if request.has_response:
+        if request.response_type is not None:
             resp = self._recv(request)
             return resp
 
@@ -146,9 +145,8 @@ class EIPConnection(Connection):
 
         data = self._recv_size(header.length)
         self.__log.log_bytes("<< RECEIVED <<", _header + data)
-        resp = self._response_parser.parse(data, header, request)
+        resp = EIPResponse(request=request, header=header, data=request.response_type.decode(data))
         self.__log.debug(f"Received response: {resp}")
-
         return resp
 
     def _recv_size(self, size: int) -> bytes:
