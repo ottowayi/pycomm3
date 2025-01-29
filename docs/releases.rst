@@ -2,6 +2,54 @@
 Release History
 ===============
 
+1.2.14
+======
+
+- |:sparkles:| add support for hostnames in connection path
+
+1.2.13
+======
+
+CIPDriver
+---------
+- |:sparkles:| add ability to specify broadcast address for `discover()` #292 @tlf30
+
+1.2.11
+======
+
+- |:sparkles:| update vendor id list #257 @PhilippHaefele
+
+1.2.10
+======
+
+CIPDriver
+---------
+- |:sparkles:| support port customization in the connection path
+- |:sparkles:| support comma delimiters in the connection path
+
+1.2.9
+=====
+
+SLCDriver
+---------
+- |:sparkles:| added `get_datalog_queue` method @ddeckerCPF
+
+1.2.8
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue reading single elements >32 from BOOL arrays
+
+1.2.7
+=====
+
+LogixDriver
+-----------
+
+- |:bug:| fixed issue with program-scoped tags in `get_tag_info` #216
+
 1.2.6
 =====
 

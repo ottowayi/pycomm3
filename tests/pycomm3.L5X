@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="20.05" TargetName="pycomm3" TargetType="Program" ContainsContext="true" Owner="User" ExportDate="Tue Nov 16 07:53:34 2021" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="20.05" TargetName="pycomm3" TargetType="Program" ContainsContext="true" Owner="admin" ExportDate="Fri Jul 01 07:23:57 2022" ExportOptions="References DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
 <Controller Use="Context" Name="pycomm3_demo">
 <DataTypes Use="Context">
 <DataType Name="STRING480" Family="StringFamily" Class="User">
@@ -1590,14 +1590,14 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 </Data>
 </Tag>
 <Tag Name="read_timer1" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 01 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 20 01 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="TIMER">
 <DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
 <DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 </Structure>
 </Data>
 </Tag>
@@ -1619,10 +1619,10 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="read_timer_ary1" TagType="Base" DataType="TIMER" Dimensions="5" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 20 
+01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00</Data>
+D5 60 3C C0 30 75 00 00 D2 04 00 00</Data>
 <Data Format="Decorated">
 <Array DataType="TIMER" Dimensions="5">
 <Element Index="[0]">
@@ -1636,11 +1636,11 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Element>
 <Element Index="[1]">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
 <DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 </Structure>
 </Element>
 <Element Index="[2]">
@@ -1663,10 +1663,10 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Element>
 <Element Index="[4]">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
-<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="1234"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
 <DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 </Structure>
 </Element>
@@ -1705,14 +1705,14 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="write_timer1" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 01 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 20 01 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="TIMER">
 <DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
 <DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 </Structure>
 </Data>
 </Tag>
@@ -2825,11 +2825,11 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="read_timer2" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
-<Data>D5 60 3C C0 30 75 00 00 60 54 00 00</Data>
+<Data>D5 60 3C C0 30 75 00 00 D2 04 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="TIMER">
 <DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
-<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="21600"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="1234"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="1"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="1"/>
 <DataValueMember Name="DN" DataType="BOOL" Value="0"/>
@@ -4059,10 +4059,10 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 </Data>
 </Tag>
 <Tag Name="write_timer_ary1" TagType="Base" DataType="TIMER" Dimensions="5" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 20 
+01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00</Data>
+00 00 00 C0 30 75 00 00 D2 04 00 00</Data>
 <Data Format="Decorated">
 <Array DataType="TIMER" Dimensions="5">
 <Element Index="[0]">
@@ -4076,11 +4076,11 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 </Element>
 <Element Index="[1]">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
 <DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 </Structure>
 </Element>
 <Element Index="[2]">
@@ -4103,10 +4103,10 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 </Element>
 <Element Index="[4]">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
-<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="1234"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
 <DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 </Structure>
 </Element>
@@ -4114,13 +4114,13 @@ D0 07 00 00 34 08 00 00 98 08 00 00 FC 08 00 00
 </Data>
 </Tag>
 <Tag Name="write_timer2" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 30 75 00 00 D8 59 00 00</Data>
+<Data>00 00 00 C0 30 75 00 00 D2 04 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="TIMER">
 <DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
-<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="23000"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
-<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="1234"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
 <DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 </Structure>
 </Data>
@@ -6707,9 +6707,9 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
-00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00</Data>
+00 00 00 00 FF FF FF FF 08 00 00 00 00 00 08 00 
+08 00 00 00 00 00 08 00 00 00 00 00 00 00 00 00 
+20 00 00 00 00 00 01 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -7556,7 +7556,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="b1" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b2" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b3" DataType="BOOL" Value="0"/>
-<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="1"/>
 <DataValueMember Name="b5" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b6" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b7" DataType="BOOL" Value="0"/>
@@ -7589,7 +7589,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
-<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="1"/>
 </StructureMember>
 <ArrayMember Name="udt_ary4" DataType="pycomm3_BoolsUDT" Dimensions="3">
 <Element Index="[0]">
@@ -7597,7 +7597,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="b1" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b2" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b3" DataType="BOOL" Value="0"/>
-<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="1"/>
 <DataValueMember Name="b5" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b6" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b7" DataType="BOOL" Value="0"/>
@@ -7630,7 +7630,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
-<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="1"/>
 </Structure>
 </Element>
 <Element Index="[1]">
@@ -7681,7 +7681,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="b3" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b4" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b5" DataType="BOOL" Value="0"/>
-<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="1"/>
 <DataValueMember Name="b7" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b8" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b9" DataType="BOOL" Value="0"/>
@@ -7709,7 +7709,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
-<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="1"/>
 <DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
@@ -8198,34 +8198,34 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="read_prog_timer1" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 01 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 20 01 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="TIMER">
 <DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
 <DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 </Structure>
 </Data>
 </Tag>
 <Tag Name="read_prog_timer2" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 30 75 00 00 78 50 00 00</Data>
+<Data>00 00 00 C0 30 75 00 00 D2 04 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="TIMER">
 <DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
-<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="20600"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
-<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="1234"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
 <DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 </Structure>
 </Data>
 </Tag>
 <Tag Name="read_prog_timer_ary1" TagType="Base" DataType="TIMER" Dimensions="5" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 20 
+01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00</Data>
+D5 60 3C C0 30 75 00 00 D2 04 00 00</Data>
 <Data Format="Decorated">
 <Array DataType="TIMER" Dimensions="5">
 <Element Index="[0]">
@@ -8239,11 +8239,11 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Element>
 <Element Index="[1]">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
 <DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 </Structure>
 </Element>
 <Element Index="[2]">
@@ -8266,10 +8266,10 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Element>
 <Element Index="[4]">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
-<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="1234"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
 <DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 </Structure>
 </Element>
@@ -8430,13 +8430,13 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="read_prog_udt4" TagType="Base" DataType="pycomm3_BoolsUDT" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00</Data>
+<Data>08 00 00 00 00 00 08 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_BoolsUDT">
 <DataValueMember Name="b1" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b2" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b3" DataType="BOOL" Value="0"/>
-<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="1"/>
 <DataValueMember Name="b5" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b6" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b7" DataType="BOOL" Value="0"/>
@@ -8469,7 +8469,7 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 <DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
-<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="1"/>
 </Structure>
 </Data>
 </Tag>
@@ -9062,9 +9062,9 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 01 00 00 00 FF FF FF FF 
-00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00</Data>
+00 00 00 00 FF FF FF FF 08 00 00 00 00 00 08 00 
+08 00 00 00 00 00 08 00 00 00 00 00 00 00 00 00 
+20 00 00 00 00 00 01 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_NestedUDT">
 <StructureMember Name="udt1" DataType="pycomm3_AtomicUDT">
@@ -9911,7 +9911,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="b1" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b2" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b3" DataType="BOOL" Value="0"/>
-<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="1"/>
 <DataValueMember Name="b5" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b6" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b7" DataType="BOOL" Value="0"/>
@@ -9944,7 +9944,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
-<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="1"/>
 </StructureMember>
 <ArrayMember Name="udt_ary4" DataType="pycomm3_BoolsUDT" Dimensions="3">
 <Element Index="[0]">
@@ -9952,7 +9952,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="b1" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b2" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b3" DataType="BOOL" Value="0"/>
-<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="1"/>
 <DataValueMember Name="b5" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b6" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b7" DataType="BOOL" Value="0"/>
@@ -9985,7 +9985,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
-<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="1"/>
 </Structure>
 </Element>
 <Element Index="[1]">
@@ -10036,7 +10036,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="b3" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b4" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b5" DataType="BOOL" Value="0"/>
-<DataValueMember Name="b6" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b6" DataType="BOOL" Value="1"/>
 <DataValueMember Name="b7" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b8" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b9" DataType="BOOL" Value="0"/>
@@ -10064,7 +10064,7 @@ FF FF FF FF FF FF FF 7F 00 00 00 00 00 00 00 80
 <DataValueMember Name="bb14" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb15" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb16" DataType="BOOL" Value="0"/>
-<DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb17" DataType="BOOL" Value="1"/>
 <DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
@@ -10553,34 +10553,34 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="write_prog_timer1" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 20 01 00 00 00 00 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
 <DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 </Structure>
 </Data>
 </Tag>
 <Tag Name="write_prog_timer2" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 C0 30 75 00 00 D2 04 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
-<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="1234"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
 <DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 </Structure>
 </Data>
 </Tag>
 <Tag Name="write_prog_timer_ary1" TagType="Base" DataType="TIMER" Dimensions="5" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+<Data>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 20 
+01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-00 00 00 00 00 00 00 00 00 00 00 00</Data>
+00 00 00 C0 30 75 00 00 D2 04 00 00</Data>
 <Data Format="Decorated">
 <Array DataType="TIMER" Dimensions="5">
 <Element Index="[0]">
@@ -10594,11 +10594,11 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Element>
 <Element Index="[1]">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1"/>
 <DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
 <DataValueMember Name="EN" DataType="BOOL" Value="0"/>
 <DataValueMember Name="TT" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 </Structure>
 </Element>
 <Element Index="[2]">
@@ -10621,10 +10621,10 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Element>
 <Element Index="[4]">
 <Structure DataType="TIMER">
-<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
-<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="1234"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="1"/>
 <DataValueMember Name="DN" DataType="BOOL" Value="0"/>
 </Structure>
 </Element>
@@ -10785,13 +10785,13 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="write_prog_udt4" TagType="Base" DataType="pycomm3_BoolsUDT" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 00 00 00 00</Data>
+<Data>08 00 00 00 00 00 08 00</Data>
 <Data Format="Decorated">
 <Structure DataType="pycomm3_BoolsUDT">
 <DataValueMember Name="b1" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b2" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b3" DataType="BOOL" Value="0"/>
-<DataValueMember Name="b4" DataType="BOOL" Value="0"/>
+<DataValueMember Name="b4" DataType="BOOL" Value="1"/>
 <DataValueMember Name="b5" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b6" DataType="BOOL" Value="0"/>
 <DataValueMember Name="b7" DataType="BOOL" Value="0"/>
@@ -10824,7 +10824,7 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 <DataValueMember Name="bb17" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb18" DataType="BOOL" Value="0"/>
 <DataValueMember Name="bb19" DataType="BOOL" Value="0"/>
-<DataValueMember Name="bb20" DataType="BOOL" Value="0"/>
+<DataValueMember Name="bb20" DataType="BOOL" Value="1"/>
 </Structure>
 </Data>
 </Tag>
@@ -10835,14 +10835,14 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="_dint_ary_FAL" TagType="Base" DataType="CONTROL" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 1E 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 A0 1E 00 00 00 1D 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="CONTROL">
 <DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="30"/>
-<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="29"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
 <DataValueMember Name="EU" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 <DataValueMember Name="EM" DataType="BOOL" Value="0"/>
 <DataValueMember Name="ER" DataType="BOOL" Value="0"/>
 <DataValueMember Name="UL" DataType="BOOL" Value="0"/>
@@ -10852,14 +10852,14 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="_int_ary_FAL" TagType="Base" DataType="CONTROL" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 19 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 A0 19 00 00 00 18 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="CONTROL">
 <DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="25"/>
-<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="24"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
 <DataValueMember Name="EU" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 <DataValueMember Name="EM" DataType="BOOL" Value="0"/>
 <DataValueMember Name="ER" DataType="BOOL" Value="0"/>
 <DataValueMember Name="UL" DataType="BOOL" Value="0"/>
@@ -10905,14 +10905,14 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Data>
 </Tag>
 <Tag Name="_sint_ary_FAL" TagType="Base" DataType="CONTROL" Constant="false" ExternalAccess="Read/Write">
-<Data>00 00 00 00 14 00 00 00 00 00 00 00</Data>
+<Data>00 00 00 A0 14 00 00 00 13 00 00 00</Data>
 <Data Format="Decorated">
 <Structure DataType="CONTROL">
 <DataValueMember Name="LEN" DataType="DINT" Radix="Decimal" Value="20"/>
-<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="0"/>
-<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="POS" DataType="DINT" Radix="Decimal" Value="19"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="1"/>
 <DataValueMember Name="EU" DataType="BOOL" Value="0"/>
-<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="1"/>
 <DataValueMember Name="EM" DataType="BOOL" Value="0"/>
 <DataValueMember Name="ER" DataType="BOOL" Value="0"/>
 <DataValueMember Name="UL" DataType="BOOL" Value="0"/>
@@ -11024,7 +11024,7 @@ BD BE BF 00 00 00 00 00 00 00 00 00 00 00 00 00
 </Rung>
 <Rung Number="16" Type="N">
 <Text>
-<![CDATA[OTL(read_bool_ary1[0])OTL(read_bool_ary1[6])OTL(read_bool_ary1[11])OTL(read_bool_ary1[17])OTL(read_bool_ary1[22])OTL(read_bool_ary1[25])OTL(read_bool_ary1[31]);]]>
+<![CDATA[OTL(read_bool_ary1[0])OTL(read_bool_ary1[6])OTL(read_bool_ary1[11])OTL(read_bool_ary1[17])OTL(read_bool_ary1[22])OTL(read_bool_ary1[25])OTL(read_bool_ary1[31])OTL(read_bool_ary1[45])OTL(read_bool_ary1[60]);]]>
 </Text>
 </Rung>
 <Rung Number="17" Type="N">

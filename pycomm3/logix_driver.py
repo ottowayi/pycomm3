@@ -265,7 +265,7 @@ class LogixDriver(CIPDriver):
         - *product_code* - code identifying the product type
         - *revision* - dict of {'major': <major rev (int)>, 'minor': <minor rev (int)>}
         - *serial* - hex string of PLC serial number, e.g. ``'FFFFFFFF'``
-        - *device_type* - string value for PLC device type, e.g. ``'1756-L83E/B'``
+        - *product_name* - string value for PLC device type, e.g. ``'1756-L83E/B'``
         - *keyswitch* - string value representing the current keyswitch position, e.g. ``'REMOTE RUN'``
         - *name* - string value of the current PLC program name, e.g. ``'PLCA'``
 
@@ -945,7 +945,7 @@ class LogixDriver(CIPDriver):
                             data_type = f"BOOL[{bool_elements}]"
                             result = Tag(request_data["user_tag"], bools, data_type, result.error)
                         else:
-                            val = result.value[bit % 32]
+                            val = result.value[bit]
                             result = Tag(request_data["user_tag"], val, "BOOL", result.error)
                 else:
                     result = Tag(request_data["user_tag"], None, None, result.error)
@@ -1250,6 +1250,8 @@ class LogixDriver(CIPDriver):
 
         """
         base, *attrs = tag_name.split(".")
+        if base.startswith("Program:"):
+            base = f"{base}.{attrs.pop(0)}"
         return self._get_tag_info(base, attrs)
 
     def _get_tag_info(self, base, attrs) -> Optional[dict]:
@@ -1329,12 +1331,9 @@ class LogixDriver(CIPDriver):
                 if idx is not None:
                     tag = f"{_tag}[0]" if rw == "r" else f"{_tag}[{idx // 32}]"
                 bit = idx
-                if implicit_element or elements == 1:
-                    bool_elements = None
-                else:
-                    bool_elements = elements
-                    total_size = (bit or 0) + elements
-                    elements = (total_size // 32) + (1 if total_size % 32 else 0)
+                bool_elements = None if implicit_element or elements == 1 else elements
+                total_size = (bit or 0) + elements
+                elements = (total_size // 32) + (1 if total_size % 32 else 0)
 
             return {
                 "user_tag": request_tag,  # tag name from user, without element request

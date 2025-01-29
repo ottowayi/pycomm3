@@ -4,7 +4,7 @@ from io import BytesIO
 
 
 PLC_INFOS = [
-    {'vendor': 'Honeywell Inc.',
+    {'vendor': 'Rockwell Automation/Allen-Bradley',
      'product_type': 'Limit Switch',
      'product_code': 0x03,
      'revision': {'major': 12, 'minor': 34},

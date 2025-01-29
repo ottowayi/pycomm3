@@ -77,6 +77,8 @@ _bool_array = (
     + [False for _ in range(32)]
     + [True for _ in range(32)]
 )
+_bool_array[45] = True
+_bool_array[60] = True
 
 BASE_ATOMIC_ARRAY_TESTS = [
     # make sure both with [0] and without work
@@ -121,6 +123,8 @@ BASE_ATOMIC_ARRAY_TESTS = [
     ("_bool_ary1[0]", "BOOL", _bool_array[0]),
     ("_bool_ary1[12]", "BOOL", _bool_array[12]),
     ("_bool_ary1[29]", "BOOL", _bool_array[29]),
+    ("_bool_ary1[45]", "BOOL", _bool_array[45]),
+    ("_bool_ary1[90]", "BOOL", _bool_array[90]),
 ]
 
 _udt1_values = {"bool": True, "sint": -1, "int": 1, "dint": 10, "lint": 100, "real": REAL(1000.009)}

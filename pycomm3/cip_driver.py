@@ -1,4 +1,3 @@
-from __future__ import annotations
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2021 Ian Ottoway <ian@ottoway.dev>
@@ -183,7 +182,7 @@ class CIPDriver:
         self._target_is_connected: bool = False
         self._info: Dict[str, Any] = {}
         self._cip_path = path
-        ip, _path = parse_connection_path(path, self._auto_slot_cip_path)
+        ip, port, _path = parse_connection_path(path, self._auto_slot_cip_path)
 
         self._cfg: DriverConfig = DriverConfig(
             port=44818,
@@ -250,8 +249,17 @@ class CIPDriver:
         """CIP connection size, ``4000`` if using Extended Forward Open else ``500``"""
         return self._cfg["connection_size"]
 
+    @property
+    def socket_timeout(self):
+        """Socket open connection timeout, in seconds"""
+        return self._cfg["socket_timeout"]
+
+    @socket_timeout.setter
+    def socket_timeout(self, value):
+        self._cfg["socket_timeout"] = value
+
     @classmethod
-    def list_identity(cls, path) -> Optional[str]:
+    def list_identity(cls, path) -> Optional[Dict[str, Any]]:
         """
         Uses the ListIdentity service to identify the target
 
@@ -265,7 +273,7 @@ class CIPDriver:
         return identity
 
     @classmethod
-    def discover(cls) -> List[Dict[str, Any]]:
+    def discover(cls, broadcast_address="255.255.255.255") -> List[Dict[str, Any]]:
         """
         Discovers available devices on the current network(s).
         Returns a list of the discovered devices Identity Object (as ``dict``).
@@ -284,13 +292,13 @@ class CIPDriver:
 
         for ip in ip_addrs:
             cls.__log.debug(f"Broadcasting discover for IP: %s", ip)
-            devices += cls._broadcast_discover(ip, message, request)
+            devices += cls._broadcast_discover(ip, message, request, broadcast_address)
 
         if not devices:
             cls.__log.debug(
                 "No devices found so far, attempting broadcast without binding to an IP."
             )
-            devices += cls._broadcast_discover(None, message, request)
+            devices += cls._broadcast_discover(None, message, request, broadcast_address)
 
         if devices:
             cls.__log.info(f"Discovered %d device(s): %r", len(devices), devices)
@@ -300,7 +308,7 @@ class CIPDriver:
         return devices
 
     @classmethod
-    def _broadcast_discover(cls, ip, message, request):
+    def _broadcast_discover(cls, ip, message, request, broadcast_address="255.255.255.255"):
         devices = []
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -309,7 +317,7 @@ class CIPDriver:
             if ip:
                 sock.bind((ip, 0))
 
-            sock.sendto(message, ("255.255.255.255", 44818))
+            sock.sendto(message, (broadcast_address, 44818))
 
             while True:
                 try:
@@ -373,7 +381,7 @@ class CIPDriver:
             return True
         try:
             if self._sock is None:
-                self._sock = Socket()
+                self._sock = Socket(self._cfg["socket_timeout"])
             self.__log.debug(f'Opening connection to {self._cfg["ip_address"]}')
             self._sock.connect(self._cfg["ip_address"], self._cfg["port"])
             self._connection_opened = True
@@ -747,20 +755,27 @@ class CIPDriver:
             return reply
 
 
-def parse_connection_path(path: str, auto_slot: bool = False) -> Tuple[str, List[PortSegment]]:
+def parse_connection_path(path: str, auto_slot: bool = False) -> Tuple[str, Optional[int], List[PortSegment]]:
     """
     Parses and validates the CIP path into the destination IP and
     sequence of port/link segments.
     Returns the IP and a list of PortSegments
     """
     try:
-        path = path.replace("\\", "/")
+        path = path.replace("\\", "/").replace(",", "/")
         ip, *route = path.split("/")
+        if ':' in ip:
+            ip, port = ip.split(':')
+            try:
+                port = int(port)
+            except Exception as err:
+                raise RequestError(f'Invalid port: {port}')
+            else:
+                if port <= 0 or port >= 65535:
+                    raise RequestError(f'Invalid port: {port}')
 
-        try:
-            ipaddress.ip_address(ip)
-        except ValueError as err:
-            raise RequestError(f"Invalid IP Address: {ip}") from err
+        else:
+            port = None
 
         _path = parse_cip_route(route, auto_slot)
 
@@ -769,7 +784,7 @@ def parse_connection_path(path: str, auto_slot: bool = False) -> Tuple[str, List
     except Exception as err:
         raise RequestError(f"Failed to parse connection path: {path}") from err
     else:
-        return ip, _path
+        return ip, port, _path
 
 
 def parse_cip_route(path: Union[str, List[str]], auto_slot: bool = False) -> List[PortSegment]:
