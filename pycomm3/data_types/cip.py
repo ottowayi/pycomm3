@@ -8,9 +8,8 @@ from dataclasses import dataclass, field
 from enum import IntFlag
 from typing import Sequence, ClassVar, TypeVar, Final, Generic
 
-from ._base import ElementaryDataType, BufferT, DataType, buff_repr, as_stream, array
+from ._base import ElementaryDataType, BufferT, DataType, buff_repr, as_stream, array, BYTES
 from .numeric import USINT, UINT, UDINT
-from .special import BYTES
 from .string import SHORT_STRING, STRING2, STRINGN
 
 from pycomm3.exceptions import DataError, BufferEmptyError

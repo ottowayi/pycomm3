@@ -147,6 +147,22 @@ def test_struct_array_len_ref():
     assert s.count == 3
     assert bytes(s) == b"\x01\x03\x00\x01\x02\x03\x03\x00\x00\x00"
 
+    class S2(StructType):
+        x: USINT
+        count: UINT = attr(init=False)
+        items: USINT[...] = attr(len_ref=("count", lambda x: x * 2, lambda x: x // 2))
+        z: UDINT = 3
+
+    s2 = S2(1, [])
+    assert s2.count == 0
+    assert asdict(s2) == {"x": USINT(1), "count": UINT(0), "items": USINT[...]([]), "z": UDINT(3)}
+    assert bytes(s2) == b"\x01\x00\x00\x03\x00\x00\x00"
+
+    s2.items = [1, 2, 3, 4]
+    assert s2.count == 2
+    assert bytes(s2) == b"\x01\x02\x00\x01\x02\x03\x04\x03\x00\x00\x00"
+    assert S2.decode(b"\x01\x02\x00\x01\x02\x03\x04\x03\x00\x00\x00") == s2
+
 
 def test_struct_size_ref():
     class S1(StructType):
@@ -171,3 +187,5 @@ def test_struct_size_ref():
     assert S2.decode(b"\x00\x00\x00\x00\x13\x00\x0chello there!\x01\x03\x00\x01\x02\x03") == S2(
         0, "hello there!", S1(1, [1, 2, 3])
     )
+
+    # TODO: test callable size ref

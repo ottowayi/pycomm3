@@ -44,7 +44,7 @@ type ArrayableT = (
 )
 type ElementaryPyType = int | float | bool | str | bytes
 type ArrayLenT = None | type[ElementaryDataType[int]] | int | EllipsisType
-type BufferT = BytesIO | bytes
+type BufferT = BytesIO | bytes | BYTES
 
 
 def buff_repr(buffer: BufferT) -> str:
@@ -291,19 +291,65 @@ def _process_fields(cls: "_StructMeta") -> ...:
         if size_ref := metadata.get("size_ref"):
             if cls._size_ref is not None:
                 raise DataError(f"'size_ref' already defined for struct field: {cls._size_ref[0]}")
-            cls._size_ref = _field.name, size_ref
+            cls._size_ref = _field.name, *size_ref
 
 
 def _default_ref_callable(value: DataType | int) -> int:
     return value  # type: ignore
 
 
-def attr[T](
+@overload  # if a default is provided
+def attr[T: DataType](
+    *,
+    default: T,
+    init: bool = True,
+    reserved: bool = False,
+    len_ref: str | tuple[str, Callable[[int], int], Callable[[int], int]] | None = None,
+    size_ref: bool | tuple[Callable[[int], int], Callable[[int], int]] = False,
+    **kwargs,
+) -> T: ...
+
+
+@overload
+def attr(  # if reserved=True
+    *,
+    init: bool = True,
+    reserved: Literal[True] = True,
+    len_ref: str | tuple[str, Callable[[int], int], Callable[[int], int]] | None = None,
+    size_ref: bool | tuple[Callable[[int], int], Callable[[int], int]] = False,
+    **kwargs,
+) -> Any: ...
+
+
+@overload
+def attr(  # if init=False
+    *,
+    init: Literal[False] = False,
+    reserved: bool = False,
+    len_ref: str | tuple[str, Callable[[int], int], Callable[[int], int]] | None = None,
+    size_ref: bool | tuple[Callable[[int], int], Callable[[int], int]] = False,
+    **kwargs,
+) -> Any: ...
+
+
+@overload
+def attr(  # if field is a size ref
+    *,
+    init: bool = True,
+    reserved: bool = False,
+    len_ref: str | tuple[str, Callable[[int], int], Callable[[int], int]] | None = None,
+    size_ref: Literal[True] | tuple[Callable[[int], int], Callable[[int], int]] = True,
+    **kwargs,
+) -> Any: ...
+
+
+def attr[T: DataType](
+    *,
     default: T | None = None,
     init: bool = True,
     reserved: bool = False,
-    len_ref: str | tuple[str, Callable[[int], int]] | None = None,
-    size_ref: bool | Callable[[int], int] = False,
+    len_ref: str | tuple[str, Callable[[int], int], Callable[[int], int]] | None = None,
+    size_ref: bool | tuple[Callable[[int], int], Callable[[int], int]] = False,
     **kwargs,
 ) -> Any | T:
     """
@@ -319,9 +365,11 @@ def attr[T](
     reserved: Whether the attribute is reserved. If True, the attribute will not be _user facing_ and implies `init=True`.
     len_ref: Used for ArrayType attributes whose length is determined by another attribute and used when decoding the
              struct whole. The attribute should be type hinted as `Array[...]` as well. This parameter must be
-             the name of the length attribute or a tuple of the name and a 1-arg callable that accepts the value of the
-             length attribute and returns an int.  The length attribute must be defined before the array as well, since
-             it needs to be decoded before the array can be.
+             the name of the length attribute or a tuple of the name, a decode function, and an encoded function.
+             These functions are 1-arg callables that, for the decode function, receive the value of the length attribute
+             and return an int of the array length to decode; and for the encode function, receive the length of the array
+             and return an int of what the length field should be encoded as.
+             The length attribute must be defined before the array as well, since it needs to be decoded before the array can be.
     size_ref: Indicates the field contains the size (byte count) for all the fields following it. Only one field can
               be a `size_ref` and cannot be used with `len_ref`.  The field can either be `True` or a 1-arg callable
               that accepts the size as an int for the following fields and returns an int.
@@ -332,16 +380,16 @@ def attr[T](
         raise DataError("Cannot specify both size_ref and len_ref")
     if reserved and not init:
         raise DataError("Cannot specify both reserved=True and init=False")
-    if size_ref:
+    if size_ref or reserved:
         init = False
     field_kwargs: dict[str, Any] = dict(init=init, metadata={"reserved": reserved})
     if default is not None:
         field_kwargs["default"] = default
     if len_ref is not None and isinstance(len_ref, str):
-        len_ref = len_ref, _default_ref_callable
+        len_ref = len_ref, _default_ref_callable, _default_ref_callable
     field_kwargs["metadata"]["len_ref"] = len_ref
     if size_ref and isinstance(size_ref, bool):
-        size_ref = _default_ref_callable
+        size_ref = _default_ref_callable, _default_ref_callable
     field_kwargs["metadata"]["size_ref"] = size_ref
 
     return field(**field_kwargs, **kwargs)
@@ -352,8 +400,8 @@ class _StructMeta(DataclassMeta, _DataTypeMeta):
     _members: dict[str, type[DataType]]
     _attributes: dict[str, type[DataType]]
     _dataclass_fields: dict[str, Field]
-    _array_length_attributes: dict[str, tuple[str, Callable[[DataType], int]]]
-    _size_ref: tuple[str, Callable[[DataType], int]] | None
+    _array_length_attributes: dict[str, tuple[str, Callable[[DataType], int], Callable[[DataType], int]]]
+    _size_ref: tuple[str, Callable[[DataType], int], Callable[[DataType], int]] | None
 
     def __new__(mcs, name: str, bases: tuple, cls_dict: dict):
         repr = True
@@ -387,8 +435,8 @@ class StructType(DataType, metaclass=_StructMeta):
     #: map of field names to dataclass Field objects, to avoid having to call fields() all the time
     _dataclass_fields: ClassVar[dict[str, Field]]
     #: map of array field names to the field name that is the source of the length of the array
-    _array_length_attributes: ClassVar[dict[str, tuple[str, Callable[[DataType], int]]]]
-    _size_ref: ClassVar[tuple[str, Callable[[int], int]] | None]
+    _array_length_attributes: ClassVar[dict[str, tuple[str, Callable[[DataType], int], Callable[[DataType], int]]]]
+    _size_ref: ClassVar[tuple[str, Callable[[int], int], Callable[[int], int]] | None]
     __field_descriptions__: ClassVar[dict[str, dict[DataType | None, str]]] = {}
 
     def __post_init__(self, *args, **kwargs) -> None:
@@ -426,7 +474,8 @@ class StructType(DataType, metaclass=_StructMeta):
                 raise DataError(f"Type conversion error for attribute {key!r}") from err
         try:
             if len_ref := self._array_length_attributes.get(key):
-                setattr(self, len_ref[0], len(value))  # type: ignore
+                ref, decode_func, encode_func = len_ref
+                setattr(self, ref, encode_func(len(value)))  # type: ignore
         except Exception as err:
             raise DataError(f"Error updating length attribute for array attribute {key!r}") from err
 
@@ -453,10 +502,10 @@ class StructType(DataType, metaclass=_StructMeta):
     def _update_size_ref(self) -> None:
         if self._size_ref is None or not self.__initialized__:
             return
-        ref_name, ref_func = self._size_ref
+        ref_name, decode_func, encode_func = self._size_ref
         member_list = list(self._members)
         following_members = member_list[member_list.index(ref_name) + 1 :]
-        new_size = ref_func(sum(len(self.__encoded_fields__[m]) for m in following_members))  # type: ignore
+        new_size = encode_func(sum(len(self.__encoded_fields__[m]) for m in following_members))  # type: ignore
         self.__setattr__(ref_name, new_size)
 
     def __iter__(self):
@@ -489,9 +538,9 @@ class StructType(DataType, metaclass=_StructMeta):
         values: dict[str, DataType] = {}
         for name, typ in cls._members.items():
             if len_ref := cls._array_length_attributes.get(name):
-                _ref, _func = len_ref
+                ref, decode_func, encode_func = len_ref
                 typ = cast(type[ArrayType[type[ArrayableT], int]], typ)
-                _array = array(typ.element_type, _func(values[_ref]))
+                _array = array(typ.element_type, decode_func(values[ref]))
                 value = _array.decode(stream)
             else:
                 value = typ.decode(stream)

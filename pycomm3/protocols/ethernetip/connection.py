@@ -52,7 +52,7 @@ class EIPConnection(Connection):
 
     @property
     def connected(self) -> bool:
-        return bool(self.session_id) and self._connected
+        return self._session_id != 0 and self._connected
 
     @property
     def session_id(self) -> UDINT:
@@ -64,9 +64,10 @@ class EIPConnection(Connection):
             self.__log.debug("Not connected, returning")
             return
         try:
-            if self.session_id:
+            if self._session_id:
                 self.unregister_session()
         except Exception as err:
+            self._session_id = UDINT(0)
             self.__log.debug(f"Failed to unregister session: {err}")
 
         try:

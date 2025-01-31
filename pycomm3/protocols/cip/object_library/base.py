@@ -2,30 +2,27 @@ from __future__ import annotations
 
 from enum import IntEnum
 from dataclasses import dataclass, replace
-from typing import Union, Type, NamedTuple, Dict, Optional, Set, Any
-
 from ....data_types import DataType, StructType, UINT, BYTES, USINT
-from ....map import EnumMap
 from ..cip import CIPRequest, CIPResponse
 
 
 @dataclass
 class CIPAttribute:
     #: Attribute ID number
-    id: Union[bytes, int]
+    id: bytes | int
     #: Data type of the attribute
-    type: Union[DataType, Type[DataType]]
+    type: "type[DataType]"
     #: Flag indicating if the attribute is included in the ``get_attributes_all`` response
     all: bool = True
     #: Flag to indicate the attribute is a class attribute if True, False if it is an instance attribute
     class_attr: bool = False
 
     # set by metaclass
-    object: Type['CIPObject'] = None  # object containing the attribute
+    object: type["CIPObject"] = None  # object containing the attribute
     name: str = None  # attribute name (variable name of CIPObject class var)
 
     def __str__(self):
-        return f'{self.object.__name__}.{self.name}'
+        return f"{self.object.__name__}.{self.name}"
 
 
 @dataclass(frozen=True)
@@ -33,31 +30,30 @@ class CIPService:
     #: Service code
     id: int
     #: Request data format type, used for encoding the service request, ``None`` if no request data is required
-    request_type: Union[None, DataType, Type[DataType]] = BYTES[...]
+    request_type: type[DataType] | None = BYTES[...]
     #: Type of request to create for this service
-    request_class: Type[CIPRequest] = CIPRequest
+    request_class: type[CIPRequest] = CIPRequest
     #: Response data format type, used for decoding the service response, ``None`` if no response expected
-    response_type: Union[None, DataType, Type[DataType]] = BYTES[...]
+    response_type: type[DataType] | None = BYTES[...]
     #: Response data format type for failed requests, ``None`` to use ``response_type``
-    failed_response_type: Union[None, DataType, Type[DataType]] = None
+    failed_response_type: type[DataType] | None = None
 
     # set by metaclass
-    object: Type['CIPObject'] = None  # object containing the service attribute
+    object: type["CIPObject"] = None  # object containing the service attribute
     name: str = None  # attribute name (variable name of CIPObject class var)
 
-    def __call__(self, *args, **kwargs) -> CIPRequest:
-        ...
+    def __call__(self, *args, **kwargs) -> CIPRequest: ...
 
-    def decode(self, response: CIPResponse) -> DataType:
-        ...
+    def decode(self, response: CIPResponse) -> DataType: ...
+
 
 @dataclass(frozen=True)
 class SimpleCIPService(CIPService):
     def __call__(
         self,
-        instance: Optional[int] = None,
-        attribute: Optional[Union[CIPAttribute, int]] = None,
-        request_data: Optional[dict[str, Any]] = None,
+        instance: int | None = None,
+        attribute: CIPAttribute | int | None = None,
+        request_data: DataType | None = None,
     ) -> CIPRequest:
         if isinstance(attribute, CIPAttribute):
             attr = attribute.id
@@ -78,7 +74,7 @@ class SimpleCIPService(CIPService):
 class GetAttributesAllService(CIPService):
     id: int = 0x01
 
-    def __call__(self, instance: Optional[int] = None, *args, **kwargs) -> CIPRequest:
+    def __call__(self, instance: int | None = None, *args, **kwargs) -> CIPRequest:
         if instance == CIPObject.Instance.CLASS:
             response_type = self.object._class_all_type
         else:
@@ -92,14 +88,13 @@ class GetAttributesAllService(CIPService):
         )
 
     @classmethod
-    def decode(cls) -> DataType:
-        ...
+    def decode(cls) -> DataType: ...
 
 
 class _MetaCIPObject(type):
     def __new__(cls, name, bases, classdict):
         klass = super().__new__(cls, name, bases, classdict)
-        cip_attrs: Dict[str, CIPAttribute] = {
+        cip_attrs: dict[str, CIPAttribute] = {
             attr_name: attr
             for _class in (
                 *bases,
@@ -109,15 +104,9 @@ class _MetaCIPObject(type):
             if isinstance(attr, CIPAttribute)
         }
 
-        instance_all = [
-            (_name, attr.type)
-            for _name, attr in cip_attrs.items()
-            if attr.all and not attr.class_attr
-        ]
+        instance_all = [(_name, attr.type) for _name, attr in cip_attrs.items() if attr.all and not attr.class_attr]
         if instance_all:
-            klass._instance_all_type = StructType.create(
-                f'{klass.__name__}InstanceAllType', instance_all
-            )
+            klass._instance_all_type = StructType.create(f"{klass.__name__}InstanceAllType", instance_all)
 
         class_all = [
             (_name, attr.type)
@@ -125,7 +114,7 @@ class _MetaCIPObject(type):
             if attr.all and attr.class_attr and attr.name not in klass._class_all_exclude
         ]
         if class_all:
-            klass._class_all_type = StructType.create(f'{klass.__name__}ClassAllType', class_all)
+            klass._class_all_type = StructType.create(f"{klass.__name__}ClassAllType", class_all)
 
         # point each attr back to the class, so that just the attr can be passed to methods
         # and not also need to include the class, also set the name to the variable name
@@ -134,7 +123,7 @@ class _MetaCIPObject(type):
         for attr_name, attr in cip_attrs.items():
             setattr(klass, attr_name, replace(attr, object=klass, name=attr_name))
 
-        services: Dict[str, CIPService] = {
+        services: dict[str, CIPService] = {
             svc_name: service
             for _class in (*bases, klass)
             for svc_name, service in vars(_class).items()
@@ -156,10 +145,10 @@ class CIPObject(metaclass=_MetaCIPObject):
     """
 
     class_code: int = 0
-    _instance_all_type: Optional[DataType] = None
-    _class_all_type: Optional[DataType] = None
-    _class_all_exclude: Set[str] = set()  # to exclude some inherited class attrs from all response
-    # without needing to redefine all the attrs
+    _instance_all_type: type[DataType] | None = None
+    _class_all_type: type[DataType] | None = None
+    _class_all_exclude: set[str] = set()  # to exclude some inherited class attrs from all response
+    #                                      without needing to redefine all the attrs
 
     class Instance(IntEnum):
         CLASS = 0  #: The class itself and not an instance
