@@ -1,38 +1,35 @@
 import types
 
-from enum import EnumMeta, Enum
-from collections.abc import MutableMapping, Mapping
-from dataclasses import Field, astuple, dataclass, field, fields, make_dataclass
+from collections.abc import Mapping
+from dataclasses import Field, field, fields, make_dataclass
 from inspect import isclass
 from io import BytesIO
 from struct import calcsize, pack, unpack
 from typing import (
     Any,
     ClassVar,
-    Generic,
-    Type,
-    TypeVar,
     cast,
     get_args,
     overload,
-    Optional,
     get_origin,
     get_type_hints,
     Sequence,
-    TypeAlias,
     dataclass_transform,
     Annotated,
     Self,
     Callable,
-    TYPE_CHECKING,
     Union,
     Literal,
+    TYPE_CHECKING,
 )
 
 
 from pycomm3.exceptions import BufferEmptyError, DataError
 from pycomm3.util import DataclassMeta
 from types import EllipsisType, UnionType
+
+if TYPE_CHECKING:
+    from .cip import CIPSegment
 
 type ArrayableT = (
     StructType
@@ -41,6 +38,7 @@ type ArrayableT = (
     | ElementaryDataType[bool]
     | ElementaryDataType[str]
     | ElementaryDataType[bytes]
+    | "CIPSegment"
 )
 type ElementaryPyType = int | float | bool | str | bytes
 type ArrayLenT = None | type[ElementaryDataType[int]] | int | EllipsisType
@@ -202,10 +200,6 @@ class ElementaryDataType[T: ElementaryPyType](DataType[T], metaclass=_Elementary
     def __bytes__(self) -> bytes:
         return self.__encoded_value__
 
-    # @classmethod
-    # def encode(cls, value: Self, *args, **kwargs) -> bytes:
-    #     return super().encode(value, *args)
-
     @classmethod
     def _encode(cls, value: Self | T, *args, **kwargs) -> bytes:
         return pack(cls._format, value)
@@ -302,7 +296,7 @@ def _default_ref_callable(value: DataType | int) -> int:
 def attr[T: DataType](
     *,
     default: T,
-    init: bool = True,
+    init: Literal[True] = True,
     reserved: bool = False,
     len_ref: str | tuple[str, Callable[[int], int], Callable[[int], int]] | None = None,
     size_ref: bool | tuple[Callable[[int], int], Callable[[int], int]] = False,
@@ -313,10 +307,11 @@ def attr[T: DataType](
 @overload
 def attr(  # if reserved=True
     *,
-    init: bool = True,
+    default: DataType,
     reserved: Literal[True] = True,
-    len_ref: str | tuple[str, Callable[[int], int], Callable[[int], int]] | None = None,
-    size_ref: bool | tuple[Callable[[int], int], Callable[[int], int]] = False,
+    init: Literal[False] = False,
+    len_ref: None = None,
+    size_ref: Literal[False] = False,
     **kwargs,
 ) -> Any: ...
 
@@ -336,7 +331,7 @@ def attr(  # if init=False
 def attr(  # if field is a size ref
     *,
     init: bool = True,
-    reserved: bool = False,
+    # reserved: bool = False,
     len_ref: str | tuple[str, Callable[[int], int], Callable[[int], int]] | None = None,
     size_ref: Literal[True] | tuple[Callable[[int], int], Callable[[int], int]] = True,
     **kwargs,
@@ -380,8 +375,12 @@ def attr[T: DataType](
         raise DataError("Cannot specify both size_ref and len_ref")
     if reserved and not init:
         raise DataError("Cannot specify both reserved=True and init=False")
-    if size_ref or reserved:
+    if size_ref or len_ref:
         init = False
+    if reserved:
+        init = False
+        if default is None:
+            raise DataError("Cannot specify `reserved` without a `default`")
     field_kwargs: dict[str, Any] = dict(init=init, metadata={"reserved": reserved})
     if default is not None:
         field_kwargs["default"] = default
@@ -577,13 +576,17 @@ class StructType(DataType, metaclass=_StructMeta):
 
         return struct_class
 
+    def __get_description__(self, field_name: str) -> str | None:
+        if field_name not in self.__field_descriptions__:
+            return None
+
+        return self.__field_descriptions__[field_name].get(getattr(self, field_name))
+
     def __field_reprs__(self):
         for name in self._members:
             value = getattr(self, name)
-            if name in self.__field_descriptions__:
-                desc = self.__field_descriptions__[name].get(
-                    value, self.__field_descriptions__[name].get(None, "UNKNOWN")
-                )
+            desc = self.__get_description__(name)
+            if desc:
                 yield f"{name}: {desc!r} = {value!r}"
             else:
                 yield f"{name}={value!r}"
@@ -633,11 +636,16 @@ def array[ET: ArrayableT, LT: ArrayLenT](element_type: type[ET], length: LT) -> 
     if _len is None:
         _len = ...
 
-    class Array(ArrayType[type[ET], LT]):
-        element_type = _type
-        length = _len
+    # class Array(ArrayType[type[ET], LT]):
+    #     element_type = _type
+    #     length = _len
 
-    return Array
+    return cast(
+        type[ArrayType[type[ET], LT]],
+        type(f"{_type.__name__}Array", (ArrayType,), dict(element_type=_type, length=_len)),
+    )
+
+    # return Array
 
 
 class ArrayType[ElementT: type[ArrayableT], LenT: ArrayLenT](DataType, metaclass=_ArrayMeta):

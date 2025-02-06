@@ -2,18 +2,18 @@ from copy import deepcopy
 from enum import IntEnum
 
 from .base import CIPAttribute, CIPObject
-from ....data_types import UINT, USINT, StructType, WORD, UDINT, SHORT_STRING, PACKED_EPATH, BYTE, PADDED_EPATH, STRINGI, INT
+from ....data_types import UINT, USINT, StructType, UDINT, SHORT_STRING, PACKED_EPATH, BYTE, PADDED_EPATH, STRINGI, INT
 from ....map import EnumMap
 
 
 __all__ = [
-    'IdentityObject',
-    'MessageRouterObject',
-    'DeviceNetObject',
-    'AssemblyObject',
-    'ConnectionObject',
-    'FileObject',
-    'PortObject',
+    "IdentityObject",
+    "MessageRouterObject",
+    "DeviceNetObject",
+    "AssemblyObject",
+    "ConnectionObject",
+    "FileObject",
+    "PortObject",
 ]
 
 
@@ -22,62 +22,11 @@ class RevisionType(StructType):
     minor: USINT
 
 
-class IdentityObject(CIPObject):
-    """
-    This object provides general identity and status information about a device.
-    It is required by all CIP objects and if a device contains multiple discrete
-    components, multiple instances of this object may be created.
-    """
-    class_code = 0x01
-
-    # --- Required attributes ---
-    #: Identification code assigned to the vendor
-    vendor_id = CIPAttribute(id=1, type=UINT)
-    #: Indication of general type of product
-    device_type = CIPAttribute(id=2, type=UINT)
-    #: Identification code of a particular product for an individual vendor
-    product_code = CIPAttribute(id=3, type=UINT)
-    #: Revision of the item the Identity Object represents
-    revision = CIPAttribute(id=4, type=RevisionType)
-    #: Summary status of the device
-    status = CIPAttribute(id=5, type=WORD)
-    #: Serial number of the device
-    serial_number = CIPAttribute(id=6, type=UDINT)
-    #: Human readable identification of the device
-    product_name = CIPAttribute(id=7, type=SHORT_STRING)
-
-    # TODO: add custom type for status that shows what the bits mean
-
-    # --- Optional attributes ---
-    #: Present state of the device, see :class:`~IdentityObject.States`
-    state = CIPAttribute(id=8, type=USINT, all=False)
-
-    class States(IntEnum):
-        """
-        Enum of the possible state attribute values,
-        any not listed are 'reserved'
-        """
-
-        #: The device is powered off
-        Nonexistent = 0
-        #: The device is currently running self tests
-        DeviceSelfTesting = 1
-        #: The device requires commissioning, configuration is invalid or incomplete
-        Standby = 2
-        #: The device is functioning normally
-        Operational = 3
-        #: The device experienced a fault that it can recover from
-        MajorRecoverableFault = 4
-        #: The device experienced a fault that it cannot recover from
-        MajorUnrecoverableFault = 5
-        #: Default value for a ``get_attributes_all`` service response if attribute is not supported
-        DefaultGetAttributesAll = 255
-
-
 class MessageRouterObject(CIPObject):
     """
     The object handles routing service calls to objects within the device from client messages
     """
+
     class_code = 0x02
 
     #: List of supported objects (class codes)
@@ -96,14 +45,14 @@ class MessageRouterObject(CIPObject):
 
         #: Translates a Symbolic Segment EPATH encoding to the
         #: equivalent Logical Segment EPATH encoding, if it exists
-        symbolic_translation = b'\x4B'
+        symbolic_translation = b"\x4b"
 
     STATUS_CODES = {
         Services.symbolic_translation: {
             0x20: {
-                0x00: 'Symbolic Path unknown',
-                0x01: 'Symbolic Path destination not assigned',
-                0x02: 'Symbolic Path segment error',
+                0x00: "Symbolic Path unknown",
+                0x01: "Symbolic Path destination not assigned",
+                0x02: "Symbolic Path segment error",
             }
         }
     }
@@ -118,6 +67,7 @@ class DeviceNetObject(CIPObject):
     Not Implemented, this object is defined in Vol. 3 of the CIP Spec
     and currently only have access to volumes 1 & 2
     """
+
     class_code = 0x03
 
 
@@ -135,6 +85,7 @@ class AssemblyObject(CIPObject):
     of view. An input will produce data on the network and an output will consume data from the
     network.
     """
+
     class_code = 0x04
 
     num_members = CIPAttribute(id=1, type=UINT, all=False)
@@ -151,6 +102,7 @@ class ConnectionObject(CIPObject):
     """
     The Connection Object handles explicit messaging and I/O connection services for the device.
     """
+
     class_code = 0x05
 
     # --- Instance Attributes ---
@@ -168,33 +120,33 @@ class ConnectionObject(CIPObject):
         """
 
         #: Binds two connections
-        connection_bind = b'\x4B'
+        connection_bind = b"\x4b"
         #: Finds the connections that are producing data from the specified application object
-        producing_app_lookup = b'\x4C'
+        producing_app_lookup = b"\x4c"
 
     STATUS_CODES = {
         Services.connection_bind: {
             0x02: {
-                0x01: 'One or both of the connection instances is non-existent',
-                0x02: 'The connection class and/or instance is out of resources to bind instances',
+                0x01: "One or both of the connection instances is non-existent",
+                0x02: "The connection class and/or instance is out of resources to bind instances",
             },
-            0x0c: {
-                0x01: 'Both of he connection instances exist, but at least on is not in the Established state',
+            0x0C: {
+                0x01: "Both of he connection instances exist, but at least on is not in the Established state",
             },
             0x20: {
-                0x01: 'Both connection instances are the same value',
+                0x01: "Both connection instances are the same value",
             },
             0xD0: {
-                0x01: 'One or both of the connection instances is not a dynamically created I/O connection',
+                0x01: "One or both of the connection instances is not a dynamically created I/O connection",
                 0x02: (
-                    'One of both of the connection instances were created internally '
-                    'and the device is not allowing a binding to it'
+                    "One of both of the connection instances were created internally "
+                    "and the device is not allowing a binding to it"
                 ),
             },
         },
         Services.producing_app_lookup: {
             0x02: {
-                0x01: 'The connection path was not found in any connection instance in the Established state',
+                0x01: "The connection path was not found in any connection instance in the Established state",
             },
         },
     }
@@ -203,6 +155,7 @@ class ConnectionObject(CIPObject):
         """
         Enum of the possible ``state`` attribute values
         """
+
         #: The connection is not yet instantiated
         Nonexistent = 0
         #: The connection is instantiated but waiting to be configured or to apply configuration
@@ -223,6 +176,7 @@ class ConnectionObject(CIPObject):
         """
         Enum of the possible values for the ``instance_type`` attribute
         """
+
         #: Connection is one endpoint of an Explicit Messaging Connection
         ExplicitMessaging = 0
         #: Connection is one endpoint of an I/O Connection
@@ -289,41 +243,41 @@ class FileObject(CIPObject):
 
     class Services(EnumMap):
         #: Begins a file upload
-        initiate_upload = b'\x4B'
+        initiate_upload = b"\x4b"
         #: Begins a file download
-        initiate_download = b'\x4C'
+        initiate_download = b"\x4c"
         #: Begins a partial read of a file
-        initiate_partial_read = b'\x4D'
+        initiate_partial_read = b"\x4d"
         #: Begins a partial write of a file
-        initiate_partial_write = b'\x4E'
+        initiate_partial_write = b"\x4e"
         #: Uploads the file
-        upload_transfer = b'\x4F'
+        upload_transfer = b"\x4f"
         #: Downloads the file
-        download_transfer = b'\x50'
+        download_transfer = b"\x50"
         #: Clears a loaded file
-        clear_file = b'\x51'
+        clear_file = b"\x51"
 
     _init_service_errors = {
         0x20: {
-            0x00: '(OBSOLETE) File size too large',
-            0x01: '(OBSOLETE) Instance format version not compatible',
-            0x04: 'File size too large',
-            0x05: 'Instance format version not compatible',
-            0x08: 'Transfer failed - zero size',
+            0x00: "(OBSOLETE) File size too large",
+            0x01: "(OBSOLETE) Instance format version not compatible",
+            0x04: "File size too large",
+            0x05: "Instance format version not compatible",
+            0x08: "Transfer failed - zero size",
         },
         0x15: {
-            0x01: 'File name too long',
-            0x02: 'Too many languages in file name',
-        }
+            0x01: "File name too long",
+            0x02: "Too many languages in file name",
+        },
     }
     _init_partial_service_errors = deepcopy(_init_service_errors)
     _init_partial_service_errors[0x20] = {
         **_init_partial_service_errors[0x20],
-        0x02: 'File offset out of range',
-        0x03: 'Read/Write size beyond end of file',
+        0x02: "File offset out of range",
+        0x03: "Read/Write size beyond end of file",
     }
     _init_partial_service_errors[0x02] = {
-        0xFF: 'File does not exist',
+        0xFF: "File does not exist",
     }
 
     STATUS_CODES = {
@@ -376,6 +330,7 @@ class FileObject(CIPObject):
         """
         Enum of the ``file_type`` attribute values.  Any not listed are reserved.
         """
+
         #: Read/Write (default)
         RW = 0
         #: Read-Only
@@ -385,6 +340,7 @@ class FileObject(CIPObject):
         """
         Enum of the ``file_encoding_format`` attribute values.  Any not listed are reserved.
         """
+
         #: File is binary data, no additional interpretation required
         Binary = 0
         #: Compressed file(s) using ZLIB compression
@@ -406,8 +362,8 @@ class PortObject(CIPObject):
     Represents the CIP ports on the device, one instance per port.
     """
 
-    class_code = 0xf4
-    _class_all_exclude = {'optional_attrs_list', 'optional_service_list','max_class_attr', 'max_instance_attr'}
+    class_code = 0xF4
+    _class_all_exclude = {"optional_attrs_list", "optional_service_list", "max_class_attr", "max_instance_attr"}
 
     # --- Class Attributes ---
     #: Gets the instance ID of the Port Object that the request entered through
@@ -431,7 +387,9 @@ class PortObject(CIPObject):
     #: Node number of the device on the port
     node_address = CIPAttribute(id=7, type=PADDED_EPATH)
     #: Range of node numbers on the port, not used with EtherNet/IP
-    port_node_range = CIPAttribute(id=8, type=StructType.create('NodeRangeType', (('min', UINT), ('max', UINT))), all=False)
+    port_node_range = CIPAttribute(
+        id=8, type=StructType.create("NodeRangeType", (("min", UINT), ("max", UINT))), all=False
+    )
     #: Electronic key of network or chassis the port is attached to
     port_key = CIPAttribute(id=9, type=PACKED_EPATH, all=False)
 
@@ -466,4 +424,3 @@ class PortObject(CIPObject):
         ModbusSL = 202
         #: Port is not configured
         UnconfiguredPort = 65535
-

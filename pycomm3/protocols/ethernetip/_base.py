@@ -6,7 +6,7 @@ from .data_types import DEFAULT_CONTEXT, ETHERNETIP_STATUS_CODES, EtherNetIPHead
 
 
 @dataclass
-class EIPRequest[T: DataType]:
+class EIPRequest[T: DataType | None]:
     # the request header
     header: EtherNetIPHeader
     # service data, encoded
@@ -23,32 +23,32 @@ class EIPRequest[T: DataType]:
         return f"EIPRequest(header={self.header!s}, data={self.data!r})"
 
 
-class EIPService[T: DataType](metaclass=DataclassMeta):
+class EIPService[ReqT: DataType | None, RespT: DataType](metaclass=DataclassMeta):
     command: UINT
-    data: bytes | DataType = b""
+    data: ReqT | None = None
     # DataType to decode response data or None if no response
-    response_type: type[T] | None = None
+    response_type: type[RespT] | None = None
 
     def __call__(
         self,
         session: UDINT,
         *args,
-        data: bytes | DataType = b"",
+        data: ReqT | None = None,
         context: BYTES[8] = DEFAULT_CONTEXT,
         **kwargs,
-    ) -> EIPRequest[T]:
+    ) -> EIPRequest[RespT]:
         #
         _data = data or self.data
-        payload = bytes(_data) if isinstance(_data, DataType) else _data
+        payload = bytes(_data) if _data is not None else b""
         header = EtherNetIPHeader(command=self.command, length=UINT(len(payload)), session=session, context=context)
         return EIPRequest(header=header, data=payload, response_type=self.response_type)
 
 
 @dataclass
-class EIPResponse[T: DataType]:
+class EIPResponse[T: DataType | None]:
     request: EIPRequest[T] = field(repr=False)
     header: EtherNetIPHeader
-    data: T | None
+    data: T
     status_msg: str = field(init=False)
 
     def __post_init__(self):

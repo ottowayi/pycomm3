@@ -28,7 +28,7 @@ Various utility functions.
 """
 
 from dataclasses import dataclass, Field, field
-from typing import cast, Protocol, Optional, Callable, TypeVar, dataclass_transform, Self
+from typing import dataclass_transform, Generator
 
 
 def strip_array(tag: str) -> str:
@@ -58,14 +58,9 @@ def get_array_index(tag: str) -> tuple[str, int | None]:
     return tag, idx
 
 
-def cycle(stop, start=0):
-    val = start
+def cycle(stop, start=0) -> Generator[int, None, None]:
     while True:
-        if val > stop:
-            val = start
-
-        yield val
-        val += 1
+        yield from range(start, stop)
 
 
 @dataclass_transform(field_specifiers=(Field, field))

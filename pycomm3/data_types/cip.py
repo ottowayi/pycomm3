@@ -6,11 +6,11 @@ from io import BytesIO
 from math import log
 from dataclasses import dataclass, field
 from enum import IntFlag
-from typing import Sequence, ClassVar, TypeVar, Final, Generic
+from typing import ClassVar, cast
 
-from ._base import ElementaryDataType, BufferT, DataType, buff_repr, as_stream, array, BYTES
+from ._base import BufferT, DataType, buff_repr, as_stream, BYTES, array
 from .numeric import USINT, UINT, UDINT
-from .string import SHORT_STRING, STRING2, STRINGN
+from .string import SHORT_STRING
 
 from pycomm3.exceptions import DataError, BufferEmptyError
 
@@ -49,9 +49,6 @@ class SegmentType(IntFlag):
     elementary_data_type = 0b_110_00000
     reserved = 0b_111_00000
     mask = 0b_111_00000
-
-
-CIPSegmentT = TypeVar("CIPSegmentT", bound="CIPSegment")
 
 
 def _segment_type_bits(segment_type: int) -> str:
@@ -118,22 +115,22 @@ class CIPSegment(DataType):
 
 
 class PortIdentifier(IntFlag):
-    backplane: int = 0b_000_0_0001
-    bp: int = 0b_000_0_0001
-    enet: int = 0b_000_0_0010
-    a: int = 0b_000_0_0010
-    b: int = 0b0_000_0_0011
-    dhrio_a: int = 0b_000_0_0010
-    dhrio_b: int = 0b_000_0_0011
-    dnet: int = 0b_000_0_0010
-    cnet: int = 0b_000_0_0010
-    dh485_a: int = 0b_000_0_0010
-    dh485_b: int = 0b_000_0_0011
+    backplane = 0b_000_0_0001
+    bp = 0b_000_0_0001
+    enet = 0b_000_0_0010
+    a = 0b_000_0_0010
+    b = 0b0_000_0_0011
+    dhrio_a = 0b_000_0_0010
+    dhrio_b = 0b_000_0_0011
+    dnet = 0b_000_0_0010
+    cnet = 0b_000_0_0010
+    dh485_a = 0b_000_0_0010
+    dh485_b = 0b_000_0_0011
 
 
 class PortSegmentFormat(IntFlag):
-    ex_link_address: int = 0b_000_1_0000
-    mask_port_id: int = 0b_000_0_1111
+    ex_link_address = 0b_000_1_0000
+    mask_port_id = 0b_000_0_1111
 
 
 def _find_best_uint_type(value: int) -> USINT | UINT | UDINT:
@@ -170,7 +167,7 @@ class PortSegment(CIPSegment):
     port: PortIdentifier | int = field(compare=False)
     link_address: int | str | bytes = field(compare=False)
 
-    _port: int = field(init=False)
+    _port: USINT = field(init=False)
     _link: bytes | DataType = field(init=False)
     _ex_link: bool = field(default=False, init=False)
     _link_addr_size: USINT = field(default=USINT(0), init=False)
@@ -193,7 +190,7 @@ class PortSegment(CIPSegment):
                 else:
                     try:
                         ip = ipaddress.ip_address(self.link_address)
-                    except ValueError as err:
+                    except ValueError:
                         raise DataError(f"cannot convert link_address ({self.link_address!r}) to ip address")
                     else:
                         self._link = str(ip).encode()
@@ -231,24 +228,24 @@ class PortSegment(CIPSegment):
         return msg
 
     @classmethod
-    def _decode(cls, buffer: BytesIO, padded: bool = False) -> "PortSegment":
-        segment_type = cls._decode_segment_type(buffer)
+    def _decode(cls, stream: BytesIO, padded: bool = False) -> "PortSegment":
+        segment_type = cls._decode_segment_type(stream)
         ex_link = bool(segment_type & PortSegmentFormat.ex_link_address)
         port = segment_type & PortSegmentFormat.mask_port_id
 
         if port == PortSegmentFormat.mask_port_id:
             try:
-                port = UINT.decode(buffer)
+                port = UINT.decode(stream)
             except Exception as err:
                 raise DataError("Error decoding extended port id") from err
 
         link: bytes | USINT
         if ex_link:
-            link_addr_size = USINT.decode(buffer)
+            link_addr_size = USINT.decode(stream)
             if not link_addr_size:
                 raise DataError("Extended link address size is 0")
             try:
-                link = cls._stream_read(buffer, link_addr_size)
+                link = cls._stream_read(stream, link_addr_size)
             except BufferEmptyError:
                 link = b""
             if len(link) != link_addr_size:
@@ -258,36 +255,36 @@ class PortSegment(CIPSegment):
 
             if link_addr_size % 2:
                 try:
-                    _pad = cls._stream_read(buffer, 1)
+                    _pad = cls._stream_read(stream, 1)
                 except BufferEmptyError:
                     raise DataError("Expected a pad byte following link address")
         else:
             try:
-                link = USINT.decode(buffer)
-            except Exception as err:
+                link = USINT.decode(stream)
+            except Exception:
                 raise DataError("Error decoding link address")
 
         return PortSegment(port, link)
 
 
 class LogicalSegmentType(IntFlag):
-    type_class_id: int = 0b_000_000_00
-    type_instance_id: int = 0b_000_001_00
-    type_member_id: int = 0b_000_010_00
-    type_connection_point: int = 0b_000_011_00
-    type_attribute_id: int = 0b_000_100_00
-    type_special: int = 0b_000_101_00
-    type_service_id: int = 0b_000_110_00
-    type_reserved: int = 0b_000_111_00
-    mask_type: int = 0b_000_111_00
+    type_class_id = 0b_000_000_00
+    type_instance_id = 0b_000_001_00
+    type_member_id = 0b_000_010_00
+    type_connection_point = 0b_000_011_00
+    type_attribute_id = 0b_000_100_00
+    type_special = 0b_000_101_00
+    type_service_id = 0b_000_110_00
+    type_reserved = 0b_000_111_00
+    mask_type = 0b_000_111_00
 
-    format_8bit: int = 0b_000_000_00
-    format_16bit: int = 0b_000_000_01
-    format_32bit: int = 0b_000_000_10
-    format_reserved: int = 0b_000_000_11
-    format_8bit_service_id: int = 0b_000_000_00
-    format_electronic_key: int = 0b_000_000_00
-    mask_format: int = 0b_000_000_11
+    format_8bit = 0b_000_000_00
+    format_16bit = 0b_000_000_01
+    format_32bit = 0b_000_000_10
+    format_reserved = 0b_000_000_11
+    format_8bit_service_id = 0b_000_000_00
+    format_electronic_key = 0b_000_000_00
+    mask_format = 0b_000_000_11
 
 
 def _logical_format_bits(fmt: int) -> str:
@@ -343,10 +340,10 @@ class LogicalSegment(CIPSegment):
                     LogicalSegmentType.type_instance_id,
                     LogicalSegmentType.type_connection_point,
                 ):
-                    raise DataError(f"32-bit logical value only valid for Instance ID and Connection Point types")
+                    raise DataError("32-bit logical value only valid for Instance ID and Connection Point types")
                 self._format = LogicalSegmentType.format_32bit
             else:
-                raise DataError(f"logical value too large")
+                raise DataError("logical value too large")
 
     @classmethod
     def _encode(cls, value: "LogicalSegment", padded: bool = False, *args, **kwargs) -> bytes:
@@ -386,7 +383,7 @@ class LogicalSegment(CIPSegment):
                 raise DataError(f"Unsupported logical format for Service ID type (00): {_logical_format_bits(_format)}")
             try:
                 value = USINT.decode(stream)
-            except Exception as err:
+            except Exception:
                 raise DataError("Error decoding service id logical value")
         else:
             try:
@@ -406,14 +403,14 @@ class LogicalSegment(CIPSegment):
 
 
 class NetworkSegmentType(IntFlag):
-    scheduled: int = 0b_000_00001
-    fixed_tag: int = 0b_000_00010
-    production_inhibit_time: int = 0b_000_00011
-    safety: int = 0b_000_10000
-    extended: int = 0b_000_11111
+    scheduled = 0b_000_00001
+    fixed_tag = 0b_000_00010
+    production_inhibit_time = 0b_000_00011
+    safety = 0b_000_10000
+    extended = 0b_000_11111
 
-    mask_type: int = 0b_000_11111
-    mask_data_array: int = 0b_000_10000
+    mask_type = 0b_000_11111
+    mask_data_array = 0b_000_10000
 
 
 _supported_network_segment_types = {
@@ -477,24 +474,24 @@ class NetworkSegment(CIPSegment):
 
 
 class SymbolicSegmentType(IntFlag):
-    mask_symbol_size: int = 0b_000_11111
+    mask_symbol_size = 0b_000_11111
 
 
 class SymbolicSegmentExtendedFormat(IntFlag):
-    double_byte_chars: int = 0b_001_00000
-    triple_byte_chars: int = 0b_010_00000
+    double_byte_chars = 0b_001_00000
+    triple_byte_chars = 0b_010_00000
 
-    _numeric_format: int = 0b_110_00000
-    _numeric_usint: int = 0b_000_00110
-    _numeric_uint: int = 0b_000_00111
-    _numeric_udint: int = 0b_000_01000
+    _numeric_format = 0b_110_00000
+    _numeric_usint = 0b_000_00110
+    _numeric_uint = 0b_000_00111
+    _numeric_udint = 0b_000_01000
 
     numeric_symbol_usint = _numeric_format | _numeric_usint
     numeric_symbol_uint = _numeric_format | _numeric_uint
     numeric_symbol_udint = _numeric_format | _numeric_udint
 
-    mask_format: int = 0b_111_00000
-    mask_size: int = 0b_000_11111
+    mask_format = 0b_111_00000
+    mask_size = 0b_000_11111
 
 
 @dataclass
@@ -575,8 +572,8 @@ class SymbolicSegment(CIPSegment):
 
 
 class DataSegmentType(IntFlag):
-    simple: int = 0b_000_00000
-    ansi_extended: int = 0b_000_10001
+    simple = 0b_000_00000
+    ansi_extended = 0b_000_10001
 
 
 @dataclass
@@ -621,7 +618,7 @@ class ElementaryDataTypeSegment(CIPSegment):
 
 
 @dataclass
-class EPATH(DataType, Generic[CIPSegmentT]):
+class EPATH[T: CIPSegment](DataType):
     """
     CIP path segments
     """
@@ -631,13 +628,13 @@ class EPATH(DataType, Generic[CIPSegmentT]):
     with_len: ClassVar[bool] = False
     pad_len: ClassVar[bool] = False
 
-    segments: Sequence[CIPSegmentT]
+    segments: list[T]
 
     def __len__(self) -> int:
         return len(self.segments)
 
     @classmethod
-    def _encode(cls, value: EPATH, *args, **kwargs) -> bytes:
+    def _encode(cls, value: EPATH[T], *args, **kwargs) -> bytes:
         path = b"".join(segment.encode(segment, padded=cls.padded) for segment in value.segments)
         if cls.with_len:
             _len = USINT.encode(len(value.segments))
@@ -647,16 +644,16 @@ class EPATH(DataType, Generic[CIPSegmentT]):
         return path
 
     @classmethod
-    def _decode(cls, buffer: BufferT) -> EPATH:
+    def _decode(cls, stream: BufferT) -> EPATH:
         if cls.with_len:
-            _len = USINT.decode(buffer)
+            _len = USINT.decode(stream)
             if cls.pad_len:
-                _ = USINT.decode(buffer)
+                _ = USINT.decode(stream)
 
         else:
             _len = ...  # type: ignore # no len, treat like unbound array
 
-        segments = CIPSegment[_len].decode(buffer)  # type: ignore
+        segments: list[T] = cast(list[T], [s for s in array(CIPSegment, _len).decode(stream)])
 
         return cls(segments)
 

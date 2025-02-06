@@ -1,14 +1,13 @@
 from typing import ClassVar
 
-from pycomm3.data_types import UINT, BYTES, UDINT, DataType, DataclassMeta, attr, StructType
-from dataclasses import dataclass, field
-from io import BytesIO
+from pycomm3.data_types import UINT, BYTES, UDINT
 
 from .data_types import (
-    DEFAULT_CONTEXT,
     RegisterSessionData,
     SendRRDataData,
+    SendRRDataPacketFormat,
     SendUnitDataData,
+    SendUnitDataPacketFormat,
     EncapsulationCommand,
     ListInterfacesData,
     ListIdentityData,
@@ -17,7 +16,7 @@ from .data_types import (
 from ._base import EtherNetIPHeader, EIPService, EIPRequest
 
 
-class NOPService(EIPService):
+class NOPService(EIPService[None, BYTES]):
     command: UINT = EncapsulationCommand.nop
 
     # defining this request statically, no need to regenerate it every time
@@ -37,14 +36,26 @@ class NOPService(EIPService):
 
 class Services:
     nop: NOPService = NOPService()
-    list_identity = EIPService(command=EncapsulationCommand.list_identity, response_type=ListIdentityData)
-    list_interfaces = EIPService(command=EncapsulationCommand.list_interfaces, response_type=ListInterfacesData)
-    register_session = EIPService(
+    list_identity: EIPService[None, ListIdentityData] = EIPService(
+        command=EncapsulationCommand.list_identity, response_type=ListIdentityData
+    )
+    list_interfaces: EIPService[None, ListInterfacesData] = EIPService(
+        command=EncapsulationCommand.list_interfaces, response_type=ListInterfacesData
+    )
+    register_session: EIPService[RegisterSessionData, BYTES] = EIPService(
         command=EncapsulationCommand.register_session,
-        data=bytes(RegisterSessionData()),
+        data=RegisterSessionData(),
         response_type=BYTES,  # has response, but session handle is in the header with no response data
     )
-    unregister_session = EIPService(command=EncapsulationCommand.unregister_session)
-    list_services = EIPService(command=EncapsulationCommand.list_services, response_type=ListServicesData)
-    send_rr_data = EIPService(command=EncapsulationCommand.send_rr_data, response_type=SendRRDataData)
-    send_unit_data = EIPService(command=EncapsulationCommand.send_unit_data, response_type=SendUnitDataData)
+    unregister_session: EIPService[None, ListInterfacesData] = EIPService(
+        command=EncapsulationCommand.unregister_session
+    )
+    list_services: EIPService[None, ListServicesData] = EIPService(
+        command=EncapsulationCommand.list_services, response_type=ListServicesData
+    )
+    send_rr_data: EIPService[SendRRDataPacketFormat, SendRRDataData] = EIPService(
+        command=EncapsulationCommand.send_rr_data, response_type=SendRRDataData
+    )
+    send_unit_data: EIPService[SendUnitDataPacketFormat, SendUnitDataData] = EIPService(
+        command=EncapsulationCommand.send_unit_data, response_type=SendUnitDataData
+    )

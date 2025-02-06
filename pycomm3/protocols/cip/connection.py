@@ -17,3 +17,5 @@ class CIPConnection:
         self.config = config
         self._transport: EIPConnection = transport
         self._connected: bool = False
+
+    def send(self, CIPRequest): ...

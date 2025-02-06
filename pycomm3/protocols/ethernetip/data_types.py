@@ -1,17 +1,15 @@
 from dataclasses import InitVar
 from typing import Final, Sequence, cast, ClassVar
 
-from pycomm3 import DataError, as_stream, BufferEmptyError, buff_repr, ArrayType
+from pycomm3 import DataError, as_stream, BufferEmptyError, buff_repr
 from pycomm3.data_types import (
     BYTES,
     INT_BE,
     UDINT,
-    UDINT_BE,
     UINT,
     UINT_BE,
     USINT,
     USINT_BE,
-    DataType,
     StructType,
     attr,
     Array,
@@ -133,9 +131,6 @@ class NullAddress(CPFItem):
     length: UINT = attr(init=False, default=UINT(0))
 
 
-class UCCMAddress(NullAddress): ...
-
-
 class ConnectedAddress(CPFItem):
     type_id: UINT = attr(init=False, default=CPFItemType.connected_address)
     length: UINT = attr(init=False, default=UINT(4))
@@ -152,13 +147,13 @@ class SequencedAddress(CPFItem):
 class UnconnectedData(CPFItem):
     type_id: UINT = attr(init=False, default=CPFItemType.unconnected_data)
     length: UINT = attr(init=False)
-    data: BYTES = attr(len_ref="length")
+    data: BYTES = attr(init=True, len_ref="length")
 
 
 class ConnectedData(CPFItem):
     type_id: UINT = attr(init=False, default=CPFItemType.connected_data)
     length: UINT = attr(init=False)
-    data: BYTES = attr(len_ref="length")
+    data: BYTES = attr(init=True, len_ref="length")
 
 
 class Sockaddr(StructType):
@@ -220,7 +215,7 @@ class ListInterfacesData(StructType):
     interfaces: Array[CPFItem, None] | Sequence[CPFItem] = attr(len_ref="count")
 
 
-type AddressItemsT = NullAddress | UCCMAddress | SequencedAddress | ConnectedAddress
+type AddressItemsT = NullAddress | SequencedAddress | ConnectedAddress
 type DataItemsT = ConnectedData | UnconnectedData
 
 
@@ -244,13 +239,17 @@ class CommonPacketFormat[AddrT: AddressItemsT, DataT: DataItemsT](StructType):
         return cast(DataT, self.items[1])
 
 
+type SendRRDataPacketFormat = CommonPacketFormat[NullAddress, UnconnectedData]
+type SendUnitDataPacketFormat = CommonPacketFormat[SequencedAddress, ConnectedData]
+
+
 class SendRRDataData(StructType):
     interface_handle: UINT | int = attr(default=0, init=False)  # always 0 for CIP
     timeout: UINT | int = attr(default=0, init=False)  # typically 0 for CIP, which has its own timeout
-    packet: CommonPacketFormat[UCCMAddress, UnconnectedData]
+    packet: SendRRDataPacketFormat
 
 
 class SendUnitDataData(StructType):
     interface_handle: UINT | int = attr(default=0, init=False)
     timeout: UINT | int = attr(default=0, init=False)
-    packet: CommonPacketFormat[SequencedAddress, ConnectedData]
+    packet: SendUnitDataPacketFormat

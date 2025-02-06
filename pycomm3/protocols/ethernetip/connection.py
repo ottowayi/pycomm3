@@ -9,7 +9,17 @@ from pycomm3 import get_logger
 from ..connection import Connection
 from ._base import EIPRequest, EIPResponse, EtherNetIPHeader, DEFAULT_CONTEXT
 from .services import Services
-from .data_types import CIPIdentity, InterfaceInfo, ListIdentityData, ServiceInfo, EncapsulationCommand
+from .data_types import (
+    CIPIdentity,
+    CommonPacketFormat,
+    InterfaceInfo,
+    ServiceInfo,
+    EncapsulationCommand,
+    UnconnectedData,
+    NullAddress,
+    SequencedAddress,
+    ConnectedData,
+)
 
 ETHERNETIP_PORT: Final[int] = 44818
 
@@ -111,6 +121,26 @@ class EIPConnection(Connection):
         if response := self.send(request):
             return cast(Array[ServiceInfo, None], response.data.services)  # type: ignore
 
+    def send_unit_data(self, connection_id: UDINT, sequence_number: UDINT, msg: bytes) -> EIPResponse | None:
+        if not self.connected:
+            raise ConnectionError("Connection closed")
+        data = CommonPacketFormat(
+            address_item=SequencedAddress(
+                connection_id=connection_id,
+                sequence_num=sequence_number,
+            ),
+            data_item=ConnectedData(data=BYTES(msg)),
+        )
+        request = Services.send_unit_data(session=self._session_id, data=data, context=self.config.sender_context)
+        return self.send(request)
+
+    def send_rr_data(self, msg: bytes) -> EIPResponse | None:
+        if not self.connected:
+            raise ConnectionError("Connection closed")
+        data = CommonPacketFormat(address_item=NullAddress(), data_item=UnconnectedData(data=BYTES(msg)))
+        request = Services.send_rr_data(session=self._session_id, data=data, context=self.config.sender_context)
+        return self.send(request)
+
     def send(self, request: EIPRequest) -> EIPResponse | None:
         if not self._connected:
             raise ConnectionError("Not connected")
@@ -146,7 +176,8 @@ class EIPConnection(Connection):
 
         data = self._recv_size(header.length)
         self.__log.log_bytes("<< RECEIVED <<", _header + data)
-        resp = EIPResponse(request=request, header=header, data=request.response_type.decode(data))
+        resp_data = None if request.response_type is None else request.response_type.decode(data)
+        resp = EIPResponse(request=request, header=header, data=resp_data)
         self.__log.debug(f"Received response: {resp}")
         return resp
 

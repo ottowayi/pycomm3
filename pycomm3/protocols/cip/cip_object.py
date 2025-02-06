@@ -1,15 +1,22 @@
-from enum import IntEnum
+from typing import overload
 from dataclasses import dataclass, field
-from typing import Self
-
-from pycomm3.data_types import DataType, StructType, UINT, BYTES, USINT, attr
-from ._base import CIPRequest, CIPResponse, CIPService
+from pycomm3.exceptions import DataError
+from pycomm3.data_types import DataType, UINT, USINT, StructType, BYTES
+from ._base import (
+    CIPRequest,
+    CIPService,
+    MessageRouterRequest,
+    MessageRouterResponse,
+    CIPResponseParser,
+    default_success_codes_factory,
+    CIPResponse,
+)
 
 
 @dataclass
 class CIPAttribute:
     #: Attribute ID number
-    id: bytes | int
+    id: int
     #: Data type of the attribute
     data_type: "type[DataType]"
     #: Flag to indicate the attribute is a class attribute if True, False if it is an instance attribute
@@ -72,12 +79,7 @@ class _MetaCIPObject(type):
         return cls.__name__
 
 
-class GetAttributesAllService(CIPService):
-    id: USINT = attr(init=False, default=USINT(1))
-    data_type: InitVar[DataType]
-
-
-class ClassAllAttrsCIPObject:
+class ClassAllAttrsCIPObject(StructType):
     object_revision: UINT
     max_instance: UINT
     num_instances: UINT
@@ -87,6 +89,23 @@ class ClassAllAttrsCIPObject:
     max_instance_attr: UINT
 
 
+@dataclass
+class GetAttributesAllService(CIPService):
+    id: USINT = field(init=False, default=USINT(1))
+    response_parser: CIPResponseParser | None = field(init=False, default=None)
+    instance_struct: type[StructType]
+    class_struct: type[StructType] = ClassAllAttrsCIPObject
+
+    def __call__(self, instance: int = 1) -> CIPRequest:
+        parser = SimpleCIPResponseParser(
+            response_type=self.class_struct if instance == CIPObject.Instance.CLASS else self.instance_struct
+        )
+        return CIPRequest(
+            message=MessageRouterRequest.build(service=self.id, class_code=self.object.class_code, instance=instance),
+            response_parser=parser,
+        )
+
+
 class CIPObject(metaclass=_MetaCIPObject):
     """
     Base class for all CIP objects.  Defines services, attributes, and other properties common to all CIP objects.
@@ -94,7 +113,7 @@ class CIPObject(metaclass=_MetaCIPObject):
 
     class_code: int = 0
 
-    class Instance(IntEnum):
+    class Instance(EnumMap):
         CLASS = 0  #: The class itself and not an instance
         DEFAULT = 1  #: The first instance of a class, used as the default if not specified
 
@@ -130,6 +149,76 @@ class CIPObject(metaclass=_MetaCIPObject):
     #: The instance id of the last (max) instance of the object in the device
     max_instance_attr = CIPAttribute(id=7, data_type=UINT, class_attr=True)
 
-    # --- Common services (not all supported by all classes) ---
-    #: Returns all instance/class attributes defined for the object
-    get_attributes_all = GetAttributesAllService()
+
+@dataclass
+class SimpleCIPResponseParser[T: DataType]:
+    response_type: type[T] | None = None
+    failed_response_type: type[T] | None = None
+    success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
+
+    def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse[T]:
+        msg = MessageRouterResponse.decode(data)
+        if msg.general_status in self.success_statuses:
+            msg_data = (self.response_type or BYTES).decode(msg.data)
+        else:
+            msg_data = (self.failed_response_type or BYTES).decode(msg.data)
+        return CIPResponse(request=request, message=msg, data=msg_data)
+
+
+# TODO: name these classes better, basic vs simple, wtf does that mean?
+
+
+@dataclass(kw_only=True)
+class SimpleCIPService[ReqT: DataType, RespT: DataType, FRespT: DataType](CIPService):
+    request_type: type[ReqT] | None = None
+    response_type: type[RespT]
+    failed_response_type: type[FRespT] | None = None
+    success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
+    response_parser: CIPResponseParser | None = None
+
+    @overload
+    def __call__(
+        self,
+        data: ReqT,
+        instance: int = 1,
+        attribute: CIPAttribute | None = None,
+        **kwargs,
+    ) -> CIPRequest: ...
+    @overload
+    def __call__(
+        self,
+        data: None = None,
+        instance: int = 1,
+        attribute: CIPAttribute | None = None,
+        **kwargs,
+    ) -> CIPRequest: ...
+
+    def __call__(
+        self,
+        data: ReqT | None = None,
+        instance: int = 1,
+        attribute: CIPAttribute | None = None,
+        **kwargs,
+    ) -> CIPRequest:
+        #
+        if self.request_type is not None and data is None:
+            raise DataError("this service requires request `data`")
+        if self.request_type is None and data is not None:
+            raise DataError("this service does not accept request `data`")
+
+        attr_id = None if attribute is None else attribute.id
+        parser = self.response_parser or SimpleCIPResponseParser(
+            response_type=self.response_type,
+            failed_response_type=self.failed_response_type,
+            success_statuses=self.success_statuses,
+        )
+        return CIPRequest(
+            message=MessageRouterRequest.build(
+                service=self.id,
+                class_code=self.object.class_code,
+                instance=instance,
+                attribute=attr_id,
+                data=bytes(data) if data is not None else b"",
+            ),
+            response_parser=parser,
+        )
