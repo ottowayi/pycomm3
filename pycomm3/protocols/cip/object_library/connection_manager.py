@@ -1,5 +1,5 @@
-from ..cip_object import CIPObject, CIPAttribute, SimpleCIPService
-from .._base import MessageRouterRequest
+from ..cip_object import CIPObject, CIPAttribute, SimpleCIPResponseParser, SimpleCIPService
+from .._base import CIPRequest, CIPService, MessageRouterRequest
 from pycomm3.map import EnumMap
 from pycomm3.data_types import (
     UINT,
@@ -13,6 +13,11 @@ from pycomm3.data_types import (
     DWORD,
     PADDED_EPATH_PAD_LEN,
 )
+from typing import ClassVar, Final, Self
+from dataclasses import InitVar
+from enum import IntEnum
+from dataclasses import field
+from io import BytesIO
 
 
 class ForwardOpenRequest(StructType):
@@ -98,13 +103,91 @@ class ForwardCloseFailedResponse(StructType):
     _reserved: USINT = attr(reserved=True, default=USINT(0))
 
 
+class TickTime(IntEnum):
+    """
+    Time per tick (in milliseconds)
+    """
+
+    ms_1 = 0b_0000
+    ms_2 = 0b_0001
+    ms_4 = 0b_0010
+    ms_8 = 0b_0011
+    ms_16 = 0b_0100
+    ms_32 = 0b_0101
+    ms_64 = 0b_0110
+    ms_128 = 0b_0111
+    ms_256 = 0b_1000
+    ms_512 = 0b_1001
+    ms_1024 = 0b_1010
+    ms_2048 = 0b_1011
+    ms_4096 = 0b_1100
+    ms_8192 = 0b_1101
+    ms_16384 = 0b_1110
+    ms_32768 = 0b_1111
+
+
 class UnconnectedSendRequest(StructType):
-    priority_tick_time: USINT
-    timeout_ticks: USINT
+    """
+
+    Request timeout = tick_time * num_ticks
+    Default timeout is 1024ms
+
+    TODO: size may be off by 1 due to padding if `message_request_size` is odd or not
+    """
+
+    priority_tick_time: USINT = attr(init=False)
+    timeout_ticks: USINT = attr(init=False)
     message_request_size: UINT = attr(init=False)
     message_request: MessageRouterRequest
-    _reserved: USINT = attr(reserved=True, default=USINT(0))
     route_path: PADDED_EPATH_PAD_LEN
+
+    tick_time: InitVar[TickTime]
+    num_ticks: InitVar[int]
+    priority: InitVar[bool] = False
+    PRIORITY: Final[ClassVar[USINT]] = USINT(0b_0001_0000)
+
+    def __post_init__(
+        self, tick_time: TickTime = TickTime.ms_1024, num_ticks: int = 1, priority: bool = False, *args, **kwargs
+    ) -> None:
+        _priority = self.PRIORITY if priority else USINT(0)
+        self.priority_tick_time = USINT(_priority | tick_time)
+        self.timeout_ticks = USINT(num_ticks)
+        self.message_request_size = UINT(len(bytes(self.message_request)))
+
+    @classmethod
+    def _decode(cls, stream: BytesIO) -> Self:
+        ptt = USINT.decode(stream)
+        tick_time = TickTime(ptt | 0b_0000_1111)
+        priority = bool(ptt & cls.PRIORITY)
+        ticks = USINT.decode(stream)
+        request_size = UINT.decode(stream)
+        request_data = cls._stream_read(stream, request_size)
+        request = MessageRouterRequest.decode(request_data)
+        if request_size % 2:
+            pad = cls._stream_read(stream, 1)
+        route_path = PADDED_EPATH_PAD_LEN.decode(stream)
+
+        return cls(
+            message_request=request,
+            route_path=route_path,
+            tick_time=tick_time,
+            num_ticks=ticks,
+            priority=priority,
+        )
+
+    @classmethod
+    def _encode(cls, value: Self, *args, **kwargs) -> bytes:
+        return b"".join(
+            bytes(x)
+            for x in (
+                value.priority_tick_time,
+                value.timeout_ticks,
+                value.message_request_size,
+                value.message_request,
+                b"\x00" if value.message_request_size % 2 else b"",
+                value.route_path,
+            )
+        )
 
 
 class UnconnectedSendResponse(StructType):
@@ -123,6 +206,39 @@ class UnconnectedSendFailedResponse(StructType):
     remaining_path_size: USINT
 
 
+def _unconnected_send_parser():
+    return SimpleCIPResponseParser(
+        response_type=UnconnectedSendResponse,
+        failed_response_type=UnconnectedSendFailedResponse,
+    )
+
+
+class UnconnectedSendService(CIPService):
+    id: USINT = field(default=USINT(0x52), init=False)
+    response_parser: SimpleCIPResponseParser = field(default_factory=_unconnected_send_parser, init=False)
+
+    def __call__(
+        self,
+        msg: MessageRouterRequest,
+        route_path: PADDED_EPATH_LEN,
+        tick_time: TickTime,
+        num_ticks: int,
+        *args,
+        **kwargs,
+    ):
+        return CIPRequest(
+            message=MessageRouterRequest.build(
+                service=self.id,
+                class_code=self.object.class_code,
+                instance=1,
+                data=UnconnectedSendRequest(
+                    message_request=msg, route_path=route_path, tick_time=tick_time, num_ticks=num_ticks
+                ),
+            ),
+            response_parser=self.response_parser,
+        )
+
+
 # def _bit_count(arr: ArrayType[BOOL, int] ) -> int:
 #     return 0  # TODO: need to change encode/decode len_ref to get array and not just len
 
@@ -136,7 +252,7 @@ class UnconnectedSendFailedResponse(StructType):
 #     ))
 
 
-class ConnectionManagerObject(CIPObject):
+class ConnectionManager(CIPObject):
     """
     Manages internal resources for both I/O and Explicit Messaging connections.
     """

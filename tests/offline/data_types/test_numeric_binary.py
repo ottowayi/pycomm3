@@ -193,6 +193,8 @@ def test_bytes():
     assert bb == bytes(bb) == b"1234567890"
     assert bytes(bb[1:]) == b"234567890"
     assert bb.size == 10
+    assert BYTES[0](b"1234") == b"" == bytes(BYTES[0](b"11111111111"))
+    assert BYTES[0].decode(b"1234") == b""
 
     bbb = BYTES[...](b"123")
     assert bbb == bytes(bbb) == b"123" == bytes(BYTES[3](b"123"))

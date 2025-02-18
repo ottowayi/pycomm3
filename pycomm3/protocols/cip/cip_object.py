@@ -11,6 +11,7 @@ from ._base import (
     default_success_codes_factory,
     CIPResponse,
 )
+from pycomm3.map import EnumMap
 
 
 @dataclass
@@ -98,7 +99,8 @@ class GetAttributesAllService(CIPService):
 
     def __call__(self, instance: int = 1) -> CIPRequest:
         parser = SimpleCIPResponseParser(
-            response_type=self.class_struct if instance == CIPObject.Instance.CLASS else self.instance_struct
+            response_type=self.class_struct if instance == CIPObject.Instance.CLASS else self.instance_struct,
+            failed_response_type=BYTES,
         )
         return CIPRequest(
             message=MessageRouterRequest.build(service=self.id, class_code=self.object.class_code, instance=instance),
@@ -151,17 +153,17 @@ class CIPObject(metaclass=_MetaCIPObject):
 
 
 @dataclass
-class SimpleCIPResponseParser[T: DataType]:
-    response_type: type[T] | None = None
-    failed_response_type: type[T] | None = None
+class SimpleCIPResponseParser[RespT: DataType, FRespT: DataType]:
+    response_type: type[RespT]
+    failed_response_type: type[FRespT]
     success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
 
-    def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse[T]:
+    def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse[RespT | FRespT]:
         msg = MessageRouterResponse.decode(data)
         if msg.general_status in self.success_statuses:
-            msg_data = (self.response_type or BYTES).decode(msg.data)
+            msg_data = self.response_type.decode(msg.data)
         else:
-            msg_data = (self.failed_response_type or BYTES).decode(msg.data)
+            msg_data = self.failed_response_type.decode(msg.data)
         return CIPResponse(request=request, message=msg, data=msg_data)
 
 
@@ -207,9 +209,11 @@ class SimpleCIPService[ReqT: DataType, RespT: DataType, FRespT: DataType](CIPSer
             raise DataError("this service does not accept request `data`")
 
         attr_id = None if attribute is None else attribute.id
+        failed_resp_type = self.failed_response_type if self.failed_response_type is not None else BYTES
+
         parser = self.response_parser or SimpleCIPResponseParser(
             response_type=self.response_type,
-            failed_response_type=self.failed_response_type,
+            failed_response_type=failed_resp_type,
             success_statuses=self.success_statuses,
         )
         return CIPRequest(

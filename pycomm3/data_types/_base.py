@@ -834,7 +834,7 @@ class BYTES(ElementaryDataType[bytes], bytes, metaclass=_ElementaryDataTypeMeta)
             size = cast(int, cls._int_type.decode(stream))
         else:
             size = cls.size
-        data = cls._stream_read(stream, size)
+        data = cls._stream_read(stream, size) if size else b""
         return cls(data)
 
     def __getitem__(self, item) -> bytes:  # type: ignore

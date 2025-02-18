@@ -55,6 +55,10 @@ class ResponseError(PycommError):
     For exceptions raised during handling for responses to requests
     """
 
+    def __init__(self, msg: str, response=None, *args):
+        super().__init__(msg, response, *args)
+        self.response = response
+
 
 class RequestError(PycommError):
     """
