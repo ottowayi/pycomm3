@@ -6,7 +6,7 @@ from io import BytesIO
 from math import log
 from dataclasses import dataclass, field
 from enum import IntFlag
-from typing import ClassVar, cast
+from typing import ClassVar, cast, Self
 
 from ._base import BufferT, DataType, buff_repr, as_stream, BYTES, array
 from .numeric import USINT, UINT, UDINT
@@ -16,26 +16,27 @@ from pycomm3.exceptions import DataError, BufferEmptyError
 
 __all__ = (
     "CIPSegment",
-    "PortSegment",
-    "LogicalSegment",
-    "NetworkSegment",
-    "SymbolicSegment",
-    "DataSegment",
     "ConstructedDataTypeSegment",
+    "DataSegment",
+    "DataSegmentType",
     "ElementaryDataTypeSegment",
     "EPATH",
-    "PADDED_EPATH",
+    "LogicalSegment",
+    "LogicalSegmentType",
+    "NetworkSegment",
+    "NetworkSegmentType",
     "PACKED_EPATH",
+    "PADDED_EPATH",
     "PADDED_EPATH_LEN",
     "PADDED_EPATH_PAD_LEN",
-    "SegmentType",
+    "PORT_ALIASES",
     "PortIdentifier",
+    "PortSegment",
     "PortSegmentFormat",
-    "LogicalSegmentType",
-    "NetworkSegmentType",
-    "SymbolicSegmentType",
+    "SegmentType",
+    "SymbolicSegment",
     "SymbolicSegmentExtendedFormat",
-    "DataSegmentType",
+    "SymbolicSegmentType",
 )
 
 
@@ -119,13 +120,12 @@ class PortIdentifier(IntFlag):
     bp = 0b_000_0_0001
     enet = 0b_000_0_0010
     a = 0b_000_0_0010
-    b = 0b0_000_0_0011
-    dhrio_a = 0b_000_0_0010
-    dhrio_b = 0b_000_0_0011
-    dnet = 0b_000_0_0010
-    cnet = 0b_000_0_0010
-    dh485_a = 0b_000_0_0010
-    dh485_b = 0b_000_0_0011
+    b = 0b_000_0_0011
+    a1 = 0b_000_0_0011
+    a2 = 0b_000_0_0100
+
+
+PORT_ALIASES: dict[str, PortIdentifier] = PortIdentifier._member_map_  # noqa # type: ignore
 
 
 class PortSegmentFormat(IntFlag):
@@ -164,7 +164,7 @@ class PortSegment(CIPSegment):
 
     # don't use these fields when comparing segments, use the private versions instead
     # since they are the actual encoded values
-    port: PortIdentifier | int = field(compare=False)
+    port: PortIdentifier | int | str = field(compare=False)
     link_address: int | str | bytes = field(compare=False)
 
     _port: USINT = field(init=False)
@@ -175,13 +175,15 @@ class PortSegment(CIPSegment):
 
     def __post_init__(self) -> None:
         try:
+            if isinstance(self.port, str):
+                self.port = PORT_ALIASES[self.port.lower()]
             if self.port > PortSegmentFormat.mask_port_id:
                 self._port = USINT(PortSegmentFormat.mask_port_id)
                 self._ex_port = UINT(self.port)
             else:
                 self._port = USINT(self.port)
         except Exception as err:
-            raise DataError("Invalid port") from err
+            raise DataError(f"Invalid port: {self.port!r}") from err
 
         try:
             if isinstance(self.link_address, str):
@@ -644,7 +646,7 @@ class EPATH[T: CIPSegment](DataType):
         return path
 
     @classmethod
-    def _decode(cls, stream: BufferT) -> EPATH:
+    def _decode(cls, stream: BufferT) -> Self:
         if cls.with_len:
             _len = USINT.decode(stream)
             if cls.pad_len:

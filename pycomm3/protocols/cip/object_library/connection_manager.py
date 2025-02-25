@@ -1,5 +1,5 @@
 from ..cip_object import CIPObject, CIPAttribute, SimpleCIPResponseParser, SimpleCIPService
-from .._base import CIPRequest, CIPService, MessageRouterRequest
+from .._base import CIPRequest, CIPService, MessageRouterRequest, CIPRoute, CIPResponse
 from pycomm3.map import EnumMap
 from pycomm3.data_types import (
     UINT,
@@ -12,12 +12,15 @@ from pycomm3.data_types import (
     WORD,
     DWORD,
     PADDED_EPATH_PAD_LEN,
+    as_stream,
 )
-from typing import ClassVar, Final, Self
+from typing import ClassVar, Self
 from dataclasses import InitVar
 from enum import IntEnum
 from dataclasses import field
 from io import BytesIO
+from dataclasses import dataclass
+from pycomm3._logging import get_logger
 
 
 class ForwardOpenRequest(StructType):
@@ -64,7 +67,7 @@ class ForwardOpenResponse(StructType):
     originator_serial: UDINT
     o2t_api: UDINT
     t2o_api: UDINT
-    application_replay_size: USINT = attr(init=False)
+    application_reply_size: USINT = attr(init=False)
     _reserved: USINT = attr(reserved=True, default=USINT(0))
     application_reply: BYTES = attr(len_ref="application_reply_size")
 
@@ -90,7 +93,7 @@ class ForwardCloseResponse(StructType):
     connection_serial: UDINT
     originator_vendor_id: UINT
     originator_serial: UDINT
-    application_replay_size: USINT = attr(init=False)
+    application_reply_size: USINT = attr(init=False)
     _reserved: USINT = attr(reserved=True, default=USINT(0))
     application_reply: BYTES = attr(len_ref="application_reply_size")
 
@@ -144,7 +147,7 @@ class UnconnectedSendRequest(StructType):
     tick_time: InitVar[TickTime]
     num_ticks: InitVar[int]
     priority: InitVar[bool] = False
-    PRIORITY: Final[ClassVar[USINT]] = USINT(0b_0001_0000)
+    PRIORITY: ClassVar[USINT] = USINT(0b_000_1_0000)
 
     def __post_init__(
         self, tick_time: TickTime = TickTime.ms_1024, num_ticks: int = 1, priority: bool = False, *args, **kwargs
@@ -190,37 +193,53 @@ class UnconnectedSendRequest(StructType):
         )
 
 
-class UnconnectedSendResponse(StructType):
+class UnconnectedSendResponseHeader(StructType):
     reply_service: USINT
     _reserved: USINT = attr(reserved=True, default=USINT(0))
     general_status: USINT
+
+
+class UnconnectedSendSuccessResponse(StructType):
     _reserved2: USINT = attr(reserved=True, default=USINT(0))
     service_response_data: BYTES
 
 
 class UnconnectedSendFailedResponse(StructType):
-    reply_service: USINT
-    _reserved: USINT = attr(reserved=True, default=USINT(0))
-    general_status: USINT
     additional_status: UINT[USINT]
     remaining_path_size: USINT
 
 
 def _unconnected_send_parser():
-    return SimpleCIPResponseParser(
-        response_type=UnconnectedSendResponse,
-        failed_response_type=UnconnectedSendFailedResponse,
-    )
+    return SimpleCIPResponseParser(response_type=BYTES, failed_response_type=BYTES)
 
 
+@dataclass
+class UnconnectedSendResponseParser(SimpleCIPResponseParser):
+    __log = get_logger(__qualname__)
+
+    failed_response_type: type[BYTES] = field(init=False, default=BYTES)
+
+    def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse:
+        self.__log.log_bytes("raw message router response", data)
+        buff = as_stream(data)
+        header = UnconnectedSendResponseHeader.decode(buff)
+        if header.general_status in self.success_statuses:
+            resp_data = UnconnectedSendSuccessResponse.decode(buff)
+            msg_data = self.response_type.decode(resp_data.service_response_data)
+        else:
+            msg_data = UnconnectedSendSuccessResponse.decode(buff)
+        return CIPResponse(request=request, message=header, data=msg_data)
+
+
+@dataclass
 class UnconnectedSendService(CIPService):
     id: USINT = field(default=USINT(0x52), init=False)
-    response_parser: SimpleCIPResponseParser = field(default_factory=_unconnected_send_parser, init=False)
+    response_parser: None = None  # type: ignore
 
     def __call__(
         self,
-        msg: MessageRouterRequest,
-        route_path: PADDED_EPATH_LEN,
+        msg: CIPRequest,
+        route_path: CIPRoute,
         tick_time: TickTime,
         num_ticks: int,
         *args,
@@ -232,10 +251,13 @@ class UnconnectedSendService(CIPService):
                 class_code=self.object.class_code,
                 instance=1,
                 data=UnconnectedSendRequest(
-                    message_request=msg, route_path=route_path, tick_time=tick_time, num_ticks=num_ticks
+                    message_request=msg.message,
+                    route_path=route_path.epath(padded=True, length=True, padded_len=True),
+                    tick_time=tick_time,
+                    num_ticks=num_ticks,
                 ),
             ),
-            response_parser=self.response_parser,
+            response_parser=UnconnectedSendResponseParser(response_type=msg.response_parser.response_type),
         )
 
 
@@ -309,12 +331,7 @@ class ConnectionManager(CIPObject):
         failed_response_type=ForwardOpenFailedResponse,
     )
 
-    unconnected_send = SimpleCIPService(
-        id=USINT(0x52),
-        request_type=UnconnectedSendRequest,
-        response_type=UnconnectedSendResponse,
-        failed_response_type=UnconnectedSendFailedResponse,
-    )
+    unconnected_send = UnconnectedSendService()
 
     class Instance(CIPObject.Instance):
         open_request = 0x01

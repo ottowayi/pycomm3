@@ -3,7 +3,7 @@ from pycomm3.data_types import UINT, WORD, UDINT, SHORT_STRING, USINT, Revision,
 from enum import IntEnum
 
 
-class IdentityInstallAllType(StructType):
+class IdentityInstanceAllType(StructType):
     vendor_id: UINT
     device_type: UINT
     product_code: UINT
@@ -65,4 +65,4 @@ class IdentityObject(CIPObject):
         #: Default value for a ``get_attributes_all`` service response if attribute is not supported
         DefaultGetAttributesAll = 255
 
-    get_attributes_all = GetAttributesAllService(IdentityInstallAllType)
+    get_attributes_all = GetAttributesAllService(IdentityInstanceAllType)

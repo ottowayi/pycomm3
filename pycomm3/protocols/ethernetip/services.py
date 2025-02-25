@@ -5,9 +5,7 @@ from pycomm3.data_types import UINT, BYTES, UDINT
 from .data_types import (
     RegisterSessionData,
     SendRRDataData,
-    SendRRDataPacketFormat,
     SendUnitDataData,
-    SendUnitDataPacketFormat,
     EncapsulationCommand,
     ListInterfacesData,
     ListIdentityData,
@@ -53,9 +51,9 @@ class Services:
     list_services: EIPService[None, ListServicesData] = EIPService(
         command=EncapsulationCommand.list_services, response_type=ListServicesData
     )
-    send_rr_data: EIPService[SendRRDataPacketFormat, SendRRDataData] = EIPService(
+    send_rr_data: EIPService[SendRRDataData, SendRRDataData] = EIPService(
         command=EncapsulationCommand.send_rr_data, response_type=SendRRDataData
     )
-    send_unit_data: EIPService[SendUnitDataPacketFormat, SendUnitDataData] = EIPService(
+    send_unit_data: EIPService[SendUnitDataData, SendUnitDataData] = EIPService(
         command=EncapsulationCommand.send_unit_data, response_type=SendUnitDataData
     )

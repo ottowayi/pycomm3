@@ -21,12 +21,14 @@ from typing import (
     Union,
     Literal,
     TYPE_CHECKING,
+    TypeAliasType,
 )
 
 
 from pycomm3.exceptions import BufferEmptyError, DataError
 from pycomm3.util import DataclassMeta
 from types import EllipsisType, UnionType
+
 
 if TYPE_CHECKING:
     from .cip import CIPSegment
@@ -262,6 +264,8 @@ def _process_fields(cls: "_StructMeta") -> ...:
 
         if isclass(typ) and issubclass(typ, DataType):
             field_type = typ
+        elif isinstance(typ, TypeAliasType):
+            field_type = _process_typehint(typ.__value__, _field)
         elif (origin := get_origin(typ)) is not None:
             if origin in (UnionType, Union):
                 _type, *_ = get_args(typ)
@@ -375,7 +379,7 @@ def attr[T: DataType](
         raise DataError("Cannot specify both size_ref and len_ref")
     if reserved and not init:
         raise DataError("Cannot specify both reserved=True and init=False")
-    if size_ref or len_ref:
+    if size_ref:
         init = False
     if reserved:
         init = False
@@ -442,6 +446,22 @@ class StructType(DataType, metaclass=_StructMeta):
         for member, typ in self._members.items():
             if issubclass(typ, (StructType, ArrayType)):
                 getattr(self, member).__parent_struct__ = (self, member)
+            value = getattr(self, member)
+            if not isinstance(value, typ):
+                try:
+                    if issubclass(typ, StructType):
+                        value = typ(**cast(Mapping[str, Any], value))
+                    else:
+                        value = typ(value)
+                except Exception as err:
+                    raise DataError(f"Type conversion error for attribute {key!r}") from err
+                else:
+                    setattr(self, member, value)
+            if member not in self.__encoded_fields__:
+                try:
+                    self.__encoded_fields__[member] = bytes(value)  # type: ignore
+                except Exception as err:
+                    raise DataError(f"Error encoding attribute {key!r}") from err
 
         self.__initialized__ = True
         self._update_size_ref()
@@ -539,7 +559,11 @@ class StructType(DataType, metaclass=_StructMeta):
             if len_ref := cls._array_length_attributes.get(name):
                 ref, decode_func, encode_func = len_ref
                 typ = cast(type[ArrayType[type[ArrayableT], int]], typ)
-                _array = array(typ.element_type, decode_func(values[ref]))
+                length = decode_func(values[ref])
+                if typ is BYTES:
+                    _array = BYTES[length]
+                else:
+                    _array = array(typ.element_type, length)
                 value = _array.decode(stream)
             else:
                 value = typ.decode(stream)
@@ -629,16 +653,12 @@ class _ArrayMeta(_DataTypeMeta):
 
 def array[ET: ArrayableT, LT: ArrayLenT](element_type: type[ET], length: LT) -> type["ArrayType[type[ET], LT]"]:
     """
-    Creates an array type of `length` elements of `element_type`
+    Creates an array type of `length` elements of `element_type`, not for use with `BYTES` type
     """
     _type: type[ET] = element_type
     _len = length
     if _len is None:
         _len = ...
-
-    # class Array(ArrayType[type[ET], LT]):
-    #     element_type = _type
-    #     length = _len
 
     return cast(
         type[ArrayType[type[ET], LT]],

@@ -13,6 +13,7 @@ from .data_types import (
     CIPIdentity,
     CommonPacketFormat,
     InterfaceInfo,
+    SendRRDataData,
     ServiceInfo,
     EncapsulationCommand,
     UnconnectedData,
@@ -137,7 +138,13 @@ class EIPConnection(Connection):
     def send_rr_data(self, msg: bytes) -> EIPResponse | None:
         if not self.connected:
             raise ConnectionError("Connection closed")
-        data = CommonPacketFormat(address_item=NullAddress(), data_item=UnconnectedData(data=BYTES(msg)))
+        data = SendRRDataData(
+            CommonPacketFormat(address_item=NullAddress(), data_item=UnconnectedData(data=BYTES(msg)))
+        )
+        self.__log.debug(f"FUCK:{data.__encoded_fields__=}")
+        self.__log.debug(f"FUCK:{data.packet.__encoded_fields__=}")
+        self.__log.debug(f"FUCK:{data.packet.address.__encoded_fields__=}")
+        self.__log.debug(f"FUCK:{data.packet.data.__encoded_fields__=}")
         request = Services.send_rr_data(session=self._session_id, data=data, context=self.config.sender_context)
         return self.send(request)
 
@@ -148,6 +155,7 @@ class EIPConnection(Connection):
             raise ConnectionError("Session not registered")
 
         self.__log.debug(f"Sending request: {request}")
+
         self.__log.log_bytes(">> SENT >>", request.message)
         self._send(request.message)
 
@@ -171,9 +179,9 @@ class EIPConnection(Connection):
         _header = self._recv_size(EtherNetIPHeader.size)
         try:
             header: EtherNetIPHeader = EtherNetIPHeader.decode(_header)
+            self.__log.verbose(f"Received header: {header}")
         except DataError as err:
             raise DataError("Failed to decode EtherNet/IP response header") from err
-
         data = self._recv_size(header.length)
         self.__log.log_bytes("<< RECEIVED <<", _header + data)
         resp_data = None if request.response_type is None else request.response_type.decode(data)

@@ -223,12 +223,13 @@ class CommonPacketFormat[AddrT: AddressItemsT, DataT: DataItemsT](StructType):
     item_count: UINT = attr(init=False)
     items: Array[CPFItem, None] | Sequence[CPFItem] = attr(init=False, len_ref="item_count")
 
-    address_item: InitVar[AddrT]
-    data_item: InitVar[DataT]
+    address_item: InitVar[AddrT] = None
+    data_item: InitVar[DataT] = None
     extra_items: InitVar[Array[CPFItem, None] | None] = None
 
-    def __post_init__(self, address_item, data_item, extra_items=None, *args, **kwargs):
-        self.items = [address_item, data_item, *(extra_items or [])]
+    def __post_init__(self, address_item=None, data_item=None, extra_items=None, *args, **kwargs):
+        if None not in (address_item, data_item):
+            self.items = [address_item, data_item, *(extra_items or [])]
 
     @property
     def address(self) -> AddrT:
@@ -244,12 +245,12 @@ type SendUnitDataPacketFormat = CommonPacketFormat[SequencedAddress, ConnectedDa
 
 
 class SendRRDataData(StructType):
-    interface_handle: UINT | int = attr(default=0, init=False)  # always 0 for CIP
+    interface_handle: UDINT | int = attr(default=0, init=False)  # always 0 for CIP
     timeout: UINT | int = attr(default=0, init=False)  # typically 0 for CIP, which has its own timeout
-    packet: SendRRDataPacketFormat
+    packet: CommonPacketFormat | SendRRDataPacketFormat
 
 
 class SendUnitDataData(StructType):
-    interface_handle: UINT | int = attr(default=0, init=False)
+    interface_handle: UDINT | int = attr(default=0, init=False)
     timeout: UINT | int = attr(default=0, init=False)
-    packet: SendUnitDataPacketFormat
+    packet: CommonPacketFormat | SendUnitDataPacketFormat

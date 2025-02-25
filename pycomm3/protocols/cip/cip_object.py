@@ -12,6 +12,7 @@ from ._base import (
     CIPResponse,
 )
 from pycomm3.map import EnumMap
+from pycomm3._logging import get_logger
 
 
 @dataclass
@@ -151,15 +152,22 @@ class CIPObject(metaclass=_MetaCIPObject):
     #: The instance id of the last (max) instance of the object in the device
     max_instance_attr = CIPAttribute(id=7, data_type=UINT, class_attr=True)
 
+    @staticmethod
+    def get_attributes_all(instance: int = 1):
+        raise NotImplementedError("service must be defined on each object instance")
+
 
 @dataclass
 class SimpleCIPResponseParser[RespT: DataType, FRespT: DataType]:
+    __log = get_logger(__qualname__)
     response_type: type[RespT]
     failed_response_type: type[FRespT]
     success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
 
     def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse[RespT | FRespT]:
+        self.__log.log_bytes("raw message router response", data)
         msg = MessageRouterResponse.decode(data)
+        self.__log.verbose(f"parsed response: {msg}")
         if msg.general_status in self.success_statuses:
             msg_data = self.response_type.decode(msg.data)
         else:
