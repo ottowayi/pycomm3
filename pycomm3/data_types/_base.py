@@ -454,14 +454,14 @@ class StructType(DataType, metaclass=_StructMeta):
                     else:
                         value = typ(value)
                 except Exception as err:
-                    raise DataError(f"Type conversion error for attribute {key!r}") from err
+                    raise DataError(f"Type conversion error for attribute {member!r}") from err
                 else:
                     setattr(self, member, value)
-            if member not in self.__encoded_fields__:
+            if member not in self.__encoded_fields__:  # type: ignore
                 try:
                     self.__encoded_fields__[member] = bytes(value)  # type: ignore
                 except Exception as err:
-                    raise DataError(f"Error encoding attribute {key!r}") from err
+                    raise DataError(f"Error encoding attribute {member!r}") from err
 
         self.__initialized__ = True
         self._update_size_ref()
@@ -651,6 +651,10 @@ class _ArrayMeta(_DataTypeMeta):
             return False
 
 
+# keep a cache of all array types created so each type is only created once
+__ARRAY_TYPE_CACHE__: dict[tuple[type[ArrayableT], ArrayLenT], type["ArrayType"]] = {}
+
+
 def array[ET: ArrayableT, LT: ArrayLenT](element_type: type[ET], length: LT) -> type["ArrayType[type[ET], LT]"]:
     """
     Creates an array type of `length` elements of `element_type`, not for use with `BYTES` type
@@ -660,10 +664,12 @@ def array[ET: ArrayableT, LT: ArrayLenT](element_type: type[ET], length: LT) -> 
     if _len is None:
         _len = ...
 
-    return cast(
-        type[ArrayType[type[ET], LT]],
-        type(f"{_type.__name__}Array", (ArrayType,), dict(element_type=_type, length=_len)),
-    )
+    _key = (_type, _len)
+    if _key not in __ARRAY_TYPE_CACHE__:
+        klass = type(f"{_type.__name__}Array", (ArrayType,), dict(element_type=_type, length=_len))
+        __ARRAY_TYPE_CACHE__[(_type, _len)] = klass
+
+    return cast(type[ArrayType[type[ET], LT]], __ARRAY_TYPE_CACHE__[_key])
 
     # return Array
 
@@ -804,6 +810,10 @@ class ArrayType[ElementT: type[ArrayableT], LenT: ArrayLenT](DataType, metaclass
 
 
 class Array[ET: ArrayableT, LT: ArrayLenT](Sequence[ET]):
+    """
+    for use in type annontations only, ArrayType is the actual base class for arrays
+    """
+
     def __class_getitem__(cls, item: type[ET] | tuple[type[ET], LT]) -> type[ArrayType[type[ET], LT]]:
         element_type: type[ET]
         len_type: LT
@@ -812,6 +822,9 @@ class Array[ET: ArrayableT, LT: ArrayLenT](Sequence[ET]):
         else:
             element_type, len_type = item, ...  # type: ignore
         return array(element_type, len_type)
+
+
+__BYTES_TYPE_CACHE__: dict[tuple[int, type[ElementaryDataType[int]] | None], type["BYTES"]] = {}
 
 
 class BYTES(ElementaryDataType[bytes], bytes, metaclass=_ElementaryDataTypeMeta):  # type: ignore
@@ -838,8 +851,10 @@ class BYTES(ElementaryDataType[bytes], bytes, metaclass=_ElementaryDataTypeMeta)
     def __class_getitem__(cls, item: int | EllipsisType | type[ElementaryDataType[int]]) -> type["BYTES"]:
         size = item if isinstance(item, int) else -1
         _int_type = item if not isinstance(item, (int, EllipsisType)) else None
-        klass = type("BYTES", (cls,), {"size": size, "_int_type": _int_type})
-        return klass
+        if (_key := (size, _int_type)) not in __BYTES_TYPE_CACHE__:
+            klass = type("BYTES", (cls,), {"size": size, "_int_type": _int_type})
+            __BYTES_TYPE_CACHE__[_key] = klass
+        return cast(type[BYTES], __BYTES_TYPE_CACHE__[_key])
 
     @classmethod
     def _encode(cls, value: bytes, *args, **kwargs) -> bytes:

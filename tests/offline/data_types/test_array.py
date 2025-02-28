@@ -25,6 +25,8 @@ def test_array_classes():
     assert DINT[10] != INT[10]
     assert DINT[...] != INT[...]
 
+    assert DINT[...] is DINT[...] is array(DINT, None)
+
 
 elementary_tests = [
     (DINT, 1, [1], bytes(DINT(1))),
