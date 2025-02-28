@@ -1,5 +1,5 @@
 from ._base import ArrayLenT, ElementaryDataType, _ElementaryDataTypeMeta, ArrayType, array
-from typing import Literal, TypeVar, Union, Type, TYPE_CHECKING, Sequence, Any, Self
+from typing import Literal, Sequence, Any, Self
 from io import BytesIO
 from ..exceptions import DataError
 
@@ -11,6 +11,12 @@ from ..exceptions import DataError
 class IntDataType(ElementaryDataType[int], int, metaclass=_ElementaryDataTypeMeta):
     def __class_getitem__(cls, item: ArrayLenT) -> type[ArrayType[type[Self], ArrayLenT]]:
         return array(cls, item)
+
+    def __format__(self, format_spec):
+        if format_spec == "@":
+            char_count = 2 + 2 * self.size  # 2 per byte + '0x'
+            format_spec = f"#0{char_count}x"
+        return super().__format__(format_spec)
 
 
 class BoolDataType(ElementaryDataType[bool], int, metaclass=_ElementaryDataTypeMeta):
@@ -67,7 +73,7 @@ class BitArrayType(IntDataType):
         try:
             if not isinstance(value, int):
                 value = cls._from_bits(value)
-        except Exception as err:
+        except Exception:
             raise DataError(f"invalid value for {cls}: {value!r}")
         obj = super().__new__(cls, value)  # type: ignore
         return obj
