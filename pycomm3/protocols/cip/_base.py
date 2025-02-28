@@ -59,8 +59,6 @@ class MessageRouterResponse(StructType):
     additional_status: UINT[...] = attr(len_ref="addl_status_size")
     data: BYTES
 
-    # __field_descriptions__: ClassVar[dict] = {'general_status': SERVICE_STATUS}
-
 
 @dataclass
 class CIPRequest:
@@ -83,8 +81,8 @@ class CIPResponse[T: DataType]:
         return self.message.general_status in self.success_statuses
 
 
-class CIPResponseParser(Protocol):
-    response_type: type[DataType]
+class CIPResponseParser[T: DataType](Protocol):
+    response_type: type[T]
 
     def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse:
         raise NotImplementedError
