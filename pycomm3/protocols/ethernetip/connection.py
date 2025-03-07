@@ -141,10 +141,7 @@ class EIPConnection(Connection):
         data = SendRRDataData(
             CommonPacketFormat(address_item=NullAddress(), data_item=UnconnectedData(data=BYTES(msg)))
         )
-        self.__log.debug(f"FUCK:{data.__encoded_fields__=}")
-        self.__log.debug(f"FUCK:{data.packet.__encoded_fields__=}")
-        self.__log.debug(f"FUCK:{data.packet.address.__encoded_fields__=}")
-        self.__log.debug(f"FUCK:{data.packet.data.__encoded_fields__=}")
+
         request = Services.send_rr_data(session=self._session_id, data=data, context=self.config.sender_context)
         return self.send(request)
 

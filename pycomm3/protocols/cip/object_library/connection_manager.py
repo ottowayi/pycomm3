@@ -1,27 +1,27 @@
-from pycomm3.util import StatusEnum
-from ..cip_object import CIPObject, CIPAttribute, SimpleCIPResponseParser, SimpleCIPService, GeneralStatusCodes
-from .._base import CIPRequest, CIPService, MessageRouterRequest, CIPRoute, CIPResponse
-from pycomm3.map import EnumMap
-from pycomm3.data_types import (
-    UINT,
-    UDINT,
-    attr,
-    StructType,
-    USINT,
-    BYTES,
-    PADDED_EPATH_LEN,
-    WORD,
-    DWORD,
-    PADDED_EPATH_PAD_LEN,
-    as_stream,
-)
-from typing import ClassVar, Self
-from dataclasses import InitVar
+from dataclasses import InitVar, dataclass, field
 from enum import IntEnum
-from dataclasses import field
 from io import BytesIO
-from dataclasses import dataclass
+from typing import ClassVar, Self, Sequence
+
 from pycomm3._logging import get_logger
+from pycomm3.data_types import (
+    BYTES,
+    DWORD,
+    PADDED_EPATH_LEN,
+    PADDED_EPATH_PAD_LEN,
+    UDINT,
+    UINT,
+    USINT,
+    WORD,
+    StructType,
+    as_stream,
+    attr,
+)
+from pycomm3.map import EnumMap
+from pycomm3.util import StatusEnum
+
+from .._base import CIPRequest, CIPResponse, CIPRoute, CIPService, MessageRouterRequest
+from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes, SimpleCIPResponseParser, SimpleCIPService
 
 
 class ForwardOpenRequest(StructType):
@@ -279,7 +279,7 @@ class UnconnectedSendService(CIPService):
 
 class ConnMgrExtStatusCodesConnFailure(StatusEnum):
     """
-    Connection Manager Extended Status code for General Status Code 0x01 - Connection failure
+    Connection Manager Extended Status codes for General Status Code 0x01 - Connection failure
     """
 
     connection_in_use = 0x0100, "Connection in use or duplicate forward_open"
@@ -291,42 +291,60 @@ class ConnMgrExtStatusCodesConnFailure(StatusEnum):
     connection_not_configured = 0x0110, "Requested connection has not configured"
     unsupported_rpi = 0x0111, "Requested rpi or timeout value not supported by device"
     out_of_connections = 0x0113, "Connection Manager out of connections"
-    # = 0x0114, "Vendor ID of product code mismatch"
-    # = 0x0115, "Product type mismatch"
-    # = 0x0116, "Revision mismatch"
-    # = 0x0117, "Invalid produced or consumed application path"
-    # = 0x0118, "Invalid or inconsistent configuration application path"
-    # = 0x0119, "Non-listen only connection not opened"
-    # = 0x011A, "Target object out of connections"
-    # = 0x011B, "RPI is smaller than the production inhibit time"
-    # = 0x0203, "Connection timed out"
-    # = 0x0204, "Unconnected request timed out"
-    # = 0x0205, "Parameter error in unconnected request service"
-    # = 0x0206, "Message too large for unconnected_send service"
-    # = 0x0207, "Unconnected acknowledge without reply"
-    # = 0x0301, "No buffer memory available"
-    # = 0x0302, "Network bandwidth not available for data"
-    # = 0x0303, "No consumed connection ID filter available"
-    # = 0x0304, "Not configured to send scheduled priority data"
-    # = 0x0305, "Schedule signature mismatch"
-    # = 0x0306, "Schedule signature validation not possible"
-    # = 0x0311, "Port not available"
-    # = 0x0312, "Link address not valid"
-    # = 0x0315, "Invalid segment in connection path"
-    # = 0x0316, "Error in forward close service connection path"
-    # = 0x0317, "Scheduling not specified"
-    # = 0x0318, " Link address to self invalid"
-    # = 0x0319, "Secondary resources unavailable"
-    # = 0x031A, "Rack connection already established"
-    # = 0x031C, "Miscellaneous"
-    # = 0x031D, "Redundant connection mismatch"
-    # = 0x031E, "No more user configurable link consumer resources available in the producing module"
-    # = 0x031F, "No more user configurable link consumer resources available in the producing module"
-    # = 0x0800, "Network link in path to module is offline"
-    # = 0x0810, "No target application data available"
-    # = 0x0811, "No originator application data available"
-    # = 0x0812, "Node address has changed since the network was scheduled"
-    # = 0x0813, "Not configured for off-subnet multicast"
+    code_mismatch = 0x0114, "Electronic key mismatch for vendor ID or product code"
+    product_type_mismatch = 0x0115, "Electronic key mismatch for product type"
+    revision_mismatch = 0x0116, "Electronic key mismatch for revision"
+    invalid_application_path = 0x0117, "Invalid produced or consumed application path"
+    invalid_configuration_path = 0x0118, "Invalid or inconsistent configuration application path"
+    nonlisten_onlu_connection_closed = 0x0119, "Non-listen only connection not opened"
+    target_out_of_connections = 0x011A, "Instance of target object is out of connections"
+    rpi_inhibit_time_conflict = (
+        0x011B,
+        "Target to originator RPI is smaller than the target to originator production inhibit time",
+    )
+    connection_timeout = 0x0203, "Target attempted to send message on a connection that has timed out"
+    unconnected_send_timeout = 0x0204, "Unconnected request timed out, UCMM did not receive a reply within timeout"
+    unconnected_send_parameter_error = 0x0205, "Unconnected send request parameter invalid"
+    unconnected_message_too_large = 0x0206, "Message too large for unconnected_send service"
+    unconnected_ack_only = 0x0207, "Unconnected message received only acknowledgement, but no data response"
+    memory_buffer_exceeded = 0x0301, "Target or router connection buffer out of memory"
+    insufficient_network_bandwidth = (
+        0x0302,
+        "Producer node cannot allocate sufficient bandwidth for scheduled connection",
+    )
+    no_consumed_id_filter = 0x0303, "Link consumer has no connection ID filter available"
+    schedule_priority_error = 0x0304, "Scheduled priority in connection request cannot be met by network"
+    schedule_signature_mismatch = 0x0305, "Connection schedule signature from originator inconsistent with target"
+    schedule_signature_validation_error = (
+        0x0306,
+        "Connection schedule signature from originator cannot be validated by target",
+    )
+    port_unavailable = 0x0311, "Port segment contains port that is unavailable or does not exist"
+    invalid_link_address = 0x0312, "Port segment contains an invalid link address for target network"
+    invalid_segment = 0x0315, "Connection path contains an invalid segment type or value"
+    forward_close_mismatch = 0x0316, "Forward close request path does not match connection that was closed"
+    schedule_not_specified = 0x0317, "Schedule network segment missing or value is invalid"
+    link_to_self_unsupported = 0x0318, "Port segment contains a loopback link address which is unsupported by device"
+    secondary_resources_unavailable = (
+        0x0319,
+        "Secondary in redundant chassis system is unable to duplicate connection request in primary",
+    )
+    rack_connection_already_established = 0x031A, "Request for rack connection refused, one is already established"
+    misc = 0x031C, "Miscellaneous, like for whatever I guess 🤷"
+    redundant_connection_mismatch = 0x031D, "Redundant connection request parameters mismatch"
+    consumer_resources_error = (
+        0x031E,
+        "No more user configurable link consumer resources available in the producing module",
+    )
+    no_consumers = 0x031F, "Target has no consumers configured for producing application"
+    network_link_offline = 0x0800, "Network link in path to module is offline"
+    no_target_application_data = 0x0810, "Target application has no valid data to produce for requested connection"
+    no_originator_application_data = (
+        0x0811,
+        "Originator application has no valid data to produce for requested connection",
+    )
+    node_address_changed = 0x0812, "Node address has changed since the network was scheduled"
+    offsubnet_multicast_error = 0x0813, "Producer for connection request is not configured for off-subset multicast"
 
 
 class ConnectionManager(CIPObject):
@@ -422,13 +440,20 @@ class ConnectionManager(CIPObject):
         "*": {
             GeneralStatusCodes.connection_failure: ConnMgrExtStatusCodesConnFailure,
             GeneralStatusCodes.invalid_attribute: {
-                "*": "Error in data segment",  # ext. status is the index of the error in the segment
+                "*": "Error in data segment for forward open request",  # ext. status is the index of the error in the segment
             },
-            0x0C: {
-                "*": "Object state error - (optional) ext. status is the object's state",
-            },
-            0x10: {
-                "*": "Device state error - (optional) ext. status is the device's state",
-            },
-        }
+        },
     }
+
+    @classmethod
+    def _customize_extended_status(
+        cls, general_status: int, ext_status: int, ext_status_extra: Sequence[int], extra_data: BYTES | None
+    ) -> str | None:
+        if ext_status == ConnMgrExtStatusCodesConnFailure.invalid_connection_size:
+            if ext_status_extra:
+                max_supported_size = ext_status_extra[0]
+                return f"{max_supported_size=:d}"
+        if general_status == GeneralStatusCodes.invalid_attribute:
+            return f"DataSegment error at index {ext_status}"
+        if general_status == GeneralStatusCodes.object_state_conflict:
+            return f"state={ext_status:#06x}"

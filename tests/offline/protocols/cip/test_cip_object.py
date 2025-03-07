@@ -1,6 +1,6 @@
 from pycomm3.protocols.cip.cip_object import CIPObject, GeneralStatusCodes
 from pycomm3.protocols.cip.object_library.connection_manager import ConnectionManager, ConnMgrExtStatusCodesConnFailure
-from pycomm3.data_types import BYTES, UINT
+from pycomm3.data_types import BYTES, UINT, UDINT
 import pytest
 from dataclasses import dataclass, field
 from typing import Sequence
@@ -17,10 +17,10 @@ class StatusMsgTest:
 
 status_msg_tests = [
     # any object, any service, success
-    (StatusMsgTest(), (GeneralStatusCodes.success.description, None)),
+    (StatusMsgTest(), (GeneralStatusCodes.success.description, "(0x0000)")),
     # specific object, any service, success
-    (StatusMsgTest(ConnectionManager), (GeneralStatusCodes.success.description, None)),
-    (  # specific object, any service, known ext, no extras
+    (StatusMsgTest(ConnectionManager), (GeneralStatusCodes.success.description, "(0x0000)")),
+    (  # specific object, any service, ext msg, no extras
         StatusMsgTest(
             cip_object=ConnectionManager,
             status=GeneralStatusCodes.connection_failure,
@@ -28,10 +28,10 @@ status_msg_tests = [
         ),
         (
             GeneralStatusCodes.connection_failure.description,
-            ConnMgrExtStatusCodesConnFailure.connection_missing.description,
+            "Target connection not found (0x0107)",
         ),
     ),
-    (  # specific object, any service, known ext, unused extras
+    (  # specific object, any service, ext msg, unused extras
         StatusMsgTest(
             cip_object=ConnectionManager,
             status=GeneralStatusCodes.connection_failure,
@@ -40,7 +40,62 @@ status_msg_tests = [
         ),
         (
             GeneralStatusCodes.connection_failure.description,
-            "Target connection not found: Addl status words=[UINT(69)], Extra data=BYTES[...](b'nice.')",
+            "Target connection not found (0x0107): ext_status_words=[UINT(69)], extra_data=BYTES[...](b'nice.')",
+        ),
+    ),
+    (  # specific object, any service, no ext msg, with extras
+        StatusMsgTest(
+            cip_object=ConnectionManager,
+            status=GeneralStatusCodes.connection_failure,
+            ext_status=[UINT(69), UINT(69)],
+            extra_data=BYTES(b"nice."),
+        ),
+        (
+            GeneralStatusCodes.connection_failure.description,
+            "(0x0045): ext_status_words=[UINT(69)], extra_data=BYTES[...](b'nice.')",
+        ),
+    ),
+    (  # specific object, any service, known ext, with ext addl
+        StatusMsgTest(
+            cip_object=ConnectionManager,
+            status=GeneralStatusCodes.connection_failure,
+            ext_status=[ConnMgrExtStatusCodesConnFailure.invalid_connection_size, UINT(500)],
+        ),
+        (
+            GeneralStatusCodes.connection_failure.description,
+            "Requested connection size not supported by target/router (0x0109): max_supported_size=500",
+        ),
+    ),
+    (  # specific object, any service, no ext, with ext addl
+        StatusMsgTest(
+            cip_object=ConnectionManager,
+            status=GeneralStatusCodes.connection_failure,
+            ext_status=[],
+            extra_data=BYTES(b"blah blah blah blahhhhhhhhhhhhh"),
+        ),
+        (GeneralStatusCodes.connection_failure.description, None),
+    ),
+    # a few custom message handlers
+    (
+        StatusMsgTest(
+            cip_object=ConnectionManager,
+            status=GeneralStatusCodes.object_state_conflict,
+            ext_status=[1],
+        ),
+        (
+            GeneralStatusCodes.object_state_conflict.description,
+            "(0x0001): state=0x0001",
+        ),
+    ),
+    (
+        StatusMsgTest(
+            cip_object=ConnectionManager,
+            status=GeneralStatusCodes.object_state_conflict,
+            ext_status=[UDINT(0x42069)],  # udint not in spec, but testing formatting of it
+        ),
+        (
+            GeneralStatusCodes.object_state_conflict.description,
+            "(0x42069): state=0x42069",
         ),
     ),
 ]

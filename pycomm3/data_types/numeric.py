@@ -125,7 +125,7 @@ class DINT_BE(IntDataType):
     Signed 32-bit integer, big-endian
     """
 
-    _format = "<i"
+    _format = ">i"
 
 
 class LINT_BE(IntDataType):

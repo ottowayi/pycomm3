@@ -143,7 +143,11 @@ class CIPObject(metaclass=_MetaCIPObject):
 
     @classmethod
     def get_status_messages(
-        cls, service: int, status: int, ext_status: Sequence[int], extra_data: BYTES | None = None
+        cls,
+        service: int,
+        status: int,
+        ext_status: Sequence[int],
+        extra_data: BYTES | None = None,
     ) -> tuple[str, str | None]:
         if service in cls.STATUS_CODES:
             obj_svc_statues = cls.STATUS_CODES[service]
@@ -155,32 +159,39 @@ class CIPObject(metaclass=_MetaCIPObject):
             ext_statuses = obj_svc_statues[status]
         else:
             ext_statuses = obj_svc_statues.get("*", {})
-
-        ext_code, *ext_extra = ext_status
-        if isinstance(ext_statuses, dict):
-            ext_msg = ext_statuses.get(ext_code, ext_statuses.get("*"))
-        elif isclass(ext_statuses) and issubclass(ext_statuses, StatusEnum):
-            _ext_status: StatusEnum | None = ext_statuses._value2member_map_.get(ext_code)  # type: ignore
-            ext_msg = _ext_status.description if _ext_status is not None else None
-        else:
-            raise ValueError(f"Invalid Ext. Status code lookup type: {type(ext_statuses)}")
-
-        ext_status_msg_extra = cls._customize_extended_status(ext_code, ext_extra, extra_data)
-        if not ext_msg:
+        if not ext_status:
             ext_status_msg = None
         else:
-            if ext_status_msg_extra:
-                ext_status_msg = f"{ext_msg}: {ext_status_msg_extra}"
-            elif ext_extra or extra_data:
-                ext_status_msg = f"{ext_msg}: Addl status words={ext_extra!r}, Extra data={extra_data!r}"
+            ext_code, *ext_extra = ext_status
+
+            if isinstance(ext_statuses, dict):
+                ext_msg = ext_statuses.get(ext_code, ext_statuses.get("*"))
+            elif isclass(ext_statuses) and issubclass(ext_statuses, StatusEnum):
+                _ext_status: StatusEnum | None = ext_statuses._value2member_map_.get(ext_code)  # type: ignore
+                ext_msg = _ext_status.description if _ext_status is not None else None
+
             else:
-                ext_status_msg = ext_msg
+                ext_msg = None
+            hex_ext_code = f"{ext_code.value:#06x}" if isinstance(ext_code, StatusEnum) else f"{ext_code:#06x}"
+            base_ext_msg = f"{f'{ext_msg} ' if ext_msg else ''}({hex_ext_code})"
+
+            ext_status_msg_extra = cls._customize_extended_status(status, ext_code, ext_extra, extra_data)
+            if ext_status_msg_extra:
+                ext_status_msg = f"{base_ext_msg}: {ext_status_msg_extra}"
+            elif ext_extra or extra_data:
+                ext_status_msg = f"{base_ext_msg}: ext_status_words={ext_extra!r}, extra_data={extra_data!r}"
+            else:
+                ext_status_msg = base_ext_msg
 
         return general_status_msg, ext_status_msg
 
     @classmethod
     def _customize_extended_status(
-        cls, ext_status: int, ext_status_extra: Sequence[int], extra_data: BYTES | None
+        cls,
+        general_status: int,
+        ext_status: int,
+        ext_status_extra: Sequence[int],
+        extra_data: BYTES | None,
     ) -> str | None:
         return None
 
@@ -291,11 +302,11 @@ class GetAttributesAllService(CIPService):
 
 class GeneralStatusCodes(StatusEnum):
     success = 0x00, "Success"
-    connection_failure = 0x01, "Connection failure (see extended status)"
+    connection_failure = 0x01, "Connection failure"
     resource_unavailable = 0x02, "Insufficient resources for object to perform request"
     invalid_parameter_value = 0x03, "Invalid value for request parameter"
-    path_error = 0x04, "A syntax error was detected decoding the Request Path (see extended status)"
-    destination_unknown = 0x05, "Destination unknown, class unsupported, instance undefined or structure element undefined (see extended status)"  # fmt: skip
+    path_error = 0x04, "A syntax error was detected decoding the Request Path"
+    destination_unknown = 0x05, "Destination unknown, class unsupported, instance undefined or structure element undefined"  # fmt: skip
     partial_transfer = 0x06, "Only a partial amount of the expected data was transferred"
     connection_lost = 0x07, "Connection lost"
     service_not_supported = 0x08, "Service not supported"
@@ -321,7 +332,7 @@ class GeneralStatusCodes(StatusEnum):
     missing_attribute_list = 0x1C, "Request was missing an attribute required by the service"
     invalid_attribute_list = 0x1D, "Request contained an invalid attribute in list of attributes"
     embed_service_error = 0x1E, "Embedded service errored"
-    vendor_specific_error = 0x1F, "Vendor specific error (see extended status)"
+    vendor_specific_error = 0x1F, "Vendor specific error"
     invalid_parameter = 0x20, "A parameter in request was invalid"
     media_write_error = 0x21, "Attempted to write or modify data already written in a write-once medium"
     invalid_reply_service = 0x22, "Invalid reply received, reply service code does not match request"
