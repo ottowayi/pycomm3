@@ -173,7 +173,7 @@ class CIPObject(metaclass=_MetaCIPObject):
             else:
                 ext_msg = None
             hex_ext_code = f"{ext_code.value:#06x}" if isinstance(ext_code, StatusEnum) else f"{ext_code:#06x}"
-            base_ext_msg = f"{f'{ext_msg} ' if ext_msg else ''}({hex_ext_code})"
+            base_ext_msg = f"({hex_ext_code}){f' {ext_msg}' if ext_msg else ''}"
 
             ext_status_msg_extra = cls._customize_extended_status(status, ext_code, ext_extra, extra_data)
             if ext_status_msg_extra:

@@ -28,7 +28,7 @@ status_msg_tests = [
         ),
         (
             GeneralStatusCodes.connection_failure.description,
-            "Target connection not found (0x0107)",
+            "(0x0107) Target connection not found",
         ),
     ),
     (  # specific object, any service, ext msg, unused extras
@@ -40,7 +40,7 @@ status_msg_tests = [
         ),
         (
             GeneralStatusCodes.connection_failure.description,
-            "Target connection not found (0x0107): ext_status_words=[UINT(69)], extra_data=BYTES[...](b'nice.')",
+            "(0x0107) Target connection not found: ext_status_words=[UINT(69)], extra_data=BYTES[...](b'nice.')",
         ),
     ),
     (  # specific object, any service, no ext msg, with extras
@@ -63,7 +63,7 @@ status_msg_tests = [
         ),
         (
             GeneralStatusCodes.connection_failure.description,
-            "Requested connection size not supported by target/router (0x0109): max_supported_size=500",
+            "(0x0109) Requested connection size not supported by target/router: max_supported_size=500",
         ),
     ),
     (  # specific object, any service, no ext, with ext addl
