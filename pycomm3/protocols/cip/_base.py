@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, Protocol, Self, Sequence, overload, Iterable
+from typing import TYPE_CHECKING, Literal, Protocol, Self, overload, Iterable
 from collections import UserList
 from pycomm3.data_types import (
     BYTES,
@@ -8,61 +8,21 @@ from pycomm3.data_types import (
     PADDED_EPATH_LEN,
     PADDED_EPATH_PAD_LEN,
     USINT,
-    UINT,
-    CIPSegment,
     DataType,
-    LogicalSegment,
     PortIdentifier,
     PortSegment,
-    StructType,
-    attr,
 )
-from pycomm3.data_types.cip import EPATH, PORT_ALIASES, LogicalSegmentType
+from pycomm3.data_types.cip import EPATH, PORT_ALIASES
 from pycomm3.exceptions import DataError
 
 if TYPE_CHECKING:
     from .cip_object import CIPObject
-
-
-def default_success_codes_factory() -> set[USINT]:  # 🤢
-    return {USINT(0)}
-
-
-class MessageRouterRequest(StructType):
-    service: USINT | int
-    path: PADDED_EPATH_LEN | Sequence[CIPSegment]
-    data: BYTES | bytes
-
-    @staticmethod
-    def build(
-        service: int,
-        class_code: int,
-        instance: int,
-        attribute: int | None = None,
-        data: DataType | bytes = b"",
-    ) -> "MessageRouterRequest":
-        cip_segments = [
-            LogicalSegment(LogicalSegmentType.type_class_id, class_code),
-            LogicalSegment(LogicalSegmentType.type_instance_id, instance),
-        ]
-        if attribute is not None:
-            cip_segments.append(LogicalSegment(LogicalSegmentType.type_attribute_id, attribute))
-        _data = BYTES(data) if isinstance(data, bytes) else bytes(data)
-        return MessageRouterRequest(service=service, path=PADDED_EPATH_LEN(cip_segments), data=_data)
-
-
-class MessageRouterResponse(StructType):
-    service: USINT
-    _reserved: USINT
-    general_status: USINT
-    addl_status_size: USINT = attr(init=False)
-    additional_status: UINT[...] = attr(len_ref="addl_status_size")
-    data: BYTES
+    from .object_library.message_router import MessageRouterRequest
 
 
 @dataclass
 class CIPRequest:
-    message: MessageRouterRequest
+    message: "MessageRouterRequest"
     response_parser: "CIPResponseParser"
 
 
@@ -70,15 +30,20 @@ class CIPResponseMessage(Protocol):
     general_status: USINT
 
 
+def default_success_codes_factory() -> set[USINT]:  # 🤢
+    return {USINT(0)}
+
+
 @dataclass
 class CIPResponse[T: DataType]:
     request: CIPRequest
-    message: CIPResponseMessage
+    response: CIPResponseMessage
     data: T | None = None
-    success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
+    message: str | None = None
+    success_statuses: set[USINT] = field(default_factory=default_success_codes_factory, repr=False)
 
     def __bool__(self) -> bool:
-        return self.message.general_status in self.success_statuses
+        return self.response.general_status in self.success_statuses
 
 
 class CIPResponseParser[T: DataType](Protocol):

@@ -1,19 +1,11 @@
 from inspect import isclass
-from typing import overload, Literal, ClassVar, Sequence, Final
+from typing import Literal, ClassVar, Sequence, Final
 from dataclasses import dataclass, field
-from pycomm3.exceptions import DataError
-from pycomm3.data_types import DataType, UINT, USINT, StructType, BYTES
+from pycomm3.data_types import DataType, UINT
 from ._base import (
-    CIPRequest,
     CIPService,
-    MessageRouterRequest,
-    MessageRouterResponse,
-    CIPResponseParser,
-    default_success_codes_factory,
-    CIPResponse,
 )
 from pycomm3.map import EnumMap
-from pycomm3._logging import get_logger
 from pycomm3.util import StatusEnum
 
 
@@ -94,6 +86,8 @@ class CIPObject(metaclass=_MetaCIPObject):
         CLASS = 0  #: The class itself and not an instance
         DEFAULT = 1  #: The first instance of a class, used as the default if not specified
 
+    # keeps track of object classes by class code
+    _objects: ClassVar[dict[int, "type[CIPObject]"]] = {}
     STATUS_CODES: ClassVar[
         dict[
             Literal["*"] | int,  # service messages apply to or '*' = any service
@@ -137,6 +131,9 @@ class CIPObject(metaclass=_MetaCIPObject):
     #: The instance id of the last (max) instance of the object in the device
     max_instance_attr = CIPAttribute(id=7, data_type=UINT, class_attr=True)
 
+    def __init_subclass__(cls) -> None:
+        cls._objects[cls.class_code] = cls
+
     @staticmethod
     def get_attributes_all(instance: int = 1):
         raise NotImplementedError("service must be defined on each object instance")
@@ -147,7 +144,7 @@ class CIPObject(metaclass=_MetaCIPObject):
         service: int,
         status: int,
         ext_status: Sequence[int],
-        extra_data: BYTES | None = None,
+        extra_data: DataType | None = None,
     ) -> tuple[str, str | None]:
         if service in cls.STATUS_CODES:
             obj_svc_statues = cls.STATUS_CODES[service]
@@ -191,113 +188,9 @@ class CIPObject(metaclass=_MetaCIPObject):
         general_status: int,
         ext_status: int,
         ext_status_extra: Sequence[int],
-        extra_data: BYTES | None,
+        extra_data: DataType | None,
     ) -> str | None:
         return None
-
-
-@dataclass
-class SimpleCIPResponseParser[RespT: DataType, FRespT: DataType]:
-    __log = get_logger(__qualname__)
-    response_type: type[RespT]
-    failed_response_type: type[FRespT]
-    success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
-
-    def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse[RespT | FRespT]:
-        msg = MessageRouterResponse.decode(data)
-        self.__log.debug("decoded message route response: %r", msg)
-        if msg.general_status in self.success_statuses:
-            msg_data = self.response_type.decode(msg.data)
-        else:
-            msg_data = self.failed_response_type.decode(msg.data)
-        self.__log.debug("decoded message route response data: %r", msg_data)
-        return CIPResponse(request=request, message=msg, data=msg_data)
-
-
-@dataclass(kw_only=True)
-class SimpleCIPService[ReqT: DataType, RespT: DataType, FRespT: DataType](CIPService):
-    request_type: type[ReqT] | None = None
-    response_type: type[RespT]
-    failed_response_type: type[FRespT] | None = None
-    success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
-    response_parser: CIPResponseParser | None = None
-
-    @overload
-    def __call__(
-        self,
-        data: ReqT,
-        instance: int = 1,
-        attribute: CIPAttribute | None = None,
-        **kwargs,
-    ) -> CIPRequest: ...
-    @overload
-    def __call__(
-        self,
-        data: None = None,
-        instance: int = 1,
-        attribute: CIPAttribute | None = None,
-        **kwargs,
-    ) -> CIPRequest: ...
-
-    def __call__(
-        self,
-        data: ReqT | None = None,
-        instance: int = 1,
-        attribute: CIPAttribute | None = None,
-        **kwargs,
-    ) -> CIPRequest:
-        #
-        if self.request_type is not None and data is None:
-            raise DataError("this service requires request `data`")
-        if self.request_type is None and data is not None:
-            raise DataError("this service does not accept request `data`")
-
-        attr_id = None if attribute is None else attribute.id
-        failed_resp_type = self.failed_response_type if self.failed_response_type is not None else BYTES
-
-        parser = self.response_parser or SimpleCIPResponseParser(
-            response_type=self.response_type,
-            failed_response_type=failed_resp_type,
-            success_statuses=self.success_statuses,
-        )
-        return CIPRequest(
-            message=MessageRouterRequest.build(
-                service=self.id,
-                class_code=self.object.class_code,
-                instance=instance,
-                attribute=attr_id,
-                data=bytes(data) if data is not None else b"",
-            ),
-            response_parser=parser,
-        )
-
-
-class ClassAllAttrsCIPObject(StructType):
-    object_revision: UINT
-    max_instance: UINT
-    num_instances: UINT
-    optional_attrs_list: UINT[UINT]
-    optional_service_list: UINT[UINT]
-    max_class_attr: UINT
-    max_instance_attr: UINT
-
-
-@dataclass
-class GetAttributesAllService(CIPService):
-    id: USINT = field(init=False, default=USINT(1))
-    response_parser: CIPResponseParser | None = field(init=False, default=None)
-    instance_struct: type[StructType]
-    class_struct: type[StructType] = ClassAllAttrsCIPObject
-
-    def __call__(self, instance: int = 1) -> CIPRequest:
-        parser = SimpleCIPResponseParser(
-            response_type=self.class_struct if instance == CIPObject.Instance.CLASS else self.instance_struct,
-            failed_response_type=BYTES,
-        )
-        return CIPRequest(
-            message=MessageRouterRequest.build(service=self.id, class_code=self.object.class_code, instance=instance),
-            response_parser=parser,
-        )
 
 
 class GeneralStatusCodes(StatusEnum):

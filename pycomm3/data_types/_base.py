@@ -313,9 +313,9 @@ def attr(  # if reserved=True
     *,
     default: DataType,
     reserved: Literal[True] = True,
-    init: Literal[False] = False,
-    len_ref: None = None,
-    size_ref: Literal[False] = False,
+    init: bool = False,
+    len_ref: str | tuple[str, Callable[[int], int], Callable[[int], int]] | None = None,
+    size_ref: bool | tuple[Callable[[int], int], Callable[[int], int]] = False,
     **kwargs,
 ) -> Any: ...
 
@@ -556,18 +556,22 @@ class StructType(DataType, metaclass=_StructMeta):
     def _decode(cls: type[Self], stream: BytesIO) -> Self:
         values: dict[str, DataType] = {}
         for name, typ in cls._members.items():
-            if len_ref := cls._array_length_attributes.get(name):
-                ref, decode_func, encode_func = len_ref
-                typ = cast(type[ArrayType[type[ArrayableT], int]], typ)
-                length = decode_func(values[ref])
-                if typ is BYTES:
-                    _array = BYTES[length]
+            try:
+                if len_ref := cls._array_length_attributes.get(name):
+                    ref, decode_func, encode_func = len_ref
+                    typ = cast(type[ArrayType[type[ArrayableT], int]], typ)
+                    length = decode_func(values[ref])
+                    if typ is BYTES:
+                        _array = BYTES[length]
+                    else:
+                        _array = array(typ.element_type, length)
+                    value = _array.decode(stream)
                 else:
-                    _array = array(typ.element_type, length)
-                value = _array.decode(stream)
+                    value = typ.decode(stream)
+            except Exception as err:
+                raise DataError(f"Error decoding attribute {name!r}") from err
             else:
-                value = typ.decode(stream)
-            values[name] = value
+                values[name] = value
 
         post_init_vars = {name: val for name, val in values.items() if not cls._dataclass_fields[name].init}
         init_vars = {k: v for k, v in values.items() if k not in post_init_vars}

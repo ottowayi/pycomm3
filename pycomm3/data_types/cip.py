@@ -6,7 +6,7 @@ from io import BytesIO
 from math import log
 from dataclasses import dataclass, field
 from enum import IntFlag
-from typing import ClassVar, cast, Self
+from typing import ClassVar, cast, Self, Iterator
 
 from ._base import BufferT, DataType, buff_repr, as_stream, BYTES, array
 from .numeric import USINT, UINT, UDINT
@@ -635,6 +635,9 @@ class EPATH[T: CIPSegment](DataType):
     def __len__(self) -> int:
         return len(self.segments)
 
+    def __iter__(self) -> Iterator[T]:
+        return iter(self.segments)
+
     @classmethod
     def _encode(cls, value: EPATH[T], *args, **kwargs) -> bytes:
         path = b"".join(segment.encode(segment, padded=cls.padded) for segment in value.segments)
@@ -658,6 +661,11 @@ class EPATH[T: CIPSegment](DataType):
         segments: list[T] = cast(list[T], [s for s in array(CIPSegment, _len).decode(stream)])
 
         return cls(segments)
+
+    def __truediv__(self, other: T | tuple[T, ...] | list[T]) -> Self:
+        # TODO: validation
+        new_segments = (other,) if isinstance(other, CIPSegment) else other
+        return self.__class__([*self.segments, *new_segments])
 
 
 class PADDED_EPATH(EPATH):

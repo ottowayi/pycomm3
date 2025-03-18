@@ -16,12 +16,14 @@ from pycomm3.data_types import (
     StructType,
     as_stream,
     attr,
+    Array,
+    DataType,
 )
-from pycomm3.map import EnumMap
 from pycomm3.util import StatusEnum
 
-from .._base import CIPRequest, CIPResponse, CIPRoute, CIPService, MessageRouterRequest
-from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes, SimpleCIPResponseParser, SimpleCIPService
+from .._base import CIPRequest, CIPResponse, CIPRoute, CIPService
+from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes
+from .message_router import SimpleCIPResponseParser, SimpleCIPService, MessageRouterRequest
 
 
 class ForwardOpenRequest(StructType):
@@ -63,7 +65,7 @@ class LargeForwardOpenRequest(StructType):
 class ForwardOpenResponse(StructType):
     o2t_connection_id: UDINT
     t20_connection_id: UDINT
-    connection_serial: UDINT
+    connection_serial: UINT
     originator_vendor_id: UINT
     originator_serial: UDINT
     o2t_api: UDINT
@@ -71,6 +73,40 @@ class ForwardOpenResponse(StructType):
     application_reply_size: USINT = attr(init=False)
     _reserved: USINT = attr(reserved=True, default=USINT(0))
     application_reply: BYTES = attr(len_ref="application_reply_size")
+
+
+class ConnectionPriority(IntEnum):
+    _MASK = 0b_0000_1100_0000_0000
+    low = 0b_0000_0000_0000_0000
+    high = 0b_0000_0100_0000_0000
+    scheduled = 0b_0000_1000_0000_0000
+    urgent = 0b_0000_1100_0000_0000
+
+
+class ConnectionType(IntEnum):
+    _MASK = 0b_0110_0000_0000_0000
+    null = 0b_0000_0000_0000_0000
+    multicast = 0b_0010_0000_0000_0000
+    point_to_point = 0b_0100_0000_0000_0000
+
+
+class ConnectionTimeoutMultiplier(IntEnum):
+    x4 = 0
+    x8 = 1
+    x16 = 2
+    x32 = 3
+    x64 = 4
+    x128 = 5
+    x256 = 6
+    x512 = 7
+
+
+class ProductionTrigger(IntEnum):
+    _MASK = 0b_0111_0000
+    cyclic = 0b_0000_0000
+    change_of_state = 0b_0001_0000
+    application_object = 0b_0010_0000
+    # 3-7 reserved by CIP
 
 
 class ForwardOpenFailedResponse(StructType):
@@ -197,21 +233,17 @@ class UnconnectedSendRequest(StructType):
 class UnconnectedSendResponseHeader(StructType):
     reply_service: USINT
     _reserved: USINT = attr(reserved=True, default=USINT(0))
-    general_status: USINT
+    general_status: USINT  # pyright: ignore [reportGeneralTypeIssues]
 
 
 class UnconnectedSendSuccessResponse(StructType):
     _reserved2: USINT = attr(reserved=True, default=USINT(0))
-    service_response_data: BYTES
+    service_response_data: BYTES  # pyright: ignore [reportGeneralTypeIssues]
 
 
 class UnconnectedSendFailedResponse(StructType):
-    additional_status: UINT[USINT]
+    additional_status: Array[UINT, USINT]
     remaining_path_size: USINT
-
-
-def _unconnected_send_parser():
-    return SimpleCIPResponseParser(response_type=BYTES, failed_response_type=BYTES)
 
 
 @dataclass
@@ -224,14 +256,22 @@ class UnconnectedSendResponseParser(SimpleCIPResponseParser):
         buff = as_stream(data)
         header = UnconnectedSendResponseHeader.decode(buff)
         self.__log.debug("decoded unconnected send response header: %r", header)
-        self.__log.debug(f"status={header.general_status}")
         if header.general_status in self.success_statuses:
             resp_data = UnconnectedSendSuccessResponse.decode(buff)
             msg_data = self.response_type.decode(resp_data.service_response_data)
+            msg = "Success"
         else:
             msg_data = UnconnectedSendFailedResponse.decode(buff)
+            general_msg, ext_msg = ConnectionManager.get_status_messages(
+                service=request.message.service,
+                status=header.general_status,
+                ext_status=msg_data.additional_status,
+                extra_data=msg_data.remaining_path_size,
+            )
+
+            msg = f"({header.general_status:#04x}) {general_msg}: {ext_msg}" if ext_msg else general_msg
         self.__log.debug("decoded unconnected send response data: %r", header)
-        return CIPResponse(request=request, message=header, data=msg_data)
+        return CIPResponse(request=request, response=header, data=msg_data, message=msg)
 
 
 @dataclass
@@ -416,26 +456,6 @@ class ConnectionManager(CIPObject):
         close_other_request = 0x07
         connection_timeout = 0x08
 
-    class Services(EnumMap):
-        """
-        Custom services supported by the Connection Manager
-        """
-
-        #: Closes a connection
-        forward_close = b"\x4e"
-        #: TODO: explain unconnected send
-        unconnected_send = b"\x52"
-        #: Opens a connection with a maximum data size of 511 bytes
-        forward_open = b"\x54"
-        #: Opens a connection with a maximum data size of 65535 bytes
-        large_forward_open = b"\x5b"
-        #: For connection diagnostics
-        get_connection_data = b"\x56"
-        #: For connection diagnostics
-        search_connection_data = b"\x57"
-        #: Determine the owner of a redundant connection
-        get_connection_owner = b"\x5a"
-
     STATUS_CODES = {
         "*": {
             GeneralStatusCodes.connection_failure: ConnMgrExtStatusCodesConnFailure,
@@ -447,7 +467,7 @@ class ConnectionManager(CIPObject):
 
     @classmethod
     def _customize_extended_status(
-        cls, general_status: int, ext_status: int, ext_status_extra: Sequence[int], extra_data: BYTES | None
+        cls, general_status: int, ext_status: int, ext_status_extra: Sequence[int], extra_data: DataType | None
     ) -> str | None:
         if ext_status == ConnMgrExtStatusCodesConnFailure.invalid_connection_size:
             if ext_status_extra:
