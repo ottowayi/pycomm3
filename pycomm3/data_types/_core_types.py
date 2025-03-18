@@ -16,6 +16,10 @@ class IntDataType(ElementaryDataType[int], int, metaclass=_ElementaryDataTypeMet
         if format_spec == "@":
             char_count = 2 + 2 * self.size  # 2 per byte + '0x'
             format_spec = f"#0{char_count}x"
+        if format_spec == "@b":
+            bit_count = 8 * self.size
+            char_count = 2 + bit_count + (bit_count // 4) - 1
+            format_spec = f"#0{char_count}_b"
         return super().__format__(format_spec)
 
 
