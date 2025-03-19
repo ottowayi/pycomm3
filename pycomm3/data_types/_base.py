@@ -207,7 +207,7 @@ class ElementaryDataType[T: ElementaryPyType](DataType[T], metaclass=_Elementary
         return pack(cls._format, value)
 
     @classmethod
-    def _decode(cls, stream: BytesIO):
+    def _decode(cls, stream: BytesIO) -> Self:
         data = cls._stream_read(stream, cls.size)
         return cls(unpack(cls._format, data)[0])
 

@@ -1,17 +1,15 @@
-from __future__ import annotations
-
 import ipaddress
 import reprlib
 from io import BytesIO
 from math import log
 from dataclasses import dataclass, field
-from enum import IntFlag
+
 from typing import ClassVar, cast, Self, Iterator
 
 from ._base import BufferT, DataType, buff_repr, as_stream, BYTES, array
 from .numeric import USINT, UINT, UDINT
 from .string import SHORT_STRING
-
+from pycomm3.util import IntEnumX
 from pycomm3.exceptions import DataError, BufferEmptyError
 
 __all__ = (
@@ -40,7 +38,7 @@ __all__ = (
 )
 
 
-class SegmentType(IntFlag):
+class SegmentType(IntEnumX):
     port = 0b_000_00000
     logical = 0b_001_00000
     network = 0b_010_00000
@@ -72,7 +70,7 @@ class CIPSegment(DataType):
     segment_type: ClassVar[SegmentType] = SegmentType.port
 
     @classmethod
-    def encode(cls, value: CIPSegment, padded: bool = False, *args, **kwargs) -> bytes:
+    def encode(cls, value: "CIPSegment", padded: bool = False, *args, **kwargs) -> bytes:
         """
         Encodes an instance of a ``CIPSegment`` to bytes
         """
@@ -92,7 +90,7 @@ class CIPSegment(DataType):
         return segment_type
 
     @classmethod
-    def decode(cls, buffer: BufferT, padded: bool = False) -> CIPSegment:
+    def decode(cls: "type[CIPSegment]", buffer: BufferT, padded: bool = False) -> "CIPSegment":
         try:
             stream = as_stream(buffer)
             return cls._decode(stream, padded)
@@ -102,7 +100,7 @@ class CIPSegment(DataType):
             raise DataError(f"Error unpacking {buff_repr(buffer)} as {cls.__name__}") from err
 
     @classmethod
-    def _decode(cls, stream: BytesIO, padded: bool = False) -> CIPSegment:
+    def _decode(cls, stream: BytesIO, padded: bool = False) -> "CIPSegment":
         _peek = stream.getvalue()[stream.tell() : stream.tell() + 1]
         if not _peek:
             raise BufferEmptyError()
@@ -115,7 +113,7 @@ class CIPSegment(DataType):
         raise DataError(f"Unknown segment type: {_segment_type_bits(segment_type)}")
 
 
-class PortIdentifier(IntFlag):
+class PortIdentifier(IntEnumX):
     backplane = 0b_000_0_0001
     bp = 0b_000_0_0001
     enet = 0b_000_0_0010
@@ -128,7 +126,7 @@ class PortIdentifier(IntFlag):
 PORT_ALIASES: dict[str, PortIdentifier] = PortIdentifier._member_map_  # noqa # type: ignore
 
 
-class PortSegmentFormat(IntFlag):
+class PortSegmentFormat(IntEnumX):
     ex_link_address = 0b_000_1_0000
     mask_port_id = 0b_000_0_1111
 
@@ -269,7 +267,7 @@ class PortSegment(CIPSegment):
         return PortSegment(port, link)
 
 
-class LogicalSegmentType(IntFlag):
+class LogicalSegmentType(IntEnumX):
     type_class_id = 0b_000_000_00
     type_instance_id = 0b_000_001_00
     type_member_id = 0b_000_010_00
@@ -313,8 +311,8 @@ class LogicalSegment(CIPSegment):
     type: LogicalSegmentType
     value: int | bytes
 
-    _value: bytes = field(default=b"", init=False)
-    _format: LogicalSegmentType = field(default=LogicalSegmentType.format_8bit)
+    _value: bytes = field(default=b"", init=False, repr=False)
+    _format: LogicalSegmentType = field(default=LogicalSegmentType.format_8bit, repr=False)
 
     def __post_init__(self) -> None:
         if isinstance(self.value, int):
@@ -404,7 +402,7 @@ class LogicalSegment(CIPSegment):
         return LogicalSegment(LogicalSegmentType(_type & LogicalSegmentType.mask_type), value)
 
 
-class NetworkSegmentType(IntFlag):
+class NetworkSegmentType(IntEnumX):
     scheduled = 0b_000_00001
     fixed_tag = 0b_000_00010
     production_inhibit_time = 0b_000_00011
@@ -475,11 +473,11 @@ class NetworkSegment(CIPSegment):
         return NetworkSegment(NetworkSegmentType(_type), data)
 
 
-class SymbolicSegmentType(IntFlag):
+class SymbolicSegmentType(IntEnumX):
     mask_symbol_size = 0b_000_11111
 
 
-class SymbolicSegmentExtendedFormat(IntFlag):
+class SymbolicSegmentExtendedFormat(IntEnumX):
     double_byte_chars = 0b_001_00000
     triple_byte_chars = 0b_010_00000
 
@@ -503,7 +501,7 @@ class SymbolicSegment(CIPSegment):
 
     #: Extended symbol type, only required when ``symbol`` is of type ``bytes``, else set automatically
     #: If using double/triple byte extended format, this value be mutated to include the string length
-    ex_type: SymbolicSegmentExtendedFormat | None = None
+    ex_type: SymbolicSegmentExtendedFormat | int | None = None
 
     def __post_init__(self):
         if isinstance(self.symbol, bytes):
@@ -573,7 +571,7 @@ class SymbolicSegment(CIPSegment):
         return SymbolicSegment(symbol, ex_type=ex_type)
 
 
-class DataSegmentType(IntFlag):
+class DataSegmentType(IntEnumX):
     simple = 0b_000_00000
     ansi_extended = 0b_000_10001
 
@@ -639,7 +637,7 @@ class EPATH[T: CIPSegment](DataType):
         return iter(self.segments)
 
     @classmethod
-    def _encode(cls, value: EPATH[T], *args, **kwargs) -> bytes:
+    def _encode(cls, value: "EPATH[T]", *args, **kwargs) -> bytes:
         path = b"".join(segment.encode(segment, padded=cls.padded) for segment in value.segments)
         if cls.with_len:
             _len = USINT.encode(len(value.segments))

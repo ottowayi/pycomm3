@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
+from functools import wraps
 from typing import Final, Literal, cast
 from pycomm3.data_types.binary import WORD
 from pycomm3.data_types.cip import LogicalSegment, LogicalSegmentType
-from pycomm3.exceptions import ResponseError
+from pycomm3.exceptions import ResponseError, ConnectionError
 
 from ..ethernetip import EIPConnection
 from pycomm3 import get_logger
@@ -22,6 +23,7 @@ from .object_library.message_router import MessageRouter
 from .cip_object import CIPObject
 from os import urandom
 from pycomm3.data_types import UDINT, UINT, USINT, DWORD
+from ..connection import is_connected
 
 STANDARD_CONNECTION_SIZE: Final[int] = 511
 LARGE_CONNECTION_SIZE: Final[int] = 4000
@@ -62,37 +64,64 @@ class CIPConfig:
     connected_config: ConnectedConfig = field(default_factory=ConnectedConfig)
 
 
+def is_cip_connected(func):
+    @wraps(func)
+    def wrapped(self: "CIPConnection", *args, **kwargs):
+        if not self.cip_connected:
+            raise ConnectionError("not cip connected")
+        return func(self, *args, **kwargs)
+
+    return is_connected(wrapped)
+
+
 class CIPConnection:
     __log = get_logger(__qualname__)
 
     def __init__(self, config: CIPConfig, transport: EIPConnection):
         self.config = config
         self._transport: EIPConnection = transport
-        self._connected: bool = False
 
     @property
     def connected(self) -> bool:
+        """
+        Returns `True` if the connection has been established (the EtherNet/IP connection is registered), `False` otherwise.
+        """
         return self._transport.connected
 
     @property
     def cip_connected(self) -> bool:
+        """
+        Returns `True` if the connection has an active Explicit Messaging connection
+        (a forward open established a connection with the Message Router of the target),
+        `False` otherwise.
+        """
         return self.connected and self.config.connected_config.o2t_connection_id != 0
 
-    def get_attributes_all(self, cip_object: type[CIPObject], instance: int = 1):
+    def get_attributes_all(self, cip_object: type[CIPObject], instance: int = 1, cip_connected: bool | None = None):
         request = cip_object.get_attributes_all(instance=instance)
-        resp = self.send(request)
+        resp = self.send(request, cip_connected=cip_connected)
         return resp.data
 
+    def connect(self):
+        if self.connected:
+            raise ConnectionError("already connected")
+        self._transport.connect()
+
+    @is_connected
     def forward_open(self):
+        if self.cip_connected:
+            raise ConnectionError("already cip connected")
         self.__log.info("beginning forward open...")
         request = self._build_forward_open_request()
         if enip_resp := self._transport.send_rr_data(bytes(request.message)):
             if resp := request.response_parser.parse(enip_resp.data.packet.data.data, request):
                 resp_data = cast(ForwardOpenResponse, resp.data)  # type: ignore
                 self.config.connected_config.o2t_connection_id = resp_data.o2t_connection_id
-                self.__log.info('... forward open succeeded, o->t connection id: %d', self.config.connected_config.o2t_connection_id)  # fmt: skip
+                self.__log.info('...forward open succeeded, o->t connection id: %d', self.config.connected_config.o2t_connection_id)  # fmt: skip
             else:
-                self.__log.info("...forward open failed: %s", resp)
+                self.__log.debug("forward open response: %s", resp)
+                self.__log.error("...forward open failed: %s", resp.message or "Unknown Error")
+                raise ConnectionError("forward open failed")
         else:
             raise ResponseError("ethernet/ip response error", enip_resp)
 
@@ -148,12 +177,18 @@ class CIPConnection:
         self.__log.debug("built forward_open request: %s", request)
         return request
 
-    def send(self, msg: CIPRequest) -> CIPResponse:
-        if self.cip_connected:
+    def send(self, msg: CIPRequest, cip_connected: bool | None = None) -> CIPResponse:
+        """
+        Sends a CIPRequest, by default will send an unconnected message if the connection is not
+        *CIP Connected* else will send a connected message (`cip_connected=None`).
+        Else, set `cip_connected=True` to force send connected message and `False` for an unconnected one.
+        """
+        if (cip_connected is None and self.cip_connected) or cip_connected:
             return self._connected_send(msg)
         else:
             return self._unconnected_send(msg)
 
+    @is_connected
     def _unconnected_send(
         self,
         msg: CIPRequest,
@@ -179,4 +214,5 @@ class CIPConnection:
         else:
             raise ResponseError("ethernet/ip response error", enip_resp)
 
+    @is_cip_connected
     def _connected_send(self, msg: CIPRequest) -> CIPResponse: ...

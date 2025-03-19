@@ -110,7 +110,7 @@ class ProductionTrigger(IntEnum):
 
 
 class ForwardOpenFailedResponse(StructType):
-    connection_serial: UDINT
+    connection_serial: UINT
     originator_vendor_id: UINT
     originator_serial: UDINT
     remaining_path_size: USINT

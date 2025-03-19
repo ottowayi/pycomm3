@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 @dataclass
 class CIPRequest:
     message: "MessageRouterRequest"
-    response_parser: "CIPResponseParser"
+    response_parser: "CIPResponseParser" = field(repr=False)
 
 
 class CIPResponseMessage(Protocol):
