@@ -18,8 +18,9 @@ from .data_types import (
     EncapsulationCommand,
     UnconnectedData,
     NullAddress,
-    SequencedAddress,
     ConnectedData,
+    SendUnitDataData,
+    ConnectedAddress,
 )
 
 ETHERNETIP_PORT: Final[int] = 44818
@@ -122,16 +123,14 @@ class EIPConnection(Connection):
         if response := self.send(request):
             return cast(Array[ServiceInfo, None], response.data.services)  # type: ignore
 
-    def send_unit_data(self, connection_id: UDINT, sequence_number: UDINT, msg: bytes) -> EIPResponse | None:
+    def send_unit_data(self, connection_id: UDINT, msg: bytes) -> EIPResponse | None:
         if not self.connected:
             raise ConnectionError("Connection closed")
-        data = CommonPacketFormat(
-            address_item=SequencedAddress(
-                connection_id=connection_id,
-                sequence_num=sequence_number,
-            ),
+        cpf = CommonPacketFormat(
+            address_item=ConnectedAddress(connection_id=connection_id),
             data_item=ConnectedData(data=BYTES(msg)),
         )
+        data = SendUnitDataData(cpf)
         request = Services.send_unit_data(session=self._session_id, data=data, context=self.config.sender_context)
         return self.send(request)
 

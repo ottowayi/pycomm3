@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Final, Literal, cast
+from typing import Final, Literal, cast, Generator
 from pycomm3.data_types.binary import WORD
 from pycomm3.data_types.cip import LogicalSegment, LogicalSegmentType
 from pycomm3.exceptions import ResponseError, ConnectionError
@@ -24,6 +24,7 @@ from .cip_object import CIPObject
 from os import urandom
 from pycomm3.data_types import UDINT, UINT, USINT, DWORD
 from ..connection import is_connected
+from pycomm3.util import cycle
 
 STANDARD_CONNECTION_SIZE: Final[int] = 511
 LARGE_CONNECTION_SIZE: Final[int] = 4000
@@ -44,7 +45,6 @@ class ConnectedConfig:
     sizing: Literal["fixed", "variable"] = "variable"
     size: int = STANDARD_CONNECTION_SIZE
     redundant_owner: bool = False
-    o2t_connection_id: int = 0
     t2o_connection_id: int = 0  # if 0, then generate random one
     connection_serial: int = 0  # if 0, then generate random one
     vendor_id: int = PYCOMM3_VENDOR_ID
@@ -80,6 +80,8 @@ class CIPConnection:
     def __init__(self, config: CIPConfig, transport: EIPConnection):
         self.config = config
         self._transport: EIPConnection = transport
+        self._connection_id: UDINT = UDINT(0)
+        self._sequence_generator: Generator[int, None, None] = cycle(65535, start=1)
 
     @property
     def connected(self) -> bool:
@@ -95,7 +97,7 @@ class CIPConnection:
         (a forward open established a connection with the Message Router of the target),
         `False` otherwise.
         """
-        return self.connected and self.config.connected_config.o2t_connection_id != 0
+        return self.connected and self._connection_id != 0
 
     def get_attributes_all(self, cip_object: type[CIPObject], instance: int = 1, cip_connected: bool | None = None):
         request = cip_object.get_attributes_all(instance=instance)
@@ -116,8 +118,9 @@ class CIPConnection:
         if enip_resp := self._transport.send_rr_data(bytes(request.message)):
             if resp := request.response_parser.parse(enip_resp.data.packet.data.data, request):
                 resp_data = cast(ForwardOpenResponse, resp.data)  # type: ignore
-                self.config.connected_config.o2t_connection_id = resp_data.o2t_connection_id
-                self.__log.info('...forward open succeeded, o->t connection id: %d', self.config.connected_config.o2t_connection_id)  # fmt: skip
+                self._connection_id = resp_data.o2t_connection_id
+                self._sequence_generator = cycle(65535, start=1)
+                self.__log.info("...forward open succeeded, o->t connection id: %d", self._connection_id)
             else:
                 self.__log.debug("forward open response: %s", resp)
                 self.__log.error("...forward open failed: %s", resp.message or "Unknown Error")
@@ -186,10 +189,10 @@ class CIPConnection:
         if (cip_connected is None and self.cip_connected) or cip_connected:
             return self._connected_send(msg)
         else:
-            return self._unconnected_send(msg)
+            return self.unconnected_send(msg)
 
     @is_connected
-    def _unconnected_send(
+    def unconnected_send(
         self,
         msg: CIPRequest,
         config: UnconnectedConfig | None = None,
@@ -215,4 +218,21 @@ class CIPConnection:
             raise ResponseError("ethernet/ip response error", enip_resp)
 
     @is_cip_connected
-    def _connected_send(self, msg: CIPRequest) -> CIPResponse: ...
+    def _connected_send(self, request: CIPRequest) -> CIPResponse:
+        self.__log.debug("sending connected request: %s", request)
+        encoded_msg = bytes(request.message)
+        if has_seq_id := (0 < self.config.connected_config.transport_class <= 3):
+            sequence_number = UINT(next(self._sequence_generator))
+            encoded_msg = bytes(sequence_number) + encoded_msg
+        if enip_resp := self._transport.send_unit_data(msg=encoded_msg, connection_id=self._connection_id):
+            self.__log.debug("parsing connected response: %s", enip_resp.data.packet.data.data)
+            resp_data = enip_resp.data.packet.data.data
+            if has_seq_id:
+                resp_seq_id = UINT.decode(resp_data)
+                self.__log.verbose("response sequence number: %d", resp_seq_id)
+                resp_data = resp_data[UINT.size :]
+            resp = request.response_parser.parse(resp_data, request)
+            self.__log.debug("parsed connected response: %s", resp)
+            return resp
+        else:
+            raise ResponseError("ethernet/ip response error", enip_resp)

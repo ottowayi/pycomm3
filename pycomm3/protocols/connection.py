@@ -5,9 +5,10 @@ from pycomm3.exceptions import ConnectionError
 
 
 class Connection[ReqT: Request, RespT: Response](Protocol):
-    connected: bool
-
     def send(self, request: ReqT) -> RespT | None: ...
+
+    @property
+    def connected(self) -> bool: ...
 
 
 def is_connected(func):
