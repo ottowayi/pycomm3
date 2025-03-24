@@ -64,7 +64,7 @@ class LargeForwardOpenRequest(StructType):
 
 class ForwardOpenResponse(StructType):
     o2t_connection_id: UDINT
-    t20_connection_id: UDINT
+    t2o_connection_id: UDINT
     connection_serial: UINT
     originator_vendor_id: UINT
     originator_serial: UDINT
@@ -127,7 +127,7 @@ class ForwardCloseRequest(StructType):
 
 
 class ForwardCloseResponse(StructType):
-    connection_serial: UDINT
+    connection_serial: UINT
     originator_vendor_id: UINT
     originator_serial: UDINT
     application_reply_size: USINT = attr(init=False)
@@ -136,7 +136,7 @@ class ForwardCloseResponse(StructType):
 
 
 class ForwardCloseFailedResponse(StructType):
-    connection_serial: UDINT
+    connection_serial: UINT
     originator_vendor_id: UINT
     originator_serial: UDINT
     remaining_path_size: USINT

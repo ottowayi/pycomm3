@@ -13,6 +13,7 @@ from .object_library.connection_manager import (
     ConnectionPriority,
     ConnectionTimeoutMultiplier,
     ConnectionType,
+    ForwardCloseRequest,
     ForwardOpenRequest,
     ForwardOpenResponse,
     LargeForwardOpenRequest,
@@ -28,7 +29,7 @@ from pycomm3.util import cycle
 
 STANDARD_CONNECTION_SIZE: Final[int] = 511
 LARGE_CONNECTION_SIZE: Final[int] = 4000
-PYCOMM3_VENDOR_ID: Final[int] = 0xA455
+PYCOMM3_VENDOR_ID: Final[UINT] = UINT(0xA455)
 
 
 @dataclass
@@ -45,10 +46,11 @@ class ConnectedConfig:
     sizing: Literal["fixed", "variable"] = "variable"
     size: int = STANDARD_CONNECTION_SIZE
     redundant_owner: bool = False
-    t2o_connection_id: int = 0  # if 0, then generate random one
-    connection_serial: int = 0  # if 0, then generate random one
-    vendor_id: int = PYCOMM3_VENDOR_ID
-    originator_serial: int = 0  # if 0, then generate random one
+    o2t_connection_id: UDINT = UDINT(0)
+    t2o_connection_id: UDINT = UDINT(0)  # if 0, then generate random one
+    connection_serial: UINT = UINT(0)  # if 0, then generate random one
+    vendor_id: UINT = PYCOMM3_VENDOR_ID
+    originator_serial: UDINT = UDINT(0)  # if 0, then generate random one
     timeout_multiplier: ConnectionTimeoutMultiplier = ConnectionTimeoutMultiplier.x512
     o2t_rpi: int = 2113537  # idk, these are just what I had?
     t2o_rpi: int = 2113537
@@ -80,7 +82,6 @@ class CIPConnection:
     def __init__(self, config: CIPConfig, transport: EIPConnection):
         self.config = config
         self._transport: EIPConnection = transport
-        self._connection_id: UDINT = UDINT(0)
         self._sequence_generator: Generator[int, None, None] = cycle(65535, start=1)
 
     @property
@@ -97,7 +98,7 @@ class CIPConnection:
         (a forward open established a connection with the Message Router of the target),
         `False` otherwise.
         """
-        return self.connected and self._connection_id != 0
+        return self.connected and self.config.connected_config.o2t_connection_id != 0
 
     def get_attributes_all(self, cip_object: type[CIPObject], instance: int = 1, cip_connected: bool | None = None):
         request = cip_object.get_attributes_all(instance=instance)
@@ -118,9 +119,12 @@ class CIPConnection:
         if enip_resp := self._transport.send_rr_data(bytes(request.message)):
             if resp := request.response_parser.parse(enip_resp.data.packet.data.data, request):
                 resp_data = cast(ForwardOpenResponse, resp.data)  # type: ignore
-                self._connection_id = resp_data.o2t_connection_id
+                self.config.connected_config.o2t_connection_id = resp_data.o2t_connection_id
+                self.config.connected_config.t2o_connection_id = resp_data.t2o_connection_id
+                self.config.connected_config.connection_serial = resp_data.connection_serial
+                self.config.connected_config.originator_serial = resp_data.originator_serial
                 self._sequence_generator = cycle(65535, start=1)
-                self.__log.info("...forward open succeeded, o->t connection id: %d", self._connection_id)
+                self.__log.info("...forward open succeeded, o->t connection id: %d", resp_data.o2t_connection_id)
             else:
                 self.__log.debug("forward open response: %s", resp)
                 self.__log.error("...forward open failed: %s", resp.message or "Unknown Error")
@@ -224,7 +228,9 @@ class CIPConnection:
         if has_seq_id := (0 < self.config.connected_config.transport_class <= 3):
             sequence_number = UINT(next(self._sequence_generator))
             encoded_msg = bytes(sequence_number) + encoded_msg
-        if enip_resp := self._transport.send_unit_data(msg=encoded_msg, connection_id=self._connection_id):
+        if enip_resp := self._transport.send_unit_data(
+            msg=encoded_msg, connection_id=self.config.connected_config.o2t_connection_id
+        ):
             self.__log.debug("parsing connected response: %s", enip_resp.data.packet.data.data)
             resp_data = enip_resp.data.packet.data.data
             if has_seq_id:
@@ -234,5 +240,38 @@ class CIPConnection:
             resp = request.response_parser.parse(resp_data, request)
             self.__log.debug("parsed connected response: %s", resp)
             return resp
+        else:
+            raise ResponseError("ethernet/ip response error", enip_resp)
+
+    @is_cip_connected
+    def forward_close(self):
+        connection_path = (self.config.cip_path or CIPRoute()).epath(padded=True, length=True, padded_len=True) / (
+            LogicalSegment(type=LogicalSegmentType.type_class_id, value=MessageRouter.class_code),
+            LogicalSegment(type=LogicalSegmentType.type_instance_id, value=0x01),
+        )
+
+        request = ConnectionManager.forward_close(
+            data=ForwardCloseRequest(
+                priority_tick_time=USINT(self.config.unconnected_config.tick_time),
+                timeout_ticks=USINT(self.config.unconnected_config.num_ticks),
+                connection_serial=self.config.connected_config.connection_serial,
+                originator_vendor_id=self.config.connected_config.vendor_id,
+                originator_serial=self.config.connected_config.originator_serial,
+                connection_path=connection_path,
+            ),
+            instance=ConnectionManager.Instance.open_request,
+        )
+
+        if enip_resp := self._transport.send_rr_data(bytes(request.message)):
+            if resp := request.response_parser.parse(enip_resp.data.packet.data.data, request):
+                self.config.connected_config.o2t_connection_id = UDINT(0)
+                self.config.connected_config.t2o_connection_id = UDINT(0)
+                self.config.connected_config.connection_serial = UINT(0)
+                self.config.connected_config.originator_serial = UDINT(0)
+                self.__log.info("...forward close succeeded")
+            else:
+                self.__log.debug("forward close response: %s", resp)
+                self.__log.error("...forward close failed: %s", resp.message or "Unknown Error")
+                raise ConnectionError("forward close failed")
         else:
             raise ResponseError("ethernet/ip response error", enip_resp)
