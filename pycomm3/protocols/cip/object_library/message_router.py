@@ -59,7 +59,7 @@ class MessageRouterResponse(StructType):
 
 
 @dataclass
-class SimpleCIPResponseParser[RespT: DataType, FRespT: DataType]:
+class MsgRouterResponseParser[RespT: DataType, FRespT: DataType]:
     __log = get_logger(__qualname__)
     response_type: type[RespT]
     failed_response_type: type[FRespT]
@@ -87,7 +87,7 @@ class SimpleCIPResponseParser[RespT: DataType, FRespT: DataType]:
 
 
 @dataclass(kw_only=True)
-class SimpleCIPService[ReqT: DataType, RespT: DataType, FRespT: DataType](CIPService):
+class MsgRouterService[ReqT: DataType, RespT: DataType, FRespT: DataType](CIPService):
     request_type: type[ReqT] | None = None
     response_type: type[RespT]
     failed_response_type: type[FRespT] | None = None
@@ -110,7 +110,7 @@ class SimpleCIPService[ReqT: DataType, RespT: DataType, FRespT: DataType](CIPSer
         attr_id = None if attribute is None else attribute.id
         failed_resp_type = self.failed_response_type if self.failed_response_type is not None else BYTES
 
-        parser = self.response_parser or SimpleCIPResponseParser(
+        parser = self.response_parser or MsgRouterResponseParser(
             response_type=self.response_type,
             failed_response_type=failed_resp_type,
             success_statuses=self.success_statuses,
@@ -181,7 +181,7 @@ class GetAttributesAllService(CIPService):
     class_struct: type[StructType] = ClassAllAttrsCIPObject
 
     def __call__(self, instance: int = 1) -> CIPRequest:
-        parser = SimpleCIPResponseParser(
+        parser = MsgRouterResponseParser(
             response_type=self.class_struct if instance == CIPObject.Instance.CLASS else self.instance_struct,
             failed_response_type=BYTES,
         )

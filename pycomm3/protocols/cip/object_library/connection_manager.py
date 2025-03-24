@@ -23,7 +23,7 @@ from pycomm3.util import StatusEnum
 
 from .._base import CIPRequest, CIPResponse, CIPRoute, CIPService
 from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes
-from .message_router import SimpleCIPResponseParser, SimpleCIPService, MessageRouterRequest
+from .message_router import MsgRouterResponseParser, MsgRouterService, MessageRouterRequest
 
 
 class ForwardOpenRequest(StructType):
@@ -247,7 +247,7 @@ class UnconnectedSendFailedResponse(StructType):
 
 
 @dataclass
-class UnconnectedSendResponseParser(SimpleCIPResponseParser):
+class UnconnectedSendResponseParser(MsgRouterResponseParser):
     __log = get_logger(__qualname__)
 
     failed_response_type: type[BYTES] = field(init=False, default=BYTES)
@@ -423,21 +423,21 @@ class ConnectionManager(CIPObject):
 
     #  --- services ---
     #: Closes a connection
-    forward_close = SimpleCIPService(
+    forward_close = MsgRouterService(
         id=USINT(0x4E),
         request_type=ForwardCloseRequest,
         response_type=ForwardCloseResponse,
         failed_response_type=ForwardCloseFailedResponse,
     )
     #: Opens a connection with a maximum data size of 511 bytes
-    forward_open = SimpleCIPService(
+    forward_open = MsgRouterService(
         id=USINT(0x54),
         request_type=ForwardOpenRequest,
         response_type=ForwardOpenResponse,
         failed_response_type=ForwardOpenFailedResponse,
     )
     #: Opens a connection with a maximum data size of 65535 bytes
-    large_forward_open = SimpleCIPService(
+    large_forward_open = MsgRouterService(
         id=USINT(0x5B),
         request_type=LargeForwardOpenRequest,
         response_type=ForwardOpenResponse,
