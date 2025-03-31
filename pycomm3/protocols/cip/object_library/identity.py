@@ -4,7 +4,7 @@ from pycomm3.data_types import UINT, WORD, UDINT, SHORT_STRING, USINT, Revision,
 from enum import IntEnum
 
 
-class IdentityInstanceAllType(StructType):
+class IdentityGetAttrsAllInstance(StructType):
     vendor_id: UINT
     device_type: UINT
     product_code: UINT
@@ -14,7 +14,7 @@ class IdentityInstanceAllType(StructType):
     product_name: SHORT_STRING
 
 
-class IdentityObject(CIPObject):
+class Identity(CIPObject):
     """
     This object provides general identity and status information about a device.
     It is required by all CIP objects and if a device contains multiple discrete
@@ -66,4 +66,4 @@ class IdentityObject(CIPObject):
         #: Default value for a ``get_attributes_all`` service response if attribute is not supported
         DefaultGetAttributesAll = 255
 
-    get_attributes_all = GetAttributesAllService(IdentityInstanceAllType)
+    get_attributes_all = GetAttributesAllService(IdentityGetAttrsAllInstance)

@@ -163,7 +163,7 @@ class MessageRouter(CIPObject):
     # }
 
 
-class ClassAllAttrsCIPObject(StructType):
+class CIPObjectGetAttrsAllClass(StructType):
     object_revision: UINT
     max_instance: UINT
     num_instances: UINT
@@ -178,7 +178,7 @@ class GetAttributesAllService(CIPService):
     id: USINT = field(init=False, default=USINT(1))
     response_parser: CIPResponseParser | None = field(init=False, default=None)
     instance_struct: type[StructType]
-    class_struct: type[StructType] = ClassAllAttrsCIPObject
+    class_struct: type[StructType] = CIPObjectGetAttrsAllClass
 
     def __call__(self, instance: int = 1) -> CIPRequest:
         parser = MsgRouterResponseParser(

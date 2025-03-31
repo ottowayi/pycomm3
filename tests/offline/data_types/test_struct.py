@@ -3,7 +3,7 @@ from typing import Sequence
 import pytest
 
 from pycomm3 import USINT, DataError, UDINT, SHORT_STRING
-from pycomm3.data_types import StructType, UINT, SINT, DINT, STRING, ArrayType, attr, Annotated, array, Array
+from pycomm3.data_types import StructType, UINT, SINT, DINT, STRING, ArrayType, attr, Annotated, Array
 from dataclasses import asdict
 
 
@@ -87,7 +87,7 @@ def test_struct_array_member():
     class S3(StructType):
         a: UINT | int
         b: Array[UINT, USINT] | Sequence[UINT | int]
-        c: Annotated[Array[UINT, int], 3] | Sequence[UINT | int]
+        c: Annotated[ArrayType[UINT, int], 3] | Sequence[UINT | int]
 
     s3 = S3(1, [2, 2, 2], [4, 4, 4])
     assert s3.a == 1
@@ -95,6 +95,8 @@ def test_struct_array_member():
     assert bytes(s3) == b"\x01\x00\x03\x02\x00\x02\x00\x02\x00\x04\x00\x04\x00\x04\x00"
     s3.b = [1, 2]
     assert bytes(s3) == b"\x01\x00\x02\x01\x00\x02\x00\x04\x00\x04\x00\x04\x00"
+    _s3 = S3.decode(b"\x01\x00\x02\x01\x00\x02\x00\x04\x00\x04\x00\x04\x00")
+    assert _s3 == s3
 
 
 def test_struct_missing_args():
@@ -123,12 +125,12 @@ def test_struct_missing_args():
 def test_struct_reserved_field():
     class S1(StructType):
         x: DINT
-        _: UINT = attr(reserved=True)
+        _: UINT = attr(reserved=True, default=2)
         y: DINT
 
     assert S1._members == {"x": DINT, "_": UINT, "y": DINT}
     assert S1._attributes == {"x": DINT, "y": DINT}
-    assert bytes(S1(1, 2, 3)) == b"\x01\x00\x00\x00\x02\x00\x03\x00\x00\x00"
+    assert bytes(S1(1, 3)) == b"\x01\x00\x00\x00\x02\x00\x03\x00\x00\x00"
 
 
 def test_struct_array_len_ref():

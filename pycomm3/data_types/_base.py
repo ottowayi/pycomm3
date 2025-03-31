@@ -446,6 +446,8 @@ class StructType(DataType, metaclass=_StructMeta):
         for member, typ in self._members.items():
             if issubclass(typ, (StructType, ArrayType)):
                 getattr(self, member).__parent_struct__ = (self, member)
+            if self._size_ref and member == self._size_ref[0]:
+                continue
             value = getattr(self, member)
             if not isinstance(value, typ):
                 try:
@@ -569,7 +571,7 @@ class StructType(DataType, metaclass=_StructMeta):
                 else:
                     value = typ.decode(stream)
             except Exception as err:
-                raise DataError(f"Error decoding attribute {name!r}") from err
+                raise DataError(f"Error decoding attribute {name!r}, decoded so far: {values}") from err
             else:
                 values[name] = value
 
