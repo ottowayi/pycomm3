@@ -185,15 +185,14 @@ def test_bool(val, bool_):
 
 
 def test_bytes():
-    # b = BYTES(b"1")
-    # assert b == b"" == bytes(BYTES[0](b"1"))
+    b = BYTES(b"1")
+    assert b == b"1" == bytes(BYTES[1](b"1"))
 
     bb = BYTES[10](b"1234567890")
     assert bb[0] == b"1" == BYTES[1](b"1") == BYTES[1](ord(b"1"))
     assert bb == bytes(bb) == b"1234567890"
     assert bytes(bb[1:]) == b"234567890"
     assert bb.size == 10
-    assert BYTES[0](b"1234") == b"" == bytes(BYTES[0](b"11111111111"))
     assert BYTES[0].decode(b"1234") == b""
     assert BYTES[0] is BYTES[0]
 

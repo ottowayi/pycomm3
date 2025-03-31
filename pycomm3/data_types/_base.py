@@ -851,7 +851,9 @@ class BYTES(ElementaryDataType[bytes], bytes, metaclass=_ElementaryDataTypeMeta)
     def __new__(cls, value: bytes | int, *args, **kwargs):
         if isinstance(value, int):
             value = bytes([value])
-        value = value[: cls.size] if cls.size != -1 else value[:]
+        if cls.size != -1 and len(value) != cls.size:
+            raise DataError(f"expected {cls.size} bytes, got {len(value)}")
+
         return super().__new__(cls, value, *args, **kwargs)
 
     def __class_getitem__(cls, item: int | EllipsisType | type[ElementaryDataType[int]]) -> type["BYTES"]:

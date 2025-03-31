@@ -81,9 +81,9 @@ class Port(CIPObject):
         """
 
         #: Connection terminates in this device
-        ConnectionTerminatesInDevice = 0
-        #: Reserved for compatability with existing protocols
-        Reserved = 1
+        Endpoint = 0
+        #: Backplane
+        Backplane = 1
         #: ControlNet
         ControlNet = 2
         #: ControlNet Redundant
@@ -92,6 +92,18 @@ class Port(CIPObject):
         EtherNetIP = 4
         #: DeviceNet
         DeviceNet = 5
+        #: Remote I/O Scanner
+        RIOScanner = 6
+        # Remote I/O Adapter
+        RIOAdapter = 7
+        #: Virtual backplane / CompactLogix
+        VirtualBackplane = 100
+        #: DataHighway
+        DataHighway = 101
+        #: DataHighway RS485
+        DHRS485 = 102
+        #: USB
+        USB = 107
         #: CompoNet
         CompoNet = 200
         #: Modbus/TCP

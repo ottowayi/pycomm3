@@ -261,11 +261,11 @@ def test_bad_network_segment(value, typ, err_msg):
 
 
 bad_network_segment_decode_tests = [
-    # (b'', ''),
+    (b"", ""),
     (bytes([0b_000_00001]), "NetworkSegment (010): 000"),
-    # (bytes([0b_010_10000]) + b'\x02a', 'Error decoding Network segment data'),
-    # (bytes([0b_010_00111]), 'unsupported: 00111'),
-    # (bytes([0b_010_11000]), 'unsupported: 11000'),
+    (bytes([0b_010_10000]) + b"\x02a", "Error decoding Network segment data"),
+    (bytes([0b_010_00111]), "unsupported: 00111"),
+    (bytes([0b_010_11000]), "unsupported: 11000"),
 ]
 
 
