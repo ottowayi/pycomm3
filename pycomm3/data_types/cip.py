@@ -4,9 +4,9 @@ from io import BytesIO
 from math import log
 from dataclasses import dataclass, field
 
-from typing import ClassVar, cast, Self, Iterator
+from typing import ClassVar, cast, Self, Sequence
 
-from ._base import BufferT, DataType, buff_repr, as_stream, BYTES, array
+from ._base import BufferT, DataType, buff_repr, as_stream, BYTES
 from .numeric import USINT, UINT, UDINT
 from .string import SHORT_STRING
 from pycomm3.util import IntEnumX
@@ -165,11 +165,11 @@ class PortSegment(CIPSegment):
     port: PortIdentifier | int | str = field(compare=False)
     link_address: int | str | bytes = field(compare=False)
 
-    _port: USINT = field(init=False)
-    _link: bytes | DataType = field(init=False)
-    _ex_link: bool = field(default=False, init=False)
-    _link_addr_size: USINT = field(default=USINT(0), init=False)
-    _ex_port: UINT = field(default=UINT(0), init=False)
+    _port: USINT = field(init=False, repr=False)
+    _link: bytes | DataType = field(init=False, repr=False)
+    _ex_link: bool = field(default=False, init=False, repr=False)
+    _link_addr_size: USINT = field(default=USINT(0), init=False, repr=False)
+    _ex_port: UINT = field(default=UINT(0), init=False, repr=False)
 
     def __post_init__(self) -> None:
         try:
@@ -547,7 +547,7 @@ class SymbolicSegment(CIPSegment):
         segment_type = USINT.decode(stream)
         _type = segment_type & SymbolicSegmentType.mask_symbol_size
         if not _type:
-            ex_type = SymbolicSegmentExtendedFormat(USINT.decode(stream))
+            ex_type = USINT.decode(stream)
             size = ex_type & SymbolicSegmentExtendedFormat.mask_size
             _format = ex_type & SymbolicSegmentExtendedFormat.mask_format
             symbol: str | USINT | UINT | UDINT | bytes
@@ -589,7 +589,7 @@ class DataSegment(CIPSegment):
     segment_type: ClassVar[SegmentType] = SegmentType.data
 
     data: str | bytes
-    _type: DataSegmentType = field(default=DataSegmentType.simple, init=False)
+    _type: DataSegmentType = field(default=DataSegmentType.simple, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self._type = DataSegmentType.simple if isinstance(self.data, bytes) else DataSegmentType.ansi_extended
@@ -617,6 +617,9 @@ class ElementaryDataTypeSegment(CIPSegment):
     segment_type: ClassVar[SegmentType] = SegmentType.elementary_data_type
 
 
+__EPATH_TYPE_CACHE__: dict[tuple[bool, bool, bool, int | None], "type[EPATH]"] = {}
+
+
 @dataclass
 class EPATH[T: CIPSegment](DataType):
     """
@@ -627,14 +630,16 @@ class EPATH[T: CIPSegment](DataType):
     padded: ClassVar[bool] = False
     with_len: ClassVar[bool] = False
     pad_len: ClassVar[bool] = False
+    length: ClassVar[int | None] = None
 
     segments: list[T]
 
-    def __len__(self) -> int:
-        return len(self.segments)
-
-    def __iter__(self) -> Iterator[T]:
-        return iter(self.segments)
+    def __post_init__(self) -> None:
+        if any(not isinstance(x, CIPSegment) for x in self.segments):
+            raise DataError("segments all must be instances of CIPSegment")
+        if self.length is not None and len(self.segments) != self.length:
+            raise DataError(f"length mismatch, require {self.length} segments, got {len(self.segments)}")
+        self.segments: list[T] = [s for s in self.segments]
 
     @classmethod
     def _encode(cls, value: "EPATH[T]", *args, **kwargs) -> bytes:
@@ -647,23 +652,46 @@ class EPATH[T: CIPSegment](DataType):
         return path
 
     @classmethod
-    def _decode(cls, stream: BufferT) -> Self:
+    def _decode(cls, stream: BytesIO) -> Self:
         if cls.with_len:
             _len = USINT.decode(stream)
             if cls.pad_len:
                 _ = USINT.decode(stream)
-
         else:
-            _len = ...  # type: ignore # no len, treat like unbound array
+            _len = cls.length
 
-        segments: list[T] = cast(list[T], [s for s in array(CIPSegment, _len).decode(stream)])
+        segments: list[T] = []
+        if _len is None:
+            while True:
+                try:
+                    segments.append(CIPSegment.decode(stream, padded=cls.padded))  # type: ignore
+                except BufferEmptyError:
+                    break
+        else:
+            for i in range(_len):
+                try:
+                    segments.append(CIPSegment.decode(stream, padded=cls.padded))  # type: ignore
+                except BufferEmptyError:
+                    break
 
         return cls(segments)
 
-    def __truediv__(self, other: T | tuple[T, ...] | list[T]) -> Self:
-        # TODO: validation
-        new_segments = (other,) if isinstance(other, CIPSegment) else other
+    def __truediv__(self, other: T | Sequence[T]) -> Self:
+        new_segments: list[T] = [other] if isinstance(other, CIPSegment) else [o for o in other]
         return self.__class__([*self.segments, *new_segments])
+
+    def __class_getitem__(cls, item: int) -> type[Self]:
+        if not isinstance(item, int):
+            raise ValueError("must be int to create fixed-size EPATH")
+        key = (cls.padded, cls.with_len, cls.pad_len, item)
+        if key not in __EPATH_TYPE_CACHE__:
+            klass = type(
+                f"{cls.__name__}x{item}",
+                (cls,),
+                {"padded": cls.padded, "with_len": cls.with_len, "pad_len": cls.pad_len, "length": item},
+            )
+            __EPATH_TYPE_CACHE__[key] = klass
+        return cast(type[Self], __EPATH_TYPE_CACHE__[key])
 
 
 class PADDED_EPATH(EPATH):
