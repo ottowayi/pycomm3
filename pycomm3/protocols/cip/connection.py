@@ -7,7 +7,8 @@ from pycomm3.exceptions import ResponseError, ConnectionError
 
 from ..ethernetip import EIPConnection
 from pycomm3 import get_logger
-from ._base import CIPRequest, CIPResponse, CIPRoute
+from .protocol_base import CIPRequest, CIPResponse
+from .cip_route import CIPRoute
 from .object_library.connection_manager import (
     ConnectionManager,
     ConnectionPriority,
@@ -21,7 +22,7 @@ from .object_library.connection_manager import (
     ProductionTrigger,
 )
 from .object_library.message_router import MessageRouter
-from .cip_object import CIPObject
+from .cip_object import CIPAttribute, CIPObject
 from os import urandom
 from pycomm3.data_types import UDINT, UINT, USINT, DWORD
 from ..connection import is_connected
@@ -102,6 +103,11 @@ class CIPConnection:
 
     def get_attributes_all(self, cip_object: type[CIPObject], instance: int = 1, cip_connected: bool | None = None):
         request = cip_object.get_attributes_all(instance=instance)
+        resp = self.send(request, cip_connected=cip_connected)
+        return resp.data
+
+    def get_attribute_single(self, attribute: CIPAttribute, instance: int = 1, cip_connected: bool | None = None):
+        request = attribute.object.get_attribute_single(attribute=attribute, instance=instance)
         resp = self.send(request, cip_connected=cip_connected)
         return resp.data
 

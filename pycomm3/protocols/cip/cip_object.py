@@ -1,12 +1,11 @@
 from inspect import isclass
 from typing import Literal, ClassVar, Sequence, Final
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pycomm3.data_types import DataType, UINT
-from ._base import (
-    CIPService,
-)
+from .protocol_base import CIPService
 from pycomm3.map import EnumMap
 from pycomm3.util import StatusEnum
+from .base_services import GetAttributeSingleService
 
 
 @dataclass
@@ -26,16 +25,21 @@ class CIPAttribute:
 
 
 class _MetaCIPObject(type):
+    # keeps track of object classes by class code
+    __cip_objects__: ClassVar[dict[int, "type[CIPObject]"]] = {}
+
     def __new__(cls, name, bases, classdict):
         klass = super().__new__(cls, name, bases, classdict)
+        # start with new attrs added to this class
         cip_attrs: dict[str, CIPAttribute] = {
-            attr_name: attr
-            for _class in (
-                *bases,
-                klass,
-            )  # include common attributes from base class plus new ones in klass
+            attr_name: attr for attr_name, attr in vars(klass).items() if isinstance(attr, CIPAttribute)
+        }
+        # then add copies of all parent attrs, excluding overridden ones on this class
+        cip_attrs |= {
+            attr_name: replace(attr)
+            for _class in bases
             for attr_name, attr in vars(_class).items()
-            if isinstance(attr, CIPAttribute)
+            if isinstance(attr, CIPAttribute) and attr_name not in cip_attrs
         }
 
         # instance_all = [(_name, attr.data_type) for _name, attr in cip_attrs.items() if attr.all and not attr.class_attr]
@@ -57,18 +61,27 @@ class _MetaCIPObject(type):
         for attr_name, attr in cip_attrs.items():
             attr.name = attr_name
             attr.object = klass  # type: ignore
+            setattr(klass, attr_name, attr)
 
+        # start with services added to this object
         services: dict[str, CIPService] = {
-            svc_name: service
-            for _class in (*bases, klass)
-            for svc_name, service in vars(_class).items()
-            if isinstance(service, CIPService)
+            svc_name: service for svc_name, service in vars(klass).items() if isinstance(service, CIPService)
         }
 
+        # then add copies of all parent services, excluding overridden ones on this class
+        services |= {
+            svc_name: replace(service)
+            for _class in bases
+            for svc_name, service in vars(_class).items()
+            if isinstance(service, CIPService) and svc_name not in services
+        }
         for svc_name, service in services.items():
             service.name = svc_name
             service.object = klass  # type: ignore
+            setattr(klass, svc_name, service)
 
+        klass.__cip_attributes__ = cip_attrs  # type: ignore
+        klass.__cip_services__ = services  # type: ignore
         return klass
 
     def __repr__(cls):
@@ -86,8 +99,13 @@ class CIPObject(metaclass=_MetaCIPObject):
         CLASS = 0  #: The class itself and not an instance
         DEFAULT = 1  #: The first instance of a class, used as the default if not specified
 
-    # keeps track of object classes by class code
-    _objects: ClassVar[dict[int, "type[CIPObject]"]] = {}
+    # keeps track of service and attribute names to instances
+    __cip_attributes__: ClassVar[dict[int, "type[CIPAttribute]"]]
+    __cip_services__: ClassVar[dict[int, "type[CIPService]"]]
+
+    #: A map of service code, to general and extended status codes and messages
+    #: `*` = Applies to any code, used as a fallback if code is not found
+    #: `{ service | * : { general_status | * : {ext_status | * : message} } }`
     STATUS_CODES: ClassVar[
         dict[
             Literal["*"] | int,  # service messages apply to or '*' = any service
@@ -100,19 +118,6 @@ class CIPObject(metaclass=_MetaCIPObject):
             ],
         ]
     ] = {}
-    # TODO: add functionality to lookup status codes by class, service, etc
-    #       if each object subclasses CIPObject we can reverse MRO for looking up the status messages
-    #
-    # Map of object-specific service codes to status and extended status codes and error messages
-    # ::
-    #     {
-    #         <service>: {
-    #             <status>: {
-    #                 <extended_status>: <message>
-    #             }
-    #         }
-    #     }
-    #
 
     # --- Reserved class attributes, common to all object classes ---
 
@@ -132,11 +137,13 @@ class CIPObject(metaclass=_MetaCIPObject):
     max_instance_attr = CIPAttribute(id=7, data_type=UINT, class_attr=True)
 
     def __init_subclass__(cls) -> None:
-        cls._objects[cls.class_code] = cls
+        cls.__cip_objects__[cls.class_code] = cls
 
     @staticmethod
     def get_attributes_all(instance: int = 1):
         raise NotImplementedError("service must be defined on each object instance")
+
+    get_attribute_single: GetAttributeSingleService = GetAttributeSingleService()
 
     @classmethod
     def get_status_messages(

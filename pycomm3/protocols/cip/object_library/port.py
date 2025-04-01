@@ -1,4 +1,4 @@
-from .message_router import GetAttributesAllService
+from ..base_services import GetAttributesAllService
 from ..cip_object import CIPObject, CIPAttribute
 from pycomm3.data_types import (
     UINT,
