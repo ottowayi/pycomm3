@@ -191,3 +191,25 @@ def test_struct_size_ref():
     )
 
     # TODO: test callable size ref
+
+
+def test_optional_attrs():
+    class S1(StructType):
+        x: UINT
+        y: USINT | None = attr(default=None, conditional_on="x")
+        z: UINT = UINT(0xFFFF)
+
+    s1 = S1(1)
+    assert s1.x == 1
+    assert s1.y is None
+    assert bytes(s1) == b"\x01\x00\xff\xff"
+    with pytest.raises(DataError, match="conditional attribute"):
+        s1.y = 2
+    s1.x = 0
+    assert s1.x == 0
+    assert s1.y is None
+    with pytest.raises(DataError, match="Error packing"):
+        bytes(s1)
+    s1.y = 2
+    assert bytes(s1) == b"\x00\x00\x02\xff\xff"
+    assert S1.decode(b"\x00\x00\x02\xff\xff") == s1
