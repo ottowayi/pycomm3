@@ -1,4 +1,4 @@
-from ..base_services import GetAttributesAllService
+from ..common_services import GetAttributesAllService
 from ..cip_object import CIPObject, CIPAttribute
 from pycomm3.data_types import (
     UINT,

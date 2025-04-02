@@ -1,5 +1,5 @@
 from ..cip_object import CIPObject, CIPAttribute
-from ..base_services import GetAttributesAllService
+from ..common_services import GetAttributesAllService
 from pycomm3.data_types import UINT, WORD, UDINT, SHORT_STRING, USINT, Revision, StructType
 from enum import IntEnum
 

@@ -104,12 +104,12 @@ class CIPConnection:
     def get_attributes_all(self, cip_object: type[CIPObject], instance: int = 1, cip_connected: bool | None = None):
         request = cip_object.get_attributes_all(instance=instance)
         resp = self.send(request, cip_connected=cip_connected)
-        return resp.data
+        return resp
 
     def get_attribute_single(self, attribute: CIPAttribute, instance: int = 1, cip_connected: bool | None = None):
         request = attribute.object.get_attribute_single(attribute=attribute, instance=instance)
         resp = self.send(request, cip_connected=cip_connected)
-        return resp.data
+        return resp
 
     def connect(self):
         if self.connected:

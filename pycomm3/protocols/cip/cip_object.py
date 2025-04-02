@@ -1,11 +1,13 @@
-from inspect import isclass
-from typing import Literal, ClassVar, Sequence, Final
 from dataclasses import dataclass, field, replace
-from pycomm3.data_types import DataType, UINT
-from .protocol_base import CIPService
+from inspect import isclass
+from typing import ClassVar, Final, Literal, Sequence
+
+from pycomm3.data_types import UINT, DataType
 from pycomm3.map import EnumMap
 from pycomm3.util import StatusEnum
-from .base_services import GetAttributeSingleService
+
+from .common_services import GetAttributeSingleService
+from .protocol_base import CIPService
 
 
 @dataclass

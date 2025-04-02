@@ -13,21 +13,18 @@ from pycomm3.data_types import (
     UINT,
     USINT,
     WORD,
+    Array,
+    DataType,
     StructType,
     as_stream,
     attr,
-    Array,
-    DataType,
 )
 from pycomm3.util import StatusEnum
+
+from ..msg_router_services import MessageRouterRequest, MsgRouterResponseParser, MsgRouterService
+from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes
 from ..cip_route import CIPRoute
 from ..protocol_base import CIPRequest, CIPResponse, CIPService
-from ..cip_object import (
-    CIPAttribute,
-    CIPObject,
-    GeneralStatusCodes,
-)
-from ..base_services import MsgRouterResponseParser, MsgRouterService, MessageRouterRequest
 
 
 class ForwardOpenRequest(StructType):

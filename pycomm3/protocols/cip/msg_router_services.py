@@ -1,30 +1,49 @@
-from typing import Sequence, TYPE_CHECKING
-from dataclasses import dataclass, field
-from pycomm3.data_types import DataType, UINT
-from .protocol_base import CIPService
+"""
+Base objects for explicit messaging with the MessageRouter object.
+Includes request/response types and base service and parser classes
+"""
 
-from .protocol_base import CIPRequest, CIPResponse, CIPResponseParser, default_success_codes_factory
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
 from pycomm3._logging import get_logger
 from pycomm3.data_types import (
-    LogicalSegmentType,
-    LogicalSegment,
-    PADDED_EPATH_LEN,
     BYTES,
-    attr,
+    PADDED_EPATH_LEN,
+    UINT,
     USINT,
-    CIPSegment,
-    StructType,
     Array,
+    DataType,
+    LogicalSegment,
+    LogicalSegmentType,
+    StructType,
+    EPATH,
+    attr,
 )
 from pycomm3.exceptions import DataError
 
+from .protocol_base import CIPRequest, CIPResponse, CIPResponseParser, CIPService, default_success_codes_factory
+
 if TYPE_CHECKING:
-    from .cip_object import CIPAttribute
+    from .cip_object import CIPAttribute, CIPObject
+
+
+def cip_object_from_path(path: EPATH) -> "type[CIPObject]":
+    """
+    Return the CIPObject class for the first LogicalSegment of type class id in the `path`,
+    else `CIPObject` if not found.
+    """
+    from .cip_object import CIPObject  # fuck it, I give up on circular imports
+
+    _log_segs = (x.value for x in path if x.segment_type == LogicalSegmentType.type_class_id)  # type: ignore
+    if not (cls_code := next(_log_segs, None)):
+        return CIPObject
+    return CIPObject.__cip_objects__.get(cls_code, CIPObject)
 
 
 class MessageRouterRequest(StructType):
     service: USINT | int
-    path: PADDED_EPATH_LEN | Sequence[CIPSegment]
+    path: PADDED_EPATH_LEN
     data: BYTES | bytes
 
     @staticmethod
@@ -41,15 +60,8 @@ class MessageRouterRequest(StructType):
         ]
         if attribute is not None:
             cip_segments.append(LogicalSegment(LogicalSegmentType.type_attribute_id, attribute))
-        _data = BYTES(data) if isinstance(data, bytes) else bytes(data)
+        _data = BYTES(data if isinstance(data, bytes) else bytes(data))
         return MessageRouterRequest(service=service, path=PADDED_EPATH_LEN(cip_segments), data=_data)
-
-    # @property
-    # def cip_object(self) -> "type[CIPObject]":
-    #     _log_segs = (x.value for x in self.path if x.segment_type == LogicalSegmentType.type_class_id)  # type: ignore
-    #     if not (cls_code := next(_log_segs, None)):
-    #         return CIPObject
-    #     return CIPObject._objects.get(cls_code, CIPObject)
 
 
 class MessageRouterResponse(StructType):
@@ -70,13 +82,13 @@ class MsgRouterResponseParser[RespT: DataType, FRespT: DataType]:
 
     def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse[RespT | FRespT]:
         resp = MessageRouterResponse.decode(data)
-        self.__log.debug("decoded message route response: %r", resp)
+        self.__log.debug("decoded message router response: %r", resp)
         if resp.general_status in self.success_statuses:
             resp_data = self.response_type.decode(resp.data)
             msg = "Success"
         else:
             resp_data = self.failed_response_type.decode(resp.data)
-            general_msg, ext_msg = request.message.cip_object.get_status_messages(
+            general_msg, ext_msg = cip_object_from_path(request.message.path).get_status_messages(
                 service=request.message.service,
                 status=resp.general_status,
                 ext_status=resp.additional_status,
@@ -85,7 +97,7 @@ class MsgRouterResponseParser[RespT: DataType, FRespT: DataType]:
 
             msg = f"{general_msg}({resp.general_status:#04x}): {ext_msg}" if ext_msg else general_msg
 
-        self.__log.debug("decoded message route response data: %r", resp_data)
+        self.__log.debug("decoded message router response data: %r", resp_data)
         return CIPResponse(request=request, response=resp, data=resp_data, message=msg)
 
 
@@ -125,68 +137,6 @@ class MsgRouterService[ReqT: DataType, RespT: DataType, FRespT: DataType](CIPSer
                 instance=instance,
                 attribute=attr_id,
                 data=bytes(data) if data is not None else b"",
-            ),
-            response_parser=parser,
-        )
-
-
-class CIPObjectGetAttrsAllClass(StructType):
-    object_revision: UINT
-    max_instance: UINT
-    num_instances: UINT
-    optional_attrs_list: UINT[UINT]
-    optional_service_list: UINT[UINT]
-    max_class_attr: UINT
-    max_instance_attr: UINT
-
-
-@dataclass
-class GetAttributesAllService(CIPService):
-    id: USINT = field(init=False, default=USINT(0x01))
-    response_parser: CIPResponseParser | None = field(init=False, default=None)
-    instance_struct: type[StructType]
-    class_struct: type[StructType] = CIPObjectGetAttrsAllClass
-
-    def __call__(self, instance: int = 1) -> CIPRequest:
-        parser = MsgRouterResponseParser(
-            response_type=self.class_struct if instance == self.object.Instance.CLASS else self.instance_struct,
-            failed_response_type=BYTES,
-        )
-        return CIPRequest(
-            message=MessageRouterRequest.build(service=self.id, class_code=self.object.class_code, instance=instance),
-            response_parser=parser,
-        )
-
-
-@dataclass
-class GetAttributeListService(CIPService):
-    id: USINT = field(init=False, default=USINT(0x03))
-    response_parser: CIPResponseParser | None = field(init=False, default=None)
-
-    def __call__(self, attribute: Sequence["CIPAttribute"], instance: int = 1) -> CIPRequest:
-        parser = MsgRouterResponseParser(
-            response_type=attribute.data_type,
-            failed_response_type=BYTES,
-        )
-        return CIPRequest(
-            message=MessageRouterRequest.build(service=self.id, class_code=self.object.class_code, instance=instance),
-            response_parser=parser,
-        )
-
-
-@dataclass
-class GetAttributeSingleService(CIPService):
-    id: USINT = field(init=False, default=USINT(0x0E))
-    response_parser: CIPResponseParser | None = field(init=False, default=None)
-
-    def __call__(self, attribute: "CIPAttribute", instance: int = 1) -> CIPRequest:
-        parser = MsgRouterResponseParser(
-            response_type=attribute.data_type,
-            failed_response_type=BYTES,
-        )
-        return CIPRequest(
-            message=MessageRouterRequest.build(
-                service=self.id, class_code=attribute.object.class_code, instance=instance, attribute=attribute.id
             ),
             response_parser=parser,
         )

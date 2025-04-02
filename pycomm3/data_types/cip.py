@@ -4,7 +4,7 @@ from io import BytesIO
 from math import log
 from dataclasses import dataclass, field
 
-from typing import ClassVar, cast, Self, Sequence
+from typing import ClassVar, cast, Self, Sequence, Generator
 
 from ._base import BufferT, DataType, buff_repr, as_stream, BYTES
 from .numeric import USINT, UINT, UDINT
@@ -692,6 +692,9 @@ class EPATH[T: CIPSegment](DataType):
             )
             __EPATH_TYPE_CACHE__[key] = klass
         return cast(type[Self], __EPATH_TYPE_CACHE__[key])
+
+    def __iter__(self) -> Generator[CIPSegment, None, None]:
+        yield from self.segments
 
 
 class PADDED_EPATH(EPATH):

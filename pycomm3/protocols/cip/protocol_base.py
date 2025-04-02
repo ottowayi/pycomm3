@@ -8,7 +8,7 @@ from pycomm3.data_types import (
 
 if TYPE_CHECKING:
     from .cip_object import CIPObject
-    from .base_services import MessageRouterRequest
+    from .msg_router_services import MessageRouterRequest
 
 
 @dataclass
