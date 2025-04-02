@@ -80,14 +80,14 @@ class MsgRouterResponseParser[RespT: DataType, FRespT: DataType]:
     failed_response_type: type[FRespT]
     success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
 
-    def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse[RespT | FRespT]:
+    def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse[RespT | FRespT | DataType]:
         resp = MessageRouterResponse.decode(data)
         self.__log.debug("decoded message router response: %r", resp)
         if resp.general_status in self.success_statuses:
-            resp_data = self.response_type.decode(resp.data)
+            resp_data = self._parse_response_data(resp.data)
             msg = "Success"
         else:
-            resp_data = self.failed_response_type.decode(resp.data)
+            resp_data = self._parse_failed_response_data(resp.data)
             general_msg, ext_msg = cip_object_from_path(request.message.path).get_status_messages(
                 service=request.message.service,
                 status=resp.general_status,
@@ -99,6 +99,12 @@ class MsgRouterResponseParser[RespT: DataType, FRespT: DataType]:
 
         self.__log.debug("decoded message router response data: %r", resp_data)
         return CIPResponse(request=request, response=resp, data=resp_data, message=msg)
+
+    def _parse_response_data(self, data: BYTES) -> DataType:
+        return self.response_type.decode(data)
+
+    def _parse_failed_response_data(self, data: BYTES) -> DataType:
+        return self.failed_response_type.decode(data)
 
 
 @dataclass(kw_only=True)

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Final, Literal, cast, Generator
+from typing import Final, Literal, Sequence, cast, Generator
 from pycomm3.data_types.binary import WORD
 from pycomm3.data_types.cip import LogicalSegment, LogicalSegmentType
 from pycomm3.exceptions import ResponseError, ConnectionError
@@ -108,6 +108,16 @@ class CIPConnection:
 
     def get_attribute_single(self, attribute: CIPAttribute, instance: int = 1, cip_connected: bool | None = None):
         request = attribute.object.get_attribute_single(attribute=attribute, instance=instance)
+        resp = self.send(request, cip_connected=cip_connected)
+        return resp
+
+    def get_attribute_list(
+        self, attributes: Sequence[CIPAttribute], instance: int = 1, cip_connected: bool | None = None
+    ):
+        if len({a.object for a in attributes}) != 1:
+            raise ValueError("attributes must all be from the same object")
+
+        request = attributes[0].object.get_attribute_list(attributes=attributes, instance=instance)
         resp = self.send(request, cip_connected=cip_connected)
         return resp
 

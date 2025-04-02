@@ -6,7 +6,7 @@ from pycomm3.data_types import UINT, DataType
 from pycomm3.map import EnumMap
 from pycomm3.util import StatusEnum
 
-from .common_services import GetAttributeSingleService
+from .common_services import GetAttributeSingleService, GetAttributeListService
 from .protocol_base import CIPService
 
 
@@ -146,6 +146,7 @@ class CIPObject(metaclass=_MetaCIPObject):
         raise NotImplementedError("service must be defined on each object instance")
 
     get_attribute_single: GetAttributeSingleService = GetAttributeSingleService()
+    get_attribute_list: GetAttributeListService = GetAttributeListService()
 
     @classmethod
     def get_status_messages(
