@@ -478,3 +478,5 @@ class ConnectionManager(CIPObject):
             return f"DataSegment error at index {ext_status}"
         if general_status == GeneralStatusCodes.object_state_conflict:
             return f"state={ext_status:#06x}"
+
+        return None
