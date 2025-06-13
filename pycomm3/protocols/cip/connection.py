@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Final, Literal, Sequence, cast, Generator
-from pycomm3.data_types.binary import WORD
+from typing import Callable, Final, Literal, Sequence, cast, Generator, reveal_type, TypeVar
+from pycomm3.data_types import WORD
 from pycomm3.data_types.cip import LogicalSegment, LogicalSegmentType
-from pycomm3.exceptions import ResponseError, ConnectionError
+from pycomm3.exceptions import ResponseError
+
 
 from ..ethernetip import EIPConnection
 from pycomm3 import get_logger
@@ -15,16 +16,18 @@ from .object_library.connection_manager import (
     ConnectionTimeoutMultiplier,
     ConnectionType,
     ForwardCloseRequest,
+    ForwardOpenFailedResponse,
     ForwardOpenRequest,
     ForwardOpenResponse,
     LargeForwardOpenRequest,
     TickTime,
     ProductionTrigger,
+    UnconnectedSendFailedResponse,
 )
 from .object_library.message_router import MessageRouter
 from .cip_object import CIPAttribute, CIPObject
 from os import urandom
-from pycomm3.data_types import UDINT, UINT, USINT, DWORD
+from pycomm3.data_types import UDINT, UINT, USINT, DWORD, DataType
 from ..connection import is_connected
 from pycomm3.util import cycle
 
@@ -62,7 +65,7 @@ class ConnectedConfig:
 
 @dataclass
 class CIPConfig:
-    cip_path: CIPRoute | None = None
+    route: CIPRoute | None = None
     unconnected_config: UnconnectedConfig = field(default_factory=UnconnectedConfig)
     connected_config: ConnectedConfig = field(default_factory=ConnectedConfig)
 
@@ -106,9 +109,13 @@ class CIPConnection:
         resp = self.send(request, cip_connected=cip_connected)
         return resp
 
-    def get_attribute_single(self, attribute: CIPAttribute, instance: int = 1, cip_connected: bool | None = None):
+    def get_attribute_single[T: DataType](
+        self, attribute: CIPAttribute[T], instance: int = 1, cip_connected: bool | None = None
+    ) -> CIPResponse[T]:
         request = attribute.object.get_attribute_single(attribute=attribute, instance=instance)
         resp = self.send(request, cip_connected=cip_connected)
+        reveal_type(resp)
+        reveal_type(request)
         return resp
 
     def get_attribute_list(
@@ -126,6 +133,11 @@ class CIPConnection:
             raise ConnectionError("already connected")
         self._transport.connect()
 
+    def disconnect(self):
+        if not self.connected:
+            raise ConnectionError("not connected")
+        self._transport.disconnect()
+
     @is_connected
     def forward_open(self):
         if self.cip_connected:
@@ -134,7 +146,7 @@ class CIPConnection:
         request = self._build_forward_open_request()
         if enip_resp := self._transport.send_rr_data(bytes(request.message)):
             if resp := request.response_parser.parse(enip_resp.data.packet.data.data, request):
-                resp_data = cast(ForwardOpenResponse, resp.data)  # type: ignore
+                resp_data = cast(ForwardOpenResponse, resp.data)
                 self.config.connected_config.o2t_connection_id = resp_data.o2t_connection_id
                 self.config.connected_config.t2o_connection_id = resp_data.t2o_connection_id
                 self.config.connected_config.connection_serial = resp_data.connection_serial
@@ -148,7 +160,7 @@ class CIPConnection:
         else:
             raise ResponseError("ethernet/ip response error", enip_resp)
 
-    def _build_forward_open_request(self) -> CIPRequest:
+    def _build_forward_open_request(self) -> CIPRequest[ForwardOpenResponse | ForwardOpenFailedResponse]:
         self.__log.debug("building forward_open request")
         cfg = self.config.connected_config
         t2o_connection_id = UDINT(cfg.t2o_connection_id) or UDINT.decode(urandom(4))
@@ -162,7 +174,7 @@ class CIPConnection:
             params |= 1 << 15
         if cfg.sizing == "variable":
             params |= 1 << 9
-        connection_path = (self.config.cip_path or CIPRoute()).epath(padded=True, length=True) / (
+        connection_path = (self.config.route or CIPRoute()).epath(padded=True, length=True) / (
             LogicalSegment(type=LogicalSegmentType.type_class_id, value=MessageRouter.class_code),
             LogicalSegment(type=LogicalSegmentType.type_instance_id, value=0x01),
         )
@@ -193,14 +205,11 @@ class CIPConnection:
             connection_path=connection_path,
         )
         self.__log.debug("forward_open request data: %s", request_data)
-        request = service(
-            data=request_data,  # type: ignore
-            instance=ConnectionManager.Instance.open_request,
-        )
+        request = service(params=request_data)  # type: ignore
         self.__log.debug("built forward_open request: %s", request)
         return request
 
-    def send(self, msg: CIPRequest, cip_connected: bool | None = None) -> CIPResponse:
+    def send[T: DataType](self, msg: CIPRequest[T], cip_connected: bool | None = None) -> CIPResponse[T]:
         """
         Sends a CIPRequest, by default will send an unconnected message if the connection is not
         *CIP Connected* else will send a connected message (`cip_connected=None`).
@@ -212,13 +221,13 @@ class CIPConnection:
             return self.unconnected_send(msg)
 
     @is_connected
-    def unconnected_send(
+    def unconnected_send[T: DataType](
         self,
-        msg: CIPRequest,
+        msg: CIPRequest[T],
         config: UnconnectedConfig | None = None,
         cip_path: CIPRoute | None = None,
-    ) -> CIPResponse:
-        _path = cip_path if cip_path is not None else p if (p := self.config.cip_path) is not None else CIPRoute()
+    ) -> CIPResponse[T | UnconnectedSendFailedResponse]:
+        _path = cip_path if cip_path is not None else p if (p := self.config.route) is not None else CIPRoute()
         if _path:
             request = ConnectionManager.unconnected_send(
                 msg=msg,
@@ -227,7 +236,7 @@ class CIPConnection:
                 num_ticks=(config.num_ticks if config is not None else self.config.unconnected_config.num_ticks),
             )
         else:
-            request = msg
+            request = cast(CIPRequest[T | UnconnectedSendFailedResponse], msg)
         self.__log.debug("sending unconnected_send request: %s", request)
         if enip_resp := self._transport.send_rr_data(msg=bytes(request.message)):
             self.__log.debug("parsing unconnected_send response: %s", enip_resp.data.packet.data.data)
@@ -238,7 +247,7 @@ class CIPConnection:
             raise ResponseError("ethernet/ip response error", enip_resp)
 
     @is_cip_connected
-    def _connected_send(self, request: CIPRequest) -> CIPResponse:
+    def _connected_send[T: DataType](self, request: CIPRequest[T]) -> CIPResponse[T]:
         self.__log.debug("sending connected request: %s", request)
         encoded_msg = bytes(request.message)
         if has_seq_id := (0 < self.config.connected_config.transport_class <= 3):
@@ -261,13 +270,13 @@ class CIPConnection:
 
     @is_cip_connected
     def forward_close(self):
-        connection_path = (self.config.cip_path or CIPRoute()).epath(padded=True, length=True, padded_len=True) / (
+        connection_path = (self.config.route or CIPRoute()).epath(padded=True, length=True, padded_len=True) / (
             LogicalSegment(type=LogicalSegmentType.type_class_id, value=MessageRouter.class_code),
             LogicalSegment(type=LogicalSegmentType.type_instance_id, value=0x01),
         )
 
         request = ConnectionManager.forward_close(
-            data=ForwardCloseRequest(
+            request_data=ForwardCloseRequest(
                 priority_tick_time=USINT(self.config.unconnected_config.tick_time),
                 timeout_ticks=USINT(self.config.unconnected_config.num_ticks),
                 connection_serial=self.config.connected_config.connection_serial,
@@ -275,7 +284,6 @@ class CIPConnection:
                 originator_serial=self.config.connected_config.originator_serial,
                 connection_path=connection_path,
             ),
-            instance=ConnectionManager.Instance.open_request,
         )
 
         if enip_resp := self._transport.send_rr_data(bytes(request.message)):

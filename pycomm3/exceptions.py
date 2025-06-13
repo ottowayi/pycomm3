@@ -29,15 +29,6 @@ class PycommError(Exception):
     """
 
 
-class ConnectionError(PycommError): ...
-
-
-class CommError(PycommError):
-    """
-    For exceptions raised during connection related issues
-    """
-
-
 class DataError(PycommError):
     """
     For exceptions raised during binary encoding/decoding of data

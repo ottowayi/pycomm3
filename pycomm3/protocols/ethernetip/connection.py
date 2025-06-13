@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Final, cast
 
 from pycomm3.data_types import BYTES, UDINT, Array
-from pycomm3.exceptions import CommError, DataError
+from pycomm3.exceptions import DataError
 from pycomm3 import get_logger
 
 from ..connection import Connection
@@ -52,7 +52,7 @@ class EIPConnection(Connection):
             self._connected = True
         except Exception as err:
             self._connected = False
-            raise CommError(f"Failed to connect to {self.config.host}:{self.config.port}") from err
+            raise ConnectionError(f"Failed to connect to {self.config.host}:{self.config.port}") from err
         else:
             try:
                 self._session_id = UDINT(0)
@@ -60,7 +60,7 @@ class EIPConnection(Connection):
             except Exception as err:
                 self._connected = False
                 self._session_id = UDINT(0)
-                raise CommError(f"Failed to register session with {self.config.host}:{self.config.port}") from err
+                raise ConnectionError(f"Failed to register session with {self.config.host}:{self.config.port}") from err
 
     @property
     def connected(self) -> bool:
@@ -86,7 +86,7 @@ class EIPConnection(Connection):
             if self._sock is not None:
                 self._sock.close()
         except Exception as err:
-            raise CommError(f"Failed to disconnect from {self.config.host}:{self.config.port}") from err
+            raise ConnectionError(f"Failed to disconnect from {self.config.host}:{self.config.port}") from err
         else:
             self.__log.debug("... disconnected")
         finally:
@@ -165,10 +165,10 @@ class EIPConnection(Connection):
             try:
                 sent = self._sock.send(msg[total_sent:])  # type: ignore
                 if sent == 0:
-                    raise CommError("Failed to send any data")
+                    raise ConnectionError("Failed to send any data")
                 total_sent += sent
             except socket.error as err:
-                raise CommError(f"Failed to send {len(msg)} bytes, sent {total_sent}") from err
+                raise ConnectionError(f"Failed to send {len(msg)} bytes, sent {total_sent}") from err
         return total_sent
 
     def _recv(self, request: EIPRequest) -> EIPResponse:
@@ -199,7 +199,7 @@ class EIPConnection(Connection):
             self.__log.error(f"Socket error: {err}")
             if chunks:
                 self.__log.log_bytes("<< RECEIVED (BEFORE ERROR) <<", b"".join(chunks))
-            raise CommError(f"Failed to read {size} bytes from connection, got {recvd}") from err
+            raise ConnectionError(f"Failed to read {size} bytes from connection, got {recvd}") from err
 
     def __str__(self) -> str:
         return f"EtherNetIPConnection<{self.config.host}:{self.config.port}> - {'DIS' if not self._connected else ''}CONNECTED (session_id={self.session_id})"

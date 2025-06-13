@@ -1,16 +1,17 @@
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Sequence, Any, overload
 
-from pycomm3.data_types import BYTES, UINT, USINT, StructType, attr
+from pycomm3.data_types import BYTES, UINT, USINT, StructType, attr, DataType
+
 
 from .protocol_base import CIPRequest, CIPResponseParser, CIPService
 from .msg_router_services import MessageRouterRequest, MsgRouterResponseParser
 
 if TYPE_CHECKING:
-    from .cip_object import CIPAttribute
+    from .cip_object import CIPAttribute, CIPObject
 
 
-class CIPObjectGetAttrsAllClass(StructType):
+class StandardClassAttrs(StructType):
     object_revision: UINT
     max_instance: UINT
     num_instances: UINT
@@ -20,18 +21,28 @@ class CIPObjectGetAttrsAllClass(StructType):
     max_instance_attr: UINT
 
 
-@dataclass
-class GetAttributesAllService(CIPService):
-    id: USINT = field(init=False, default=USINT(0x01))
-    response_parser: CIPResponseParser | None = field(init=False, default=None)
-    instance_struct: type[StructType]
-    class_struct: type[StructType] = CIPObjectGetAttrsAllClass
+class UnsupportedGetAttrsAll(StructType):
+    data: BYTES
 
-    def __call__(self, instance: int = 1) -> CIPRequest:
-        parser = MsgRouterResponseParser(
-            response_type=self.class_struct if instance == self.object.Instance.CLASS else self.instance_struct,
-            failed_response_type=BYTES,
-        )
+
+@dataclass
+class GetAttributesAllService[TObj: CIPObject, Tins: StructType, Tcls: StructType](CIPService[TObj, Tins | Tcls]):
+    id: USINT = field(init=False, default=USINT(0x01))
+    response_parser: Any = field(init=False, default=None)
+    instance_struct: type[Tins]
+    class_struct: type[Tcls]
+
+    # @overload
+    # def __call__(self, instance: None = None, *args, **kwargs) -> CIPRequest[Tcls]: ...
+    # @overload
+    # def __call__(self, instance: int = 1, *args, **kwargs) -> CIPRequest[Tins]: ...
+    def __call__(self, instance: int | None = 1, *args, **kwargs) -> CIPRequest[Tins | Tcls]:
+        if not instance:
+            resp_type = self.class_struct
+            instance = 0
+        else:
+            resp_type = self.instance_struct
+        parser = MsgRouterResponseParser(response_type=resp_type)
         return CIPRequest(
             message=MessageRouterRequest.build(service=self.id, class_code=self.object.class_code, instance=instance),
             response_parser=parser,
@@ -49,7 +60,7 @@ class AttrListItem(StructType):
 @dataclass
 class GetAttributeListService(CIPService):
     id: USINT = field(init=False, default=USINT(0x03))
-    response_parser: CIPResponseParser | None = field(init=False, default=None)
+    response_parser: CIPResponseParser[StructType] | None = field(init=False, default=None)
 
     def __call__(self, attributes: Sequence["CIPAttribute"], instance: int = 1) -> CIPRequest:
         resp_struct = StructType.create(
@@ -68,10 +79,7 @@ class GetAttributeListService(CIPService):
             ],
         )
 
-        parser = MsgRouterResponseParser(
-            response_type=resp_struct,
-            failed_response_type=BYTES,
-        )
+        parser = MsgRouterResponseParser(response_type=resp_struct)
         return CIPRequest(
             message=MessageRouterRequest.build(
                 service=self.id,
@@ -84,15 +92,12 @@ class GetAttributeListService(CIPService):
 
 
 @dataclass
-class GetAttributeSingleService(CIPService):
+class GetAttributeSingleService[T: DataType](CIPService):
     id: USINT = field(init=False, default=USINT(0x0E))
-    response_parser: CIPResponseParser | None = field(init=False, default=None)
+    response_parser: CIPResponseParser[T] | None = field(init=False, default=None)
 
-    def __call__(self, attribute: "CIPAttribute", instance: int = 1) -> CIPRequest:
-        parser = MsgRouterResponseParser(
-            response_type=attribute.data_type,
-            failed_response_type=BYTES,
-        )
+    def __call__(self, attribute: "CIPAttribute", instance: int = 1) -> CIPRequest[T]:
+        parser = MsgRouterResponseParser(response_type=attribute.data_type)
         return CIPRequest(
             message=MessageRouterRequest.build(
                 service=self.id, class_code=attribute.object.class_code, instance=instance, attribute=attribute.id

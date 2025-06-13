@@ -1,34 +1,55 @@
 from dataclasses import dataclass, field, replace
 from inspect import isclass
-from typing import ClassVar, Final, Literal, Sequence
+from types import ClassMethodDescriptorType
+from typing import Callable, ClassVar, Final, Literal, Protocol, Sequence, reveal_type, Self, Any, ParamSpec, TypeVar
 
 from pycomm3.data_types import UINT, DataType
+from pycomm3.data_types._base import StructType
+from pycomm3.data_types.numeric import USINT
 from pycomm3.map import EnumMap
+
 from pycomm3.util import StatusEnum
 
-from .common_services import GetAttributeSingleService, GetAttributeListService
-from .protocol_base import CIPService
+from .common_services import (
+    GetAttributeSingleService,
+    GetAttributeListService,
+    GetAttributesAllService,
+    UnsupportedGetAttrsAll,
+    StandardClassAttrs,
+)
+
+from .protocol_base import CIPRequest, CIPService
+from .msg_router_services import MsgRouterResponseParser, MessageRouterRequest
 
 
 @dataclass
-class CIPAttribute:
+class CIPAttribute[T: DataType]:
     #: Attribute ID number
     id: int
     #: Data type of the attribute
-    data_type: "type[DataType]"
+    data_type: "type[T]"
     #: Flag to indicate the attribute is a class attribute if True, False if it is an instance attribute
     class_attr: bool = False
     # set by metaclass
-    object: type["CIPObject"] = field(init=False)  # object containing the attribute
+    object: "type[CIPObject]" = field(init=False)  # object containing the attribute
     name: str = field(init=False)  # attribute name (variable name of CIPObject class var)
 
     def __str__(self):
         return f"{self.object.__name__}.{self.name}"
 
 
+@dataclass
+class _CIPService:
+    id: USINT
+    name: str
+    func: Callable
+
+
 class _MetaCIPObject(type):
     # keeps track of object classes by class code
     __cip_objects__: ClassVar[dict[int, "type[CIPObject]"]] = {}
+    __cip_services__: dict[USINT, _CIPService]
+    __cip_attributes__: dict[int, "type[CIPAttribute]"]
 
     def __new__(cls, name, bases, classdict):
         klass = super().__new__(cls, name, bases, classdict)
@@ -65,29 +86,61 @@ class _MetaCIPObject(type):
             attr.object = klass  # type: ignore
             setattr(klass, attr_name, attr)
 
-        # start with services added to this object
-        services: dict[str, CIPService] = {
-            svc_name: service for svc_name, service in vars(klass).items() if isinstance(service, CIPService)
-        }
+        ### moving to @service method decorator, but leaving in case i come back to this
+        # # start with services added to this object
+        # services: dict[str, CIPService] = {
+        #     svc_name: service for svc_name, service in vars(klass).items() if isinstance(service, CIPService)
+        # }
+        #
+        # # then add copies of all parent services, excluding overridden ones on this class
+        # services |= {
+        #     svc_name: replace(service)
+        #     for _class in bases
+        #     for svc_name, service in vars(_class).items()
+        #     if isinstance(service, CIPService) and svc_name not in services
+        # }
+        # for svc_name, service in services.items():
+        #     service.name = svc_name
+        #     service.object = klass  # type: ignore
+        #     setattr(klass, svc_name, service)
 
-        # then add copies of all parent services, excluding overridden ones on this class
-        services |= {
-            svc_name: replace(service)
-            for _class in bases
-            for svc_name, service in vars(_class).items()
-            if isinstance(service, CIPService) and svc_name not in services
+        services = {
+            _id: _CIPService(_id, name, func.__func__)
+            for name, func in vars(klass).items()
+            if isinstance(func, classmethod) and (_id := getattr(func.__func__, "__cip_service_id__", None)) is not None
         }
-        for svc_name, service in services.items():
-            service.name = svc_name
-            service.object = klass  # type: ignore
-            setattr(klass, svc_name, service)
-
         klass.__cip_attributes__ = cip_attrs  # type: ignore
-        klass.__cip_services__ = services  # type: ignore
+        klass.__cip_services__ = services
         return klass
 
     def __repr__(cls):
         return cls.__name__
+
+
+def service(id: USINT):
+    def _service[T: _MetaCIPObject, **P, R](method: Callable[P, R]) -> Callable[P, R]:
+        class Service:
+            __cip_service_id__: USINT
+
+            def __init__(self, method: Callable[P, R]) -> None:
+                self.method = method
+
+            def __set_name__(self, owner: T, name: str) -> None:
+                if not isinstance(owner, _MetaCIPObject):
+                    raise TypeError("services must be subclasses of CIPObject")
+                if not isinstance(self.method, classmethod):
+                    raise TypeError("services must be classmethods")
+
+                self.method.__func__.__cip_service_id__ = id  # type: ignore
+
+                setattr(owner, name, self.method)
+
+            def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+                return self.method(*args, **kwargs)
+
+        return Service(method)
+
+    return _service
 
 
 class CIPObject(metaclass=_MetaCIPObject):
@@ -101,9 +154,9 @@ class CIPObject(metaclass=_MetaCIPObject):
         CLASS = 0  #: The class itself and not an instance
         DEFAULT = 1  #: The first instance of a class, used as the default if not specified
 
-    # keeps track of service and attribute names to instances
-    __cip_attributes__: ClassVar[dict[int, "type[CIPAttribute]"]]
-    __cip_services__: ClassVar[dict[int, "type[CIPService]"]]
+    # keeps track of service and attribute names to instances, metaclass adds these
+    # __cip_attributes__: ClassVar[dict[int, "type[CIPAttribute]"]]
+    # __cip_services__: ClassVar[dict[USINT, _CIPService]]
 
     #: A map of service code, to general and extended status codes and messages
     #: `*` = Applies to any code, used as a fallback if code is not found
@@ -141,12 +194,52 @@ class CIPObject(metaclass=_MetaCIPObject):
     def __init_subclass__(cls) -> None:
         cls.__cip_objects__[cls.class_code] = cls
 
-    @staticmethod
-    def get_attributes_all(instance: int = 1):
-        raise NotImplementedError("service must be defined on each object instance")
+    _svc_get_attrs_all_instance_type: ClassVar[type[StructType]] = UnsupportedGetAttrsAll
+    _svc_get_attrs_all_class_type: ClassVar[type[StructType]] = StandardClassAttrs
 
-    get_attribute_single: GetAttributeSingleService = GetAttributeSingleService()
-    get_attribute_list: GetAttributeListService = GetAttributeListService()
+    @service(id=USINT(0x01))
+    @classmethod
+    def get_attributes_all(cls, instance: int | None = 1):
+        if not instance:
+            resp_type = cls._svc_get_attrs_all_class_type
+            instance = 0
+        else:
+            resp_type = cls._svc_get_attrs_all_instance_type
+        parser = MsgRouterResponseParser(response_type=resp_type)
+        return CIPRequest(
+            message=MessageRouterRequest.build(
+                service=cls.get_attributes_all.__cip_service_id__,  # type: ignore - trust me bro
+                class_code=cls.class_code,
+                instance=instance,
+            ),
+            response_parser=parser,
+        )
+
+    @service(id=USINT(0x0E))
+    @classmethod
+    def get_attribute_single[T: DataType](cls, attribute: CIPAttribute[T], instance: int | None = 1):
+        parser = MsgRouterResponseParser(response_type=attribute.data_type)
+        return CIPRequest(
+            message=MessageRouterRequest.build(
+                service=cls.get_attribute_single.__cip_service_id__,  # type: ignore
+                class_code=attribute.object.class_code,
+                instance=instance or 0,
+                attribute=attribute.id,
+            ),
+            response_parser=parser,
+        )
+
+    # get_attributes_all: GetAttributesAllService[Self, UnsupportedGetAttrsAll, StandardClassAttrs] = (
+    #     GetAttributesAllService(UnsupportedGetAttrsAll, StandardClassAttrs)
+    # )
+    # get_attribute_single = GetAttributeSingleService()
+    # get_attribute_list = GetAttributeListService()
+
+    # okay, maybe switch back to methods for the services but have private service instances
+    # with the `object` and pass that in from the method????
+    # @classmethod
+    # def get_attributes_all(cls, instance: int = 1):
+    #     return cls._get_attributes_all(instance=instance)
 
     @classmethod
     def get_status_messages(

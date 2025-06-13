@@ -1,10 +1,12 @@
 from ..cip_object import CIPObject, CIPAttribute
-from ..common_services import GetAttributesAllService
+from ..common_services import GetAttributesAllService, StandardClassAttrs
+from ..protocol_base import CIPService
 from pycomm3.data_types import UINT, WORD, UDINT, SHORT_STRING, USINT, Revision, StructType
 from enum import IntEnum
+from typing import reveal_type, Self
 
 
-class IdentityGetAttrsAllInstance(StructType):
+class IdentityInstanceAttrs(StructType):
     vendor_id: UINT
     device_type: UINT
     product_code: UINT
@@ -65,5 +67,3 @@ class Identity(CIPObject):
         MajorUnrecoverableFault = 5
         #: Default value for a ``get_attributes_all`` service response if attribute is not supported
         DefaultGetAttributesAll = 255
-
-    get_attributes_all = GetAttributesAllService(IdentityGetAttrsAllInstance)

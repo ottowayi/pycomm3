@@ -1,7 +1,6 @@
 from .base import Response, Request
 from typing import Protocol
 from functools import wraps
-from pycomm3.exceptions import ConnectionError
 
 
 class Connection[ReqT: Request, RespT: Response](Protocol):

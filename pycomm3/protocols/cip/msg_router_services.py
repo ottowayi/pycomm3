@@ -22,7 +22,7 @@ from pycomm3.data_types import (
 )
 from pycomm3.exceptions import DataError
 
-from .protocol_base import CIPRequest, CIPResponse, CIPResponseParser, CIPService, default_success_codes_factory
+from .protocol_base import CIPRequest, CIPResponse, CIPResponseParser, CIPService, SUCCESS
 
 if TYPE_CHECKING:
     from .cip_object import CIPAttribute, CIPObject
@@ -74,13 +74,13 @@ class MessageRouterResponse(StructType):
 
 
 @dataclass
-class MsgRouterResponseParser[RespT: DataType, FRespT: DataType]:
+class MsgRouterResponseParser[TR: DataType, TF: DataType]:
     __log = get_logger(__qualname__)
-    response_type: type[RespT]
-    failed_response_type: type[FRespT]
-    success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
+    response_type: type[TR]
+    failed_response_type: type[TF]
+    success_statuses: set[USINT] = field(default_factory=lambda: {SUCCESS})
 
-    def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse[RespT | FRespT | DataType]:
+    def parse(self, data: BYTES, request: CIPRequest[TR | TF]) -> CIPResponse[TR | TF]:
         resp = MessageRouterResponse.decode(data)
         self.__log.debug("decoded message router response: %r", resp)
         if resp.general_status in self.success_statuses:
@@ -100,49 +100,83 @@ class MsgRouterResponseParser[RespT: DataType, FRespT: DataType]:
         self.__log.debug("decoded message router response data: %r", resp_data)
         return CIPResponse(request=request, response=resp, data=resp_data, message=msg)
 
-    def _parse_response_data(self, data: BYTES) -> DataType:
+    def _parse_response_data(self, data: BYTES) -> TR:
         return self.response_type.decode(data)
 
-    def _parse_failed_response_data(self, data: BYTES) -> DataType:
+    def _parse_failed_response_data(self, data: BYTES) -> TF:
         return self.failed_response_type.decode(data)
 
 
-@dataclass(kw_only=True)
-class MsgRouterService[ReqT: DataType, RespT: DataType, FRespT: DataType](CIPService):
-    request_type: type[ReqT] | None = None
-    response_type: type[RespT]
-    failed_response_type: type[FRespT] | None = None
-    success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
-    response_parser: CIPResponseParser | None = None
+# @dataclass(kw_only=True)
+# class MsgRouterService[ReqT: DataType, RespT: DataType](CIPService):
+#     request_type: type[ReqT] | None = None
+#     response_type: type[RespT]
+#     success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
+#     response_parser: CIPResponseParser[ReqT | RespT] | None = None
+#
+#     def __call__(
+#         self,
+#         data: ReqT | None = None,
+#         instance: int = 1,
+#         attribute: "CIPAttribute | None" = None,
+#         **kwargs,
+#     ) -> CIPRequest:
+#         #
+#         if self.request_type is not None and data is None:
+#             raise DataError("this service requires request `data`")
+#         if self.request_type is None and data is not None:
+#             raise DataError("this service does not accept request `data`")
+#
+#         attr_id = None if attribute is None else attribute.id
+#
+#         parser = self.response_parser or MsgRouterResponseParser(
+#             response_type=self.response_type,
+#             success_statuses=self.success_statuses,
+#         )
+#         return CIPRequest(
+#             message=MessageRouterRequest.build(
+#                 service=self.id,
+#                 class_code=self.object.class_code,
+#                 instance=instance,
+#                 attribute=attr_id,
+#                 data=bytes(data) if data is not None else b"",
+#             ),
+#             response_parser=parser,
+#         )
 
-    def __call__(
-        self,
-        data: ReqT | None = None,
-        instance: int = 1,
-        attribute: "CIPAttribute | None" = None,
-        **kwargs,
-    ) -> CIPRequest:
-        #
-        if self.request_type is not None and data is None:
-            raise DataError("this service requires request `data`")
-        if self.request_type is None and data is not None:
-            raise DataError("this service does not accept request `data`")
 
-        attr_id = None if attribute is None else attribute.id
-        failed_resp_type = self.failed_response_type if self.failed_response_type is not None else BYTES
+def message_router_service[TReq: DataType, TResp: DataType, TFResp: DataType](
+    *,
+    service: USINT,
+    class_code: int,
+    instance: int | None = 1,
+    attribute: CIPAttribute | None = None,
+    request_data: TReq | None = None,
+    request_type: type[TReq],
+    response_type: type[TResp],
+    failed_response_type: type[TFResp] = BYTES,
+    response_parser: CIPResponseParser[TResp | TFResp] | None = None,
+    success_statuses: set[USINT] | None = None,
+) -> CIPRequest[TResp | TFResp]:
+    if request_type is not None and request_data is None:
+        raise DataError("this service requires request `data`")
+    if request_type is None and data is not None:
+        raise DataError("this service does not accept request `data`")
 
-        parser = self.response_parser or MsgRouterResponseParser(
-            response_type=self.response_type,
-            failed_response_type=failed_resp_type,
-            success_statuses=self.success_statuses,
-        )
-        return CIPRequest(
-            message=MessageRouterRequest.build(
-                service=self.id,
-                class_code=self.object.class_code,
-                instance=instance,
-                attribute=attr_id,
-                data=bytes(data) if data is not None else b"",
-            ),
-            response_parser=parser,
-        )
+    attr_id = None if attribute is None else attribute.id
+
+    parser = response_parser or MsgRouterResponseParser(
+        response_type=response_type,
+        failed_response_type=failed_response_type,
+        success_statuses={USINT(0)} if success_statuses is None else success_statuses,
+    )
+    return CIPRequest(
+        message=MessageRouterRequest.build(
+            service=service,
+            class_code=class_code,
+            instance=instance or 0,
+            attribute=attr_id,
+            data=bytes(request_data) if request_data is not None else b"",
+        ),
+        response_parser=parser,
+    )

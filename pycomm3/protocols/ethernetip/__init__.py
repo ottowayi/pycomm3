@@ -1,1 +1,1 @@
-from .connection import EIPConnection, EIPConfig
+from .connection import EIPConnection, EIPConfig, ETHERNETIP_PORT

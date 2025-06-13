@@ -21,8 +21,8 @@ from pycomm3.data_types import (
 )
 from pycomm3.util import StatusEnum
 
-from ..msg_router_services import MessageRouterRequest, MsgRouterResponseParser, MsgRouterService
-from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes
+from ..msg_router_services import MessageRouterRequest, MsgRouterResponseParser, message_router_service
+from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes, service
 from ..cip_route import CIPRoute
 from ..protocol_base import CIPRequest, CIPResponse, CIPService
 
@@ -238,8 +238,8 @@ class UnconnectedSendResponseHeader(StructType):
 
 
 class UnconnectedSendSuccessResponse(StructType):
-    _reserved2: USINT = attr(reserved=True, default=USINT(0))
-    service_response_data: BYTES  # pyright: ignore [reportGeneralTypeIssues]
+    _reserved2: USINT = attr(init=False, reserved=True, default=USINT(0))
+    service_response_data: BYTES
 
 
 class UnconnectedSendFailedResponse(StructType):
@@ -248,12 +248,14 @@ class UnconnectedSendFailedResponse(StructType):
 
 
 @dataclass
-class UnconnectedSendResponseParser(MsgRouterResponseParser):
+class UnconnectedSendResponseParser[T: DataType](MsgRouterResponseParser[T, UnconnectedSendFailedResponse]):
     __log = get_logger(__qualname__)
+    response_type: type[T]
+    failed_response_type: type[UnconnectedSendFailedResponse] = UnconnectedSendFailedResponse
 
-    failed_response_type: type[BYTES] = field(init=False, default=BYTES)
-
-    def parse(self, data: BYTES, request: CIPRequest) -> CIPResponse:
+    def parse(
+        self, data: BYTES, request: CIPRequest[T | UnconnectedSendFailedResponse]
+    ) -> CIPResponse[T | UnconnectedSendFailedResponse]:
         buff = as_stream(data)
         header = UnconnectedSendResponseHeader.decode(buff)
         self.__log.debug("decoded unconnected send response header: %r", header)
@@ -422,30 +424,82 @@ class ConnectionManager(CIPObject):
     #: Currently available size (in bytes) of the buffer
     buffer_size_remaining = CIPAttribute(id=13, data_type=UDINT)
 
-    #  --- services ---
-    #: Closes a connection
-    forward_close = MsgRouterService(
-        id=USINT(0x4E),
-        request_type=ForwardCloseRequest,
-        response_type=ForwardCloseResponse,
-        failed_response_type=ForwardCloseFailedResponse,
-    )
-    #: Opens a connection with a maximum data size of 511 bytes
-    forward_open = MsgRouterService(
-        id=USINT(0x54),
-        request_type=ForwardOpenRequest,
-        response_type=ForwardOpenResponse,
-        failed_response_type=ForwardOpenFailedResponse,
-    )
-    #: Opens a connection with a maximum data size of 65535 bytes
-    large_forward_open = MsgRouterService(
-        id=USINT(0x5B),
-        request_type=LargeForwardOpenRequest,
-        response_type=ForwardOpenResponse,
-        failed_response_type=ForwardOpenFailedResponse,
-    )
+    @service(id=USINT(0x4E))
+    @classmethod
+    def forward_close(
+        cls, params: ForwardCloseRequest
+    ) -> CIPRequest[ForwardCloseResponse | ForwardCloseFailedResponse]:
+        """
+        Closes a connection
+        """
+        return message_router_service(
+            service=cls.forward_close.__cip_service_id__,  # type: ignore
+            class_code=cls.class_code,
+            instance=ConnectionManager.Instance.open_request,
+            request_data=params,
+            request_type=ForwardCloseRequest,
+            response_type=ForwardCloseResponse,
+            failed_response_type=ForwardCloseFailedResponse,
+        )
 
-    unconnected_send = UnconnectedSendService()
+    @service(id=USINT(0x54))
+    @classmethod
+    def forward_open(cls, params: ForwardOpenRequest) -> CIPRequest[ForwardOpenResponse | ForwardOpenFailedResponse]:
+        """
+        Opens a connection with a maximum data size of 511 bytes
+        """
+
+        return message_router_service(
+            service=cls.forward_close.__cip_service_id__,  # type: ignore
+            class_code=cls.class_code,
+            instance=ConnectionManager.Instance.open_request,
+            request_data=params,
+            request_type=ForwardOpenRequest,
+            response_type=ForwardOpenResponse,
+            failed_response_type=ForwardOpenFailedResponse,
+        )
+
+    @service(id=USINT(0x5B))
+    @classmethod
+    def large_forward_open(
+        cls, params: LargeForwardOpenRequest
+    ) -> CIPRequest[ForwardOpenResponse | ForwardOpenFailedResponse]:
+        """
+        Opens a connection with a maximum data size of 65535 bytes
+        """
+        return message_router_service(
+            service=cls.forward_close.__cip_service_id__,  # type: ignore
+            class_code=cls.class_code,
+            instance=cls.Instance.open_request,
+            request_data=params,
+            request_type=LargeForwardOpenRequest,
+            response_type=ForwardOpenResponse,
+            failed_response_type=ForwardOpenFailedResponse,
+        )
+
+    @service(id=USINT(0x52))
+    @classmethod
+    def unconnected_send[T: DataType](
+        cls,
+        msg: CIPRequest[T],
+        route_path: CIPRoute,
+        tick_time: TickTime,
+        num_ticks: int,
+    ) -> CIPRequest[T | UnconnectedSendFailedResponse]:
+        return CIPRequest(
+            message=MessageRouterRequest.build(
+                service=cls.unconnected_send.__cip_service_id__,  # type: ignore
+                class_code=cls.class_code,
+                instance=1,
+                data=UnconnectedSendRequest(
+                    message_request=msg.message,
+                    route_path=route_path.epath(padded=True, length=True, padded_len=True),
+                    tick_time=tick_time,
+                    num_ticks=num_ticks,
+                ),
+            ),
+            response_parser=UnconnectedSendResponseParser(response_type=msg.response_parser.response_type),
+        )
 
     class Instance(CIPObject.Instance):
         open_request = 0x01
