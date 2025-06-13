@@ -1,4 +1,3 @@
-from ..common_services import GetAttributesAllService
 from ..cip_object import CIPObject, CIPAttribute
 from pycomm3.data_types import (
     UINT,
@@ -21,7 +20,7 @@ class LinkObject(StructType):
     link_path: PADDED_EPATH[2]  # pyright: ignore [reportInvalidTypeArguments]
 
 
-class PortGetAttrsAllInstance(StructType):
+class PortInstanceAttrs(StructType):
     port_type: UINT
     port_number: UINT
     link_object: LinkObject
@@ -29,7 +28,7 @@ class PortGetAttrsAllInstance(StructType):
     node_address: PADDED_EPATH
 
 
-class PortGetAttrsAllClass(StructType):
+class PortClassAttrs(StructType):
     object_revision: UINT
     max_instance: UINT
     num_instances: UINT
@@ -68,6 +67,9 @@ class Port(CIPObject):
     port_node_range = CIPAttribute(id=8, data_type=UINT[2])
     #: Electronic key of network or chassis the port is attached to
     port_key = CIPAttribute(id=9, data_type=PACKED_EPATH)
+
+    _svc_get_attrs_all_instance_type = PortInstanceAttrs
+    _svc_get_attrs_all_class = PortClassAttrs
 
     class PortTypes(IntEnumX):
         """
@@ -112,8 +114,3 @@ class Port(CIPObject):
         ModbusSL = 202
         #: Port is not configured
         UnconfiguredPort = 65535
-
-    get_attributes_all = GetAttributesAllService(
-        instance_struct=PortGetAttrsAllInstance,
-        class_struct=PortGetAttrsAllClass,
-    )

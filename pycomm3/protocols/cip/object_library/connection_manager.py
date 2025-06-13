@@ -1,4 +1,4 @@
-from dataclasses import InitVar, dataclass, field
+from dataclasses import InitVar, dataclass
 from enum import IntEnum
 from io import BytesIO
 from typing import ClassVar, Self, Sequence
@@ -21,10 +21,10 @@ from pycomm3.data_types import (
 )
 from pycomm3.util import StatusEnum
 
-from ..msg_router_services import MessageRouterRequest, MsgRouterResponseParser, message_router_service
 from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes, service
 from ..cip_route import CIPRoute
-from ..protocol_base import CIPRequest, CIPResponse, CIPService
+from ..msg_router_services import MessageRouterRequest, MsgRouterResponseParser, message_router_service
+from ..protocol_base import CIPRequest, CIPResponse
 
 
 class ForwardOpenRequest(StructType):
@@ -238,8 +238,8 @@ class UnconnectedSendResponseHeader(StructType):
 
 
 class UnconnectedSendSuccessResponse(StructType):
-    _reserved2: USINT = attr(init=False, reserved=True, default=USINT(0))
-    service_response_data: BYTES
+    _reserved2: USINT = attr(reserved=True, default=USINT(0))
+    service_response_data: BYTES  # pyright: ignore [reportGeneralTypeIssues]
 
 
 class UnconnectedSendFailedResponse(StructType):
@@ -275,36 +275,6 @@ class UnconnectedSendResponseParser[T: DataType](MsgRouterResponseParser[T, Unco
             msg = f"({header.general_status:#04x}) {general_msg}: {ext_msg}" if ext_msg else general_msg
         self.__log.debug("decoded unconnected send response data: %r", header)
         return CIPResponse(request=request, response=header, data=msg_data, message=msg)
-
-
-@dataclass
-class UnconnectedSendService(CIPService):
-    id: USINT = field(default=USINT(0x52), init=False)
-    response_parser: None = None  # type: ignore
-
-    def __call__(
-        self,
-        msg: CIPRequest,
-        route_path: CIPRoute,
-        tick_time: TickTime,
-        num_ticks: int,
-        *args,
-        **kwargs,
-    ):
-        return CIPRequest(
-            message=MessageRouterRequest.build(
-                service=self.id,
-                class_code=self.object.class_code,
-                instance=1,
-                data=UnconnectedSendRequest(
-                    message_request=msg.message,
-                    route_path=route_path.epath(padded=True, length=True, padded_len=True),
-                    tick_time=tick_time,
-                    num_ticks=num_ticks,
-                ),
-            ),
-            response_parser=UnconnectedSendResponseParser(response_type=msg.response_parser.response_type),
-        )
 
 
 # def _bit_count(arr: ArrayType[BOOL, int] ) -> int:
@@ -450,7 +420,7 @@ class ConnectionManager(CIPObject):
         """
 
         return message_router_service(
-            service=cls.forward_close.__cip_service_id__,  # type: ignore
+            service=cls.forward_open.__cip_service_id__,  # type: ignore
             class_code=cls.class_code,
             instance=ConnectionManager.Instance.open_request,
             request_data=params,
@@ -468,7 +438,7 @@ class ConnectionManager(CIPObject):
         Opens a connection with a maximum data size of 65535 bytes
         """
         return message_router_service(
-            service=cls.forward_close.__cip_service_id__,  # type: ignore
+            service=cls.large_forward_open.__cip_service_id__,  # type: ignore
             class_code=cls.class_code,
             instance=cls.Instance.open_request,
             request_data=params,

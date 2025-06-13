@@ -1,24 +1,28 @@
-from dataclasses import dataclass, field, replace
+from dataclasses import Field, dataclass, field, replace
 from inspect import isclass
-from types import ClassMethodDescriptorType
-from typing import Callable, ClassVar, Final, Literal, Protocol, Sequence, reveal_type, Self, Any, ParamSpec, TypeVar
 
-from pycomm3.data_types import UINT, DataType
-from pycomm3.data_types._base import StructType
+from typing import (
+    Callable,
+    ClassVar,
+    Final,
+    Literal,
+    Protocol,
+    Sequence,
+    reveal_type,
+    Self,
+    Any,
+    ParamSpec,
+    TypeVar,
+    cast,
+)
+
+from pycomm3.data_types import UINT, DataType, StructType, BYTES, attr
 from pycomm3.data_types.numeric import USINT
 from pycomm3.map import EnumMap
 
 from pycomm3.util import StatusEnum
 
-from .common_services import (
-    GetAttributeSingleService,
-    GetAttributeListService,
-    GetAttributesAllService,
-    UnsupportedGetAttrsAll,
-    StandardClassAttrs,
-)
-
-from .protocol_base import CIPRequest, CIPService
+from .protocol_base import SUCCESS, CIPRequest, CIPResponseParser, CIPService
 from .msg_router_services import MsgRouterResponseParser, MessageRouterRequest
 
 
@@ -27,7 +31,7 @@ class CIPAttribute[T: DataType]:
     #: Attribute ID number
     id: int
     #: Data type of the attribute
-    data_type: "type[T]"
+    data_type: type[T]
     #: Flag to indicate the attribute is a class attribute if True, False if it is an instance attribute
     class_attr: bool = False
     # set by metaclass
@@ -143,6 +147,26 @@ def service(id: USINT):
     return _service
 
 
+class StandardClassAttrs(StructType):
+    object_revision: UINT
+    max_instance: UINT
+    num_instances: UINT
+    optional_attrs_list: UINT[UINT]
+    optional_service_list: UINT[UINT]
+    max_class_attr: UINT
+    max_instance_attr: UINT
+
+
+class UnsupportedGetAttrsAll(StructType):
+    data: BYTES
+
+
+class AttrListItem[T: DataType](Protocol):
+    id: UINT
+    status: UINT
+    data: T
+
+
 class CIPObject(metaclass=_MetaCIPObject):
     """
     Base class for all CIP objects.  Defines services, attributes, and other properties common to all CIP objects.
@@ -199,13 +223,15 @@ class CIPObject(metaclass=_MetaCIPObject):
 
     @service(id=USINT(0x01))
     @classmethod
-    def get_attributes_all(cls, instance: int | None = 1):
+    def get_attributes_all(cls, instance: int | None = 1) -> CIPRequest[StructType | BYTES]:
         if not instance:
             resp_type = cls._svc_get_attrs_all_class_type
             instance = 0
         else:
             resp_type = cls._svc_get_attrs_all_instance_type
-        parser = MsgRouterResponseParser(response_type=resp_type)
+        parser: CIPResponseParser[StructType | BYTES] = MsgRouterResponseParser(
+            response_type=resp_type, failed_response_type=BYTES
+        )
         return CIPRequest(
             message=MessageRouterRequest.build(
                 service=cls.get_attributes_all.__cip_service_id__,  # type: ignore - trust me bro
@@ -217,8 +243,12 @@ class CIPObject(metaclass=_MetaCIPObject):
 
     @service(id=USINT(0x0E))
     @classmethod
-    def get_attribute_single[T: DataType](cls, attribute: CIPAttribute[T], instance: int | None = 1):
-        parser = MsgRouterResponseParser(response_type=attribute.data_type)
+    def get_attribute_single[T: DataType](
+        cls, attribute: CIPAttribute[T], instance: int | None = 1
+    ) -> CIPRequest[T | BYTES]:
+        parser: CIPResponseParser[T | BYTES] = MsgRouterResponseParser(
+            response_type=attribute.data_type, failed_response_type=BYTES
+        )
         return CIPRequest(
             message=MessageRouterRequest.build(
                 service=cls.get_attribute_single.__cip_service_id__,  # type: ignore
@@ -229,17 +259,46 @@ class CIPObject(metaclass=_MetaCIPObject):
             response_parser=parser,
         )
 
-    # get_attributes_all: GetAttributesAllService[Self, UnsupportedGetAttrsAll, StandardClassAttrs] = (
-    #     GetAttributesAllService(UnsupportedGetAttrsAll, StandardClassAttrs)
-    # )
-    # get_attribute_single = GetAttributeSingleService()
-    # get_attribute_list = GetAttributeListService()
+    @service(id=USINT(0x03))
+    @classmethod
+    def get_attribute_list[T: DataType](
+        cls, attributes: Sequence[CIPAttribute[T]], instance: int | None = 1
+    ) -> CIPRequest[StructType | BYTES]:
+        members: list[tuple[str, type[AttrListItem[T]], Field[AttrListItem[T]]]] = []
+        for _attr in attributes:
+            f_id = field()
+            f_id.type = UINT
+            f_status = field()
+            f_status.type = UINT
+            f_data = field()
+            f_data.type = _attr.data_type
+            _GetAttrsListItem = cast(
+                type[AttrListItem[T]],
+                type(
+                    f"{_attr.name}_GetAttrListItem",
+                    (StructType,),
+                    {"id": f_id, "status": f_status, "data": f_data, "__bool__": (lambda self: self.status == SUCCESS)},
+                ),
+            )
 
-    # okay, maybe switch back to methods for the services but have private service instances
-    # with the `object` and pass that in from the method????
-    # @classmethod
-    # def get_attributes_all(cls, instance: int = 1):
-    #     return cls._get_attributes_all(instance=instance)
+            _field: Field[AttrListItem[T]] = attr(conditional_on="status")
+            _member: tuple[str, type[AttrListItem[T]], Field[AttrListItem[T]]] = ("data", _GetAttrsListItem, _field)
+            members.append(_member)
+
+        GetAttrListResp = cast(type[StructType], StructType.create(name="GetAttrListResp", members=members))  # pyright: ignore [reportArgumentType]
+
+        parser: CIPResponseParser[StructType | BYTES] = MsgRouterResponseParser(
+            response_type=GetAttrListResp, failed_response_type=BYTES
+        )
+        return CIPRequest(
+            message=MessageRouterRequest.build(
+                service=cls.get_attribute_list.__cip_service_id__,  # type: ignore
+                class_code=cls.class_code,
+                instance=instance or 0,
+                data=UINT[UINT](a.id for a in attributes),
+            ),
+            response_parser=parser,
+        )
 
     @classmethod
     def get_status_messages(

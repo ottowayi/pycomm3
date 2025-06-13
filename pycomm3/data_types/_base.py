@@ -439,7 +439,6 @@ class _StructMeta(DataclassMeta, _DataTypeMeta):
 
 
 type StructValuesType = dict[str, DataType] | Sequence[DataType]
-type StructCreateMembersType = Sequence[tuple[str, type[DataType]] | tuple[str, type[DataType], Field]]
 
 
 @dataclass_transform(field_specifiers=(attr,))
@@ -634,15 +633,19 @@ class StructType(DataType, metaclass=_StructMeta):
         return instance
 
     @classmethod
-    def create(cls, name: str, members: StructCreateMembersType) -> type["StructType"]:
-        _fields = []
-        member: tuple[str, type[DataType]] | tuple[str, type[DataType], Field]
+    def create[T: DataType](
+        cls,
+        name: str,
+        members: Sequence[tuple[str, type[T]]] | Sequence[tuple[str, type[T], Field[T]]],
+    ) -> type["StructType"]:
+        _fields: list[tuple[str, type[T], Field[T] | None]] = []
+        member: tuple[str, type[T]] | tuple[str, type[T], Field]
         for i, member in enumerate(members):
             if len(member) == 2:
-                _name, typ = cast(tuple[str, type[DataType]], member)
+                _name, typ = cast(tuple[str, type[T]], member)
                 _field = None
             else:
-                _name, typ, _field = cast(tuple[str, type[DataType], Field], member)
+                _name, typ, _field = cast(tuple[str, type[T], Field], member)
 
             if not _name:
                 _name = f"_reserved_attr{i}_"
@@ -653,7 +656,7 @@ class StructType(DataType, metaclass=_StructMeta):
 
             _fields.append((_name, typ, _field))
 
-        struct_class = make_dataclass(cls_name=name, fields=_fields, bases=(cls,))
+        struct_class = cast(type[StructType], make_dataclass(cls_name=name, fields=_fields, bases=(cls,)))
 
         return struct_class
 

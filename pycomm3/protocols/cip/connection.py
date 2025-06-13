@@ -276,7 +276,7 @@ class CIPConnection:
         )
 
         request = ConnectionManager.forward_close(
-            request_data=ForwardCloseRequest(
+            params=ForwardCloseRequest(
                 priority_tick_time=USINT(self.config.unconnected_config.tick_time),
                 timeout_ticks=USINT(self.config.unconnected_config.num_ticks),
                 connection_serial=self.config.connected_config.connection_serial,

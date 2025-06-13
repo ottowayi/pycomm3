@@ -1,9 +1,6 @@
 from ..cip_object import CIPObject, CIPAttribute
-from ..common_services import GetAttributesAllService, StandardClassAttrs
-from ..protocol_base import CIPService
 from pycomm3.data_types import UINT, WORD, UDINT, SHORT_STRING, USINT, Revision, StructType
 from enum import IntEnum
-from typing import reveal_type, Self
 
 
 class IdentityInstanceAttrs(StructType):
@@ -46,6 +43,8 @@ class Identity(CIPObject):
     # --- Optional attributes ---
     #: Present state of the device, see :class:`~IdentityObject.States`
     state = CIPAttribute(id=8, data_type=USINT)
+
+    _svc_get_attrs_all_instance_type = IdentityInstanceAttrs
 
     class States(IntEnum):
         """

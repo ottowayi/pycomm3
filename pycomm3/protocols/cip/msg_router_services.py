@@ -22,7 +22,7 @@ from pycomm3.data_types import (
 )
 from pycomm3.exceptions import DataError
 
-from .protocol_base import CIPRequest, CIPResponse, CIPResponseParser, CIPService, SUCCESS
+from .protocol_base import CIPRequest, CIPResponse, CIPResponseParser, SUCCESS
 
 if TYPE_CHECKING:
     from .cip_object import CIPAttribute, CIPObject
@@ -107,50 +107,12 @@ class MsgRouterResponseParser[TR: DataType, TF: DataType]:
         return self.failed_response_type.decode(data)
 
 
-# @dataclass(kw_only=True)
-# class MsgRouterService[ReqT: DataType, RespT: DataType](CIPService):
-#     request_type: type[ReqT] | None = None
-#     response_type: type[RespT]
-#     success_statuses: set[USINT] = field(default_factory=default_success_codes_factory)
-#     response_parser: CIPResponseParser[ReqT | RespT] | None = None
-#
-#     def __call__(
-#         self,
-#         data: ReqT | None = None,
-#         instance: int = 1,
-#         attribute: "CIPAttribute | None" = None,
-#         **kwargs,
-#     ) -> CIPRequest:
-#         #
-#         if self.request_type is not None and data is None:
-#             raise DataError("this service requires request `data`")
-#         if self.request_type is None and data is not None:
-#             raise DataError("this service does not accept request `data`")
-#
-#         attr_id = None if attribute is None else attribute.id
-#
-#         parser = self.response_parser or MsgRouterResponseParser(
-#             response_type=self.response_type,
-#             success_statuses=self.success_statuses,
-#         )
-#         return CIPRequest(
-#             message=MessageRouterRequest.build(
-#                 service=self.id,
-#                 class_code=self.object.class_code,
-#                 instance=instance,
-#                 attribute=attr_id,
-#                 data=bytes(data) if data is not None else b"",
-#             ),
-#             response_parser=parser,
-#         )
-
-
 def message_router_service[TReq: DataType, TResp: DataType, TFResp: DataType](
     *,
     service: USINT,
     class_code: int,
     instance: int | None = 1,
-    attribute: CIPAttribute | None = None,
+    attribute: "CIPAttribute | None" = None,
     request_data: TReq | None = None,
     request_type: type[TReq],
     response_type: type[TResp],

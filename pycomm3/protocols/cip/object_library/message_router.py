@@ -1,11 +1,13 @@
-from pycomm3.data_types import EPATH, UINT, USINT, StructType, attr
+from pycomm3.data_types import EPATH, UINT, USINT, StructType, attr, BYTES
+from pycomm3.data_types.cip import LogicalSegment, SymbolicSegment
 
-from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes
-from ..common_services import GetAttributesAllService
-from ..msg_router_services import MsgRouterService
+from ..protocol_base import CIPRequest
+from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes, service
+from ..msg_router_services import message_router_service
+from typing import cast, ClassVar
 
 
-class MsgRouterGetAttrsAllInstance(StructType):
+class MessageRouterInstanceAttrs(StructType):
     object_list: UINT[UINT]
     num_available: UINT
     num_active: UINT
@@ -28,13 +30,30 @@ class MessageRouter(CIPObject):
     #: List of connection ids for active connections
     active_connections = CIPAttribute(id=4, data_type=UINT[...])
 
-    get_attributes_all = GetAttributesAllService(instance_struct=MsgRouterGetAttrsAllInstance)
+    _svc_get_attrs_all_instance_type = MessageRouterInstanceAttrs
 
-    #: Translates a single `SymbolicSegment` `EPATH` to the equivalent `LogicalSegment` `EPATH` if one exists
-    symbolic_translation = MsgRouterService(id=USINT(0x4B), request_type=EPATH, response_type=EPATH)
+    SYMBOLIC_TRANSLATION_SERVICE_ID: ClassVar[USINT] = USINT(0x4B)
+
+    @service(id=SYMBOLIC_TRANSLATION_SERVICE_ID)
+    @classmethod
+    def symbolic_translation(cls, symbol: EPATH) -> CIPRequest[EPATH | BYTES]:
+        """
+        Translates a single `SymbolicSegment` `EPATH` to the equivalent `LogicalSegment` `EPATH` if one exists
+        """
+        request = message_router_service(
+            service=cls.SYMBOLIC_TRANSLATION_SERVICE_ID,
+            class_code=cls.class_code,
+            instance=None,
+            request_data=symbol,
+            request_type=EPATH,
+            response_type=EPATH,
+            failed_response_type=BYTES,
+        )
+
+        return cast(CIPRequest[EPATH | BYTES], request)
 
     STATUS_CODES = {
-        symbolic_translation.id: {
+        SYMBOLIC_TRANSLATION_SERVICE_ID: {
             GeneralStatusCodes.invalid_parameter: {
                 0x00: "Symbolic Path unknown",
                 0x01: "Symbolic Path destination not assigned",
