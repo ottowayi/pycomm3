@@ -7,24 +7,17 @@ from io import BytesIO
 from typing import cast, Generic, TypeVar
 
 from ..exceptions import BufferEmptyError, DataError
-from ._base import (
-    as_stream,
-    BufferT,
-    buff_repr,
-    ElementaryDataType,
-    DataType,
-_ElementaryDataTypeMeta
-)
+from ._base import as_stream, BufferT, buff_repr, ElementaryDataType, DataType, _ElementaryDataTypeMeta
 from ._core_types import StringDataType
 from .numeric import UDINT, UINT, USINT
 
 __all__ = (
-    'LOGIX_STRING',
-    'STRING',
-    'STRING2',
-    'STRINGN',
-    'STRINGI',
-    'SHORT_STRING',
+    "LOGIX_STRING",
+    "STRING",
+    "STRING2",
+    "STRINGN",
+    "STRINGI",
+    "SHORT_STRING",
 )
 
 
@@ -77,7 +70,7 @@ class STRINGN(StringDataType):  # noqa
         Encoding.utf_32: "utf-32-le",
     }
 
-    encoding: Encoding = Encoding.utf_8
+    encoding: str
 
     def __new__(cls, value: str, encoding: Encoding = Encoding.utf_8, *args, **kwargs) -> STRINGN:
         try:
@@ -85,17 +78,16 @@ class STRINGN(StringDataType):  # noqa
             # so that encoding can be an instance var and still be passed thru to the encode
             # method without needing to make this a non-str subclass
             obj = super(ElementaryDataType, cls).__new__(cls, value, *args, **kwargs)
-            obj.encoding = encoding
+            obj.encoding = obj._encodings[encoding]
         except Exception as err:
-            raise DataError(f'invalid value for {cls}: {value!r}') from err
+            raise DataError(f"invalid value for {cls}: {value!r}") from err
         obj.__encoded_value__ = cls.encode(value, encoding, *args, **kwargs)
         return obj
 
     @classmethod
-    def encode(
-        cls, value: str, encoding: Encoding | str = Encoding.utf_8, *args, **kwargs
-    ) -> bytes:
+    def encode(cls, value: str, encoding: Encoding | str = Encoding.utf_8, *args, **kwargs) -> bytes:
         try:
+            encoding = cls.Encoding(encoding) if isinstance(encoding, str) else encoding
             encoding_name = cls._encodings[encoding]
             return UINT.encode(encoding) + UINT.encode(len(value)) + value.encode(encoding_name)
         except Exception as err:
@@ -126,11 +118,11 @@ class SHORT_STRING(StringDataType):  # noqa
     len_type = USINT
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class _StringIBase(DataType, Generic[T]):
-    _format = ''
+    _format = ""
     _codes = ElementaryDataType._codes  # noqa
 
 
@@ -140,7 +132,6 @@ class STRINGI(_StringIBase[str], metaclass=_ElementaryDataTypeMeta):
     """
 
     code = 0xDE  #: 0xDE
-    istr: type[cast(dataclass, 'istr')]
     STRING_TYPES: dict[int, type[STRING | STRING2 | STRINGN | SHORT_STRING]] = {
         STRING.code: STRING,
         STRING2.code: STRING2,
@@ -176,7 +167,7 @@ class STRINGI(_StringIBase[str], metaclass=_ElementaryDataTypeMeta):
         return super().__new__(cls)
 
     def __init__(self, *strings: StrI):
-        self._strs: tuple[StrI] = strings
+        self._strs: tuple[StrI, ...] = strings
         self.__encoded_value__ = self.encode(self)
 
     def get(self, lang: STRINGI.Language | None = None) -> str:
@@ -187,7 +178,7 @@ class STRINGI(_StringIBase[str], metaclass=_ElementaryDataTypeMeta):
             if s.lang == lang:
                 return s.value
 
-        raise ValueError(f'invalid language: {lang}')
+        raise ValueError(f"invalid language: {lang}")
 
     def __eq__(self, other):
         if isinstance(other, STRINGI):
@@ -220,7 +211,7 @@ class STRINGI(_StringIBase[str], metaclass=_ElementaryDataTypeMeta):
                 else:
                     _str = stri.value
 
-                data += b''.join(bytes(x) for x in (_lang, _str_type, _char_set, _str))
+                data += b"".join(bytes(x) for x in (_lang, _str_type, _char_set, _str))
 
             return data
         except Exception as err:
@@ -263,7 +254,7 @@ class STRINGI(_StringIBase[str], metaclass=_ElementaryDataTypeMeta):
         return StrI(value, str_type, lang, char_set)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(strings={self._strs!r})'
+        return f"{self.__class__.__name__}(strings={self._strs!r})"
 
 
 @dataclass
@@ -280,9 +271,6 @@ class StrI:
             self.str_type in {STRING, SHORT_STRING}  # fmt: skip
             and self.char_set in {STRINGI.CharSet.utf_16_le, STRINGI.CharSet.utf_32_le}
         ):
-
-            raise DataError(
-                f'CharSets utf-16 and utf-32 are not supported for {self.str_type.__name__}'
-            )
+            raise DataError(f"CharSets utf-16 and utf-32 are not supported for {self.str_type.__name__}")
         elif self.str_type is STRING2:
-            raise DataError(f'Only CharSet utf-16 is supported for STRING2')
+            raise DataError(f"Only CharSet utf-16 is supported for STRING2")

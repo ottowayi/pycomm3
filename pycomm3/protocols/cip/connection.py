@@ -1,14 +1,15 @@
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Callable, Final, Literal, Sequence, cast, Generator, reveal_type, TypeVar
+from os import urandom
+from typing import Final, Literal, Sequence, cast, Generator
+
+from pycomm3 import get_logger
+from pycomm3.data_types import UDINT, UINT, USINT, DWORD, DataType
 from pycomm3.data_types import WORD
 from pycomm3.data_types.cip import LogicalSegment, LogicalSegmentType
 from pycomm3.exceptions import ResponseError
-
-
-from ..ethernetip import EIPConnection
-from pycomm3 import get_logger
-from .protocol_base import CIPRequest, CIPResponse
+from pycomm3.util import cycle
+from .cip_object import CIPAttribute, CIPObject
 from .cip_route import CIPRoute
 from .object_library.connection_manager import (
     ConnectionManager,
@@ -22,14 +23,11 @@ from .object_library.connection_manager import (
     LargeForwardOpenRequest,
     TickTime,
     ProductionTrigger,
-    UnconnectedSendFailedResponse,
 )
 from .object_library.message_router import MessageRouter
-from .cip_object import CIPAttribute, CIPObject
-from os import urandom
-from pycomm3.data_types import UDINT, UINT, USINT, DWORD, DataType
+from .protocol_base import CIPRequest, CIPResponse
 from ..connection import is_connected
-from pycomm3.util import cycle
+from ..ethernetip import EIPConnection
 
 STANDARD_CONNECTION_SIZE: Final[int] = 511
 LARGE_CONNECTION_SIZE: Final[int] = 4000
@@ -111,11 +109,9 @@ class CIPConnection:
 
     def get_attribute_single[T: DataType](
         self, attribute: CIPAttribute[T], instance: int = 1, cip_connected: bool | None = None
-    ) -> CIPResponse[T]:
+    ):
         request = attribute.object.get_attribute_single(attribute=attribute, instance=instance)
         resp = self.send(request, cip_connected=cip_connected)
-        reveal_type(resp)
-        reveal_type(request)
         return resp
 
     def get_attribute_list(
@@ -209,7 +205,7 @@ class CIPConnection:
         self.__log.debug("built forward_open request: %s", request)
         return request
 
-    def send[T: DataType](self, msg: CIPRequest[T], cip_connected: bool | None = None) -> CIPResponse[T]:
+    def send[T: DataType](self, msg: CIPRequest[T], cip_connected: bool | None = None):
         """
         Sends a CIPRequest, by default will send an unconnected message if the connection is not
         *CIP Connected* else will send a connected message (`cip_connected=None`).
@@ -226,17 +222,15 @@ class CIPConnection:
         msg: CIPRequest[T],
         config: UnconnectedConfig | None = None,
         cip_path: CIPRoute | None = None,
-    ) -> CIPResponse[T | UnconnectedSendFailedResponse]:
+    ):
         _path = cip_path if cip_path is not None else p if (p := self.config.route) is not None else CIPRoute()
-        if _path:
-            request = ConnectionManager.unconnected_send(
-                msg=msg,
-                route_path=_path,
-                tick_time=(config.tick_time if config is not None else self.config.unconnected_config.tick_time),
-                num_ticks=(config.num_ticks if config is not None else self.config.unconnected_config.num_ticks),
-            )
-        else:
-            request = cast(CIPRequest[T | UnconnectedSendFailedResponse], msg)
+        request = ConnectionManager.unconnected_send(
+            msg=msg,
+            route_path=_path,
+            tick_time=(config.tick_time if config is not None else self.config.unconnected_config.tick_time),
+            num_ticks=(config.num_ticks if config is not None else self.config.unconnected_config.num_ticks),
+        )
+
         self.__log.debug("sending unconnected_send request: %s", request)
         if enip_resp := self._transport.send_rr_data(msg=bytes(request.message)):
             self.__log.debug("parsing unconnected_send response: %s", enip_resp.data.packet.data.data)

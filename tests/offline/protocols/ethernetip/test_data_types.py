@@ -1,3 +1,4 @@
+from dataclasses import asdict
 import pytest
 from pycomm3.data_types import UINT
 from pycomm3.protocols.ethernetip.data_types import (
@@ -26,9 +27,11 @@ EIP_HEADER_TESTS = [
 ]
 
 
+@pytest.mark.parametrize("decoded, encoded", EIP_HEADER_TESTS)
 def test_eip_header(decoded, encoded):
     assert bytes(EtherNetIPHeader(**decoded)) == encoded
-    assert EtherNetIPHeader.decode(encoded) == decoded
+    assert EtherNetIPHeader.decode(encoded) == EtherNetIPHeader(**decoded)
+    assert asdict(EtherNetIPHeader(**decoded)) == decoded
 
 
 def test_cpf_item():
@@ -40,7 +43,7 @@ def test_cpf_item():
     assert bytes(uc) == b"\xb2\x00\x06\x00123456"
     assert Sockaddr.size == 16
     c = CommonPacketFormat(a, uc)
-    assert bytes(c) == b"\x02\x00" b"\xa1\x00\x04\x00d\x00\x00\x00" b"\xb2\x00\x06\x00123456"
+    assert bytes(c) == b"\x02\x00\xa1\x00\x04\x00d\x00\x00\x00\xb2\x00\x06\x00123456"
     assert CommonPacketFormat.decode(b"\x02\x00\xa1\x00\x04\x00d\x00\x00\x00\xb2\x00\x06\x00123456") == c
 
 

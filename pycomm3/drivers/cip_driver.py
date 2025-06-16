@@ -69,7 +69,6 @@ class CIPDriver:
     def identity(self) -> IdentityInstanceAttrs | None:
         if self._identity is None:
             resp = self._connection.get_attributes_all(Identity)
-            reveal_type(resp)
             if resp:
                 self._identity = cast(IdentityInstanceAttrs, resp.data)
 
