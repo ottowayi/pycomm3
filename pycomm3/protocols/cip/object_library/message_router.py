@@ -1,10 +1,10 @@
-from pycomm3.data_types import EPATH, UINT, USINT, StructType, attr, BYTES
-from pycomm3.data_types.cip import LogicalSegment, SymbolicSegment
+from typing import ClassVar, cast
 
-from ..protocol_base import CIPRequest
-from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes, service
+from pycomm3.data_types import BYTES, EPATH, UINT, USINT, StructType, attr
+
+from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes, StandardClassAttrs, service
 from ..msg_router_services import message_router_service
-from typing import cast, ClassVar
+from ..protocol_base import CIPRequest
 
 
 class MessageRouterInstanceAttrs(StructType):
@@ -14,7 +14,7 @@ class MessageRouterInstanceAttrs(StructType):
     active_connections: UINT[...] = attr(len_ref="num_active")
 
 
-class MessageRouter(CIPObject):
+class MessageRouter(CIPObject[MessageRouterInstanceAttrs, StandardClassAttrs]):
     """
     The object handles routing service calls to objects within the device from client messages
     """

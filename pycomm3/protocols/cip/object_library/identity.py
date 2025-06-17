@@ -1,9 +1,9 @@
-from ..cip_object import CIPObject, CIPAttribute
-from pycomm3.data_types import UINT, WORD, UDINT, SHORT_STRING, USINT, Revision, StructType
+from ..cip_object import CIPObject, CIPAttribute, StandardClassAttrs, GetAttrsAll
+from pycomm3.data_types import UINT, WORD, UDINT, SHORT_STRING, USINT, Revision
 from enum import IntEnum
 
 
-class IdentityInstanceAttrs(StructType):
+class IdentityInstanceAttrs(GetAttrsAll):
     vendor_id: UINT
     device_type: UINT
     product_code: UINT
@@ -13,7 +13,7 @@ class IdentityInstanceAttrs(StructType):
     product_name: SHORT_STRING
 
 
-class Identity(CIPObject):
+class Identity(CIPObject[IdentityInstanceAttrs, StandardClassAttrs]):
     """
     This object provides general identity and status information about a device.
     It is required by all CIP objects and if a device contains multiple discrete
@@ -44,7 +44,7 @@ class Identity(CIPObject):
     #: Present state of the device, see :class:`~IdentityObject.States`
     state = CIPAttribute(id=8, data_type=USINT)
 
-    _svc_get_attrs_all_instance_type = IdentityInstanceAttrs
+    _svc_get_attrs_all_instance_type: type[IdentityInstanceAttrs] = IdentityInstanceAttrs
 
     class States(IntEnum):
         """

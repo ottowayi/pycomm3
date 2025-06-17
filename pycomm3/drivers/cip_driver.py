@@ -3,7 +3,7 @@ from pycomm3._logging import get_logger
 from pycomm3.protocols.cip import CIPRoute, CIPConnection, CIPConfig
 from pycomm3.protocols.cip.object_library.identity import Identity, IdentityInstanceAttrs
 from pycomm3.protocols.ethernetip import EIPConnection, EIPConfig, ETHERNETIP_PORT
-from typing import Self, cast, reveal_type
+from typing import Self, cast
 
 
 class CIPDriver:

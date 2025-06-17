@@ -10,15 +10,20 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
 
-[project.optional-dependencies]
+
+[tool.ruff]
+line-length = 120
+
+[dependency-groups]
 dev = [
     'ruff',
-    'hatchling'
+    'hatchling',
+    "pyright",
 ]
 test = [
     'pytest',
     'pytest-pretty'
 ]
-
-[tool.ruff]
-line-length = 120
+#
+#[tool.pyright]
+#include = ['pycomm3', 'tests']

@@ -4,12 +4,11 @@ from os import urandom
 from typing import Final, Literal, Sequence, cast, Generator
 
 from pycomm3 import get_logger
-from pycomm3.data_types import UDINT, UINT, USINT, DWORD, DataType
-from pycomm3.data_types import WORD
+from pycomm3.data_types import UDINT, UINT, USINT, DWORD, DataType, WORD
 from pycomm3.data_types.cip import LogicalSegment, LogicalSegmentType
 from pycomm3.exceptions import ResponseError
 from pycomm3.util import cycle
-from .cip_object import CIPAttribute, CIPObject
+from .cip_object import CIPAttribute, CIPObject, GetAttrsAll
 from .cip_route import CIPRoute
 from .object_library.connection_manager import (
     ConnectionManager,
@@ -102,10 +101,17 @@ class CIPConnection:
         """
         return self.connected and self.config.connected_config.o2t_connection_id != 0
 
-    def get_attributes_all(self, cip_object: type[CIPObject], instance: int = 1, cip_connected: bool | None = None):
+    def get_attributes_all[TIns: GetAttrsAll, TCls: GetAttrsAll](
+        self, cip_object: type[CIPObject[TIns, TCls]], instance: int | None = 1, cip_connected: bool | None = None
+    ):
         request = cip_object.get_attributes_all(instance=instance)
         resp = self.send(request, cip_connected=cip_connected)
         return resp
+
+    def _get_attributes_all_individually(
+        self,
+        cip_object: type[CIPObject],
+    ): ...
 
     def get_attribute_single[T: DataType](
         self, attribute: CIPAttribute[T], instance: int = 1, cip_connected: bool | None = None

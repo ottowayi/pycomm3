@@ -8,11 +8,6 @@ from typing import (
     Literal,
     Protocol,
     Sequence,
-    reveal_type,
-    Self,
-    Any,
-    ParamSpec,
-    TypeVar,
     cast,
 )
 
@@ -22,7 +17,7 @@ from pycomm3.map import EnumMap
 
 from pycomm3.util import StatusEnum
 
-from .protocol_base import SUCCESS, CIPRequest, CIPResponseParser, CIPService
+from .protocol_base import SUCCESS, CIPRequest, CIPResponseParser
 from .msg_router_services import MsgRouterResponseParser, MessageRouterRequest
 
 
@@ -49,11 +44,36 @@ class _CIPService:
     func: Callable
 
 
+class GetAttrsAll(StructType):
+    def __getattribute__(self, item) -> DataType | None:
+        try:
+            return super().__getattribute__(item)
+        except AttributeError:
+            return None
+
+
+class StandardClassAttrs(GetAttrsAll):
+    object_revision: UINT
+    max_instance: UINT
+    num_instances: UINT
+    optional_attrs_list: UINT[UINT]
+    optional_service_list: UINT[UINT]
+    max_class_attr: UINT
+    max_instance_attr: UINT
+
+
+class UnsupportedGetAttrsAll(GetAttrsAll):
+    data: BYTES
+
+
 class _MetaCIPObject(type):
     # keeps track of object classes by class code
     __cip_objects__: ClassVar[dict[int, "type[CIPObject]"]] = {}
     __cip_services__: dict[USINT, _CIPService]
     __cip_attributes__: dict[int, "type[CIPAttribute]"]
+
+    _svc_get_attrs_all_instance_type = UnsupportedGetAttrsAll
+    _svc_get_attrs_all_class_type = StandardClassAttrs
 
     def __new__(cls, name, bases, classdict):
         klass = super().__new__(cls, name, bases, classdict)
@@ -69,44 +89,10 @@ class _MetaCIPObject(type):
             if isinstance(attr, CIPAttribute) and attr_name not in cip_attrs
         }
 
-        # instance_all = [(_name, attr.data_type) for _name, attr in cip_attrs.items() if attr.all and not attr.class_attr]
-        # if instance_all:
-        #     klass._instance_all_type = StructType.create(f"{klass.__name__}InstanceAllType", instance_all)
-        #
-        # class_all = [
-        #     (_name, attr.type)
-        #     for _name, attr in cip_attrs.items()
-        #     if attr.all and attr.class_attr and attr.name not in klass._class_all_exclude
-        # ]
-        # if class_all:
-        #     klass._class_all_type = StructType.create(f"{klass.__name__}ClassAllType", class_all)
-
-        # point each attr back to the class, so that just the attr can be passed to methods
-        # and not also need to include the class, also set the name to the variable name
-        # since we included the base class in the gathering the attributes, klass will have copies of all
-        # the common cip attributes as class variables that point to klass instead of the base class
         for attr_name, attr in cip_attrs.items():
             attr.name = attr_name
             attr.object = klass  # type: ignore
             setattr(klass, attr_name, attr)
-
-        ### moving to @service method decorator, but leaving in case i come back to this
-        # # start with services added to this object
-        # services: dict[str, CIPService] = {
-        #     svc_name: service for svc_name, service in vars(klass).items() if isinstance(service, CIPService)
-        # }
-        #
-        # # then add copies of all parent services, excluding overridden ones on this class
-        # services |= {
-        #     svc_name: replace(service)
-        #     for _class in bases
-        #     for svc_name, service in vars(_class).items()
-        #     if isinstance(service, CIPService) and svc_name not in services
-        # }
-        # for svc_name, service in services.items():
-        #     service.name = svc_name
-        #     service.object = klass  # type: ignore
-        #     setattr(klass, svc_name, service)
 
         services = {
             _id: _CIPService(_id, name, func.__func__)
@@ -147,27 +133,13 @@ def service(id: USINT):
     return _service
 
 
-class StandardClassAttrs(StructType):
-    object_revision: UINT
-    max_instance: UINT
-    num_instances: UINT
-    optional_attrs_list: UINT[UINT]
-    optional_service_list: UINT[UINT]
-    max_class_attr: UINT
-    max_instance_attr: UINT
-
-
-class UnsupportedGetAttrsAll(StructType):
-    data: BYTES
-
-
 class AttrListItem[T: DataType](Protocol):
     id: UINT
     status: UINT
     data: T
 
 
-class CIPObject(metaclass=_MetaCIPObject):
+class CIPObject[TIns: GetAttrsAll, TCls: GetAttrsAll](metaclass=_MetaCIPObject):
     """
     Base class for all CIP objects.  Defines services, attributes, and other properties common to all CIP objects.
     """
@@ -177,10 +149,6 @@ class CIPObject(metaclass=_MetaCIPObject):
     class Instance(EnumMap):
         CLASS = 0  #: The class itself and not an instance
         DEFAULT = 1  #: The first instance of a class, used as the default if not specified
-
-    # keeps track of service and attribute names to instances, metaclass adds these
-    # __cip_attributes__: ClassVar[dict[int, "type[CIPAttribute]"]]
-    # __cip_services__: ClassVar[dict[USINT, _CIPService]]
 
     #: A map of service code, to general and extended status codes and messages
     #: `*` = Applies to any code, used as a fallback if code is not found
@@ -218,23 +186,23 @@ class CIPObject(metaclass=_MetaCIPObject):
     def __init_subclass__(cls) -> None:
         cls.__cip_objects__[cls.class_code] = cls
 
-    _svc_get_attrs_all_instance_type: ClassVar[type[StructType]] = UnsupportedGetAttrsAll
-    _svc_get_attrs_all_class_type: ClassVar[type[StructType]] = StandardClassAttrs
+    _svc_get_attrs_all_instance_type: type[TIns]
+    _svc_get_attrs_all_class_type: type[TCls]
 
     @service(id=USINT(0x01))
     @classmethod
-    def get_attributes_all(cls, instance: int | None = 1) -> CIPRequest[StructType | BYTES]:
+    def get_attributes_all(cls, instance: int | None = 1) -> CIPRequest[TIns | TCls | BYTES]:
         if not instance:
             resp_type = cls._svc_get_attrs_all_class_type
             instance = 0
         else:
             resp_type = cls._svc_get_attrs_all_instance_type
-        parser: CIPResponseParser[StructType | BYTES] = MsgRouterResponseParser(
+        parser: CIPResponseParser[TIns | TCls | BYTES] = MsgRouterResponseParser(
             response_type=resp_type, failed_response_type=BYTES
         )
         return CIPRequest(
             message=MessageRouterRequest.build(
-                service=cls.get_attributes_all.__cip_service_id__,  # type: ignore - trust me bro
+                service=cls.get_attributes_all.__cip_service_id__,  # type: ignore
                 class_code=cls.class_code,
                 instance=instance,
             ),
