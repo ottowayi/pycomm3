@@ -22,8 +22,6 @@ dev = [
 ]
 test = [
     'pytest',
-    'pytest-pretty'
+    'pytest-pretty',
+    'pytest-mock',
 ]
-#
-#[tool.pyright]
-#include = ['pycomm3', 'tests']

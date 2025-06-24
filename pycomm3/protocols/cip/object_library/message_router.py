@@ -1,13 +1,13 @@
 from typing import ClassVar, cast
 
-from pycomm3.data_types import BYTES, EPATH, UINT, USINT, StructType, attr
+from pycomm3.data_types import BYTES, EPATH, UINT, USINT, attr
 
-from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes, StandardClassAttrs, service
+from ..cip_object import CIPAttribute, CIPObject, GeneralStatusCodes, StandardClassAttrs, service, GetAttrsAll
 from ..msg_router_services import message_router_service
 from ..protocol_base import CIPRequest
 
 
-class MessageRouterInstanceAttrs(StructType):
+class MessageRouterInstanceAttrs(GetAttrsAll):
     object_list: UINT[UINT]
     num_available: UINT
     num_active: UINT

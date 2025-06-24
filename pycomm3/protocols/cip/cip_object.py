@@ -110,10 +110,8 @@ class _MetaCIPObject(type):
 def service(id: USINT):
     def _service[T: _MetaCIPObject, **P, R](method: Callable[P, R]) -> Callable[P, R]:
         class Service:
-            __cip_service_id__: USINT
-
             def __init__(self, method: Callable[P, R]) -> None:
-                self.method = method
+                self.method = cast(Callable[P, R], method)
 
             def __set_name__(self, owner: T, name: str) -> None:
                 if not isinstance(owner, _MetaCIPObject):
