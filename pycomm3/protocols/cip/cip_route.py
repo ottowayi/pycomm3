@@ -28,12 +28,14 @@ class CIPRoute(UserList):
 
     def __truediv__(
         self,
-        other: "PortSegment | tuple[int | PortIdentifier | str, int | str | bytes] | EPATH | CIPRoute",
+        other: "PortSegment | tuple[int | PortIdentifier | str, int | str | bytes] | EPATH | CIPRoute | str",
     ) -> Self:
         new_segments: tuple[PortSegment, ...] | list[PortSegment]
         match other:
             case PortSegment():
                 new_segments = (other,)
+            case str():
+                new_segments = self._str_to_port_segments(other)
             case (str(), int() | str() | bytes()):
                 _port, link = other
                 if _port.lower() not in PORT_ALIASES:

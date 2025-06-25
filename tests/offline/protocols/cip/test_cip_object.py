@@ -98,6 +98,7 @@ status_msg_tests = [
             "(0x42069): state=0x42069",
         ),
     ),
+    # TODO: you missed using `service` in any tests dumbass
 ]
 
 

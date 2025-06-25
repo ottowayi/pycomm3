@@ -4,7 +4,7 @@ Includes request/response types and base service and parser classes
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from pycomm3._logging import get_logger
 from pycomm3.data_types import (
@@ -72,6 +72,12 @@ class MessageRouterResponse(StructType):
     additional_status: Array[UINT, None] = attr(len_ref="addl_status_size")
     data: BYTES
 
+    RESPONSE_SERVICE_MASK: ClassVar[int] = 0b1000_0000
+
+    @property
+    def request_service(self):
+        return self.service ^ self.RESPONSE_SERVICE_MASK
+
 
 @dataclass
 class MsgRouterResponseParser[TR: DataType, TF: DataType]:
@@ -98,7 +104,7 @@ class MsgRouterResponseParser[TR: DataType, TF: DataType]:
             msg = f"{general_msg}({resp.general_status:#04x}): {ext_msg}" if ext_msg else general_msg
 
         self.__log.debug("decoded message router response data: %r", resp_data)
-        return CIPResponse(request=request, response=resp, data=resp_data, message=msg)
+        return CIPResponse(request=request, message=resp, data=resp_data, status_message=msg)
 
     def _parse_response_data(self, data: BYTES) -> TR:
         return self.response_type.decode(data)

@@ -62,7 +62,7 @@ class ConnectedConfig:
 
 @dataclass
 class CIPConfig:
-    route: CIPRoute | None = None
+    route: CIPRoute = field(default_factory=CIPRoute)
     unconnected_config: UnconnectedConfig = field(default_factory=UnconnectedConfig)
     connected_config: ConnectedConfig = field(default_factory=ConnectedConfig)
 
@@ -157,7 +157,7 @@ class CIPConnection:
                 self.__log.info("...forward open succeeded, o->t connection id: %d", resp_data.o2t_connection_id)
             else:
                 self.__log.debug("forward open response: %s", resp)
-                self.__log.error("...forward open failed: %s", resp.message or "Unknown Error")
+                self.__log.error("...forward open failed: %s", resp.status_message or "Unknown Error")
                 raise ConnectionError("forward open failed")
         else:
             raise ResponseError("ethernet/ip response error", enip_resp)
@@ -295,7 +295,7 @@ class CIPConnection:
                 self.__log.info("...forward close succeeded")
             else:
                 self.__log.debug("forward close response: %s", resp)
-                self.__log.error("...forward close failed: %s", resp.message or "Unknown Error")
+                self.__log.error("...forward close failed: %s", resp.status_message or "Unknown Error")
                 raise ConnectionError("forward close failed")
         else:
             raise ResponseError("ethernet/ip response error", enip_resp)

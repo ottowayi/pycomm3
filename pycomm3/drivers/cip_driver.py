@@ -3,7 +3,8 @@ from pycomm3._logging import get_logger
 from pycomm3.protocols.cip import CIPRoute, CIPConnection, CIPConfig
 from pycomm3.protocols.cip.object_library.identity import Identity, IdentityInstanceAttrs
 from pycomm3.protocols.ethernetip import EIPConnection, EIPConfig, ETHERNETIP_PORT
-from typing import Self, cast
+from typing import Generator, Self, cast
+from contextlib import contextmanager
 
 
 class CIPDriver:
@@ -73,6 +74,26 @@ class CIPDriver:
                 self._identity = cast(IdentityInstanceAttrs, resp.data)
 
         return self._identity
+
+    @contextmanager
+    def temporary_route(
+        self,
+        route: CIPRoute | str,
+        cip_connected: bool = False,
+    ) -> Generator[Self, None, None]:
+        try:
+            self.__log.info(f"Creating temporary driver with additional route {route!r}...")
+            cfg = CIPConfig(
+                route=self.connection.config.route / route,
+                connected_config=self.connection.config.connected_config,
+                unconnected_config=self.connection.config.unconnected_config,
+            )
+            conn = CIPConnection(transport=self.connection._transport, config=cfg)
+            self.__log.debug(f"Temporary route config: {cfg}")
+            with self.__class__(connection=conn).open(cip_connected=cip_connected) as driver:
+                yield driver
+        finally:
+            self.__log.info("... temporary route driver closed")
 
 
 def parse_connection_path(path: str) -> tuple[str, int, CIPRoute]:

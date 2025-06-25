@@ -174,7 +174,10 @@ class PortSegment(CIPSegment):
     def __post_init__(self) -> None:
         try:
             if isinstance(self.port, str):
-                self.port = PORT_ALIASES[self.port.lower()]
+                if self.port.isdigit():
+                    self.port = USINT(int(self.port))
+                else:
+                    self.port = PORT_ALIASES[self.port.lower()]
             if self.port > PortSegmentFormat.mask_port_id:
                 self._port = USINT(PortSegmentFormat.mask_port_id)
                 self._ex_port = UINT(self.port)

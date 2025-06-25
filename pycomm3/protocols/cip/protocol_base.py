@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from types import ClassMethodDescriptorType, FunctionType, MethodType
 from typing import TYPE_CHECKING, Protocol
 from pycomm3.data_types import (
     BYTES,
@@ -28,13 +27,13 @@ SUCCESS = USINT(0)
 @dataclass
 class CIPResponse[T: DataType]:
     request: CIPRequest[T]
-    response: CIPResponseMessage
+    message: CIPResponseMessage
     data: T | BYTES | None = None
-    message: str | None = None
+    status_message: str | None = None
     success_statuses: set[USINT] = field(default_factory=lambda: {SUCCESS}, repr=False)
 
     def __bool__(self) -> bool:
-        return self.response.general_status in self.success_statuses
+        return self.message.general_status in self.success_statuses
 
 
 class CIPResponseParser[T: DataType](Protocol):
