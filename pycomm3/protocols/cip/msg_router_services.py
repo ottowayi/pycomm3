@@ -98,7 +98,7 @@ class MsgRouterResponseParser[TR: DataType, TF: DataType]:
                 service=request.message.service,
                 status=resp.general_status,
                 ext_status=resp.additional_status,
-                extra_data=resp.data,
+                extra_data=resp_data,
             )
 
             msg = f"{general_msg}({resp.general_status:#04x}): {ext_msg}" if ext_msg else general_msg

@@ -2,7 +2,7 @@ import pytest
 
 from pycomm3 import PADDED_EPATH_LEN, LogicalSegment, LogicalSegmentType, BYTES
 from pycomm3.protocols.cip.protocol_base import CIPRequest
-from pycomm3.protocols.cip.object_library import Identity, Port
+from pycomm3.protocols.cip.object_library import Identity, Port, ConnectionManager
 from tests.offline.protocols.cip.test_cip_object import status_msg_tests
 
 get_attr_single_tests = [
@@ -38,6 +38,11 @@ def test_get_attr_single_requests(attribute, instance, encoded, response, encode
 
 status_msg_tests = [
     (Port.get_attributes_all(), "81 00 08 00", "Service not supported"),
+    (
+        ConnectionManager.forward_open(BYTES(b"")),
+        "D4 00 01 02 09 01 4F 01 00 00 09 00 04 20 00 69 FF 00",
+        "Connection failure(0x01): (0x0109): ext_status_words=[UINT(335)], extra_data=ForwardOpenFailedResponse(connection_serial=UINT(0), originator_vendor_id=UINT(9), originator_serial=UDINT(1761615876), remaining_path_size=USINT(255), _reserved=USINT(0))",
+    ),
 ]
 
 
