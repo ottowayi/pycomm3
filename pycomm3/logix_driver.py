@@ -426,7 +426,7 @@ class LogixDriver(CIPDriver):
             tags = self._get_tag_list(program)
 
         if cache:
-            self._tags = {tag["tag_name"]: tag for tag in tags}
+            self._tags = {util.tag_lookup_key(tag["tag_name"]): tag for tag in tags}
 
         self._cache = None
 
@@ -626,7 +626,7 @@ class LogixDriver(CIPDriver):
                 if program is not None:
                     name = f"Program:{program}.{name}"
 
-                self._cache["tag_name:id"][name] = tag["instance_id"]
+                self._cache["tag_name:id"][util.tag_lookup_key(name)] = tag["instance_id"]
 
                 user_tags.append(self._create_tag(name, tag))
 
@@ -810,7 +810,7 @@ class LogixDriver(CIPDriver):
             else:
                 data_type["attributes"].append(member)
 
-            data_type["internal_tags"][member] = info
+            data_type["internal_tags"][util.tag_lookup_key(member)] = info
 
             if info["data_type_name"] == "BOOL" and 'bit' in info:
                 # bit members aren't really 'struct' members since they are aliased to bits of other members
@@ -820,10 +820,10 @@ class LogixDriver(CIPDriver):
 
         if (  # determine if struct is a string or not
             data_type["attributes"] == ["LEN", "DATA"]
-            and data_type["internal_tags"]["DATA"]["data_type_name"] == "SINT"
-            and data_type["internal_tags"]["DATA"].get("array")
+            and data_type["internal_tags"]["data"]["data_type_name"] == "SINT"
+            and data_type["internal_tags"]["data"].get("array")
         ):
-            data_type["string"] = data_type["internal_tags"]["DATA"]["array"]
+            data_type["string"] = data_type["internal_tags"]["data"]["array"]
 
             data_type["type_class"] = FixedSizeString(template["structure_size"] - 4)
         else:
@@ -1243,14 +1243,14 @@ class LogixDriver(CIPDriver):
 
         """
         base, *attrs = tag_name.split(".")
-        if base.startswith("Program:"):
+        if base.lower().startswith("program:"):
             base = f"{base}.{attrs.pop(0)}"
         return self._get_tag_info(base, attrs)
 
     def _get_tag_info(self, base, attrs) -> Optional[dict]:
         def _recurse_attrs(attrs, data):
             cur, *remain = attrs
-            curr_tag = util.strip_array(cur)
+            curr_tag = util.tag_lookup_key(cur)
             if not len(remain):
                 return data[curr_tag]
             else:
@@ -1260,7 +1260,7 @@ class LogixDriver(CIPDriver):
                     return None
 
         try:
-            data = self._tags[util.strip_array(base)]
+            data = self._tags[util.tag_lookup_key(base)]
             if not len(attrs):
                 return data
             else:
@@ -1310,7 +1310,7 @@ class LogixDriver(CIPDriver):
             bool_elements = None
 
             base, *attrs = tag.split(".")
-            if base.startswith("Program:"):
+            if base.lower().startswith("program:"):
                 base = f"{base}.{attrs.pop(0)}"
 
             if len(attrs) and attrs[-1].isdigit():

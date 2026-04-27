@@ -30,6 +30,10 @@ Various utility functions.
 from typing import Tuple
 
 
+def tag_lookup_key(tag_name: str) -> str:
+    return strip_array(tag_name).lower()
+
+
 def strip_array(tag: str) -> str:
     """
     Strip off the array portion of the tag
