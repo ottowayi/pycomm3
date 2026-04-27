@@ -1,4 +1,4 @@
-from pycomm3.util import strip_array, get_array_index
+from pycomm3.util import strip_array, get_array_index, tag_lookup_key
 
 TEST_TAG = "This is a tag"
 
@@ -21,3 +21,7 @@ def test_get_array_index_returns_index_value():
     TEST_ARRAY = "[123]"
     EXPECTED = (TEST_TAG, 123)
     assert EXPECTED == get_array_index(TEST_TAG + TEST_ARRAY)
+
+
+def test_tag_lookup_key_strips_array_and_lowercases_tag():
+    assert 'mixed_case_tag' == tag_lookup_key('Mixed_Case_Tag[123]')
