@@ -810,6 +810,8 @@ class LogixDriver(CIPDriver):
             else:
                 data_type["attributes"].append(member)
 
+            # Add tag name field for a case-sensitive tag name
+            info["tag_name"] = member
             data_type["internal_tags"][util.tag_lookup_key(member)] = info
 
             if info["data_type_name"] == "BOOL" and 'bit' in info:
