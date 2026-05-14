@@ -30,6 +30,18 @@ Various utility functions.
 from typing import Tuple
 
 
+def tag_lookup_key(tag_name: str) -> str:
+    """Strip array portions of the tag, and ensure lower case strings for consistent lookups
+
+    Args:
+        tag_name (str): Tag name to create key from
+
+    Returns:
+        str: Tag lookup key for the given tag name
+    """
+    return strip_array(tag_name).lower()
+
+
 def strip_array(tag: str) -> str:
     """
     Strip off the array portion of the tag
