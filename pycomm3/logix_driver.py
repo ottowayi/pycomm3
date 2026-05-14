@@ -94,6 +94,20 @@ from .tag import Tag
 AtomicValueType = Union[int, float, bool, str]
 TagValueType = Union[AtomicValueType, List[AtomicValueType], Dict[str, "TagValueType"]]
 ReadWriteReturnType = Union[Tag, List[Tag]]
+BIT_ACCESSIBLE_TYPES = {
+    "SINT",
+    "INT",
+    "DINT",
+    "LINT",
+    "USINT",
+    "UINT",
+    "UDINT",
+    "ULINT",
+    "BYTE",
+    "WORD",
+    "DWORD",
+    "LWORD",
+}
 
 
 class LogixDriver(CIPDriver):
@@ -1247,6 +1261,11 @@ class LogixDriver(CIPDriver):
         base, *attrs = tag_name.split(".")
         if base.lower().startswith("program:"):
             base = f"{base}.{attrs.pop(0)}"
+        if len(attrs) and attrs[-1].isdigit():
+            bit = int(attrs.pop(-1))
+            tag_info = self._get_tag_info(base, attrs)
+            self._validate_bit_access(tag_info, bit)
+            return self._get_bit_tag_info(tag_info, bit)
         return self._get_tag_info(base, attrs)
 
     def _get_tag_info(self, base, attrs) -> Optional[dict]:
@@ -1275,6 +1294,33 @@ class LogixDriver(CIPDriver):
             _msg = f"failed to get tag data for: {base}, {attrs}"
             self.__log.exception(_msg)
             raise RequestError(_msg) from err
+
+    @staticmethod
+    def _validate_bit_access(tag_info: dict, bit: int):
+        data_type = tag_info["data_type_name"]
+        if data_type not in BIT_ACCESSIBLE_TYPES:
+            raise RequestError(f"Tag type {data_type!r} does not support bit access")
+
+        bit_count = DataTypes.get(data_type).size * 8
+        if bit >= bit_count:
+            raise RequestError(
+                f"Bit index {bit} out of range for {data_type}, expected 0-{bit_count - 1}"
+            )
+
+    @staticmethod
+    def _get_bit_tag_info(tag_info: dict, bit: int) -> dict:
+        bit_info = {
+            **tag_info,
+            "tag_type": "atomic",
+            "data_type": "BOOL",
+            "data_type_name": "BOOL",
+            "type_class": DataTypes.get("BOOL"),
+            "bit": bit,
+        }
+        bit_info.pop("array", None)
+        if "tag_name" in bit_info:
+            bit_info["tag_name"] = f'{bit_info["tag_name"]}.{bit}'
+        return bit_info
 
     def _parse_requested_tags(self, tags, rw="r"):
 
@@ -1315,20 +1361,24 @@ class LogixDriver(CIPDriver):
             if base.lower().startswith("program:"):
                 base = f"{base}.{attrs.pop(0)}"
 
+            explicit_bit = False
             if len(attrs) and attrs[-1].isdigit():
                 bit = int(attrs.pop(-1))
+                explicit_bit = True
                 tag = base if not len(attrs) else f"{base}.{'.'.join(attrs)}"
 
             tag_info = self._get_tag_info(base, attrs)
+            if explicit_bit:
+                self._validate_bit_access(tag_info, bit)
 
             if tag_info["data_type"] == "DWORD":
                 _tag, idx = util.get_array_index(tag)
-                if idx is not None:
+                if idx is not None and not explicit_bit:
                     tag = f"{_tag}[0]" if rw == "r" else f"{_tag}[{idx // 32}]"
-                bit = idx
-                bool_elements = None if implicit_element or elements == 1 else elements
-                total_size = (bit or 0) + elements
-                elements = (total_size // 32) + (1 if total_size % 32 else 0)
+                    bit = idx
+                    bool_elements = None if implicit_element or elements == 1 else elements
+                    total_size = (bit or 0) + elements
+                    elements = (total_size // 32) + (1 if total_size % 32 else 0)
 
             return {
                 "user_tag": request_tag,  # tag name from user, without element request
