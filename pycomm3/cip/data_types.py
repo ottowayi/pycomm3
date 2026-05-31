@@ -869,7 +869,7 @@ def Array(
                 else:
                     _len = _length
 
-                _val = [cls.element_type.decode(stream) for _ in range(_length)]
+                _val = [cls.element_type.decode(stream) for _ in range(_len)]
 
                 if issubclass(cls.element_type, BitArrayType):
                     return list(chain.from_iterable(_val))
